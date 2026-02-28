@@ -2,10 +2,14 @@ package summer.web;
 
 import summer.core.ApplicationContext;
 import summer.core.Component;
+import summer.web.annotation.Delete;
+import summer.web.annotation.Get;
+import summer.web.annotation.Post;
+import summer.web.annotation.Put;
+import summer.web.annotation.RestController;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
-import java.util.List;
 
 /**
  * Router adapter that discovers and registers routes from @RestController

@@ -2,7 +2,6 @@ package summer.example;
 
 import summer.core.Component;
 import summer.tx.Transactional;
-import java.util.Map;
 
 @Component
 public record UserServiceImpl(UserRepository userRepository) implements UserService {
@@ -25,19 +24,18 @@ public record UserServiceImpl(UserRepository userRepository) implements UserServ
         if (existing == null) {
             throw new UserNotFoundException("User not found: " + id);
         }
-        existing.setName(user.getName());
-        existing.setEmail(user.getEmail());
-        return userRepository.save(existing);
+        User updated = new User(id, user.name(), user.email());
+        return userRepository.save(updated);
     }
 
     @Override
     @Transactional
     public void delete(String id) {
-        userRepository.delete(id);
+        userRepository.deleteById(id);
     }
 
     @Override
-    public Map<String, User> findAll() {
+    public java.util.List<User> findAll() {
         return userRepository.findAll();
     }
 }

@@ -5,16 +5,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateSerializer;
-import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
-import com.fasterxml.jackson.datatype.jsr310.ser.ZonedDateTimeSerializer;
-import java.time.format.DateTimeFormatter;
-import com.fasterxml.jackson.annotation.JsonInclude;
 import summer.validation.ValidationResult;
 
 /**
@@ -28,7 +18,7 @@ public class Response {
     public Response(OutputStream output) {
         this.output = output;
     }
-    
+
     public OutputStream getOutputStream() {
         return output;
     }
@@ -74,18 +64,18 @@ public class Response {
     public void badRequest(String message) {
         send(400, message, "text/plain");
     }
-    
+
     public void validationError(ValidationResult validationResult) {
         // Create a JSON response with validation errors
         Map<String, Object> errorResponse = new HashMap<>();
         errorResponse.put("error", "Validation Failed");
         errorResponse.put("status", 400);
         errorResponse.put("details", validationResult.getErrors());
-        
+
         try {
-            String json = objectMapper.writeValueAsString(errorResponse);
+            String json = JsonConverter.toJson(errorResponse);
             send(400, json, "application/json");
-        } catch (JsonProcessingException e) {
+        } catch (Exception e) {
             send(400, "Validation failed", "text/plain");
         }
     }
@@ -104,22 +94,22 @@ public class Response {
 
     public void send(int statusCode, String content, String contentType) {
         this.statusCode = statusCode;
-        
+
         try {
             if (contentType != null) {
                 setHeader("Content-Type", contentType);
             }
-            
+
             String statusLine = "HTTP/1.1 " + statusCode + " " + getStatusCodeText(statusCode);
             StringBuilder headerLines = new StringBuilder();
-            
+
             for (Map.Entry<String, String> entry : headers.entrySet()) {
                 headerLines.append(entry.getKey()).append(": ").append(entry.getValue()).append("\r\n");
             }
-            
-            String response = statusLine + "\r\n" + headerLines.toString() + "\r\n" + 
-                           (content != null ? content : "");
-            
+
+            String response = statusLine + "\r\n" + headerLines.toString() + "\r\n" +
+                    (content != null ? content : "");
+
             output.write(response.getBytes(StandardCharsets.UTF_8));
             output.flush();
         } catch (Exception e) {
@@ -127,32 +117,11 @@ public class Response {
         }
     }
 
-    private static ObjectMapper objectMapper;
-    
-    static {
-        objectMapper = new ObjectMapper();
-        // 配置 ObjectMapper
-        objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
-        objectMapper.configure(SerializationFeature.INDENT_OUTPUT, true);
-        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        
-        // 支持 Java 8 时间类型
-        JavaTimeModule javaTimeModule = new JavaTimeModule();
-        javaTimeModule.addSerializer(java.time.LocalDate.class, new LocalDateSerializer(DateTimeFormatter.ISO_DATE));
-        javaTimeModule.addSerializer(java.time.LocalDateTime.class, new LocalDateTimeSerializer(DateTimeFormatter.ISO_DATE_TIME));
-        javaTimeModule.addSerializer(java.time.ZonedDateTime.class, new ZonedDateTimeSerializer(DateTimeFormatter.ISO_ZONED_DATE_TIME));
-        objectMapper.registerModule(javaTimeModule);
-        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        
-        // 忽略 null 值的字段
-        objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-    }
-    
     private void sendJson(int statusCode, Object content) {
         try {
-            String json = objectMapper.writeValueAsString(content);
+            String json = JsonConverter.toJson(content);
             send(statusCode, json, "application/json");
-        } catch (JsonProcessingException e) {
+        } catch (Exception e) {
             send(500, "Error converting to JSON: " + e.getMessage(), "text/plain");
         }
     }

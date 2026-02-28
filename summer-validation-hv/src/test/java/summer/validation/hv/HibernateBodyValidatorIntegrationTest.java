@@ -1,20 +1,15 @@
 package summer.validation.hv;
 
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import org.junit.jupiter.api.Test;
 import summer.core.ApplicationContext;
 import summer.core.Component;
 import summer.validation.BodyValidator;
-import summer.validation.ValidationResult;
 
 import summer.web.Response;
-import summer.web.RestController;
-import summer.web.Post;
+import summer.web.annotation.RestController;
+import summer.web.annotation.Post;
 import summer.web.Request;
-import summer.validation.hv.HibernateValidationMiddleware;
-
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 

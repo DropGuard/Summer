@@ -1,4 +1,7 @@
-package summer.web;
+package summer.web.middleware;
+
+import summer.web.Handler;
+
 
 import summer.validation.BodyValidator;
 import java.util.Optional;

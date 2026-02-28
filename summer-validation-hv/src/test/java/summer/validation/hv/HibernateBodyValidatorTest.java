@@ -1,6 +1,5 @@
 package summer.validation.hv;
 
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import org.junit.jupiter.api.Test;
 import summer.validation.BodyValidator;

@@ -2,10 +2,7 @@ package summer.validation.hv;
 
 import summer.core.Component;
 import summer.validation.BodyValidator;
-import summer.validation.ValidationResult;
-import summer.web.ValidationMiddleware;
-
-import java.util.Optional;
+import summer.web.middleware.ValidationMiddleware;
 
 /**
  * Hibernate Validator specific validation middleware.

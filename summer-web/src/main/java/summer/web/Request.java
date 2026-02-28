@@ -156,7 +156,7 @@ public class Request {
             return null;
         }
         try {
-            return new com.fasterxml.jackson.databind.ObjectMapper().readValue(body, type);
+            return JsonConverter.fromJson(body, type);
         } catch (java.io.IOException e) {
             throw new RuntimeException("Failed to parse JSON body: " + e.getMessage(), e);
         }

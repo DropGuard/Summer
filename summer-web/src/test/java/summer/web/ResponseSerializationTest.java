@@ -1,7 +1,6 @@
 package summer.web;
 
 import org.junit.jupiter.api.Test;
-import summer.web.Response;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;

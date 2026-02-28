@@ -43,4 +43,32 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>summer/web/Get.java</exclude>
+                        <exclude>summer/web/Post.java</exclude>
+                        <exclude>summer/web/Put.java</exclude>
+                        <exclude>summer/web/Delete.java</exclude>
+                        <exclude>summer/web/RestController.java</exclude>
+                        <exclude>summer/web/QueryParam.java</exclude>
+                        <exclude>summer/web/FormParam.java</exclude>
+                        <exclude>summer/web/Middleware.java</exclude>
+                        <exclude>summer/web/LoggingMiddleware.java</exclude>
+                        <exclude>summer/web/ExceptionMiddleware.java</exclude>
+                        <exclude>summer/web/CorsMiddleware.java</exclude>
+                        <exclude>summer/web/ValidationMiddleware.java</exclude>
+                        <exclude>summer/web/HttpServer.java</exclude>
+                        <exclude>summer/web/HttpConnectionHandler.java</exclude>
+                        <exclude>summer/web/HttpRequestParser.java</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>

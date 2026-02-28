@@ -72,31 +72,28 @@ public class ApplicationContext {
         }
 
         Constructor<?> constructor = dependencyGraph.getConstructorForClass(
-            clazz
-        );
+                clazz);
         // Resolve dependencies
         Object[] dependencies = Arrays.stream(constructor.getParameterTypes())
-            .map(paramType -> {
-                if (paramType == ApplicationContext.class) {
-                    return this;
-                }
-                return getBean(paramType);
-            })
-            .toArray();
+                .map(paramType -> {
+                    if (paramType == ApplicationContext.class) {
+                        return this;
+                    }
+                    return getBean(paramType);
+                })
+                .toArray();
 
         try {
             Object instance = constructor.newInstance(dependencies);
             singletons.put(clazz, instance);
             return instance;
         } catch (
-            InstantiationException
-            | IllegalAccessException
-            | InvocationTargetException e
-        ) {
+                InstantiationException
+                | IllegalAccessException
+                | InvocationTargetException e) {
             throw new SummerException(
-                "Failed to instantiate bean: " + clazz.getName(),
-                e
-            );
+                    "Failed to instantiate bean: " + clazz.getName(),
+                    e);
         }
     }
 
@@ -117,23 +114,20 @@ public class ApplicationContext {
 
         // Look for a component that implements the interface
         List<Class<?>> implementingClasses = componentScanner
-            .getComponentClasses()
-            .stream()
-            .filter(
-                clazz -> type.isAssignableFrom(clazz) && !clazz.isInterface()
-            )
-            .collect(Collectors.toList());
+                .getComponentClasses()
+                .stream()
+                .filter(
+                        clazz -> type.isAssignableFrom(clazz) && !clazz.isInterface())
+                .collect(Collectors.toList());
 
         if (!implementingClasses.isEmpty()) {
             // If there's more than one implementation, prefer non-default ones
             // (e.g. prioritize HibernateBodyValidator over DefaultBodyValidator)
             Class<?> selectedClass = implementingClasses
-                .stream()
-                .filter(clazz ->
-                    !clazz.getName().startsWith("summer.validation.Default")
-                )
-                .findFirst()
-                .orElse(implementingClasses.get(0));
+                    .stream()
+                    .filter(clazz -> !clazz.getName().startsWith("summer.validation.Default"))
+                    .findFirst()
+                    .orElse(implementingClasses.get(0));
             return (T) getBean(selectedClass);
         }
 
@@ -141,12 +135,22 @@ public class ApplicationContext {
     }
 
     /**
+     * Gets all bean instances that are assignable to the given type.
+     */
+    @SuppressWarnings("unchecked")
+    public <T> List<T> getBeansOfType(Class<T> type) {
+        return componentScanner.getComponentClasses().stream()
+                .filter(clazz -> type.isAssignableFrom(clazz) && !clazz.isInterface())
+                .map(clazz -> (T) getBean(clazz))
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Gets all registered component classes.
      */
     public Set<Class<?>> getComponentClasses() {
         return Collections.unmodifiableSet(
-            componentScanner.getComponentClasses()
-        );
+                componentScanner.getComponentClasses());
     }
 
     /**
@@ -156,8 +160,7 @@ public class ApplicationContext {
     public static ApplicationContext getInstance() {
         if (INSTANCE == null) {
             throw new SummerException(
-                "ApplicationContext has not been initialized yet"
-            );
+                    "ApplicationContext has not been initialized yet");
         }
         return INSTANCE;
     }
