@@ -70,6 +70,6 @@ public class HttpRequestParser {
 			}
 		}
 
-		return new Request(method, path, query, contentType, body);
+		return new Request(method, path, query, contentType, body, headers);
 	}
 }

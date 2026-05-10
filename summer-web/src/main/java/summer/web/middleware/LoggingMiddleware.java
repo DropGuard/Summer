@@ -1,10 +1,12 @@
 package summer.web.middleware;
 
+import summer.core.Component;
 import summer.web.Handler;
 
 /**
  * Logging middleware that logs request and response details.
  */
+@Component
 public class LoggingMiddleware implements Middleware {
 	@Override
 	public Handler apply(Handler handler) {

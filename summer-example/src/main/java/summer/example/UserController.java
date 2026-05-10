@@ -1,12 +1,14 @@
 package summer.example;
 
 import java.util.List;
-import summer.web.Request;
+import summer.web.WebContext;
 import summer.web.annotation.Delete;
 import summer.web.annotation.Get;
+import summer.web.annotation.PathParam;
 import summer.web.annotation.Post;
 import summer.web.annotation.Put;
 import summer.web.annotation.RestController;
+import summer.web.annotation.Use;
 
 @RestController("/users")
 public class UserController {
@@ -18,27 +20,28 @@ public class UserController {
 	}
 
 	@Get("")
-	public List<User> getAllUsers(Request req) {
+	public List<User> getAllUsers() {
 		return userService.findAll();
 	}
 
 	@Get("/{id}")
-	public User getUser(Request req) {
-		return userService.findById(req.pathParam("id"));
+	public User getUser(@PathParam("id") String id) {
+		return userService.findById(id);
 	}
 
 	@Post("")
-	public User createUser(Request req) {
-		return userService.create(req.body(User.class));
+	public User createUser(User user) {
+		return userService.create(user);
 	}
 
 	@Put("/{id}")
-	public User updateUser(Request req) {
-		return userService.update(req.pathParam("id"), req.body(User.class));
+	public User updateUser(@PathParam("id") String id, User user) {
+		return userService.update(id, user);
 	}
 
 	@Delete("/{id}")
-	public void deleteUser(Request req) {
-		userService.delete(req.pathParam("id"));
+	@Use(AuthMiddleware.class) // Protect sensitive action
+	public void deleteUser(@PathParam("id") String id) {
+		userService.delete(id);
 	}
 }

@@ -3,6 +3,7 @@ package summer.web.middleware;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import summer.core.Component;
 import summer.web.Handler;
 import summer.web.Response;
 
@@ -11,6 +12,7 @@ import summer.web.Response;
  * requests. This middleware allows or denies cross-origin requests based on
  * configuration.
  */
+@Component
 public class CorsMiddleware implements Middleware {
 
 	private Set<String> allowedOrigins;

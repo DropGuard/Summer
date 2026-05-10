@@ -231,10 +231,25 @@ public class UserController {
     }
     
     @Get("/{id}")
-    public User getUser(Request req) {
-        // Explicit binding over magic annotations
-        String id = req.pathParam("id");
+    public User getUser(@PathParam("id") String id) {
+        // Zero-reflection parameter binding
         return userService.getUser(id);
+    }
+
+    @Post("")
+    public User createUser(User user) {
+        // Automatic JSON body binding & validation
+        return userService.createUser(user);
+    }
+}
+
+// 4. Global Exception Handling
+@Component
+public class GlobalErrorHandler {
+    @ExceptionHandler(UserNotFoundException.class)
+    public void handleNotFound(WebContext ctx, UserNotFoundException e) {
+        ctx.response().setStatusCode(404);
+        ctx.ok(new ErrorResponse("Not Found", e.getMessage()));
     }
 }
 ```

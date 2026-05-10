@@ -6,100 +6,148 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
-import java.util.Arrays;
+import java.lang.reflect.Parameter;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import summer.core.ApplicationContext;
 import summer.core.Component;
 import summer.web.annotation.Delete;
+import summer.web.annotation.ExceptionHandler;
 import summer.web.annotation.Get;
+import summer.web.annotation.PathParam;
 import summer.web.annotation.Post;
 import summer.web.annotation.Put;
 import summer.web.annotation.RestController;
+import summer.web.annotation.Use;
+import summer.web.middleware.Middleware;
 
 /**
- * Router adapter that discovers and registers routes from @RestController
- * annotated classes.
+ * Router adapter that discovers and registers routes and exception handlers 
+ * from @RestController and @Component annotated classes.
  */
 @Component
 public class AnnotationRouterAdapter {
 	private final Router router;
 	private final ApplicationContext context;
+	private final ExceptionRegistry exceptionRegistry;
 
-	public AnnotationRouterAdapter(Router router, ApplicationContext context) {
+	public AnnotationRouterAdapter(Router router, ApplicationContext context, ExceptionRegistry exceptionRegistry) {
 		this.router = router;
 		this.context = context;
+		this.exceptionRegistry = exceptionRegistry;
 	}
 
 	public void registerControllers() {
-		context.getComponentClasses().stream().filter(
-				clazz -> clazz.isAnnotationPresent(RestController.class) || clazz.isAnnotationPresent(Component.class))
-				.forEach(this::registerController);
+		context.getComponentClasses().forEach(this::registerComponent);
 	}
 
-	private void registerController(Class<?> clazz) {
-		// Get the instance from the application context
+	private void registerComponent(Class<?> clazz) {
 		Object instance = context.getBean(clazz);
 
-		// Get all methods with HTTP method annotations
-		Arrays.stream(clazz.getMethods()).forEach(method -> registerHandler(clazz, instance, method));
+		// 1. Register routes for @RestController
+		if (clazz.isAnnotationPresent(RestController.class)) {
+			Arrays.stream(clazz.getMethods()).forEach(method -> registerRouteHandler(clazz, instance, method));
+		}
+
+		// 2. Register global exception handlers
+		Arrays.stream(clazz.getMethods())
+				.filter(m -> m.isAnnotationPresent(ExceptionHandler.class))
+				.forEach(m -> registerExceptionHandler(instance, m));
 	}
 
-	private void registerHandler(Class<?> clazz, Object instance, Method method) {
-		// Check for HTTP method annotations
-		if (method.isAnnotationPresent(Get.class)) {
-			registerRoute(clazz, instance, method, "GET");
-		} else if (method.isAnnotationPresent(Post.class)) {
-			registerRoute(clazz, instance, method, "POST");
-		} else if (method.isAnnotationPresent(Put.class)) {
-			registerRoute(clazz, instance, method, "PUT");
-		} else if (method.isAnnotationPresent(Delete.class)) {
-			registerRoute(clazz, instance, method, "DELETE");
-		}
+	private void registerRouteHandler(Class<?> clazz, Object instance, Method method) {
+		if (method.isAnnotationPresent(Get.class)) registerRoute(clazz, instance, method, "GET");
+		else if (method.isAnnotationPresent(Post.class)) registerRoute(clazz, instance, method, "POST");
+		else if (method.isAnnotationPresent(Put.class)) registerRoute(clazz, instance, method, "PUT");
+		else if (method.isAnnotationPresent(Delete.class)) registerRoute(clazz, instance, method, "DELETE");
+	}
+
+	private void registerExceptionHandler(Object instance, Method method) {
+		ExceptionHandler ann = method.getAnnotation(ExceptionHandler.class);
+		Handler handler = createFastHandler(instance, method);
+		exceptionRegistry.register(ann.value(), handler);
+		System.out.println("Exception Handler registered: " + ann.value().getSimpleName());
 	}
 
 	private void registerRoute(Class<?> clazz, Object instance, Method method, String httpMethod) {
 		String path = getRoutePath(clazz, method, httpMethod);
 		Handler handler = createFastHandler(instance, method);
+		
+		// Apply @Use middleware
+		List<Class<? extends Middleware>> middlewareClasses = new ArrayList<>();
+		
+		// Class-level @Use (Group Middleware)
+		if (clazz.isAnnotationPresent(Use.class)) {
+			Collections.addAll(middlewareClasses, clazz.getAnnotation(Use.class).value());
+		}
+		
+		// Method-level @Use
+		if (method.isAnnotationPresent(Use.class)) {
+			Collections.addAll(middlewareClasses, method.getAnnotation(Use.class).value());
+		}
+		
+		// Apply in reverse order so the first defined is the outermost
+		Collections.reverse(middlewareClasses);
+		for (Class<? extends Middleware> mc : middlewareClasses) {
+			Middleware m = context.getBean(mc);
+			handler = m.apply(handler);
+		}
+
 		router.register(httpMethod, path, handler);
-		System.out.println("Route registered (Pure Fast Dispatch): " + httpMethod + " " + path);
+		System.out.println("Route registered (Fast Binding + Middleware): " + httpMethod + " " + path);
 	}
 
 	private Handler createFastHandler(Object instance, Method method) {
 		try {
 			MethodHandles.Lookup lookup = MethodHandles.lookup();
 			MethodHandle methodHandle = lookup.unreflect(method).bindTo(instance);
-
-			// Source: (P1, P2...) -> R
-			MethodType sourceType = methodHandle.type();
 			MethodHandle adaptedHandle = methodHandle;
 
-			// 1. Handle void return type: convert to "" to avoid 404
+			// 1. Handle Return Value (void -> "")
 			if (method.getReturnType().equals(void.class)) {
 				MethodHandle constantEmpty = MethodHandles.constant(Object.class, "");
 				adaptedHandle = MethodHandles.filterReturnValue(methodHandle, MethodHandles.dropArguments(constantEmpty, 0, void.class));
 			} else {
-				adaptedHandle = adaptedHandle.asType(sourceType.changeReturnType(Object.class));
+				adaptedHandle = adaptedHandle.asType(methodHandle.type().changeReturnType(Object.class));
 			}
 
-			// 2. Adapt parameters: (WebContext) -> (P1, P2...)
-			Class<?>[] paramTypes = method.getParameterTypes();
-			int[] reorder = new int[paramTypes.length];
-			for (int i = 0; i < paramTypes.length; i++) {
-				Class<?> p = paramTypes[i];
-				if (p.equals(WebContext.class)) {
-					reorder[i] = 0;
-				} else if (p.equals(Request.class)) {
+			// 2. Build Argument Extractors (WebContext -> Parameter)
+			Parameter[] parameters = method.getParameters();
+			MethodHandle[] filters = new MethodHandle[parameters.length];
+			int[] reorder = new int[parameters.length];
+
+			for (int i = 0; i < parameters.length; i++) {
+				Parameter p = parameters[i];
+				Class<?> type = p.getType();
+				reorder[i] = 0; // All filters consume the same WebContext (index 0)
+
+				if (type.equals(WebContext.class)) {
+					filters[i] = MethodHandles.identity(WebContext.class);
+				} else if (type.equals(Request.class)) {
+					filters[i] = lookup.findVirtual(WebContext.class, "request", MethodType.methodType(Request.class));
+				} else if (type.equals(Response.class)) {
+					filters[i] = lookup.findVirtual(WebContext.class, "response", MethodType.methodType(Response.class));
+				} else if (p.isAnnotationPresent(PathParam.class)) {
+					String name = p.getAnnotation(PathParam.class).value();
 					MethodHandle getReq = lookup.findVirtual(WebContext.class, "request", MethodType.methodType(Request.class));
-					adaptedHandle = MethodHandles.filterArguments(adaptedHandle, i, getReq);
-					reorder[i] = 0;
-				} else if (p.equals(Response.class)) {
-					MethodHandle getResp = lookup.findVirtual(WebContext.class, "response", MethodType.methodType(Response.class));
-					adaptedHandle = MethodHandles.filterArguments(adaptedHandle, i, getResp);
-					reorder[i] = 0;
+					MethodHandle getParam = lookup.findVirtual(Request.class, "pathParam", MethodType.methodType(String.class, String.class));
+					MethodHandle boundGetParam = MethodHandles.insertArguments(getParam, 1, name);
+					filters[i] = MethodHandles.filterArguments(boundGetParam, 0, getReq);
+				} else if (Throwable.class.isAssignableFrom(type)) {
+					// Extract exception from request attributes (set by ExceptionMiddleware)
+					MethodHandle getReq = lookup.findVirtual(WebContext.class, "request", MethodType.methodType(Request.class));
+					MethodHandle getAttr = lookup.findVirtual(Request.class, "getAttribute", MethodType.methodType(Object.class, String.class));
+					MethodHandle boundGetAttr = MethodHandles.insertArguments(getAttr, 1, "last_exception");
+					filters[i] = MethodHandles.filterArguments(boundGetAttr.asType(MethodType.methodType(type, Request.class)), 0, getReq);
 				} else {
-					throw new UnsupportedOperationException("Unsupported: " + p.getName());
+					// Automatic body binding
+					MethodHandle bodyHandler = lookup.findVirtual(WebContext.class, "body", MethodType.methodType(Object.class, Class.class));
+					filters[i] = MethodHandles.insertArguments(bodyHandler, 1, type).asType(MethodType.methodType(type, WebContext.class));
 				}
 			}
-			
+
+			adaptedHandle = MethodHandles.filterArguments(adaptedHandle, 0, filters);
 			adaptedHandle = MethodHandles.permuteArguments(adaptedHandle, MethodType.methodType(Object.class, WebContext.class), reorder);
 
 			CallSite site = LambdaMetafactory.metafactory(
@@ -110,14 +158,18 @@ public class AnnotationRouterAdapter {
 
 			return (Handler) site.getTarget().invoke();
 		} catch (Throwable t) {
-			// Reflection fallback
+			// Fallback (e.g. for ExceptionHandler where we need to pass the exception object)
 			return ctx -> {
 				Object[] args = new Object[method.getParameterCount()];
-				Class<?>[] paramTypes = method.getParameterTypes();
-				for (int i = 0; i < paramTypes.length; i++) {
-					if (paramTypes[i].equals(WebContext.class)) args[i] = ctx;
-					else if (paramTypes[i].equals(Request.class)) args[i] = ctx.request();
-					else if (paramTypes[i].equals(Response.class)) args[i] = ctx.response();
+				Parameter[] params = method.getParameters();
+				for (int i = 0; i < params.length; i++) {
+					Class<?> type = params[i].getType();
+					if (type.equals(WebContext.class)) args[i] = ctx;
+					else if (type.equals(Request.class)) args[i] = ctx.request();
+					else if (type.equals(Response.class)) args[i] = ctx.response();
+					else if (params[i].isAnnotationPresent(PathParam.class)) args[i] = ctx.request().pathParam(params[i].getAnnotation(PathParam.class).value());
+					else if (Throwable.class.isAssignableFrom(type)) args[i] = ctx.request().getAttribute("last_exception");
+					else args[i] = ctx.body(type);
 				}
 				try {
 					Object res = method.invoke(instance, args);

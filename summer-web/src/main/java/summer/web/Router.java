@@ -5,14 +5,34 @@ import java.util.Map;
 import summer.core.Component;
 
 /**
- * Simple router implementation that maps HTTP requests to handlers.
+ * High-performance router implementation using a Radix Tree (Trie) 
+ * for O(L) path resolution where L is the path depth.
  */
 @Component
 public class Router {
-	private final Map<RouteKey, Handler> routes = new HashMap<>();
+
+	private final Node root = new Node();
 
 	public void register(String method, String path, Handler handler) {
-		routes.put(new RouteKey(method, path), handler);
+		String[] segments = tokenize(path);
+		Node current = root;
+
+		for (String segment : segments) {
+			if (segment.startsWith("{") && segment.endsWith("}")) {
+				String paramName = segment.substring(1, segment.length() - 1);
+				if (current.paramChild != null && !current.paramName.equals(paramName)) {
+					throw new RuntimeException("Conflict: Parameter name mismatch at " + path);
+				}
+				if (current.paramChild == null) {
+					current.paramChild = new Node();
+					current.paramName = paramName;
+				}
+				current = current.paramChild;
+			} else {
+				current = current.staticChildren.computeIfAbsent(segment, k -> new Node());
+			}
+		}
+		current.handlers.put(method.toUpperCase(), handler);
 	}
 
 	public void get(String path, Handler handler) {
@@ -32,80 +52,40 @@ public class Router {
 	}
 
 	public Object route(WebContext ctx) {
-		for (Map.Entry<RouteKey, Handler> entry : routes.entrySet()) {
-			RouteKey routeKey = entry.getKey();
-			if (matches(routeKey, ctx.request())) {
-				return entry.getValue().handle(ctx);
+		String[] segments = tokenize(ctx.request().getPath());
+		Node current = root;
+
+		for (String segment : segments) {
+			Node next = current.staticChildren.get(segment);
+			if (next != null) {
+				current = next;
+			} else if (current.paramChild != null) {
+				// Match parameter
+				ctx.request().setAttribute(current.paramName, segment);
+				current = current.paramChild;
+			} else {
+				return null; // 404
 			}
 		}
-		return null;
+
+		Handler handler = current.handlers.get(ctx.request().getMethod().toUpperCase());
+		return handler != null ? handler.handle(ctx) : null;
 	}
 
-	private boolean matches(RouteKey routeKey, Request request) {
-		if (!routeKey.method.equals(request.getMethod())) {
-			return false;
+	private String[] tokenize(String path) {
+		if (path == null || path.equals("/") || path.isEmpty()) {
+			return new String[0];
 		}
-
-		// Path pattern matching with variables (e.g., /users/{id})
-		String[] routeParts = routeKey.path.split("/");
-		String[] requestParts = request.getPath().split("/");
-
-		if (routeParts.length != requestParts.length) {
-			return false;
-		}
-
-		for (int i = 0; i < routeParts.length; i++) {
-			String routePart = routeParts[i];
-			String requestPart = requestParts[i];
-
-			// Check if it's a variable part
-			if (routePart.startsWith("{") && routePart.endsWith("}")) {
-				// Store variable value in request attributes
-				String paramName = routePart.substring(1, routePart.length() - 1);
-				request.setAttribute(paramName, requestPart);
-			} else if (!routePart.equals(requestPart)) {
-				// Not a variable and parts don't match
-				return false;
-			}
-		}
-
-		return true;
+		// Split by / and remove empty segments
+		return java.util.Arrays.stream(path.split("/"))
+				.filter(s -> !s.isEmpty())
+				.toArray(String[]::new);
 	}
 
-	private static class RouteKey {
-		private final String method;
-		private final String path;
-
-		RouteKey(String method, String path) {
-			this.method = method;
-			this.path = normalizePath(path);
-		}
-
-		private String normalizePath(String path) {
-			if (!path.startsWith("/")) {
-				return "/" + path;
-			}
-			return path;
-		}
-
-		@Override
-		public boolean equals(Object o) {
-			if (this == o)
-				return true;
-			if (o == null || getClass() != o.getClass())
-				return false;
-			RouteKey routeKey = (RouteKey) o;
-			return method.equals(routeKey.method) && path.equals(routeKey.path);
-		}
-
-		@Override
-		public int hashCode() {
-			return 31 * method.hashCode() + path.hashCode();
-		}
-
-		@Override
-		public String toString() {
-			return method + " " + path;
-		}
+	private static class Node {
+		Map<String, Node> staticChildren = new HashMap<>();
+		Node paramChild = null;
+		String paramName = null;
+		Map<String, Handler> handlers = new HashMap<>(); // HTTP Method -> Handler
 	}
 }

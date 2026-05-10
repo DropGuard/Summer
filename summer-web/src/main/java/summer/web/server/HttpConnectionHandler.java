@@ -37,17 +37,36 @@ public class HttpConnectionHandler implements Runnable {
 	@Override
 	public void run() {
 		try (InputStream input = clientSocket.getInputStream(); OutputStream output = clientSocket.getOutputStream()) {
-			Request request = HttpRequestParser.parse(input);
-			if (request == null) return;
+			while (!clientSocket.isClosed()) {
+				Request request = HttpRequestParser.parse(input);
+				if (request == null) break;
 
-			Response response = new Response(output);
-			WebContext ctx = new WebContext(request, response, validator);
+				Response response = new Response(output);
+				WebContext ctx = new WebContext(request, response, validator);
 
-			// Apply middleware chain
-			Handler handler = createHandlerChain(ctx);
-			handler.handle(ctx);
+				// Determine if we should keep the connection alive
+				String connectionHeader = request.getHeader("Connection");
+				boolean keepAlive = connectionHeader != null && connectionHeader.equalsIgnoreCase("keep-alive");
+				
+				if (keepAlive) {
+					response.setHeader("Connection", "keep-alive");
+				} else {
+					response.setHeader("Connection", "close");
+				}
+
+				// Execute handler chain
+				Handler handler = createHandlerChain(ctx);
+				handler.handle(ctx);
+				
+				// Ensure response is sent if not already committed
+				if (!response.isCommitted()) {
+					response.ok(""); 
+				}
+
+				if (!keepAlive) break;
+			}
 		} catch (Exception e) {
-			e.printStackTrace();
+			// Connection reset or other IO issues are common during socket handling
 		} finally {
 			try {
 				if (!clientSocket.isClosed()) {

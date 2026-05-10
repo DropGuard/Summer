@@ -7,19 +7,16 @@ import java.util.Map;
 import summer.validation.ValidationResult;
 
 /**
- * Represents an HTTP response.
+ * Represents an HTTP response with streaming capabilities.
  */
 public class Response {
 	private final OutputStream output;
 	private final Map<String, String> headers = new HashMap<>();
 	private int statusCode = 200;
+	private boolean committed = false;
 
 	public Response(OutputStream output) {
 		this.output = output;
-	}
-
-	public OutputStream getOutputStream() {
-		return output;
 	}
 
 	public void setStatusCode(int statusCode) {
@@ -34,12 +31,8 @@ public class Response {
 		headers.put(name, value);
 	}
 
-	public String getHeader(String name) {
-		return headers.get(name);
-	}
-
 	public void ok(String content) {
-		send(200, content, "text/plain");
+		send(200, content.getBytes(StandardCharsets.UTF_8), "text/plain");
 	}
 
 	public void ok(Object content) {
@@ -48,68 +41,60 @@ public class Response {
 
 	public void created(String location) {
 		setHeader("Location", location);
-		send(201, null, null);
-	}
-
-	public void created(String location, Object content) {
-		setHeader("Location", location);
-		sendJson(201, content);
+		send(201, new byte[0], null);
 	}
 
 	public void notFound() {
-		send(404, "Not Found", "text/plain");
+		send(404, "Not Found".getBytes(StandardCharsets.UTF_8), "text/plain");
 	}
 
 	public void badRequest(String message) {
-		send(400, message, "text/plain");
-	}
-
-	public void validationError(ValidationResult validationResult) {
-		// Create a JSON response with validation errors
-		Map<String, Object> errorResponse = new HashMap<>();
-		errorResponse.put("error", "Validation Failed");
-		errorResponse.put("status", 400);
-		errorResponse.put("details", validationResult.getErrors());
-
-		try {
-			String json = JsonConverter.toJson(errorResponse);
-			send(400, json, "application/json");
-		} catch (Exception e) {
-			send(400, "Validation failed", "text/plain");
-		}
+		send(400, message.getBytes(StandardCharsets.UTF_8), "text/plain");
 	}
 
 	public void error(String message) {
-		send(500, message, "text/plain");
+		send(500, message.getBytes(StandardCharsets.UTF_8), "text/plain");
 	}
 
 	public void error(Exception e) {
-		send(500, e.getMessage(), "text/plain");
+		error(e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
 	}
 
 	public void json(Object content) {
 		sendJson(200, content);
 	}
 
-	public void send(int statusCode, String content, String contentType) {
+	public void send(int statusCode, byte[] body, String contentType) {
+		if (committed) return;
 		this.statusCode = statusCode;
 
 		try {
 			if (contentType != null) {
 				setHeader("Content-Type", contentType);
 			}
-
-			String statusLine = "HTTP/1.1 " + statusCode + " " + getStatusCodeText(statusCode);
-			StringBuilder headerLines = new StringBuilder();
-
-			for (Map.Entry<String, String> entry : headers.entrySet()) {
-				headerLines.append(entry.getKey()).append(": ").append(entry.getValue()).append("\r\n");
+			if (body != null) {
+				setHeader("Content-Length", String.valueOf(body.length));
 			}
 
-			String response = statusLine + "\r\n" + headerLines.toString() + "\r\n" + (content != null ? content : "");
+			// Write Status Line
+			String statusLine = "HTTP/1.1 " + statusCode + " " + getStatusCodeText(statusCode) + "\r\n";
+			output.write(statusLine.getBytes(StandardCharsets.UTF_8));
 
-			output.write(response.getBytes(StandardCharsets.UTF_8));
+			// Write Headers
+			for (Map.Entry<String, String> entry : headers.entrySet()) {
+				String headerLine = entry.getKey() + ": " + entry.getValue() + "\r\n";
+				output.write(headerLine.getBytes(StandardCharsets.UTF_8));
+			}
+
+			// End of Headers
+			output.write("\r\n".getBytes(StandardCharsets.UTF_8));
+
+			// Write Body
+			if (body != null && body.length > 0) {
+				output.write(body);
+			}
 			output.flush();
+			committed = true;
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -118,9 +103,9 @@ public class Response {
 	private void sendJson(int statusCode, Object content) {
 		try {
 			String json = JsonConverter.toJson(content);
-			send(statusCode, json, "application/json");
+			send(statusCode, json.getBytes(StandardCharsets.UTF_8), "application/json");
 		} catch (Exception e) {
-			send(500, "Error converting to JSON: " + e.getMessage(), "text/plain");
+			error("JSON Serialization Error: " + e.getMessage());
 		}
 	}
 
@@ -133,5 +118,9 @@ public class Response {
 			case 500 -> "Internal Server Error";
 			default -> "Unknown";
 		};
+	}
+
+	public boolean isCommitted() {
+		return committed;
 	}
 }

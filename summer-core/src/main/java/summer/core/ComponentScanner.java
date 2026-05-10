@@ -1,14 +1,14 @@
 package summer.core;
 
-import java.io.File;
-import java.net.URL;
-import java.util.Enumeration;
+import io.github.classgraph.ClassGraph;
+import io.github.classgraph.ScanResult;
 import java.util.HashSet;
 import java.util.Set;
 
 /**
  * Component scanner for finding and registering Summer components. Handles
- * classpath scanning for @Component and @RestController annotated classes.
+ * classpath scanning for @Component and @RestController annotated classes
+ * using ClassGraph for robust JAR and file-based scanning.
  */
 public class ComponentScanner {
 
@@ -18,46 +18,18 @@ public class ComponentScanner {
 	 * Scans the given package for @Component and @RestController annotated classes.
 	 */
 	public void scan(String packageName) {
-		scanComponents(packageName);
+		try (ScanResult scanResult = new ClassGraph()
+				.enableAllInfo()
+				.acceptPackages(packageName)
+				.scan()) {
+			
+			// Find classes with @Component annotation
+			componentClasses.addAll(scanResult.getClassesWithAnnotation(Component.class.getName()).loadClasses());
+			
+			// Find classes with any annotation ending in "RestController" (handles summer.web.annotation.RestController)
+			componentClasses.addAll(scanResult.getClassesWithAnnotation("summer.web.annotation.RestController").loadClasses());
+		}
 		scanSummerComponents();
-	}
-
-	private void scanComponents(String packageName) {
-		String packagePath = packageName.replace('.', '/');
-		try {
-			Enumeration<URL> resources = Thread.currentThread().getContextClassLoader().getResources(packagePath);
-			while (resources.hasMoreElements()) {
-				URL resource = resources.nextElement();
-				File directory = new File(resource.toURI());
-				if (directory.exists()) {
-					scanDirectory(packageName, directory);
-				}
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-
-	private void scanDirectory(String packageName, File directory) {
-		for (File file : directory.listFiles()) {
-			if (file.isDirectory()) {
-				scanDirectory(packageName + "." + file.getName(), file);
-			} else if (file.getName().endsWith(".class")) {
-				String className = packageName + "." + file.getName().substring(0, file.getName().length() - 6);
-				try {
-					Class<?> clazz = Class.forName(className);
-					boolean isComponent = clazz.isAnnotationPresent(Component.class);
-					boolean isRestController = java.util.Arrays.stream(clazz.getAnnotations())
-							.anyMatch(a -> a.annotationType().getName().endsWith("RestController"));
-
-					if (isComponent || isRestController) {
-						componentClasses.add(clazz);
-					}
-				} catch (ClassNotFoundException e) {
-					e.printStackTrace();
-				}
-			}
-		}
 	}
 
 	private void scanSummerComponents() {

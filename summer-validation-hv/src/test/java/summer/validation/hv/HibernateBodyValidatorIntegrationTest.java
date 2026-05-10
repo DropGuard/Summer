@@ -6,30 +6,24 @@ import org.junit.jupiter.api.Test;
 import summer.core.ApplicationContext;
 import summer.core.Component;
 import summer.validation.BodyValidator;
-import summer.web.Request;
-import summer.web.Response;
+import summer.web.WebContext;
 import summer.web.annotation.Post;
 import summer.web.annotation.RestController;
 
 public class HibernateBodyValidatorIntegrationTest {
 
 	@Test
-	public void testValidationMiddlewareIntegration() {
+	public void testValidationIntegration() {
 		// 启动应用程序上下文并扫描组件
 		ApplicationContext context = ApplicationContext.scan("summer.validation.hv");
 
 		// 检查是否正确地找到了组件
 		assertTrue(context.getComponentClasses().contains(HibernateBodyValidator.class));
-		assertTrue(context.getComponentClasses().contains(HibernateValidationMiddleware.class));
 
 		// 检查是否可以从上下文获取验证器
 		BodyValidator validator = context.getBean(BodyValidator.class);
 		assertNotNull(validator);
 		assertTrue(validator instanceof HibernateBodyValidator);
-
-		// 验证是否可以获取中间件
-		HibernateValidationMiddleware middleware = context.getBean(HibernateValidationMiddleware.class);
-		assertNotNull(middleware);
 	}
 
 	// 测试控制器
@@ -38,11 +32,8 @@ public class HibernateBodyValidatorIntegrationTest {
 	public static class UserController {
 
 		@Post("/")
-		public Response createUser(Request request) {
-			// Under explicit API, validation happens explicitly inside the method body or
-			// via explicit middleware
-			UserRequest user = request.body(UserRequest.class);
-			return new Response(null);
+		public void createUser(UserRequest user) {
+			// Validation now happens automatically via WebContext.body() called by the adapter
 		}
 	}
 
