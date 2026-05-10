@@ -69,6 +69,11 @@
                 <artifactId>jackson-datatype-jsr310</artifactId>
                 <version>2.17.2</version>
             </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.dataformat</groupId>
+                <artifactId>jackson-dataformat-yaml</artifactId>
+                <version>2.17.2</version>
+            </dependency>
 
             <!-- Testing -->
             <dependency>
@@ -120,8 +125,14 @@
                 <version>2.43.0</version>
                 <configuration>
                     <java>
+                        <!-- Eclipse JDT Formatter (independent of javac internals, works on JDK 25) -->
+                        <eclipse>
+                            <version>4.26</version>
+                        </eclipse>
                         <!-- Automatically remove all unused imports -->
                         <removeUnusedImports />
+                        <!-- Enforce consistent import ordering -->
+                        <importOrder />
                     </java>
                 </configuration>
             </plugin>

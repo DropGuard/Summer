@@ -5,5 +5,5 @@ package summer.web;
  */
 @FunctionalInterface
 public interface Middleware {
-    Handler apply(Handler handler);
+	Handler apply(Handler handler);
 }

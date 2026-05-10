@@ -7,58 +7,69 @@ import java.sql.SQLException;
  * ThreadLocal based transaction context that manages connections per thread.
  */
 public class ThreadLocalTransactionContext implements TransactionStatus {
-    private static final ThreadLocal<Connection> connectionThreadLocal = new ThreadLocal<>();
-    private boolean rollbackOnly = false;
-    private boolean active = true;
+	private static final ThreadLocal<Connection> connectionThreadLocal = new ThreadLocal<>();
+	private boolean rollbackOnly = false;
+	private boolean active = true;
+	private final boolean isNewTransaction;
 
-    private final Connection connection;
+	private final Connection connection;
 
-    public ThreadLocalTransactionContext(Connection connection) {
-        this.connection = connection;
-        connectionThreadLocal.set(connection);
-    }
+	public ThreadLocalTransactionContext(Connection connection, boolean isNewTransaction) {
+		this.connection = connection;
+		this.isNewTransaction = isNewTransaction;
+		if (isNewTransaction) {
+			connectionThreadLocal.set(connection);
+		}
+	}
 
-    public static Connection getCurrentConnection() {
-        return connectionThreadLocal.get();
-    }
+	public static Connection getCurrentConnection() {
+		return connectionThreadLocal.get();
+	}
 
-    public static void clearCurrentConnection() {
-        connectionThreadLocal.remove();
-    }
+	public static void clearCurrentConnection() {
+		connectionThreadLocal.remove();
+	}
 
-    @Override
-    public boolean isActive() {
-        return active;
-    }
+	@Override
+	public boolean isActive() {
+		return active;
+	}
 
-    @Override
-    public boolean isRollbackOnly() {
-        return rollbackOnly;
-    }
+	@Override
+	public boolean isNewTransaction() {
+		return isNewTransaction;
+	}
 
-    @Override
-    public void setRollbackOnly() {
-        this.rollbackOnly = true;
-    }
+	@Override
+	public boolean isRollbackOnly() {
+		return rollbackOnly;
+	}
 
-    @Override
-    public void flush() {
-        // JDBC Connection doesn't have flush method, so this is a no-op
-    }
+	@Override
+	public void setRollbackOnly() {
+		this.rollbackOnly = true;
+	}
 
-    public Connection getConnection() {
-        return connection;
-    }
+	@Override
+	public void flush() {
+		// JDBC Connection doesn't have flush method, so this is a no-op
+	}
 
-    public void close() {
-        active = false;
-        clearCurrentConnection();
-        try {
-            if (connection != null && !connection.isClosed()) {
-                connection.close();
-            }
-        } catch (SQLException e) {
-            throw new SummerTransactionException("Failed to close connection", e);
-        }
-    }
+	public Connection getConnection() {
+		return connection;
+	}
+
+	public void close() {
+		active = false;
+		if (isNewTransaction) {
+			clearCurrentConnection();
+			try {
+				if (connection != null && !connection.isClosed()) {
+					connection.close();
+				}
+			} catch (SQLException e) {
+				throw new SummerTransactionException("Failed to close connection", e);
+			}
+		}
+	}
 }

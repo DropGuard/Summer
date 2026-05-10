@@ -4,38 +4,44 @@ import summer.core.Component;
 import summer.tx.Transactional;
 
 @Component
-public record UserServiceImpl(UserRepository userRepository) implements UserService {
+public class UserServiceImpl implements UserService {
 
-    @Override
-    @Transactional
-    public User create(User user) {
-        return userRepository.save(user);
-    }
+	private final UserRepository userRepository;
 
-    @Override
-    public User findById(String id) {
-        return userRepository.findById(id);
-    }
+	public UserServiceImpl(UserRepository userRepository) {
+		this.userRepository = userRepository;
+	}
 
-    @Override
-    @Transactional
-    public User update(String id, User user) {
-        User existing = userRepository.findById(id);
-        if (existing == null) {
-            throw new UserNotFoundException("User not found: " + id);
-        }
-        User updated = new User(id, user.name(), user.email());
-        return userRepository.save(updated);
-    }
+	@Override
+	@Transactional
+	public User create(User user) {
+		return userRepository.save(user);
+	}
 
-    @Override
-    @Transactional
-    public void delete(String id) {
-        userRepository.deleteById(id);
-    }
+	@Override
+	public User findById(String id) {
+		return userRepository.findById(id);
+	}
 
-    @Override
-    public java.util.List<User> findAll() {
-        return userRepository.findAll();
-    }
+	@Override
+	@Transactional
+	public User update(String id, User user) {
+		User existing = userRepository.findById(id);
+		if (existing == null) {
+			throw new UserNotFoundException("User not found: " + id);
+		}
+		User updated = new User(id, user.name(), user.email());
+		return userRepository.save(updated);
+	}
+
+	@Override
+	@Transactional
+	public void delete(String id) {
+		userRepository.deleteById(id);
+	}
+
+	@Override
+	public java.util.List<User> findAll() {
+		return userRepository.findAll();
+	}
 }

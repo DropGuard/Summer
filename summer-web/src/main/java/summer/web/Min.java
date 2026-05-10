@@ -11,6 +11,6 @@ import java.lang.annotation.Target;
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Min {
-    long value();
-    String message() default "Field must be at least {value}";
+	long value();
+	String message() default "Field must be at least {value}";
 }

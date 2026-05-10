@@ -92,6 +92,8 @@ Summer intentionally enforces strict architectural constraints. If something req
 *   Middleware-based HTTP handling (with explicit Annotation Routing)
 *   Basic annotation routing (`@RestController`, `@Get`, `@Post`, `@Put`, `@Delete`)
 *   JSON request/response binding
+*   YAML configuration mapped to Java Records (`application.yml`)
+*   Virtual thread-based HTTP request handling (Project Loom)
 *   Global exception middleware
 *   Optional validation system (`summer-validation-hv`)
 
@@ -108,9 +110,27 @@ Summer is an experiment in reduction — not expansion. If a feature is not list
 *   Conditional auto-configuration & classpath-based guessing
 *   Bean post-processor ecosystem & complex lifecycle hooks
 *   Security module
-*   Async execution
+*   Built-in thread pool / executor service (use virtual threads or bring your own)
 *   Framework-level custom ClassLoader Hot-Reload (rely on JVM hotswap instead)
 *   Ecosystem compatibility (Spring Data, Actuator, Starters, etc.)
+
+* * *
+
+## 🧵 Threading Model: Virtual Threads, No Built-in Pool
+
+Summer's HTTP server dispatches every incoming request on a **virtual thread** (`Thread.startVirtualThread`). Virtual threads are lightweight, JVM-managed threads that can handle millions of concurrent connections with minimal memory overhead.
+
+Summer **does not** provide a built-in thread pool or `ExecutorService`. This is intentional:
+
+*   The framework handles HTTP dispatch; **you** handle your own concurrency.
+*   If your business logic requires a thread pool, create one explicitly in your service layer.
+*   This avoids framework-managed threading magic and keeps concurrency decisions visible in your code.
+
+```java
+// You're free to use any concurrency model in your own code:
+ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
+pool.submit(() -> myBlockingIoTask());
+```
 
 * * *
 
@@ -119,6 +139,10 @@ Summer is an experiment in reduction — not expansion. If a feature is not list
 Summer uses JDK dynamic proxies only. If a bean annotated with AOP-related annotations does not implement an interface, Summer will fail at startup.
 
 This keeps the core predictable and avoids subclass-based proxy complexity. Explicit behavior via contracts is always preferred over implicitly intercepting hidden class methods.
+
+> **⚠️ CAUTION: The AOP Trap**
+>
+> Because Summer uses standard JDK dynamic proxies, **internal method calls** (e.g., `this.doSomething()`) will bypass the proxy and the interceptors. If you need transaction management, ensure the method is called through its interface from another bean.
 
 ## 🛡️ Security & Middleware
 
@@ -181,9 +205,13 @@ public interface UserService {
 }
 
 @Component
-public record UserServiceImpl(UserRepository repository) implements UserService {
+public class UserServiceImpl implements UserService {
     
-    // Constructor injection natively enforced by Java Records. No @Autowired!
+    private final UserRepository repository;
+
+    public UserServiceImpl(UserRepository repository) {
+        this.repository = repository;
+    }
     
     @Transactional
     @Override
@@ -194,7 +222,13 @@ public record UserServiceImpl(UserRepository repository) implements UserService 
 
 // 3. Controller
 @RestController("/users")
-public record UserController(UserService userService) {
+public class UserController {
+    
+    private final UserService userService;
+
+    public UserController(UserService userService) {
+        this.userService = userService;
+    }
     
     @Get("/{id}")
     public User getUser(Request req) {
