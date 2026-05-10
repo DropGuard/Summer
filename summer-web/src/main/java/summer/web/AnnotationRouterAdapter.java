@@ -21,6 +21,12 @@ import summer.web.annotation.Put;
 import summer.web.annotation.RestController;
 import summer.web.annotation.Use;
 import summer.web.middleware.Middleware;
+import summer.web.resolver.BodyResolver;
+import summer.web.resolver.ExceptionResolver;
+import summer.web.resolver.PathParamResolver;
+import summer.web.resolver.RequestResolver;
+import summer.web.resolver.ResponseResolver;
+import summer.web.resolver.WebContextResolver;
 
 /**
  * Router adapter that discovers and registers routes and exception handlers 
@@ -31,6 +37,15 @@ public class AnnotationRouterAdapter {
 	private final Router router;
 	private final ApplicationContext context;
 	private final ExceptionRegistry exceptionRegistry;
+	
+	private final List<ArgumentResolver> resolvers = List.of(
+		new WebContextResolver(),
+		new RequestResolver(),
+		new ResponseResolver(),
+		new PathParamResolver(),
+		new ExceptionResolver(),
+		new BodyResolver() // Fallback
+	);
 
 	public AnnotationRouterAdapter(Router router, ApplicationContext context, ExceptionRegistry exceptionRegistry) {
 		this.router = router;
@@ -47,11 +62,11 @@ public class AnnotationRouterAdapter {
 
 		// 1. Register routes for @RestController
 		if (clazz.isAnnotationPresent(RestController.class)) {
-			Arrays.stream(clazz.getMethods()).forEach(method -> registerRouteHandler(clazz, instance, method));
+			java.util.Arrays.stream(clazz.getMethods()).forEach(method -> registerRouteHandler(clazz, instance, method));
 		}
 
 		// 2. Register global exception handlers
-		Arrays.stream(clazz.getMethods())
+		java.util.Arrays.stream(clazz.getMethods())
 				.filter(m -> m.isAnnotationPresent(ExceptionHandler.class))
 				.forEach(m -> registerExceptionHandler(instance, m));
 	}
@@ -119,31 +134,13 @@ public class AnnotationRouterAdapter {
 
 			for (int i = 0; i < parameters.length; i++) {
 				Parameter p = parameters[i];
-				Class<?> type = p.getType();
 				reorder[i] = 0; // All filters consume the same WebContext (index 0)
-
-				if (type.equals(WebContext.class)) {
-					filters[i] = MethodHandles.identity(WebContext.class);
-				} else if (type.equals(Request.class)) {
-					filters[i] = lookup.findVirtual(WebContext.class, "request", MethodType.methodType(Request.class));
-				} else if (type.equals(Response.class)) {
-					filters[i] = lookup.findVirtual(WebContext.class, "response", MethodType.methodType(Response.class));
-				} else if (p.isAnnotationPresent(PathParam.class)) {
-					String name = p.getAnnotation(PathParam.class).value();
-					MethodHandle getReq = lookup.findVirtual(WebContext.class, "request", MethodType.methodType(Request.class));
-					MethodHandle getParam = lookup.findVirtual(Request.class, "pathParam", MethodType.methodType(String.class, String.class));
-					MethodHandle boundGetParam = MethodHandles.insertArguments(getParam, 1, name);
-					filters[i] = MethodHandles.filterArguments(boundGetParam, 0, getReq);
-				} else if (Throwable.class.isAssignableFrom(type)) {
-					// Extract exception from request attributes (set by ExceptionMiddleware)
-					MethodHandle getReq = lookup.findVirtual(WebContext.class, "request", MethodType.methodType(Request.class));
-					MethodHandle getAttr = lookup.findVirtual(Request.class, "getAttribute", MethodType.methodType(Object.class, String.class));
-					MethodHandle boundGetAttr = MethodHandles.insertArguments(getAttr, 1, "last_exception");
-					filters[i] = MethodHandles.filterArguments(boundGetAttr.asType(MethodType.methodType(type, Request.class)), 0, getReq);
-				} else {
-					// Automatic body binding
-					MethodHandle bodyHandler = lookup.findVirtual(WebContext.class, "body", MethodType.methodType(Object.class, Class.class));
-					filters[i] = MethodHandles.insertArguments(bodyHandler, 1, type).asType(MethodType.methodType(type, WebContext.class));
+				
+				for (ArgumentResolver resolver : resolvers) {
+					if (resolver.supports(p)) {
+						filters[i] = resolver.resolve(p, lookup);
+						break;
+					}
 				}
 			}
 
