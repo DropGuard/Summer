@@ -9,33 +9,33 @@ import summer.core.Component;
  */
 @Component
 public class Router {
-	private final Map<RouteKey, RouteHandler> routes = new HashMap<>();
+	private final Map<RouteKey, Handler> routes = new HashMap<>();
 
-	public void register(String method, String path, RouteHandler handler) {
+	public void register(String method, String path, Handler handler) {
 		routes.put(new RouteKey(method, path), handler);
 	}
 
-	public void get(String path, RouteHandler handler) {
+	public void get(String path, Handler handler) {
 		register("GET", path, handler);
 	}
 
-	public void post(String path, RouteHandler handler) {
+	public void post(String path, Handler handler) {
 		register("POST", path, handler);
 	}
 
-	public void put(String path, RouteHandler handler) {
+	public void put(String path, Handler handler) {
 		register("PUT", path, handler);
 	}
 
-	public void delete(String path, RouteHandler handler) {
+	public void delete(String path, Handler handler) {
 		register("DELETE", path, handler);
 	}
 
-	public Object route(Request request, Response response) {
-		for (Map.Entry<RouteKey, RouteHandler> entry : routes.entrySet()) {
+	public Object route(WebContext ctx) {
+		for (Map.Entry<RouteKey, Handler> entry : routes.entrySet()) {
 			RouteKey routeKey = entry.getKey();
-			if (matches(routeKey, request)) {
-				return entry.getValue().handle(request, response);
+			if (matches(routeKey, ctx.request())) {
+				return entry.getValue().handle(ctx);
 			}
 		}
 		return null;
@@ -107,10 +107,5 @@ public class Router {
 		public String toString() {
 			return method + " " + path;
 		}
-	}
-
-	@FunctionalInterface
-	public interface RouteHandler {
-		Object handle(Request request, Response response);
 	}
 }

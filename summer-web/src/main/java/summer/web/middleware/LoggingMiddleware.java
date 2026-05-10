@@ -8,15 +8,15 @@ import summer.web.Handler;
 public class LoggingMiddleware implements Middleware {
 	@Override
 	public Handler apply(Handler handler) {
-		return (request, response) -> {
+		return ctx -> {
 			long startTime = System.currentTimeMillis();
 
-			System.out.println("Processing request: " + request.getMethod() + " " + request.getPath());
+			System.out.println("Processing request: " + ctx.request().getMethod() + " " + ctx.request().getPath());
 
 			try {
-				Object result = handler.handle(request, response);
+				Object result = handler.handle(ctx);
 				long duration = System.currentTimeMillis() - startTime;
-				System.out.println("Completed response: " + response.getStatusCode() + " in " + duration + "ms");
+				System.out.println("Completed response: " + ctx.response().getStatusCode() + " in " + duration + "ms");
 				return result;
 			} catch (Exception e) {
 				long duration = System.currentTimeMillis() - startTime;

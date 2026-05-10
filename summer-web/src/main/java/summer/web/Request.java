@@ -3,9 +3,6 @@ package summer.web;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import summer.core.ApplicationContext;
-import summer.validation.BodyValidator;
-import summer.validation.ValidationResult;
 
 /**
  * Represents an HTTP request.
@@ -163,24 +160,7 @@ public class Request {
 			return null;
 		}
 		try {
-			T obj = JsonConverter.fromJson(body, type);
-
-			// Explicit Validation: Try to get BodyValidator and validate the object
-			try {
-				ApplicationContext context = ApplicationContext.getInstance();
-				BodyValidator validator = context.getBean(BodyValidator.class);
-				if (validator != null && validator.supports(type)) {
-					ValidationResult result = validator.validate(obj);
-					if (!result.isValid()) {
-						throw new RuntimeException("Validation failed: " + String.join(", ", result.getErrors()));
-					}
-				}
-			} catch (Exception e) {
-				// If context not initialized or validator not found or not supporting this type,
-				// skip validation. This keeps validation optional.
-			}
-
-			return obj;
+			return JsonConverter.fromJson(body, type);
 		} catch (java.io.IOException e) {
 			throw new RuntimeException("Failed to parse JSON body: " + e.getMessage(), e);
 		}

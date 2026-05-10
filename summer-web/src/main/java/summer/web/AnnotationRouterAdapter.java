@@ -58,85 +58,73 @@ public class AnnotationRouterAdapter {
 
 	private void registerRoute(Class<?> clazz, Object instance, Method method, String httpMethod) {
 		String path = getRoutePath(clazz, method, httpMethod);
-		RouteHandler fastHandler = createFastHandler(clazz, method);
-
-		router.register(httpMethod, path, (request, response) -> {
-			try {
-				return fastHandler.handle(instance, request, response);
-			} catch (Throwable e) {
-				if (e instanceof java.lang.reflect.InvocationTargetException ite) {
-					Throwable cause = ite.getTargetException();
-					response.error(cause.getMessage() != null ? cause.getMessage() : cause.getClass().getSimpleName());
-				} else {
-					response.error(e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
-				}
-				return null;
-			}
-		});
-
-		System.out.println("Route registered (Spring-style Flexible Params): " + httpMethod + " " + path);
+		Handler handler = createFastHandler(instance, method);
+		router.register(httpMethod, path, handler);
+		System.out.println("Route registered (Pure Fast Dispatch): " + httpMethod + " " + path);
 	}
 
-	private RouteHandler createFastHandler(Class<?> clazz, Method method) {
+	private Handler createFastHandler(Object instance, Method method) {
 		try {
 			MethodHandles.Lookup lookup = MethodHandles.lookup();
-			MethodHandle methodHandle = lookup.unreflect(method);
+			MethodHandle methodHandle = lookup.unreflect(method).bindTo(instance);
 
-			// The Target Functional Interface is: handle(Object instance, Request req, Response resp)
-			// The user method could be: method([Request], [Response])
-			
-			Class<?>[] paramTypes = method.getParameterTypes();
-			
-			// Start with the basic Handle: (Instance, P1, P2...)
-			// We need to adapt it to: (Instance, Request, Response)
-			
+			// Source: (P1, P2...) -> R
+			MethodType sourceType = methodHandle.type();
 			MethodHandle adaptedHandle = methodHandle;
-			
-			// Strategy:
-			// 1. If method wants (Request, Response) -> Already perfect (if in that order)
-			// 2. If method wants (Request) -> Drop 'Response' argument
-			// 3. If method wants (Response) -> Drop 'Request' argument
-			// 4. If method wants () -> Drop both
-			
-			// For simplicity and alignment with Spring, we'll support specific combinations:
-			if (paramTypes.length == 0) {
-				// Handler has no params, drop both Request and Response
-				adaptedHandle = MethodHandles.dropArguments(methodHandle, 1, Request.class, Response.class);
-			} else if (paramTypes.length == 1) {
-				if (paramTypes[0].equals(Request.class)) {
-					// Drop Response
-					adaptedHandle = MethodHandles.dropArguments(methodHandle, 2, Response.class);
-				} else if (paramTypes[0].equals(Response.class)) {
-					// Drop Request
-					adaptedHandle = MethodHandles.dropArguments(methodHandle, 1, Request.class);
-				}
-			} else if (paramTypes.length == 2) {
-				// Handle (Request, Response) or (Response, Request)
-				if (paramTypes[0].equals(Response.class) && paramTypes[1].equals(Request.class)) {
-					// Swap them
-					adaptedHandle = MethodHandles.permuteArguments(methodHandle, 
-							MethodType.methodType(Object.class, clazz, Request.class, Response.class), 
-							0, 2, 1);
-				}
+
+			// 1. Handle void return type: convert to "" to avoid 404
+			if (method.getReturnType().equals(void.class)) {
+				MethodHandle constantEmpty = MethodHandles.constant(Object.class, "");
+				adaptedHandle = MethodHandles.filterReturnValue(methodHandle, MethodHandles.dropArguments(constantEmpty, 0, void.class));
+			} else {
+				adaptedHandle = adaptedHandle.asType(sourceType.changeReturnType(Object.class));
 			}
 
+			// 2. Adapt parameters: (WebContext) -> (P1, P2...)
+			Class<?>[] paramTypes = method.getParameterTypes();
+			int[] reorder = new int[paramTypes.length];
+			for (int i = 0; i < paramTypes.length; i++) {
+				Class<?> p = paramTypes[i];
+				if (p.equals(WebContext.class)) {
+					reorder[i] = 0;
+				} else if (p.equals(Request.class)) {
+					MethodHandle getReq = lookup.findVirtual(WebContext.class, "request", MethodType.methodType(Request.class));
+					adaptedHandle = MethodHandles.filterArguments(adaptedHandle, i, getReq);
+					reorder[i] = 0;
+				} else if (p.equals(Response.class)) {
+					MethodHandle getResp = lookup.findVirtual(WebContext.class, "response", MethodType.methodType(Response.class));
+					adaptedHandle = MethodHandles.filterArguments(adaptedHandle, i, getResp);
+					reorder[i] = 0;
+				} else {
+					throw new UnsupportedOperationException("Unsupported: " + p.getName());
+				}
+			}
+			
+			adaptedHandle = MethodHandles.permuteArguments(adaptedHandle, MethodType.methodType(Object.class, WebContext.class), reorder);
+
 			CallSite site = LambdaMetafactory.metafactory(
-					lookup,
-					"handle",
-					MethodType.methodType(RouteHandler.class),
-					MethodType.methodType(Object.class, Object.class, Request.class, Response.class),
-					adaptedHandle,
-					adaptedHandle.type()
+					lookup, "handle", MethodType.methodType(Handler.class),
+					MethodType.methodType(Object.class, WebContext.class),
+					adaptedHandle, MethodType.methodType(Object.class, WebContext.class)
 			);
 
-			return (RouteHandler) site.getTarget().invoke();
+			return (Handler) site.getTarget().invoke();
 		} catch (Throwable t) {
-			// Fallback
-			return (instance, request, response) -> {
-				Object[] args = Arrays.stream(method.getParameterTypes())
-						.map(p -> p.equals(Request.class) ? request : (p.equals(Response.class) ? response : null))
-						.toArray();
-				return method.invoke(instance, args);
+			// Reflection fallback
+			return ctx -> {
+				Object[] args = new Object[method.getParameterCount()];
+				Class<?>[] paramTypes = method.getParameterTypes();
+				for (int i = 0; i < paramTypes.length; i++) {
+					if (paramTypes[i].equals(WebContext.class)) args[i] = ctx;
+					else if (paramTypes[i].equals(Request.class)) args[i] = ctx.request();
+					else if (paramTypes[i].equals(Response.class)) args[i] = ctx.response();
+				}
+				try {
+					Object res = method.invoke(instance, args);
+					return method.getReturnType().equals(void.class) ? "" : res;
+				} catch (Exception e) {
+					throw (e instanceof RuntimeException re) ? re : new RuntimeException(e);
+				}
 			};
 		}
 	}

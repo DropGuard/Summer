@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.List;
+import summer.validation.BodyValidator;
 import summer.web.Router;
 import summer.web.middleware.Middleware;
 
@@ -19,21 +20,31 @@ public class HttpServer {
 	private final int port;
 	private final Router router;
 	private final List<Middleware> middlewares;
+	private final BodyValidator validator;
 	private ServerSocket serverSocket;
 	private volatile boolean running = false;
 
 	public HttpServer(int port, Router router, List<Middleware> middlewares) {
+		this(port, router, middlewares, null);
+	}
+
+	public HttpServer(int port, Router router, List<Middleware> middlewares, BodyValidator validator) {
 		this.port = port;
 		this.router = router;
 		this.middlewares = middlewares;
+		this.validator = validator;
 	}
 
 	public static HttpServer create(int port, Router router) {
-		return new HttpServer(port, router, List.of());
+		return new HttpServer(port, router, List.of(), null);
 	}
 
 	public static HttpServer create(int port, Router router, List<Middleware> middlewares) {
-		return new HttpServer(port, router, middlewares);
+		return new HttpServer(port, router, middlewares, null);
+	}
+
+	public static HttpServer create(int port, Router router, List<Middleware> middlewares, BodyValidator validator) {
+		return new HttpServer(port, router, middlewares, validator);
 	}
 
 	public void start() throws IOException {
@@ -58,7 +69,7 @@ public class HttpServer {
 	}
 
 	private void handleClient(Socket clientSocket) {
-		Thread.startVirtualThread(new HttpConnectionHandler(clientSocket, router, middlewares));
+		Thread.startVirtualThread(new HttpConnectionHandler(clientSocket, router, middlewares, validator));
 	}
 
 	public void stop() {

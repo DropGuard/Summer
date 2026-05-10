@@ -3,8 +3,10 @@ package summer.web;
 import java.util.List;
 import summer.core.ApplicationContext;
 import summer.core.config.YamlConfigLoader;
+import summer.validation.BodyValidator;
 import summer.web.middleware.Middleware;
 import summer.web.server.HttpServer;
+import summer.web.server.HttpConnectionHandler;
 
 /**
  * Default entry point wrapper for initializing the Summer Framework. Abstracts
@@ -25,8 +27,14 @@ public class SummerApplication {
 			AnnotationRouterAdapter routerAdapter = context.getBean(AnnotationRouterAdapter.class);
 			routerAdapter.registerControllers();
 
-			// 3. Autowire Middlewares
+			// 3. Autowire Middlewares and Validator
 			List<Middleware> middlewares = context.getBeansOfType(Middleware.class);
+			BodyValidator validator = null;
+			try {
+				validator = context.getBean(BodyValidator.class);
+			} catch (Exception e) {
+				// Validator is optional
+			}
 
 			// 4. Load server configuration from application.yml
 			ServerConfig config = YamlConfigLoader.loadOrDefault("application.yml", ServerConfig.class,
@@ -34,7 +42,7 @@ public class SummerApplication {
 			int port = config.port();
 
 			// 5. Start HTTP server
-			HttpServer server = HttpServer.create(port, router, middlewares);
+			HttpServer server = HttpServer.create(port, router, middlewares, validator);
 			server.start();
 
 			System.out.println("Summer application started on http://localhost:" + port);

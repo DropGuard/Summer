@@ -5,9 +5,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.util.List;
+import summer.validation.BodyValidator;
 import summer.web.Handler;
 import summer.web.Request;
 import summer.web.Response;
+import summer.web.WebContext;
 import summer.web.Router;
 import summer.web.middleware.Middleware;
 
@@ -19,22 +21,31 @@ public class HttpConnectionHandler implements Runnable {
 	private final Socket clientSocket;
 	private final Router router;
 	private final List<Middleware> middlewares;
+	private final BodyValidator validator;
 
 	public HttpConnectionHandler(Socket clientSocket, Router router, List<Middleware> middlewares) {
+		this(clientSocket, router, middlewares, null);
+	}
+
+	public HttpConnectionHandler(Socket clientSocket, Router router, List<Middleware> middlewares, BodyValidator validator) {
 		this.clientSocket = clientSocket;
 		this.router = router;
 		this.middlewares = middlewares;
+		this.validator = validator;
 	}
 
 	@Override
 	public void run() {
 		try (InputStream input = clientSocket.getInputStream(); OutputStream output = clientSocket.getOutputStream()) {
 			Request request = HttpRequestParser.parse(input);
+			if (request == null) return;
+
 			Response response = new Response(output);
+			WebContext ctx = new WebContext(request, response, validator);
 
 			// Apply middleware chain
-			Handler handler = createHandlerChain(request, response);
-			handler.handle(request, response);
+			Handler handler = createHandlerChain(ctx);
+			handler.handle(ctx);
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
@@ -48,18 +59,18 @@ public class HttpConnectionHandler implements Runnable {
 		}
 	}
 
-	private Handler createHandlerChain(Request request, Response response) {
+	private Handler createHandlerChain(WebContext ctx) {
 		// Final handler that dispatches to router
-		Handler dispatchHandler = (req, res) -> {
+		Handler dispatchHandler = (c) -> {
 			try {
-				Object result = router.route(req, res);
+				Object result = router.route(c);
 				if (result != null) {
-					res.ok(result); // Will serialize to JSON via JsonConverter if not a simple string
+					c.ok(result); // Will serialize to JSON via JsonConverter if not a simple string
 				} else {
-					res.notFound();
+					c.notFound();
 				}
 			} catch (Exception e) {
-				res.error(e);
+				c.error(e);
 			}
 			return null;
 		};

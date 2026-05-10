@@ -15,6 +15,12 @@ public class TransactionInterceptor implements MethodInterceptor {
 		this.transactionManager = transactionManager;
 	}
 
+	@Override
+	public boolean supports(Class<?> targetClass) {
+		return java.util.Arrays.stream(targetClass.getMethods())
+				.anyMatch(method -> method.isAnnotationPresent(Transactional.class));
+	}
+
 	public static boolean isInterceptorActive() {
 		return interceptorActive.get();
 	}

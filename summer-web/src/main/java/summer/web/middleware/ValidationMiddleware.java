@@ -19,13 +19,13 @@ public class ValidationMiddleware implements Middleware {
 
 	@Override
 	public Handler apply(Handler handler) {
-		return (request, response) -> {
+		return ctx -> {
 			// If body validator is available and request has a body, validate it
-			if (bodyValidator.isPresent() && request.getBody().length > 0) {
+			if (bodyValidator.isPresent() && ctx.request().getBody().length > 0) {
 				// Note: We can't validate here because we don't know the target type yet
 				// Validation happens in ParameterResolver when the target type is known
 			}
-			return handler.handle(request, response);
+			return handler.handle(ctx);
 		};
 	}
 }

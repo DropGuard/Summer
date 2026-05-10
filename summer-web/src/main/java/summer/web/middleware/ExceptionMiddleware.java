@@ -9,12 +9,12 @@ import summer.web.Handler;
 public class ExceptionMiddleware implements Middleware {
 	@Override
 	public Handler apply(Handler handler) {
-		return (request, response) -> {
+		return ctx -> {
 			try {
-				return handler.handle(request, response);
+				return handler.handle(ctx);
 			} catch (Exception e) {
-				response.error(e);
-				System.err.println("Request failed: " + request.getPath());
+				ctx.response().error(e);
+				System.err.println("Request failed: " + ctx.request().getPath());
 				e.printStackTrace();
 				return null;
 			}

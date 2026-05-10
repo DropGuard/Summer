@@ -5,5 +5,5 @@ package summer.web;
  */
 @FunctionalInterface
 public interface Handler {
-	Object handle(Request request, Response response);
+	Object handle(WebContext ctx);
 }

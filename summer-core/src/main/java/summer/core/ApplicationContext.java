@@ -91,7 +91,10 @@ public class ApplicationContext {
             // Apply AOP proxies if interceptors are present and target has interfaces
             if (instance.getClass().getInterfaces().length > 0) {
                 try {
-                    List<MethodInterceptor> interceptors = getBeansOfType(MethodInterceptor.class);
+                    List<MethodInterceptor> interceptors = getBeansOfType(MethodInterceptor.class).stream()
+                            .filter(interceptor -> interceptor.supports(clazz))
+                            .collect(Collectors.toList());
+                    
                     if (!interceptors.isEmpty()) {
                         instance = ProxyFactory.createProxy(instance, interceptors);
                     }

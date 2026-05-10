@@ -55,17 +55,17 @@ public class CorsMiddleware implements Middleware {
 
 	@Override
 	public Handler apply(Handler handler) {
-		return (request, response) -> {
+		return ctx -> {
 			// 处理预检请求
-			if ("OPTIONS".equals(request.getMethod())) {
-				setCorsHeaders(response);
-				response.ok("OK");
+			if ("OPTIONS".equals(ctx.request().getMethod())) {
+				setCorsHeaders(ctx.response());
+				ctx.response().ok("OK");
 				return null;
 			}
 
 			// 处理实际请求
-			Object result = handler.handle(request, response);
-			setCorsHeaders(response);
+			Object result = handler.handle(ctx);
+			setCorsHeaders(ctx.response());
 			return result;
 		};
 	}
