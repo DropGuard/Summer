@@ -76,7 +76,7 @@ Summer intentionally enforces strict architectural constraints. If something req
 1. **Clarity over convenience.** (No hidden initialization phases).
 2. **Constructor injection only.** Fail-fast on ambiguity. No circular dependency resolution.
 3. **Interface-first AOP (JDK dynamic proxy).** No subclass-based proxying (CGLIB).
-4. **Stateless by default.** All components (`@Component`) are instantiated as singletons. Request state flows explicitly as method arguments, not via hidden ThreadLocals or request-scoped beans.
+4. **Stateless by default, Context by necessity.** All components (`@Component`) are instantiated as singletons. Request state flows explicitly as method arguments (`WebContext`). However, for cross-cutting infrastructural state like Database Transactions, Summer leverages safe `ThreadLocals` backed by ephemeral Virtual Threads to prevent method signature pollution.
 5. **Composition over Inheritance.** Small interfaces are preferred over abstract base classes. Summer avoids deep inheritance hierarchies.
 6. **Minimal feature surface.** Summer core is intentionally minimal and does not bundle validation or security. Validation is provided via optional modules.
 7. **JDK 25 baseline.**
