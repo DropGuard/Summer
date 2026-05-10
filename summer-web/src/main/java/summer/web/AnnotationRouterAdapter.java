@@ -62,7 +62,7 @@ public class AnnotationRouterAdapter {
 
 		router.register(httpMethod, path, (request, response) -> {
 			try {
-				return fastHandler.handle(instance, request);
+				return fastHandler.handle(instance, request, response);
 			} catch (Throwable e) {
 				if (e instanceof java.lang.reflect.InvocationTargetException ite) {
 					Throwable cause = ite.getTargetException();
@@ -74,40 +74,68 @@ public class AnnotationRouterAdapter {
 			}
 		});
 
-		System.out.println("Route registered (Zero-Reflection): " + httpMethod + " " + path);
+		System.out.println("Route registered (Spring-style Flexible Params): " + httpMethod + " " + path);
 	}
 
 	private RouteHandler createFastHandler(Class<?> clazz, Method method) {
 		try {
-			MethodHandles.Lookup lookup = MethodHandles.publicLookup();
+			MethodHandles.Lookup lookup = MethodHandles.lookup();
 			MethodHandle methodHandle = lookup.unreflect(method);
 
-			// Logic to adapt method signature:
-			// The functional interface is: Object handle(Object instance, Request req)
-			// Target method is: ReturnType method([Request])
+			// The Target Functional Interface is: handle(Object instance, Request req, Response resp)
+			// The user method could be: method([Request], [Response])
 			
-			MethodType samMethodType = MethodType.methodType(Object.class, Object.class, Request.class);
+			Class<?>[] paramTypes = method.getParameterTypes();
 			
-			// If method has no Request parameter, we need to drop the second argument of the SAM
+			// Start with the basic Handle: (Instance, P1, P2...)
+			// We need to adapt it to: (Instance, Request, Response)
+			
 			MethodHandle adaptedHandle = methodHandle;
-			if (method.getParameterCount() == 0) {
-				adaptedHandle = MethodHandles.dropArguments(methodHandle, 1, Request.class);
+			
+			// Strategy:
+			// 1. If method wants (Request, Response) -> Already perfect (if in that order)
+			// 2. If method wants (Request) -> Drop 'Response' argument
+			// 3. If method wants (Response) -> Drop 'Request' argument
+			// 4. If method wants () -> Drop both
+			
+			// For simplicity and alignment with Spring, we'll support specific combinations:
+			if (paramTypes.length == 0) {
+				// Handler has no params, drop both Request and Response
+				adaptedHandle = MethodHandles.dropArguments(methodHandle, 1, Request.class, Response.class);
+			} else if (paramTypes.length == 1) {
+				if (paramTypes[0].equals(Request.class)) {
+					// Drop Response
+					adaptedHandle = MethodHandles.dropArguments(methodHandle, 2, Response.class);
+				} else if (paramTypes[0].equals(Response.class)) {
+					// Drop Request
+					adaptedHandle = MethodHandles.dropArguments(methodHandle, 1, Request.class);
+				}
+			} else if (paramTypes.length == 2) {
+				// Handle (Request, Response) or (Response, Request)
+				if (paramTypes[0].equals(Response.class) && paramTypes[1].equals(Request.class)) {
+					// Swap them
+					adaptedHandle = MethodHandles.permuteArguments(methodHandle, 
+							MethodType.methodType(Object.class, clazz, Request.class, Response.class), 
+							0, 2, 1);
+				}
 			}
 
 			CallSite site = LambdaMetafactory.metafactory(
-					MethodHandles.lookup(), // Using caller lookup for access
+					lookup,
 					"handle",
 					MethodType.methodType(RouteHandler.class),
-					samMethodType,
+					MethodType.methodType(Object.class, Object.class, Request.class, Response.class),
 					adaptedHandle,
 					adaptedHandle.type()
 			);
 
 			return (RouteHandler) site.getTarget().invoke();
 		} catch (Throwable t) {
-			// Fallback to a regular lambda if magic fails
-			return (instance, request) -> {
-				Object[] args = method.getParameterCount() == 1 ? new Object[] { request } : new Object[0];
+			// Fallback
+			return (instance, request, response) -> {
+				Object[] args = Arrays.stream(method.getParameterTypes())
+						.map(p -> p.equals(Request.class) ? request : (p.equals(Response.class) ? response : null))
+						.toArray();
 				return method.invoke(instance, args);
 			};
 		}
