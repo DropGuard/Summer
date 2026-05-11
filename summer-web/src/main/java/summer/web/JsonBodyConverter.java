@@ -1,7 +1,6 @@
 package summer.web;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -11,13 +10,13 @@ import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.ZonedDateTimeSerializer;
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
+import summer.core.Component;
 
 /**
- * Handles JSON serialization and deserialization. Centralizes Jackson
- * configuration to decouple HTTP Models (Request/Response) from the underlying
- * JSON engine.
+ * Standard JSON implementation of BodyConverter using Jackson.
  */
-public class JsonConverter {
+@Component
+public class JsonBodyConverter implements BodyConverter {
 	private static final ObjectMapper objectMapper;
 
 	static {
@@ -38,11 +37,23 @@ public class JsonConverter {
 		objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
 	}
 
-	public static String toJson(Object content) throws JsonProcessingException {
-		return objectMapper.writeValueAsString(content);
+	@Override
+	public boolean supports(String contentType) {
+		return contentType != null && contentType.toLowerCase().contains("application/json");
 	}
 
-	public static <T> T fromJson(byte[] body, Class<T> type) throws IOException {
+	@Override
+	public <T> T read(byte[] body, Class<T> type) throws IOException {
 		return objectMapper.readValue(body, type);
+	}
+
+	@Override
+	public byte[] write(Object content) throws IOException {
+		return objectMapper.writeValueAsBytes(content);
+	}
+
+	@Override
+	public String getContentType() {
+		return "application/json";
 	}
 }

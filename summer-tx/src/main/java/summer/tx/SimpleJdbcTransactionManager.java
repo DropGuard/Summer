@@ -1,24 +1,19 @@
 package summer.tx;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
+import javax.sql.DataSource;
 import summer.core.Component;
 
 /**
- * Simple JDBC transaction manager that manages transactions using JDBC
- * connections.
+ * Simple JDBC transaction manager that manages transactions using a DataSource.
  */
 @Component
 public class SimpleJdbcTransactionManager implements TransactionManager {
-	private final String url;
-	private final String username;
-	private final String password;
+	private final DataSource dataSource;
 
-	public SimpleJdbcTransactionManager(String url, String username, String password) {
-		this.url = url;
-		this.username = username;
-		this.password = password;
+	public SimpleJdbcTransactionManager(DataSource dataSource) {
+		this.dataSource = dataSource;
 	}
 
 	@Override
@@ -29,7 +24,7 @@ public class SimpleJdbcTransactionManager implements TransactionManager {
 		}
 
 		try {
-			Connection connection = DriverManager.getConnection(url, username, password);
+			Connection connection = dataSource.getConnection();
 			connection.setAutoCommit(false);
 			return new ThreadLocalTransactionContext(connection, true);
 		} catch (SQLException e) {

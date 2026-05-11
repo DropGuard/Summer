@@ -10,6 +10,7 @@ import java.util.Objects;
 public class Request {
 	private final String method;
 	private final String path;
+	private final byte[] rawPathBytes;
 	private final String query;
 	private final byte[] body;
 	private final String contentType;
@@ -17,12 +18,13 @@ public class Request {
 	private final Map<String, Object> attributes = new HashMap<>();
 
 	public Request(String method, String path, String query, String contentType, byte[] body) {
-		this(method, path, query, contentType, body, new HashMap<>());
+		this(method, path, query, contentType, body, new HashMap<>(), path.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 	}
 
-	public Request(String method, String path, String query, String contentType, byte[] body, Map<String, String> headers) {
+	public Request(String method, String path, String query, String contentType, byte[] body, Map<String, String> headers, byte[] rawPathBytes) {
 		this.method = method;
 		this.path = path;
+		this.rawPathBytes = rawPathBytes;
 		this.query = query;
 		this.body = body != null ? body : new byte[0];
 		this.contentType = contentType;
@@ -35,6 +37,10 @@ public class Request {
 
 	public String getPath() {
 		return path;
+	}
+
+	public byte[] getRawPathBytes() {
+		return rawPathBytes;
 	}
 
 	public String getQuery() {
@@ -156,19 +162,5 @@ public class Request {
 	 */
 	public String queryParam(String name) {
 		return getQueryParameter(name);
-	}
-
-	/**
-	 * Parses the JSON request body into the specified class type and validates it.
-	 */
-	public <T> T body(Class<T> type) {
-		if (body == null || body.length == 0) {
-			return null;
-		}
-		try {
-			return JsonConverter.fromJson(body, type);
-		} catch (java.io.IOException e) {
-			throw new RuntimeException("Failed to parse JSON body: " + e.getMessage(), e);
-		}
 	}
 }

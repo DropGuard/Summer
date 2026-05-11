@@ -79,7 +79,8 @@ Summer intentionally enforces strict architectural constraints. If something req
 4. **Stateless by default, Context by necessity.** All components (`@Component`) are instantiated as singletons. Request state flows explicitly as method arguments (`WebContext`). However, for cross-cutting infrastructural state like Database Transactions, Summer leverages safe `ThreadLocals` backed by ephemeral Virtual Threads to prevent method signature pollution.
 5. **Composition over Inheritance.** Small interfaces are preferred over abstract base classes. Summer avoids deep inheritance hierarchies.
 6. **Minimal feature surface.** Summer core is intentionally minimal and does not bundle validation or security. Validation is provided via optional modules.
-7. **JDK 25 baseline.**
+7. **Code as Configuration / Code as Documentation.** Summer avoids externalizing every possible tweak into YAML or JSON. Moving all runtime logic into configuration files fragments the application's intent and makes it harder to trace. Instead, Summer encourages utilizing fluent builders and explicit code to configure server parameters (like timeouts). This keeps logic cohesive and ensures that the configuration is as readable and version-controlled as the rest of the application.
+8. **JDK 25 baseline.**
 
 * * *
 
@@ -96,6 +97,63 @@ Summer intentionally enforces strict architectural constraints. If something req
 *   Virtual thread-based HTTP request handling (Project Loom)
 *   Global exception middleware
 *   Optional validation system (`summer-validation-hv`)
+*   Prometheus-compatible metrics (`MetricsMiddleware`)
+
+* * *
+
+## 📊 Observability & Metrics
+
+Summer provides a lightweight observability suite through the `MetricsRegistry` and `MetricsMiddleware`. It tracks concurrent requests, total throughput, error counts, and system uptime.
+
+To enable observability, simply register the `MetricsMiddleware` in your application context. The metrics are exported in plain-text format compatible with **Prometheus**.
+
+**Example: Exposing Metrics via Controller**
+```java
+@RestController("/_system")
+public class SystemController {
+    private final MetricsRegistry registry;
+
+    public SystemController(MetricsRegistry registry) {
+        this.registry = registry;
+    }
+
+    @Get("/metrics")
+    public String metrics(WebContext ctx) {
+        ctx.response().setHeader("Content-Type", "text/plain; version=0.0.4");
+        return registry.scrape();
+    }
+}
+```
+
+Once exposed, you can point your Prometheus instance to `/metrics` to begin scraping.
+
+* * *
+
+## 📈 Performance Benchmarking
+
+Summer is designed for high-concurrency throughput using Java's virtual threads and a zero-allocation byte-level router. To see the framework's performance in action:
+
+1. **Start the Example App**:
+   ```bash
+   cd summer-example
+   mvn exec:java -Dexec.mainClass="summer.example.Application"
+   ```
+
+2. **Run a Load Test** (using `wrk`):
+   ```bash
+   # Simulate 100 concurrent users for 30 seconds using 4 OS threads
+   wrk -t4 -c100 -d30s http://localhost:8080/users/1
+   ```
+
+3. **Monitor Metrics**:
+   While the test is running, open `http://localhost:8080/_system/metrics` in your browser to see real-time stats:
+   - `summer_requests_active`: Current concurrent requests being handled by virtual threads.
+   - `summer_requests_total`: Throughput achieved.
+
+### Why Summer is Fast
+- **Virtual Threads**: Every request is a lightweight thread; no thread pool exhaustion.
+- **Zero-Allocation Router**: Routing is performed directly on raw bytes, bypassing `String.split()` and minimizing GC pauses.
+- **Minimalistic Core**: No deep interceptor chains or complex proxy logic for standard requests.
 
 * * *
 
@@ -131,6 +189,12 @@ Summer **does not** provide a built-in thread pool or `ExecutorService`. This is
 ExecutorService pool = Executors.newVirtualThreadPerTaskExecutor();
 pool.submit(() -> myBlockingIoTask());
 ```
+
+> **⚠️ THREAD SAFETY WARNING**
+>
+> `WebContext` and `Request` are **not thread-safe**. Since Summer dispatches each request on an isolated virtual thread, internal state is safely confined to the call stack. 
+> 
+> If you initiate a background task (e.g., using an ExecutorService), you **must not** pass the `WebContext` or `Request` object directly to the other thread. Instead, extract the required data (strings, parsed objects, etc.) and pass only those. This mirrors the design of frameworks like Gin.
 
 * * *
 

@@ -37,50 +37,46 @@ public class ProxyFactory {
 				return method.invoke(target, args);
 			}
 
-			InvocationContext context = new DefaultInvocationContext(target, method, args);
+			return new IndexBasedInvocationContext(target, method, args, interceptors).proceed();
+		}
+	}
 
-			return createInterceptorChain(context).proceed();
+	private static class IndexBasedInvocationContext implements InvocationContext {
+		private final Object target;
+		private final Method method;
+		private final Object[] args;
+		private final List<MethodInterceptor> interceptors;
+		private int currentIndex = -1;
+
+		IndexBasedInvocationContext(Object target, Method method, Object[] args, List<MethodInterceptor> interceptors) {
+			this.target = target;
+			this.method = method;
+			this.args = args;
+			this.interceptors = interceptors;
 		}
 
-		private InvocationContext createInterceptorChain(InvocationContext context) {
-			InvocationContext current = context;
-
-			// Apply interceptors in reverse order to maintain chain
-			for (int i = interceptors.size() - 1; i >= 0; i--) {
-				MethodInterceptor interceptor = interceptors.get(i);
-				current = new InterceptorChain(interceptor, current);
-			}
-
-			return current;
+		@Override
+		public Object getTarget() {
+			return target;
 		}
 
-		private static class InterceptorChain implements InvocationContext {
-			private final MethodInterceptor interceptor;
-			private final InvocationContext next;
+		@Override
+		public Method getMethod() {
+			return method;
+		}
 
-			InterceptorChain(MethodInterceptor interceptor, InvocationContext next) {
-				this.interceptor = interceptor;
-				this.next = next;
-			}
+		@Override
+		public Object[] getArguments() {
+			return args;
+		}
 
-			@Override
-			public Object getTarget() {
-				return next.getTarget();
-			}
-
-			@Override
-			public Method getMethod() {
-				return next.getMethod();
-			}
-
-			@Override
-			public Object[] getArguments() {
-				return next.getArguments();
-			}
-
-			@Override
-			public Object proceed() throws Throwable {
-				return interceptor.intercept(next);
+		@Override
+		public Object proceed() throws Throwable {
+			currentIndex++;
+			if (currentIndex < interceptors.size()) {
+				return interceptors.get(currentIndex).intercept(this);
+			} else {
+				return method.invoke(target, args);
 			}
 		}
 	}

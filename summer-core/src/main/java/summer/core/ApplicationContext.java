@@ -89,19 +89,23 @@ public class ApplicationContext {
             Object instance = constructor.newInstance(dependencies);
             
             // Apply AOP proxies if interceptors are present and target has interfaces
-            if (instance.getClass().getInterfaces().length > 0) {
-                try {
-                    List<MethodInterceptor> interceptors = getBeansOfType(MethodInterceptor.class).stream()
-                            .filter(interceptor -> interceptor.supports(clazz))
-                            .collect(Collectors.toList());
-                    
-                    if (!interceptors.isEmpty()) {
-                        instance = ProxyFactory.createProxy(instance, interceptors);
-                    }
-                } catch (Exception e) {
-                    // If we can't get interceptors yet (e.g. during their own instantiation), 
-                    // or if it's a validation error, just proceed with the raw instance
+            if (instance.getClass().getInterfaces().length > 0 && !(instance instanceof MethodInterceptor) && !(instance instanceof Provider)) {
+                List<MethodInterceptor> interceptors = getBeansOfType(MethodInterceptor.class).stream()
+                        .filter(interceptor -> interceptor.supports(clazz))
+                        .collect(Collectors.toList());
+                
+                if (!interceptors.isEmpty()) {
+                    instance = ProxyFactory.createProxy(instance, interceptors);
                 }
+            }
+            
+            // Handle Provider pattern
+            if (instance instanceof Provider<?> provider) {
+                Object providedInstance = provider.provide();
+                Class<?> providedType = getProvidedType(clazz);
+                singletons.put(providedType, providedInstance);
+                singletons.put(clazz, instance);
+                return providedInstance;
             }
             
             singletons.put(clazz, instance);
@@ -116,6 +120,17 @@ public class ApplicationContext {
                 e
             );
         }
+    }
+
+    private Class<?> getProvidedType(Class<?> providerClass) {
+        for (java.lang.reflect.Type iface : providerClass.getGenericInterfaces()) {
+            if (iface instanceof java.lang.reflect.ParameterizedType pt) {
+                if (pt.getRawType() == Provider.class) {
+                    return (Class<?>) pt.getActualTypeArguments()[0];
+                }
+            }
+        }
+        throw new SummerException("Could not determine provided type for: " + providerClass.getName());
     }
 
     /**

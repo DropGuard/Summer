@@ -15,6 +15,13 @@
     <description>Core DI container and bean management module for Summer framework</description>
 
     <dependencies>
+        <!-- Summer AOP -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-aop</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- Jackson YAML for configuration loading -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

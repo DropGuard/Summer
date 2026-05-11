@@ -15,12 +15,6 @@
     <description>Interface-based AOP and method interception module for Summer framework</description>
 
     <dependencies>
-        <!-- Summer Core -->
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-core</artifactId>
-        </dependency>
-
         <!-- Testing -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

@@ -1,5 +1,6 @@
 package summer.web;
 
+import java.util.List;
 import summer.validation.BodyValidator;
 import summer.validation.ValidationResult;
 
@@ -10,15 +11,17 @@ public class WebContext {
     private final Request request;
     private final Response response;
     private final BodyValidator validator;
+    private final List<BodyConverter> converters;
 
     public WebContext(Request request, Response response) {
-        this(request, response, null);
+        this(request, response, null, List.of());
     }
 
-    public WebContext(Request request, Response response, BodyValidator validator) {
+    public WebContext(Request request, Response response, BodyValidator validator, List<BodyConverter> converters) {
         this.request = request;
         this.response = response;
         this.validator = validator;
+        this.converters = converters;
     }
 
     public Request request() {
@@ -30,17 +33,40 @@ public class WebContext {
     }
 
     /**
-     * Parses the body and performs validation if a validator is present.
+     * Parses the body using a matching converter and performs validation if a validator is present.
      */
     public <T> T body(Class<T> type) {
-        T body = request.body(type);
-        if (body != null && validator != null && validator.supports(type)) {
-            ValidationResult result = validator.validate(body);
-            if (!result.isValid()) {
-                throw new RuntimeException("Validation failed: " + String.join(", ", result.getErrors()));
+        String contentType = request.getContentType();
+        BodyConverter converter = findConverter(contentType);
+        
+        try {
+            T body = converter.read(request.getBody(), type);
+            if (body != null && validator != null && validator.supports(type)) {
+                ValidationResult result = validator.validate(body);
+                if (!result.isValid()) {
+                    throw new RuntimeException("Validation failed: " + String.join(", ", result.getErrors()));
+                }
+            }
+            return body;
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Failed to parse body with " + converter.getClass().getSimpleName() + ": " + e.getMessage(), e);
+        }
+    }
+
+    public BodyConverter findConverter(String contentType) {
+        if (converters != null) {
+            for (BodyConverter converter : converters) {
+                if (converter.supports(contentType)) {
+                    return converter;
+                }
             }
         }
-        return body;
+        // Fallback to JSON if no match found (maintain default behavior)
+        return new JsonBodyConverter();
+    }
+
+    public List<BodyConverter> converters() {
+        return converters;
     }
 
     // Shortcut methods for convenience
@@ -53,7 +79,9 @@ public class WebContext {
     }
 
     public void ok(Object result) {
-        response.ok(result);
+        String acceptHeader = request.getHeader("Accept");
+        BodyConverter converter = findConverter(acceptHeader);
+        response.ok(result, converter);
     }
 
     public void notFound() {

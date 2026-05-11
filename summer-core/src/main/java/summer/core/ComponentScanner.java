@@ -51,6 +51,20 @@ public class ComponentScanner {
 			System.out.println("Found DefaultBodyValidator class: " + bodyValidatorClass.getName());
 			componentClasses.add(bodyValidatorClass);
 
+			Class<?> jsonConverterClass = Class.forName("summer.web.JsonBodyConverter");
+			componentClasses.add(jsonConverterClass);
+
+			// Metrics components
+			try {
+				Class<?> metricsRegistryClass = Class.forName("summer.web.metrics.MetricsRegistry");
+				componentClasses.add(metricsRegistryClass);
+				Class<?> metricsMiddlewareClass = Class.forName("summer.web.metrics.MetricsMiddleware");
+				componentClasses.add(metricsMiddlewareClass);
+				System.out.println("Found Metrics components");
+			} catch (ClassNotFoundException e) {
+				// Ignore if not present
+			}
+
 			System.out.println("Core components registered successfully");
 
 		} catch (ClassNotFoundException e) {

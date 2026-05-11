@@ -4,8 +4,10 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import summer.validation.BodyValidator;
 import summer.web.Router;
+import summer.web.ServerConfig;
 import summer.web.middleware.Middleware;
 
 /**
@@ -17,40 +19,41 @@ import summer.web.middleware.Middleware;
  * millions of concurrent connections without platform thread overhead.
  */
 public class HttpServer {
-	private final int port;
+	private final ServerConfig config;
 	private final Router router;
 	private final List<Middleware> middlewares;
 	private final BodyValidator validator;
+	private final List<BodyConverter> converters;
 	private ServerSocket serverSocket;
 	private volatile boolean running = false;
+	
+	/** Tracks active request processing for graceful shutdown. */
+	private final AtomicInteger activeConnections = new AtomicInteger(0);
 
-	public HttpServer(int port, Router router, List<Middleware> middlewares) {
-		this(port, router, middlewares, null);
+	public HttpServer(ServerConfig config, Router router, List<Middleware> middlewares) {
+		this(config, router, middlewares, null, List.of());
 	}
 
-	public HttpServer(int port, Router router, List<Middleware> middlewares, BodyValidator validator) {
-		this.port = port;
+	public HttpServer(ServerConfig config, Router router, List<Middleware> middlewares, BodyValidator validator, List<BodyConverter> converters) {
+		this.config = config;
 		this.router = router;
 		this.middlewares = middlewares;
 		this.validator = validator;
+		this.converters = converters;
 	}
 
-	public static HttpServer create(int port, Router router) {
-		return new HttpServer(port, router, List.of(), null);
+	public static HttpServer create(ServerConfig config, Router router, List<Middleware> middlewares, BodyValidator validator, List<BodyConverter> converters) {
+		return new HttpServer(config, router, middlewares, validator, converters);
 	}
 
-	public static HttpServer create(int port, Router router, List<Middleware> middlewares) {
-		return new HttpServer(port, router, middlewares, null);
-	}
-
-	public static HttpServer create(int port, Router router, List<Middleware> middlewares, BodyValidator validator) {
-		return new HttpServer(port, router, middlewares, validator);
+	public AtomicInteger getActiveConnections() {
+		return activeConnections;
 	}
 
 	public void start() throws IOException {
-		serverSocket = new ServerSocket(port);
+		serverSocket = new ServerSocket(config.port());
 		running = true;
-		System.out.println("Server started on port " + port);
+		System.out.println("Server started on port " + config.port());
 
 		Thread.startVirtualThread(this::acceptConnections);
 	}
@@ -69,7 +72,7 @@ public class HttpServer {
 	}
 
 	private void handleClient(Socket clientSocket) {
-		Thread.startVirtualThread(new HttpConnectionHandler(clientSocket, router, middlewares, validator));
+		Thread.startVirtualThread(new HttpConnectionHandler(clientSocket, config, router, middlewares, validator, converters, this));
 	}
 
 	public void stop() {
@@ -77,7 +80,25 @@ public class HttpServer {
 		try {
 			if (serverSocket != null) {
 				serverSocket.close();
-				System.out.println("Server stopped");
+				
+				// Graceful shutdown: wait for active requests to finish
+				System.out.println("Stopping server... waiting for " + activeConnections.get() + " active requests.");
+				long maxWait = 30000; // 30 seconds
+				long start = System.currentTimeMillis();
+				while (activeConnections.get() > 0 && (System.currentTimeMillis() - start) < maxWait) {
+					try {
+						Thread.sleep(100);
+					} catch (InterruptedException e) {
+						Thread.currentThread().interrupt();
+						break;
+					}
+				}
+				
+				if (activeConnections.get() > 0) {
+					System.out.println("Forcing shutdown: " + activeConnections.get() + " requests still active.");
+				} else {
+					System.out.println("Server stopped gracefully.");
+				}
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -85,6 +106,6 @@ public class HttpServer {
 	}
 
 	public int getPort() {
-		return port;
+		return config.port();
 	}
 }

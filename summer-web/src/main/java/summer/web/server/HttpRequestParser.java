@@ -9,67 +9,117 @@ import summer.web.Request;
  */
 public class HttpRequestParser {
 
-	public static Request parse(InputStream input) throws java.io.IOException {
-		java.io.BufferedReader reader = new java.io.BufferedReader(new java.io.InputStreamReader(input, java.nio.charset.StandardCharsets.UTF_8));
+	public static Request parse(InputStream input, int maxBodySize, int readTimeout) throws java.io.IOException {
+		long startTime = System.currentTimeMillis();
 		
-		// 1. Parse Request-Line
-		String line = reader.readLine();
-		if (line == null || line.isEmpty()) return null;
+		// 1. Read the Request-Line and Headers as bytes until we find the double CRLF
+		// Using a local buffer for low-level byte scanning
+		byte[] buffer = new byte[16384]; // 16KB limit
+		int bufferLen = 0;
+		int lastFour = 0;
+		int b;
+		while ((b = input.read()) != -1) {
+			buffer[bufferLen++] = (byte) b;
+			lastFour = (lastFour << 8) | (b & 0xFF);
+			if (lastFour == 0x0D0A0D0A) { // \r\n\r\n
+				break;
+			}
+			if (bufferLen >= buffer.length) {
+				throw new RuntimeException("Header size too large");
+			}
+			if (System.currentTimeMillis() - startTime > readTimeout) {
+				throw new java.net.SocketTimeoutException("Request header read timeout");
+			}
+		}
+
+		if (bufferLen == 0) return null;
+
+		// 2. Fast byte-level scanning of the Request-Line (first line)
+		// Format: METHOD PATH VERSION\r\n
+		int methodEnd = -1;
+		int pathStart = -1;
+		int pathEnd = -1;
+		int firstLineEnd = -1;
+
+		for (int i = 0; i < bufferLen; i++) {
+			if (buffer[i] == ' ' && methodEnd == -1) {
+				methodEnd = i;
+				pathStart = i + 1;
+			} else if (buffer[i] == ' ' && pathEnd == -1) {
+				pathEnd = i;
+			} else if (buffer[i] == '\r' && i + 1 < bufferLen && buffer[i+1] == '\n') {
+				firstLineEnd = i;
+				break;
+			}
+		}
+
+		if (methodEnd == -1 || pathStart == -1 || pathEnd == -1) return null;
+
+		String method = new String(buffer, 0, methodEnd, java.nio.charset.StandardCharsets.UTF_8);
 		
-		String[] parts = line.split(" ");
-		if (parts.length < 2) return null;
+		// Capture Path Bytes directly
+		int rawPathLen = pathEnd - pathStart;
+		byte[] rawPathBytes = new byte[rawPathLen];
+		System.arraycopy(buffer, pathStart, rawPathBytes, 0, rawPathLen);
 		
-		String method = parts[0];
-		String rawPath = parts[1];
-		
-		// 2. Separate path and query
+		String rawPath = new String(rawPathBytes, java.nio.charset.StandardCharsets.UTF_8);
 		String path = rawPath;
 		String query = "";
 		int queryIndex = rawPath.indexOf('?');
 		if (queryIndex != -1) {
 			path = rawPath.substring(0, queryIndex);
 			query = rawPath.substring(queryIndex + 1);
+			// Update rawPathBytes to exclude query for the router if needed, 
+			// but usually the router wants the full path. Let's keep it simple.
+			byte[] pathOnlyBytes = new byte[queryIndex];
+			System.arraycopy(rawPathBytes, 0, pathOnlyBytes, 0, queryIndex);
+			rawPathBytes = pathOnlyBytes;
 		}
-		
-		// 3. Parse Headers
+
+		// 3. Parse Headers from the remaining buffer
 		java.util.Map<String, String> headers = new java.util.HashMap<>();
 		int contentLength = 0;
 		String contentType = "application/json";
-		
-		while ((line = reader.readLine()) != null && !line.isEmpty()) {
+
+		String headerPart = new String(buffer, firstLineEnd + 2, bufferLen - (firstLineEnd + 2), java.nio.charset.StandardCharsets.UTF_8);
+		String[] lines = headerPart.split("\r\n");
+
+		for (String line : lines) {
+			if (line.isEmpty()) break;
 			int colonIndex = line.indexOf(':');
 			if (colonIndex != -1) {
 				String name = line.substring(0, colonIndex).trim();
 				String value = line.substring(colonIndex + 1).trim();
 				headers.put(name.toLowerCase(), value);
-				
+
 				if (name.equalsIgnoreCase("Content-Length")) {
 					contentLength = Integer.parseInt(value);
+					if (contentLength > maxBodySize) {
+						throw new RuntimeException("Payload Too Large: " + contentLength + " > " + maxBodySize);
+					}
 				} else if (name.equalsIgnoreCase("Content-Type")) {
 					contentType = value;
+				} else if (name.equalsIgnoreCase("Transfer-Encoding") && value.toLowerCase().contains("chunked")) {
+					throw new RuntimeException("Chunked Transfer-Encoding not supported. Use a reverse proxy.");
 				}
 			}
 		}
-		
+
 		// 4. Read Body
 		byte[] body = new byte[0];
 		if (contentLength > 0) {
 			body = new byte[contentLength];
 			int totalRead = 0;
-			// BufferedReader might have buffered part of the body, but for simple TCP it's usually okay
-			// In a robust implementation, we'd handle the remaining bytes in the reader.
-			// For simplicity here, we read from the stream or handle the reader's buffer.
-			// A better way is to read raw bytes from the start.
-			
-			// Simple fix: read from the reader character by character or use a raw stream parser.
-			// Since we used BufferedReader, we must use it to read the body.
-			char[] bodyChars = new char[contentLength];
-			int read = reader.read(bodyChars, 0, contentLength);
-			if (read != -1) {
-				body = new String(bodyChars, 0, read).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+			while (totalRead < contentLength) {
+				int read = input.read(body, totalRead, contentLength - totalRead);
+				if (read == -1) break;
+				totalRead += read;
+				if (System.currentTimeMillis() - startTime > readTimeout) {
+					throw new java.net.SocketTimeoutException("Request body read timeout");
+				}
 			}
 		}
 
-		return new Request(method, path, query, contentType, body, headers);
+		return new Request(method, path, query, contentType, body, headers, rawPathBytes);
 	}
 }

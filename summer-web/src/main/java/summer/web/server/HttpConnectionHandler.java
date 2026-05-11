@@ -9,6 +9,7 @@ import summer.validation.BodyValidator;
 import summer.web.Handler;
 import summer.web.Request;
 import summer.web.Response;
+import summer.web.ServerConfig;
 import summer.web.WebContext;
 import summer.web.Router;
 import summer.web.middleware.Middleware;
@@ -19,30 +20,45 @@ import summer.web.middleware.Middleware;
  */
 public class HttpConnectionHandler implements Runnable {
 	private final Socket clientSocket;
+	private final ServerConfig config;
 	private final Router router;
 	private final List<Middleware> middlewares;
 	private final BodyValidator validator;
+	private final List<BodyConverter> converters;
+	private final HttpServer server;
 
-	public HttpConnectionHandler(Socket clientSocket, Router router, List<Middleware> middlewares) {
-		this(clientSocket, router, middlewares, null);
+	public HttpConnectionHandler(Socket clientSocket, ServerConfig config, Router router, List<Middleware> middlewares) {
+		this(clientSocket, config, router, middlewares, null, List.of(), null);
 	}
 
-	public HttpConnectionHandler(Socket clientSocket, Router router, List<Middleware> middlewares, BodyValidator validator) {
+	public HttpConnectionHandler(Socket clientSocket, ServerConfig config, Router router, List<Middleware> middlewares, BodyValidator validator, List<BodyConverter> converters, HttpServer server) {
 		this.clientSocket = clientSocket;
+		this.config = config;
 		this.router = router;
 		this.middlewares = middlewares;
 		this.validator = validator;
+		this.converters = converters;
+		this.server = server;
 	}
 
 	@Override
 	public void run() {
+		if (server != null) server.getActiveConnections().incrementAndGet();
 		try (InputStream input = clientSocket.getInputStream(); OutputStream output = clientSocket.getOutputStream()) {
+			clientSocket.setSoTimeout(config.connectionTimeout()); 
 			while (!clientSocket.isClosed()) {
-				Request request = HttpRequestParser.parse(input);
+				Request request;
+				try {
+					request = HttpRequestParser.parse(input, config.maxBodySize(), config.readTimeout());
+				} catch (java.net.SocketTimeoutException e) {
+					// Idle Keep-Alive connection timed out, exit gracefully
+					break;
+				}
+				
 				if (request == null) break;
 
 				Response response = new Response(output);
-				WebContext ctx = new WebContext(request, response, validator);
+				WebContext ctx = new WebContext(request, response, validator, converters);
 
 				// Determine if we should keep the connection alive
 				String connectionHeader = request.getHeader("Connection");
@@ -55,12 +71,18 @@ public class HttpConnectionHandler implements Runnable {
 				}
 
 				// Execute handler chain
-				Handler handler = createHandlerChain(ctx);
-				handler.handle(ctx);
+				try {
+					Handler handler = createHandlerChain(ctx);
+					handler.handle(ctx);
+				} catch (Exception e) {
+					if (!response.isCommitted()) {
+						response.error(e);
+					}
+				}
 				
-				// Ensure response is sent if not already committed
+				// Ensure response is sent if not already committed (default to 404)
 				if (!response.isCommitted()) {
-					response.ok(""); 
+					response.notFound(); 
 				}
 
 				if (!keepAlive) break;
@@ -68,12 +90,13 @@ public class HttpConnectionHandler implements Runnable {
 		} catch (Exception e) {
 			// Connection reset or other IO issues are common during socket handling
 		} finally {
+			if (server != null) server.getActiveConnections().decrementAndGet();
 			try {
 				if (!clientSocket.isClosed()) {
 					clientSocket.close();
 				}
 			} catch (IOException e) {
-				e.printStackTrace();
+				// Ignore
 			}
 		}
 	}

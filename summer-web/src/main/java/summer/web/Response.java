@@ -35,8 +35,13 @@ public class Response {
 		send(200, content.getBytes(StandardCharsets.UTF_8), "text/plain");
 	}
 
-	public void ok(Object content) {
-		sendJson(200, content);
+	public void ok(Object content, BodyConverter converter) {
+		try {
+			byte[] body = converter.write(content);
+			send(200, body, converter.getContentType());
+		} catch (java.io.IOException e) {
+			error("Serialization Error: " + e.getMessage());
+		}
 	}
 
 	public void created(String location) {
@@ -58,10 +63,6 @@ public class Response {
 
 	public void error(Exception e) {
 		error(e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
-	}
-
-	public void json(Object content) {
-		sendJson(200, content);
 	}
 
 	public void send(int statusCode, byte[] body, String contentType) {
@@ -97,15 +98,6 @@ public class Response {
 			committed = true;
 		} catch (Exception e) {
 			e.printStackTrace();
-		}
-	}
-
-	private void sendJson(int statusCode, Object content) {
-		try {
-			String json = JsonConverter.toJson(content);
-			send(statusCode, json.getBytes(StandardCharsets.UTF_8), "application/json");
-		} catch (Exception e) {
-			error("JSON Serialization Error: " + e.getMessage());
 		}
 	}
 
