@@ -360,20 +360,15 @@ public class SummerProcessor extends AbstractProcessor {
      * from known framework packages on the classpath.
      */
     private boolean tryDiscoverImplementation(TypeElement interfaceElement) {
-        // Known interface → implementation mappings in the Summer framework
-        String[][] knownImpls = {
-                {"summer.tx.TransactionManager", "summer.tx.SimpleJdbcTransactionManager"},
-                {"javax.sql.DataSource", "com.zaxxer.hikari.HikariDataSource"},
-                {"summer.web.websocket.WebSocketBroadcaster", "summer.web.server.NettyWebSocketBroadcaster"},
-        };
+        CompositeIndex index = loadJandexIndex();
+        DotName ifaceDot = DotName.createSimple(interfaceElement.getQualifiedName().toString());
 
-        String ifaceFqn = interfaceElement.getQualifiedName().toString();
-        for (String[] pair : knownImpls) {
-            if (pair[0].equals(ifaceFqn)) {
-                TypeElement implElement = processingEnv.getElementUtils().getTypeElement(pair[1]);
-                if (implElement != null) {
-                    return tryCollectFromClasspath(implElement);
-                }
+        for (ClassInfo ci : index.getAllKnownImplementors(ifaceDot)) {
+            if (ci.isAbstract() || ci.isInterface()) continue;
+
+            TypeElement implElement = processingEnv.getElementUtils().getTypeElement(ci.name().toString());
+            if (implElement != null && tryCollectFromClasspath(implElement)) {
+                return true;
             }
         }
         return false;
