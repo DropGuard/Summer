@@ -22,19 +22,57 @@
             <version>${project.version}</version>
         </dependency>
 
-        <!-- JavaPoet for source code generation -->
+        <!-- Summer AOP (for @Intercepts, MethodInterceptor, ProxyFactory references in generated code) -->
         <dependency>
-            <groupId>com.squareup</groupId>
+            <groupId>summer</groupId>
+            <artifactId>summer-aop</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Jandex for reading pre-built class indexes at compile time -->
+        <dependency>
+            <groupId>io.smallrye</groupId>
+            <artifactId>jandex</artifactId>
+        </dependency>
+
+        <!-- JavaPoet for source code generation (Palantir fork - modern JDK support) -->
+        <dependency>
+            <groupId>com.palantir.javapoet</groupId>
             <artifactId>javapoet</artifactId>
-            <version>1.13.0</version>
         </dependency>
 
         <!-- AutoService for registering the processor -->
         <dependency>
             <groupId>com.google.auto.service</groupId>
             <artifactId>auto-service</artifactId>
-            <version>1.1.1</version>
             <optional>true</optional>
+        </dependency>
+
+        <!-- Test dependencies -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.testing.compile</groupId>
+            <artifactId>compile-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.truth</groupId>
+            <artifactId>truth</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Optional compile-time dependency on summer-web for AOT Web Router code generation -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-web</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 
@@ -48,7 +86,6 @@
                         <path>
                             <groupId>com.google.auto.service</groupId>
                             <artifactId>auto-service</artifactId>
-                            <version>1.1.1</version>
                         </path>
                     </annotationProcessorPaths>
                 </configuration>
