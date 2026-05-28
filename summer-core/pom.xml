@@ -15,13 +15,6 @@
     <description>Core DI container and bean management module for Summer framework</description>
 
     <dependencies>
-        <!-- Summer AOP -->
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-aop</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
         <!-- Jackson YAML for configuration loading -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -32,11 +25,19 @@
             <artifactId>jackson-dataformat-yaml</artifactId>
         </dependency>
 
-        <!-- ClassGraph for robust classpath scanning -->
+
+        <!-- Logging -->
         <dependency>
-            <groupId>io.github.classgraph</groupId>
-            <artifactId>classgraph</artifactId>
-            <version>4.8.179</version>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>jul-to-slf4j</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
         </dependency>
 
         <!-- Testing -->
@@ -51,4 +52,13 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>io.smallrye</groupId>
+                <artifactId>jandex-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>

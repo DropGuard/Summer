@@ -1,13 +1,15 @@
 package summer.aop;
 
-import java.lang.reflect.Method;
-
 /**
- * Context information about the intercepted method call.
+ * Represents an interception context.
  */
 public interface InvocationContext {
+
 	Object getTarget();
-	Method getMethod();
+
+	MethodMetadata getMethod();
+
 	Object[] getArguments();
+
 	Object proceed() throws Throwable;
 }

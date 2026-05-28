@@ -29,7 +29,8 @@ public class RequestParamTest {
 	@Test
 	public void testRequestParamParsing() {
 		// 创建测试请求，包含查询参数
-		Request request = new Request("GET", "/api/search", "q=test+query&page=1&limit=10&sort=asc", "text/plain", new byte[0]);
+		Request request = new Request("GET", "/api/search", "q=test+query&page=1&limit=10&sort=asc", "text/plain",
+				new byte[0]);
 
 		// 测试获取所有查询参数
 		var params = request.getQueryParameters();

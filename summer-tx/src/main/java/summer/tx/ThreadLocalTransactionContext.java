@@ -2,6 +2,7 @@ package summer.tx;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import summer.core.ErrorCode;
 
 /**
  * ThreadLocal based transaction context that manages connections per thread.
@@ -68,7 +69,7 @@ public class ThreadLocalTransactionContext implements TransactionStatus {
 					connection.close();
 				}
 			} catch (SQLException e) {
-				throw new SummerTransactionException("Failed to close connection", e);
+				throw new SummerTransactionException(ErrorCode.TRANSACTION_ERROR, "Failed to close connection", e);
 			}
 		}
 	}

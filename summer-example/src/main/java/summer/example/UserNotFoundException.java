@@ -1,6 +1,8 @@
 package summer.example;
 
-public class UserNotFoundException extends RuntimeException {
+import summer.core.SummerException;
+
+public class UserNotFoundException extends SummerException {
 	public UserNotFoundException(String message) {
 		super(message);
 	}

@@ -4,6 +4,7 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.List;
+import summer.core.ErrorCode;
 
 /**
  * Proxy factory that creates JDK dynamic proxies for interface-based AOP.
@@ -14,7 +15,7 @@ public class ProxyFactory {
 		// Check if target implements any interfaces
 		Class<?>[] interfaces = target.getClass().getInterfaces();
 		if (interfaces.length == 0) {
-			throw new SummerAopException("Target object must implement at least one interface");
+			throw new SummerAopException(ErrorCode.AOP_ERROR, "Target object must implement at least one interface");
 		}
 
 		return (T) Proxy.newProxyInstance(target.getClass().getClassLoader(), interfaces,
@@ -32,84 +33,50 @@ public class ProxyFactory {
 
 		@Override
 		public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-			// Handle Object methods specially
+			// Handle Object methods specially (equals, hashCode, toString)
 			if (method.getDeclaringClass() == Object.class) {
 				return method.invoke(target, args);
 			}
 
-			return new IndexBasedInvocationContext(target, method, args, interceptors).proceed();
-		}
-	}
+			// Find the corresponding method on the implementation class (target)
+			Method targetMethod;
+			try {
+				targetMethod = target.getClass().getMethod(method.getName(), method.getParameterTypes());
+			} catch (NoSuchMethodException e) {
+				targetMethod = method;
+			}
 
-	private static class IndexBasedInvocationContext implements InvocationContext {
-		private final Object target;
-		private final Method method;
-		private final Object[] args;
-		private final List<MethodInterceptor> interceptors;
-		private int currentIndex = -1;
-
-		IndexBasedInvocationContext(Object target, Method method, Object[] args, List<MethodInterceptor> interceptors) {
-			this.target = target;
-			this.method = method;
-			this.args = args;
-			this.interceptors = interceptors;
-		}
-
-		@Override
-		public Object getTarget() {
-			return target;
-		}
-
-		@Override
-		public Method getMethod() {
-			return method;
-		}
-
-		@Override
-		public Object[] getArguments() {
-			return args;
-		}
-
-		@Override
-		public Object proceed() throws Throwable {
-			currentIndex++;
-			if (currentIndex < interceptors.size()) {
-				return interceptors.get(currentIndex).intercept(this);
-			} else {
+			if (!shouldIntercept(targetMethod, interceptors)) {
 				return method.invoke(target, args);
 			}
-		}
-	}
 
-	private static class DefaultInvocationContext implements InvocationContext {
-		private final Object target;
-		private final Method method;
-		private final Object[] args;
-
-		DefaultInvocationContext(Object target, Method method, Object[] args) {
-			this.target = target;
-			this.method = method;
-			this.args = args;
+			return new AotInvocationContext(target, new RuntimeMethodMetadata(targetMethod),
+					new RuntimeMethodMetadata(method), args, interceptors, () -> {
+						try {
+							return method.invoke(target, args);
+						} catch (java.lang.reflect.InvocationTargetException e) {
+							throw e.getCause();
+						}
+					}).proceed();
 		}
 
-		@Override
-		public Object getTarget() {
-			return target;
-		}
-
-		@Override
-		public Method getMethod() {
-			return method;
-		}
-
-		@Override
-		public Object[] getArguments() {
-			return args;
-		}
-
-		@Override
-		public Object proceed() throws Throwable {
-			return method.invoke(target, args);
+		private boolean shouldIntercept(Method targetMethod, List<MethodInterceptor> interceptors) {
+			// 1. Explicitly annotated with @Intercepted
+			if (targetMethod.isAnnotationPresent(Intercepted.class)) {
+				return true;
+			}
+			// 2. Annotated with any trigger annotation declared by the active interceptors
+			for (MethodInterceptor interceptor : interceptors) {
+				Intercepts intercepts = interceptor.getClass().getAnnotation(Intercepts.class);
+				if (intercepts != null) {
+					for (Class<? extends java.lang.annotation.Annotation> ann : intercepts.annotations()) {
+						if (targetMethod.isAnnotationPresent(ann)) {
+							return true;
+						}
+					}
+				}
+			}
+			return false;
 		}
 	}
 }

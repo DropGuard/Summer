@@ -25,13 +25,13 @@ public class ResponseSerializationTest {
 		testData.put("zonedDateTime", ZonedDateTime.now());
 
 		// 创建响应对象
-		Response response = new Response(System.out);
+		Response response = new Response();
 
 		// 尝试序列化
 		try {
 			// 这里我们实际上不会发送响应到输出流，
 			// 但可以通过捕获输出或使用 mock 对象来测试
-			response.json(testData);
+			new JsonBodyConverter().write(testData);
 
 			// 如果没有抛出异常，我们就认为成功
 			assertTrue(true);
@@ -54,10 +54,10 @@ public class ResponseSerializationTest {
 		item2.put("value", 20);
 		listData.add(item2);
 
-		Response response = new Response(System.out);
+		Response response = new Response();
 
 		try {
-			response.json(listData);
+			new JsonBodyConverter().write(listData);
 			assertTrue(true);
 		} catch (Exception e) {
 			fail("集合类型序列化失败: " + e.getMessage());
@@ -71,10 +71,10 @@ public class ResponseSerializationTest {
 		testData.put("nullValue", null);
 		testData.put("validValue", "Some Value");
 
-		Response response = new Response(System.out);
+		Response response = new Response();
 
 		try {
-			response.json(testData);
+			new JsonBodyConverter().write(testData);
 			assertTrue(true);
 		} catch (Exception e) {
 			fail("包含 null 值的对象序列化失败: " + e.getMessage());

@@ -1,0 +1,16 @@
+package summer.core.exception;
+
+import summer.core.ErrorCode;
+
+/**
+ * Thrown when data serialization or deserialization fails.
+ */
+public class DataSerializationException extends SummerDataException {
+	public DataSerializationException(String message) {
+		super(ErrorCode.DATA_SERIALIZATION_ERROR, message);
+	}
+
+	public DataSerializationException(String message, Throwable cause) {
+		super(ErrorCode.DATA_SERIALIZATION_ERROR, message, cause);
+	}
+}

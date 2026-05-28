@@ -5,8 +5,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import summer.core.Component;
 
 /**
- * A central registry for application-level metrics.
- * Provides a simple Prometheus-compatible scrape output.
+ * A central registry for application-level metrics. Provides a simple
+ * Prometheus-compatible scrape output.
  */
 @Component
 public class MetricsRegistry {
@@ -33,23 +33,23 @@ public class MetricsRegistry {
 	 */
 	public String scrape() {
 		StringBuilder sb = new StringBuilder();
-		
+
 		sb.append("# HELP summer_requests_active Current number of active requests\n");
 		sb.append("# TYPE summer_requests_active gauge\n");
 		sb.append("summer_requests_active ").append(activeRequests.get()).append("\n\n");
-		
+
 		sb.append("# HELP summer_requests_total Total number of requests processed\n");
 		sb.append("# TYPE summer_requests_total counter\n");
 		sb.append("summer_requests_total ").append(totalRequests.get()).append("\n\n");
-		
+
 		sb.append("# HELP summer_errors_total Total number of failed requests\n");
 		sb.append("# TYPE summer_errors_total counter\n");
 		sb.append("summer_errors_total ").append(totalErrors.get()).append("\n\n");
-		
+
 		sb.append("# HELP summer_uptime_seconds Uptime of the application in seconds\n");
 		sb.append("# TYPE summer_uptime_seconds gauge\n");
 		sb.append("summer_uptime_seconds ").append((System.currentTimeMillis() - startTime) / 1000.0).append("\n");
-		
+
 		return sb.toString();
 	}
 }

@@ -53,6 +53,11 @@ public class JsonBodyConverter implements BodyConverter {
 	}
 
 	@Override
+	public void writeToStream(Object content, java.io.OutputStream out) throws IOException {
+		objectMapper.writeValue(out, content);
+	}
+
+	@Override
 	public String getContentType() {
 		return "application/json";
 	}

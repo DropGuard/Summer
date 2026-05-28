@@ -10,6 +10,8 @@ import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import summer.core.ApplicationContext;
 import summer.core.Component;
 import summer.web.annotation.Delete;
@@ -29,22 +31,18 @@ import summer.web.resolver.ResponseResolver;
 import summer.web.resolver.WebContextResolver;
 
 /**
- * Router adapter that discovers and registers routes and exception handlers 
+ * Router adapter that discovers and registers routes and exception handlers
  * from @RestController and @Component annotated classes.
  */
 @Component
-public class AnnotationRouterAdapter {
+public class AnnotationRouterAdapter implements RouteRegistrar {
+	private static final Logger log = LoggerFactory.getLogger(AnnotationRouterAdapter.class);
 	private final Router router;
 	private final ApplicationContext context;
 	private final ExceptionRegistry exceptionRegistry;
-	
-	private final List<ArgumentResolver> resolvers = List.of(
-		new WebContextResolver(),
-		new RequestResolver(),
-		new ResponseResolver(),
-		new PathParamResolver(),
-		new ExceptionResolver(),
-		new BodyResolver() // Fallback
+
+	private final List<ArgumentResolver> resolvers = List.of(new WebContextResolver(), new RequestResolver(),
+			new ResponseResolver(), new PathParamResolver(), new ExceptionResolver(), new BodyResolver() // Fallback
 	);
 
 	public AnnotationRouterAdapter(Router router, ApplicationContext context, ExceptionRegistry exceptionRegistry) {
@@ -62,46 +60,50 @@ public class AnnotationRouterAdapter {
 
 		// 1. Register routes for @RestController
 		if (clazz.isAnnotationPresent(RestController.class)) {
-			java.util.Arrays.stream(clazz.getMethods()).forEach(method -> registerRouteHandler(clazz, instance, method));
+			java.util.Arrays.stream(clazz.getMethods())
+					.forEach(method -> registerRouteHandler(clazz, instance, method));
 		}
 
 		// 2. Register global exception handlers
-		java.util.Arrays.stream(clazz.getMethods())
-				.filter(m -> m.isAnnotationPresent(ExceptionHandler.class))
+		java.util.Arrays.stream(clazz.getMethods()).filter(m -> m.isAnnotationPresent(ExceptionHandler.class))
 				.forEach(m -> registerExceptionHandler(instance, m));
 	}
 
 	private void registerRouteHandler(Class<?> clazz, Object instance, Method method) {
-		if (method.isAnnotationPresent(Get.class)) registerRoute(clazz, instance, method, "GET");
-		else if (method.isAnnotationPresent(Post.class)) registerRoute(clazz, instance, method, "POST");
-		else if (method.isAnnotationPresent(Put.class)) registerRoute(clazz, instance, method, "PUT");
-		else if (method.isAnnotationPresent(Delete.class)) registerRoute(clazz, instance, method, "DELETE");
+		if (method.isAnnotationPresent(Get.class))
+			registerRoute(clazz, instance, method, "GET");
+		else if (method.isAnnotationPresent(Post.class))
+			registerRoute(clazz, instance, method, "POST");
+		else if (method.isAnnotationPresent(Put.class))
+			registerRoute(clazz, instance, method, "PUT");
+		else if (method.isAnnotationPresent(Delete.class))
+			registerRoute(clazz, instance, method, "DELETE");
 	}
 
 	private void registerExceptionHandler(Object instance, Method method) {
 		ExceptionHandler ann = method.getAnnotation(ExceptionHandler.class);
 		Handler handler = createFastHandler(instance, method);
 		exceptionRegistry.register(ann.value(), handler);
-		System.out.println("Exception Handler registered: " + ann.value().getSimpleName());
+		log.info("Exception Handler registered: {}", ann.value().getSimpleName());
 	}
 
 	private void registerRoute(Class<?> clazz, Object instance, Method method, String httpMethod) {
 		String path = getRoutePath(clazz, method, httpMethod);
 		Handler handler = createFastHandler(instance, method);
-		
+
 		// Apply @Use middleware
 		List<Class<? extends Middleware>> middlewareClasses = new ArrayList<>();
-		
+
 		// Class-level @Use (Group Middleware)
 		if (clazz.isAnnotationPresent(Use.class)) {
 			Collections.addAll(middlewareClasses, clazz.getAnnotation(Use.class).value());
 		}
-		
+
 		// Method-level @Use
 		if (method.isAnnotationPresent(Use.class)) {
 			Collections.addAll(middlewareClasses, method.getAnnotation(Use.class).value());
 		}
-		
+
 		// Apply in reverse order so the first defined is the outermost
 		Collections.reverse(middlewareClasses);
 		for (Class<? extends Middleware> mc : middlewareClasses) {
@@ -110,7 +112,7 @@ public class AnnotationRouterAdapter {
 		}
 
 		router.register(httpMethod, path, handler);
-		System.out.println("Route registered (Fast Binding + Middleware): " + httpMethod + " " + path);
+		log.info("Route registered (Fast Binding + Middleware): {} {}", httpMethod, path);
 	}
 
 	private Handler createFastHandler(Object instance, Method method) {
@@ -122,7 +124,8 @@ public class AnnotationRouterAdapter {
 			// 1. Handle Return Value (void -> "")
 			if (method.getReturnType().equals(void.class)) {
 				MethodHandle constantEmpty = MethodHandles.constant(Object.class, "");
-				adaptedHandle = MethodHandles.filterReturnValue(methodHandle, MethodHandles.dropArguments(constantEmpty, 0, void.class));
+				adaptedHandle = MethodHandles.filterReturnValue(methodHandle,
+						MethodHandles.dropArguments(constantEmpty, 0, void.class));
 			} else {
 				adaptedHandle = adaptedHandle.asType(methodHandle.type().changeReturnType(Object.class));
 			}
@@ -135,7 +138,7 @@ public class AnnotationRouterAdapter {
 			for (int i = 0; i < parameters.length; i++) {
 				Parameter p = parameters[i];
 				reorder[i] = 0; // All filters consume the same WebContext (index 0)
-				
+
 				for (ArgumentResolver resolver : resolvers) {
 					if (resolver.supports(p)) {
 						filters[i] = resolver.resolve(p, lookup);
@@ -145,32 +148,46 @@ public class AnnotationRouterAdapter {
 			}
 
 			adaptedHandle = MethodHandles.filterArguments(adaptedHandle, 0, filters);
-			adaptedHandle = MethodHandles.permuteArguments(adaptedHandle, MethodType.methodType(Object.class, WebContext.class), reorder);
+			adaptedHandle = MethodHandles.permuteArguments(adaptedHandle,
+					MethodType.methodType(Object.class, WebContext.class), reorder);
 
-			CallSite site = LambdaMetafactory.metafactory(
-					lookup, "handle", MethodType.methodType(Handler.class),
-					MethodType.methodType(Object.class, WebContext.class),
-					adaptedHandle, MethodType.methodType(Object.class, WebContext.class)
-			);
+			CallSite site = LambdaMetafactory.metafactory(lookup, "handle", MethodType.methodType(Handler.class),
+					MethodType.methodType(Object.class, WebContext.class), adaptedHandle,
+					MethodType.methodType(Object.class, WebContext.class));
 
 			return (Handler) site.getTarget().invoke();
 		} catch (Throwable t) {
-			// Fallback (e.g. for ExceptionHandler where we need to pass the exception object)
+			// Fallback (e.g. for ExceptionHandler where we need to pass the exception
+			// object)
 			return ctx -> {
 				Object[] args = new Object[method.getParameterCount()];
 				Parameter[] params = method.getParameters();
 				for (int i = 0; i < params.length; i++) {
 					Class<?> type = params[i].getType();
-					if (type.equals(WebContext.class)) args[i] = ctx;
-					else if (type.equals(Request.class)) args[i] = ctx.request();
-					else if (type.equals(Response.class)) args[i] = ctx.response();
-					else if (params[i].isAnnotationPresent(PathParam.class)) args[i] = ctx.request().pathParam(params[i].getAnnotation(PathParam.class).value());
-					else if (Throwable.class.isAssignableFrom(type)) args[i] = ctx.request().getAttribute("last_exception");
-					else args[i] = ctx.body(type);
+					if (type.equals(WebContext.class))
+						args[i] = ctx;
+					else if (type.equals(Request.class))
+						args[i] = ctx.request();
+					else if (type.equals(Response.class))
+						args[i] = ctx.response();
+					else if (params[i].isAnnotationPresent(PathParam.class))
+						args[i] = ctx.request().pathParam(params[i].getAnnotation(PathParam.class).value());
+					else if (Throwable.class.isAssignableFrom(type))
+						args[i] = ctx.request().getAttribute("last_exception");
+					else {
+						if (params[i].isAnnotationPresent(summer.web.annotation.Valid.class)) {
+							args[i] = ctx.validatedBody(type);
+						} else {
+							args[i] = ctx.body(type);
+						}
+					}
 				}
 				try {
 					Object res = method.invoke(instance, args);
 					return method.getReturnType().equals(void.class) ? "" : res;
+				} catch (java.lang.reflect.InvocationTargetException e) {
+					Throwable target = e.getTargetException();
+					throw (target instanceof RuntimeException re) ? re : new RuntimeException(target);
 				} catch (Exception e) {
 					throw (e instanceof RuntimeException re) ? re : new RuntimeException(e);
 				}

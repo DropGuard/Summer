@@ -1,16 +1,16 @@
 package summer.web.middleware;
 
 import java.util.Optional;
-import summer.core.Component;
 import summer.validation.BodyValidator;
 import summer.web.Handler;
+import summer.web.annotation.GlobalMiddleware;
 
 /**
  * Optional middleware that automatically validates request bodies after
  * deserialization. This middleware is automatically registered if a
  * BodyValidator implementation is available.
  */
-@Component
+@GlobalMiddleware
 public class ValidationMiddleware implements Middleware {
 
 	private final Optional<BodyValidator> bodyValidator;

@@ -16,13 +16,11 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * @param port
  *            the HTTP port to listen on (default: 8080)
  */
-public record ServerConfig(
-		@JsonProperty("port") int port,
-		@JsonProperty("connectionTimeout") int connectionTimeout,
-		@JsonProperty("maxBodySize") int maxBodySize,
-		@JsonProperty("readTimeout") int readTimeout
-) {
+public record ServerConfig(@JsonProperty("port") int port, @JsonProperty("connectionTimeout") int connectionTimeout,
+		@JsonProperty("maxBodySize") int maxBodySize, @JsonProperty("readTimeout") int readTimeout) {
 
-	/** Sensible default configuration. (Default Max Body: 10MB, Read Timeout: 10s) */
+	/**
+	 * Sensible default configuration. (Default Max Body: 10MB, Read Timeout: 10s)
+	 */
 	public static final ServerConfig DEFAULT = new ServerConfig(8080, 30000, 10485760, 10000);
 }

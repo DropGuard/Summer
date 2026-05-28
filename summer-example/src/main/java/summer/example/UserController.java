@@ -1,7 +1,7 @@
 package summer.example;
 
+import jakarta.validation.Valid;
 import java.util.List;
-import summer.web.WebContext;
 import summer.web.annotation.Delete;
 import summer.web.annotation.Get;
 import summer.web.annotation.PathParam;
@@ -30,12 +30,14 @@ public class UserController {
 	}
 
 	@Post("")
-	public User createUser(User user) {
+	public User createUser(@Valid UserDto userDto) {
+		User user = new User(null, userDto.name(), userDto.email());
 		return userService.create(user);
 	}
 
 	@Put("/{id}")
-	public User updateUser(@PathParam("id") String id, User user) {
+	public User updateUser(@PathParam("id") String id, @Valid UserDto userDto) {
+		User user = new User(id, userDto.name(), userDto.email());
 		return userService.update(id, user);
 	}
 

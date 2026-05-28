@@ -1,28 +1,32 @@
 package summer.web.middleware;
 
-import summer.core.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import summer.web.Handler;
+import summer.web.annotation.GlobalMiddleware;
 
 /**
  * Logging middleware that logs request and response details.
  */
-@Component
+@GlobalMiddleware
 public class LoggingMiddleware implements Middleware {
+	private static final Logger log = LoggerFactory.getLogger(LoggingMiddleware.class);
+
 	@Override
 	public Handler apply(Handler handler) {
 		return ctx -> {
 			long startTime = System.currentTimeMillis();
 
-			System.out.println("Processing request: " + ctx.request().getMethod() + " " + ctx.request().getPath());
+			log.info("Processing request: {} {}", ctx.request().getMethod(), ctx.request().getPath());
 
 			try {
 				Object result = handler.handle(ctx);
 				long duration = System.currentTimeMillis() - startTime;
-				System.out.println("Completed response: " + ctx.response().getStatusCode() + " in " + duration + "ms");
+				log.info("Completed response: {} in {}ms", ctx.response().getStatusCode(), duration);
 				return result;
 			} catch (Exception e) {
 				long duration = System.currentTimeMillis() - startTime;
-				System.err.println("Failed to process request: " + e.getMessage() + " (" + duration + "ms)");
+				log.error("Failed to process request: {} ({}ms)", e.getMessage(), duration);
 				throw e;
 			}
 		};

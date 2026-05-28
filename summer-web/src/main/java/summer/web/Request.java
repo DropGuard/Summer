@@ -18,10 +18,12 @@ public class Request {
 	private final Map<String, Object> attributes = new HashMap<>();
 
 	public Request(String method, String path, String query, String contentType, byte[] body) {
-		this(method, path, query, contentType, body, new HashMap<>(), path.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+		this(method, path, query, contentType, body, new HashMap<>(),
+				path.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 	}
 
-	public Request(String method, String path, String query, String contentType, byte[] body, Map<String, String> headers, byte[] rawPathBytes) {
+	public Request(String method, String path, String query, String contentType, byte[] body,
+			Map<String, String> headers, byte[] rawPathBytes) {
 		this.method = method;
 		this.path = path;
 		this.rawPathBytes = rawPathBytes;

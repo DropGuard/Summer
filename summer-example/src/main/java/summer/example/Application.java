@@ -3,7 +3,7 @@ package summer.example;
 import summer.web.SummerApplication;
 
 public class Application {
-	 void main(String[] args) {
-		SummerApplication.run(Application.class, args);
+	public static void main(String[] args) throws Exception {
+		SummerApplication.builder(Application.class).useAot().run(args);
 	}
 }

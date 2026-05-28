@@ -21,6 +21,13 @@
             <artifactId>summer-core</artifactId>
         </dependency>
 
+        <!-- Runtime classpath scanner -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-runtime</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- Jackson for JSON binding -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -29,6 +36,12 @@
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+
+        <!-- Netty -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
         </dependency>
 
         <!-- Testing -->
@@ -50,24 +63,13 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <excludes>
-                        <exclude>summer/web/Get.java</exclude>
-                        <exclude>summer/web/Post.java</exclude>
-                        <exclude>summer/web/Put.java</exclude>
-                        <exclude>summer/web/Delete.java</exclude>
-                        <exclude>summer/web/RestController.java</exclude>
-                        <exclude>summer/web/QueryParam.java</exclude>
-                        <exclude>summer/web/FormParam.java</exclude>
-                        <exclude>summer/web/Middleware.java</exclude>
-                        <exclude>summer/web/LoggingMiddleware.java</exclude>
-                        <exclude>summer/web/ExceptionMiddleware.java</exclude>
-                        <exclude>summer/web/CorsMiddleware.java</exclude>
-                        <exclude>summer/web/ValidationMiddleware.java</exclude>
-                        <exclude>summer/web/HttpServer.java</exclude>
-                        <exclude>summer/web/HttpConnectionHandler.java</exclude>
-                        <exclude>summer/web/HttpRequestParser.java</exclude>
-                    </excludes>
+                    <source>${java.version}</source>
+                    <target>${java.version}</target>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>io.smallrye</groupId>
+                <artifactId>jandex-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>

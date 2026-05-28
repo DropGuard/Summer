@@ -1,12 +1,18 @@
 package summer.tx;
 
+import summer.aop.Intercepts;
 import summer.aop.InvocationContext;
 import summer.aop.MethodInterceptor;
+import summer.core.Component;
+import summer.core.annotation.ConditionalOnBean;
 
 /**
  * Transaction interceptor that manages transaction boundaries around method
  * calls.
  */
+@Component
+@ConditionalOnBean(TransactionManager.class)
+@Intercepts(annotations = Transactional.class)
 public class TransactionInterceptor implements MethodInterceptor {
 	private static final ThreadLocal<Boolean> interceptorActive = ThreadLocal.withInitial(() -> false);
 	private final TransactionManager transactionManager;

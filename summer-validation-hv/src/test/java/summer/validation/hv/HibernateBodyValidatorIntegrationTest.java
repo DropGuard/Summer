@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 import summer.core.ApplicationContext;
 import summer.core.Component;
+import summer.scanner.runtime.RuntimeDiEngine;
 import summer.validation.BodyValidator;
-import summer.web.WebContext;
 import summer.web.annotation.Post;
 import summer.web.annotation.RestController;
 
@@ -15,7 +15,7 @@ public class HibernateBodyValidatorIntegrationTest {
 	@Test
 	public void testValidationIntegration() {
 		// 启动应用程序上下文并扫描组件
-		ApplicationContext context = ApplicationContext.scan("summer.validation.hv");
+		ApplicationContext context = new RuntimeDiEngine().create(HibernateBodyValidatorIntegrationTest.class);
 
 		// 检查是否正确地找到了组件
 		assertTrue(context.getComponentClasses().contains(HibernateBodyValidator.class));
@@ -33,7 +33,8 @@ public class HibernateBodyValidatorIntegrationTest {
 
 		@Post("/")
 		public void createUser(UserRequest user) {
-			// Validation now happens automatically via WebContext.body() called by the adapter
+			// Validation now happens automatically via WebContext.body() called by the
+			// adapter
 		}
 	}
 

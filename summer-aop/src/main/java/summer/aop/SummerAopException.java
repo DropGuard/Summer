@@ -1,14 +1,31 @@
 package summer.aop;
 
+import summer.core.ErrorCode;
+import summer.core.SummerException;
+
 /**
  * Exception class for AOP related errors in Summer framework.
  */
-public class SummerAopException extends RuntimeException {
-	public SummerAopException(String message) {
-		super(message);
+public class SummerAopException extends SummerException {
+	public SummerAopException(ErrorCode errorCode, String message) {
+		super(errorCode, message);
 	}
 
+	public SummerAopException(ErrorCode errorCode, String message, Throwable cause) {
+		super(errorCode, message, cause);
+	}
+
+	/**
+	 * Backward-compatible constructor.
+	 */
+	public SummerAopException(String message) {
+		super(ErrorCode.AOP_ERROR, message);
+	}
+
+	/**
+	 * Backward-compatible constructor.
+	 */
 	public SummerAopException(String message, Throwable cause) {
-		super(message, cause);
+		super(ErrorCode.AOP_ERROR, message, cause);
 	}
 }

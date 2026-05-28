@@ -1,0 +1,74 @@
+services:
+  spring-boot:
+    image: eclipse-temurin:25-jre-alpine
+    command: java --enable-preview -XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:+AlwaysPreTouch -jar /app/spring-boot-baseline-1.0.0-SNAPSHOT.jar
+    volumes:
+      - ./benchmark-spring-boot/target:/app
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/_system/health > /dev/null"]
+      interval: 3s
+      timeout: 2s
+      retries: 15
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 512M
+    profiles:
+      - spring-boot
+
+  k6-spring-boot:
+    image: grafana/k6
+    entrypoint:
+      - sh
+      - -c
+      - |
+        echo 'Warmup...'
+        k6 run -e TARGET_URL=http://spring-boot:8080/users -e VUS=10 -e DURATION=10s /scripts/load-test.js
+        echo 'Benchmark...'
+        k6 run --summary-export=/scripts/summary-spring-boot.json -e TARGET_URL=http://spring-boot:8080/users -e VUS=100 -e DURATION=10s /scripts/load-test.js
+    volumes:
+      - ./k6-scripts:/scripts
+    profiles:
+      - spring-boot
+    depends_on:
+      spring-boot:
+        condition: service_healthy
+
+  summer:
+    image: eclipse-temurin:25-jre-alpine
+    command: java --enable-preview -XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:+AlwaysPreTouch -jar /app/benchmark-summer-0.1.0.jar
+    volumes:
+      - ./benchmark-summer/target:/app
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/_system/health > /dev/null"]
+      interval: 3s
+      timeout: 2s
+      retries: 15
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 512M
+    profiles:
+      - summer
+
+  k6-summer:
+    image: grafana/k6
+    entrypoint:
+      - sh
+      - -c
+      - |
+        echo 'Warmup...'
+        k6 run -e TARGET_URL=http://summer:8080/users -e VUS=10 -e DURATION=10s /scripts/load-test.js
+        echo 'Benchmark...'
+        k6 run --summary-export=/scripts/summary-summer.json -e TARGET_URL=http://summer:8080/users -e VUS=100 -e DURATION=10s /scripts/load-test.js
+    volumes:
+      - ./k6-scripts:/scripts
+    profiles:
+      - summer
+    depends_on:
+      summer:
+        condition: service_healthy

@@ -11,5 +11,5 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Intercepted {
-    Class<? extends MethodInterceptor>[] value() default {};
+	Class<? extends MethodInterceptor>[] value() default {};
 }

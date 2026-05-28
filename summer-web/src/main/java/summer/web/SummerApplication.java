@@ -1,25 +1,70 @@
 package summer.web;
 
+import java.time.Duration;
 import java.util.List;
+import java.util.logging.LogManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.bridge.SLF4JBridgeHandler;
 import summer.core.ApplicationContext;
 import summer.core.config.YamlConfigLoader;
+import summer.scanner.runtime.RuntimeDiEngine;
 import summer.validation.BodyValidator;
 import summer.web.middleware.Middleware;
-import summer.web.server.HttpServer;
-import summer.web.server.HttpConnectionHandler;
 
-/**
- * Default entry point wrapper for initializing the Summer Framework. Abstracts
- * component scanning, DI resolution, and HTTP Server startup.
- */
 public class SummerApplication {
 
-	public static void run(Class<?> mainClass, String[] args) {
+	private static final Logger log = LoggerFactory.getLogger(SummerApplication.class);
+
+	static {
+		LogManager.getLogManager().reset();
+		SLF4JBridgeHandler.removeHandlersForRootLogger();
+		SLF4JBridgeHandler.install();
+	}
+
+	private static final String BANNER = "\n" + "   _____                                         \n"
+			+ "  / ___/__  ______ ___  ____ ___  ___  _____     \n"
+			+ "  \\__ \\/ / / / __ `__ \\/ __ `__ \\/ _ \\/ ___/ \n"
+			+ " ___/ / /_/ / / / / / / / / / / /  __/ /         \n"
+			+ "/____/\\__,_/_/ /_/ /_/_/ /_/ /_/\\___/_/      \n"
+			+ "                                                 \n"
+			+ " :: Summer Framework ::                 (v0.1.0) \n";
+
+	private static final Duration SHUTDOWN_TIMEOUT = Duration.ofSeconds(5);
+
+	private static summer.web.server.NettyHttpServer runningServer;
+	private static ApplicationContext runningContext;
+
+	public static void run(Class<?> mainClass, String[] args) throws Exception {
 		builder(mainClass).run(args);
+	}
+
+	/**
+	 * Stops the running application gracefully. Can be called from tests or
+	 * programmatically.
+	 */
+	public static void stop() {
+		if (runningServer == null)
+			return;
+		shutdown(runningServer, runningContext);
+		runningServer = null;
+		runningContext = null;
+	}
+
+	private static void shutdown(summer.web.server.NettyHttpServer server, ApplicationContext context) {
+		log.info("Shutting down...");
+		// 1. Stop accepting new requests, 2. Wait for in-flight requests
+		server.stop(SHUTDOWN_TIMEOUT);
+		// 3. Release resources: close thread pools, disconnect database, etc.
+		context.destroy();
 	}
 
 	public static Builder builder(Class<?> mainClass) {
 		return new Builder(mainClass);
+	}
+
+	public enum Engine {
+		RUNTIME, AOT
 	}
 
 	public static class Builder {
@@ -28,9 +73,20 @@ public class SummerApplication {
 		private int connectionTimeout = -1;
 		private int maxBodySize = -1;
 		private int readTimeout = -1;
+		private Engine engine = Engine.RUNTIME;
 
 		private Builder(Class<?> mainClass) {
 			this.mainClass = mainClass;
+		}
+
+		public Builder useRuntime() {
+			this.engine = Engine.RUNTIME;
+			return this;
+		}
+
+		public Builder useAot() {
+			this.engine = Engine.AOT;
+			return this;
 		}
 
 		public Builder port(int port) {
@@ -53,60 +109,91 @@ public class SummerApplication {
 			return this;
 		}
 
-		public void run(String[] args) {
+		public void run(String[] args) throws Exception {
+			System.out.println(BANNER);
+			log.info("Starting Summer Application...");
+
+			ApplicationContext context = createContext();
+			initRouter(context);
+			ServerConfig config = resolveConfig();
+			var server = startServer(context, config);
+			runApplicationRunners(context);
+
+			runningServer = server;
+			runningContext = context;
+
+			Runtime.getRuntime().addShutdownHook(new Thread(() -> shutdown(server, context)));
+
+			log.info("Summer application started on http://localhost:{}", config.port());
+			log.info("Press Ctrl+C to stop");
+
 			try {
-				// 1. Scan components deriving from the main class package
-				String basePackage = mainClass.getPackageName();
-				System.out.println("Starting Summer Application...");
-				ApplicationContext.scan(basePackage);
-				ApplicationContext context = ApplicationContext.getInstance();
+				Thread.currentThread().join();
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+		}
 
-				// 2. Initialize router and register routes
-				Router router = context.getBean(Router.class);
-				AnnotationRouterAdapter routerAdapter = context.getBean(AnnotationRouterAdapter.class);
-				routerAdapter.registerControllers();
+		private ApplicationContext createContext() {
+			if (engine == Engine.AOT) {
+				return loadAotContext();
+			}
+			log.info("Using runtime scanning for DI...");
+			return new RuntimeDiEngine().create(mainClass);
+		}
 
-				// 3. Autowire Middlewares, Validator, and Converters
-				List<Middleware> middlewares = context.getBeansOfType(Middleware.class);
-				List<BodyConverter> converters = context.getBeansOfType(BodyConverter.class);
-				
-				// Ensure at least JSON converter is present if none found
-				if (converters.isEmpty()) {
-					converters = List.of(new JsonBodyConverter());
-				}
+		private ApplicationContext loadAotContext() {
+			var it = java.util.ServiceLoader.load(ApplicationContext.class).iterator();
+			if (!it.hasNext()) {
+				throw new summer.core.exception.AotContextNotFoundException();
+			}
+			ApplicationContext ctx = it.next();
+			ApplicationContext.init(ctx);
+			log.info("AOT Context loaded via ServiceLoader.");
+			return ctx;
+		}
 
-				BodyValidator validator = null;
-				try {
-					validator = context.getBean(BodyValidator.class);
-				} catch (Exception e) {
-					// Validator is optional
-				}
+		private void initRouter(ApplicationContext context) {
+			RouteRegistrar registrar = context.getBean(RouteRegistrar.class);
+			registrar.registerControllers();
+		}
 
-				// 4. Load server configuration from application.yml and apply overrides
-				ServerConfig config = YamlConfigLoader.loadOrDefault("application.yml", ServerConfig.class,
-						ServerConfig.DEFAULT);
-				
-				int finalPort = this.port != -1 ? this.port : config.port();
-				int finalTimeout = this.connectionTimeout != -1 ? this.connectionTimeout : config.connectionTimeout();
-				int finalMaxBody = this.maxBodySize != -1 ? this.maxBodySize : config.maxBodySize();
-				int finalReadTimeout = this.readTimeout != -1 ? this.readTimeout : config.readTimeout();
-				
-				ServerConfig finalConfig = new ServerConfig(finalPort, finalTimeout, finalMaxBody, finalReadTimeout);
+		private ServerConfig resolveConfig() {
+			ServerConfig defaults = YamlConfigLoader.loadOrDefault("application.yml", ServerConfig.class,
+					ServerConfig.DEFAULT);
+			return new ServerConfig(port != -1 ? port : defaults.port(),
+					connectionTimeout != -1 ? connectionTimeout : defaults.connectionTimeout(),
+					maxBodySize != -1 ? maxBodySize : defaults.maxBodySize(),
+					readTimeout != -1 ? readTimeout : defaults.readTimeout());
+		}
 
-				// 5. Start HTTP server
-				HttpServer server = HttpServer.create(finalConfig, router, middlewares, validator, converters);
-				server.start();
+		private summer.web.server.NettyHttpServer startServer(ApplicationContext context, ServerConfig config) {
+			List<Middleware> middlewares = context.getBeansOfType(Middleware.class).stream()
+					.filter(m -> m.getClass().isAnnotationPresent(summer.web.annotation.GlobalMiddleware.class))
+					.toList();
+			List<BodyConverter> converters = context.getBeansOfType(BodyConverter.class);
+			if (converters.isEmpty()) {
+				converters = List.of(new JsonBodyConverter());
+			}
+			BodyValidator validator = findOptionalBean(context, BodyValidator.class);
 
-				System.out.println("Summer application started on http://localhost:" + finalPort);
-				System.out.println("Press Ctrl+C to stop");
+			var server = new summer.web.server.NettyHttpServer(config, context.getBean(Router.class), middlewares,
+					validator, converters);
+			server.start();
+			return server;
+		}
 
-				// 6. Shutdown hook
-				Runtime.getRuntime().addShutdownHook(new Thread(server::stop));
+		private void runApplicationRunners(ApplicationContext context) throws Exception {
+			for (var runner : context.getBeansOfType(summer.core.ApplicationRunner.class)) {
+				runner.run(context);
+			}
+		}
 
+		private <T> T findOptionalBean(ApplicationContext context, Class<T> type) {
+			try {
+				return context.getBean(type);
 			} catch (Exception e) {
-				System.err.println("Failed to start application: " + e.getMessage());
-				if (e instanceof RuntimeException re) throw re;
-				throw new RuntimeException("Application startup failed", e);
+				return null;
 			}
 		}
 	}

@@ -3,8 +3,8 @@ package summer.web;
 import java.io.IOException;
 
 /**
- * Interface for converting HTTP request bodies into Java objects and vice-versa.
- * Enables the framework to support multiple formats (JSON, Protobuf, XML, etc.)
+ * Interface for converting HTTP request bodies into Java objects and
+ * vice-versa. Enables the framework to support multiple formats (e.g., JSON)
  * based on the Content-Type header.
  */
 public interface BodyConverter {
@@ -23,6 +23,14 @@ public interface BodyConverter {
 	 * Serializes an object into a byte array for the response.
 	 */
 	byte[] write(Object content) throws IOException;
+
+	/**
+	 * Serializes an object directly into an OutputStream to avoid intermediate
+	 * allocations.
+	 */
+	default void writeToStream(Object content, java.io.OutputStream out) throws IOException {
+		out.write(write(content));
+	}
 
 	/**
 	 * The default Content-Type this converter produces (e.g., "application/json").

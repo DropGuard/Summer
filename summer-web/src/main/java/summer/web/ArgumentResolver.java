@@ -9,13 +9,13 @@ import java.lang.reflect.Parameter;
  * Resolvers provide a MethodHandle that performs the extraction during startup.
  */
 public interface ArgumentResolver {
-    /**
-     * Checks if this resolver can handle the given parameter.
-     */
-    boolean supports(Parameter parameter);
+	/**
+	 * Checks if this resolver can handle the given parameter.
+	 */
+	boolean supports(Parameter parameter);
 
-    /**
-     * Returns a MethodHandle that maps (WebContext) -> TargetType.
-     */
-    MethodHandle resolve(Parameter parameter, MethodHandles.Lookup lookup) throws Exception;
+	/**
+	 * Returns a MethodHandle that maps (WebContext) -> TargetType.
+	 */
+	MethodHandle resolve(Parameter parameter, MethodHandles.Lookup lookup) throws Exception;
 }

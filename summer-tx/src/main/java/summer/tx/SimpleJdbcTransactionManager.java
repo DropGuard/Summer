@@ -4,11 +4,14 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import javax.sql.DataSource;
 import summer.core.Component;
+import summer.core.ErrorCode;
+import summer.core.annotation.ConditionalOnBean;
 
 /**
  * Simple JDBC transaction manager that manages transactions using a DataSource.
  */
 @Component
+@ConditionalOnBean(DataSource.class)
 public class SimpleJdbcTransactionManager implements TransactionManager {
 	private final DataSource dataSource;
 
@@ -20,15 +23,23 @@ public class SimpleJdbcTransactionManager implements TransactionManager {
 	public TransactionStatus begin() {
 		Connection existing = ThreadLocalTransactionContext.getCurrentConnection();
 		if (existing != null) {
-			return new ThreadLocalTransactionContext(existing, false);
+			throw new SummerTransactionException(ErrorCode.TRANSACTION_ERROR,
+					"Nested transactions are not supported. A transaction is already active for the current thread.");
 		}
 
+		Connection connection = null;
 		try {
-			Connection connection = dataSource.getConnection();
+			connection = dataSource.getConnection();
 			connection.setAutoCommit(false);
 			return new ThreadLocalTransactionContext(connection, true);
 		} catch (SQLException e) {
-			throw new SummerTransactionException("Failed to begin transaction", e);
+			if (connection != null) {
+				try {
+					connection.close();
+				} catch (SQLException ignored) {
+				}
+			}
+			throw new SummerTransactionException(ErrorCode.TRANSACTION_ERROR, "Failed to begin transaction", e);
 		}
 	}
 
@@ -49,7 +60,7 @@ public class SimpleJdbcTransactionManager implements TransactionManager {
 				} catch (SQLException rollbackEx) {
 					e.addSuppressed(rollbackEx);
 				}
-				throw new SummerTransactionException("Failed to commit transaction", e);
+				throw new SummerTransactionException(ErrorCode.TRANSACTION_ERROR, "Failed to commit transaction", e);
 			} finally {
 				txContext.close();
 			}
@@ -69,7 +80,7 @@ public class SimpleJdbcTransactionManager implements TransactionManager {
 					connection.rollback();
 				}
 			} catch (SQLException e) {
-				throw new SummerTransactionException("Failed to rollback transaction", e);
+				throw new SummerTransactionException(ErrorCode.TRANSACTION_ERROR, "Failed to rollback transaction", e);
 			} finally {
 				txContext.close();
 			}

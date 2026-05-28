@@ -15,6 +15,12 @@
     <description>Interface-based AOP and method interception module for Summer framework</description>
 
     <dependencies>
+        <!-- Summer Core -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-core</artifactId>
+        </dependency>
+
         <!-- Testing -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -27,4 +33,13 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>io.smallrye</groupId>
+                <artifactId>jandex-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>

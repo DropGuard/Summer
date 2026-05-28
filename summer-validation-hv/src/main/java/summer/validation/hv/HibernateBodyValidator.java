@@ -15,13 +15,19 @@ import summer.validation.ValidationResult;
  * Jakarta Validation (Hibernate Validator) implementation of BodyValidator.
  */
 @Component
-public class HibernateBodyValidator implements BodyValidator {
+public class HibernateBodyValidator implements BodyValidator, AutoCloseable {
 
+	private final ValidatorFactory factory;
 	private final Validator validator;
 
 	public HibernateBodyValidator() {
-		ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
+		this.factory = Validation.buildDefaultValidatorFactory();
 		this.validator = factory.getValidator();
+	}
+
+	@Override
+	public void close() {
+		factory.close();
 	}
 
 	@Override

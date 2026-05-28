@@ -4,7 +4,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import java.io.InputStream;
-import summer.core.SummerException;
+import summer.core.ErrorCode;
+import summer.core.exception.ConfigurationException;
 
 /**
  * A lightweight YAML configuration loader that maps {@code application.yml}
@@ -41,13 +42,14 @@ public final class YamlConfigLoader {
 		try (InputStream stream = Thread.currentThread().getContextClassLoader()
 				.getResourceAsStream(classpathResource)) {
 			if (stream == null) {
-				throw new SummerException("Configuration file not found on classpath: " + classpathResource);
+				throw new ConfigurationException(ErrorCode.CONFIG_NOT_FOUND,
+						"Configuration file not found on classpath: " + classpathResource);
 			}
 			return YAML_MAPPER.readValue(stream, recordType);
-		} catch (SummerException e) {
+		} catch (ConfigurationException e) {
 			throw e;
 		} catch (Exception e) {
-			throw new SummerException(
+			throw new ConfigurationException(ErrorCode.CONFIG_PARSE_ERROR,
 					"Failed to parse YAML configuration '" + classpathResource + "': " + e.getMessage(), e);
 		}
 	}
@@ -64,7 +66,7 @@ public final class YamlConfigLoader {
 			}
 			return YAML_MAPPER.readValue(stream, recordType);
 		} catch (Exception e) {
-			throw new SummerException(
+			throw new ConfigurationException(ErrorCode.CONFIG_PARSE_ERROR,
 					"Failed to parse YAML configuration '" + classpathResource + "': " + e.getMessage(), e);
 		}
 	}

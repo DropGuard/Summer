@@ -9,13 +9,13 @@ import summer.web.Response;
 import summer.web.WebContext;
 
 public class ResponseResolver implements ArgumentResolver {
-    @Override
-    public boolean supports(Parameter parameter) {
-        return parameter.getType().equals(Response.class);
-    }
+	@Override
+	public boolean supports(Parameter parameter) {
+		return parameter.getType().equals(Response.class);
+	}
 
-    @Override
-    public MethodHandle resolve(Parameter parameter, MethodHandles.Lookup lookup) throws Exception {
-        return lookup.findVirtual(WebContext.class, "response", MethodType.methodType(Response.class));
-    }
+	@Override
+	public MethodHandle resolve(Parameter parameter, MethodHandles.Lookup lookup) throws Exception {
+		return lookup.findVirtual(WebContext.class, "response", MethodType.methodType(Response.class));
+	}
 }

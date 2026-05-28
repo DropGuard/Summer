@@ -1,15 +1,14 @@
 package summer.web.metrics;
 
-import summer.core.Component;
 import summer.web.Handler;
-import summer.web.WebContext;
+import summer.web.annotation.GlobalMiddleware;
 import summer.web.middleware.Middleware;
 
 /**
- * Middleware that tracks request counts, errors, and active connections.
- * This should be placed early in the middleware chain for accurate metrics.
+ * Middleware that tracks request counts, errors, and active connections. This
+ * should be placed early in the middleware chain for accurate metrics.
  */
-@Component
+@GlobalMiddleware
 public class MetricsMiddleware implements Middleware {
 
 	private final MetricsRegistry registry;
@@ -24,12 +23,12 @@ public class MetricsMiddleware implements Middleware {
 			registry.incrementActive();
 			try {
 				Object result = next.handle(ctx);
-				
+
 				// If status is an error status, record it
 				if (ctx.response().getStatusCode() >= 500) {
 					registry.recordError();
 				}
-				
+
 				return result;
 			} catch (Exception e) {
 				registry.recordError();
