@@ -385,52 +385,50 @@ public class SummerProcessor extends AbstractProcessor {
      * direct constructor dependencies of any user bean.
      */
     private void discoverInterceptorBeans() {
-        // For each bean that has methods with known AOP trigger annotations,
-        // we need to find interceptors. Scan all collected beans' methods for
-        // annotations, then find interceptors targeting those annotations.
-        // But interceptors aren't collected yet — so we scan known interceptor types.
-
-        // Strategy: look at every collected bean's constructor params and interfaces
-        // to find MethodInterceptor implementations. Also, check if any bean in the
-        // current set implements MethodInterceptor and has @Intercepts.
-        // If not found, we can't auto-discover from thin air — but we CAN check
-        // known framework packages.
-
         Types typeUtils = processingEnv.getTypeUtils();
         TypeElement miType = processingEnv.getElementUtils()
                 .getTypeElement("summer.aop.MethodInterceptor");
         if (miType == null) return;
 
-        // Check if we already have interceptor beans
+        // Check if we already have interceptor beans (e.g., from direct roundEnv collection)
         boolean hasInterceptors = allBeans.stream().anyMatch(b ->
                 typeUtils.isAssignable(
                         typeUtils.erasure(b.typeElement.asType()),
                         typeUtils.erasure(miType.asType())));
         if (hasInterceptors) return;
 
-        // Try to discover known interceptors from framework modules on classpath
-        java.util.Map<String, String> knownInterceptors = java.util.Map.of(
-                "summer.tx.TransactionInterceptor", "summer.tx.Transactional"
-        );
+        // Use Jandex to find all MethodInterceptor implementors from dependency indexes
+        CompositeIndex index = loadJandexIndex();
+        DotName miDot = DotName.createSimple("summer.aop.MethodInterceptor");
+        DotName interceptsDot = DotName.createSimple("summer.aop.Intercepts");
 
-        for (java.util.Map.Entry<String, String> entry : knownInterceptors.entrySet()) {
-            String interceptorFqn = entry.getKey();
-            String targetAnnotationFqn = entry.getValue();
+        for (ClassInfo ci : index.getAllKnownImplementors(miDot)) {
+            AnnotationInstance intercepts = ci.annotation(interceptsDot);
+            if (intercepts == null) continue;
 
-            TypeElement te = processingEnv.getElementUtils().getTypeElement(interceptorFqn);
+            TypeElement te = processingEnv.getElementUtils().getTypeElement(ci.name().toString());
             if (te == null) continue;
             if (alreadyCollected(te)) continue;
-            if (!typeUtils.isAssignable(
-                    typeUtils.erasure(te.asType()),
-                    typeUtils.erasure(miType.asType()))) continue;
 
-            // Only collect if at least one bean in allBeans has a method with the target annotation
-            boolean hasTarget = allBeans.stream().anyMatch(b ->
-                    javax.lang.model.util.ElementFilter.methodsIn(b.typeElement.getEnclosedElements()).stream()
-                            .anyMatch(m -> hasAnnotation(m, targetAnnotationFqn)));
+            // Extract the target annotation from @Intercepts to check if any bean uses it
+            String targetAnnotationFqn = null;
+            AnnotationValue annValue = intercepts.value("annotations");
+            if (annValue != null) {
+                var annotationTypes = annValue.asClassArray();
+                if (annotationTypes.length > 0) {
+                    targetAnnotationFqn = annotationTypes[0].name().toString();
+                }
+            }
 
-            if (hasTarget && hasAnnotation(te, "summer.core.Component")) {
-                collectComponent(te);
+            if (targetAnnotationFqn != null) {
+                String finalTargetFqn = targetAnnotationFqn;
+                boolean hasTarget = allBeans.stream().anyMatch(b ->
+                        javax.lang.model.util.ElementFilter.methodsIn(b.typeElement.getEnclosedElements()).stream()
+                                .anyMatch(m -> hasAnnotation(m, finalTargetFqn)));
+
+                if (hasTarget && hasAnnotation(te, "summer.core.Component")) {
+                    collectComponent(te);
+                }
             }
         }
     }
