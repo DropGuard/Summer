@@ -50,9 +50,6 @@ public class SummerProcessor extends AbstractProcessor {
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
         if (roundEnv.processingOver()) {
-            if (!allBeans.isEmpty()) {
-                generateBeanRegistry(allBeans);
-            }
             processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE,
                     "[Summer AOT] Processing over. Collected " + allBeans.size() + " beans.");
             return false;
@@ -258,28 +255,6 @@ public class SummerProcessor extends AbstractProcessor {
                 processingEnv.getMessager()
         );
         generator.generate(sorted, generateWebAdapter);
-    }
-
-    /**
-     * Generates META-INF/summer-beans.txt for APT cross-module bean discovery.
-     * Other modules' APT processors read this file to discover beans from this module.
-     */
-    private void generateBeanRegistry(List<BeanDefinition> beans) {
-        try {
-            javax.tools.FileObject registryFile = processingEnv.getFiler().createResource(
-                    javax.tools.StandardLocation.CLASS_OUTPUT, "",
-                    "META-INF/summer-beans.txt");
-            try (java.io.Writer w = registryFile.openWriter()) {
-                for (BeanDefinition bean : beans) {
-                    w.write(bean.qualifiedName() + "\n");
-                }
-            }
-            processingEnv.getMessager().printMessage(javax.tools.Diagnostic.Kind.NOTE,
-                    "[Summer AOT] Generated META-INF/summer-beans.txt with " + beans.size() + " beans");
-        } catch (IOException e) {
-            processingEnv.getMessager().printMessage(javax.tools.Diagnostic.Kind.ERROR,
-                    "Failed to generate summer-beans.txt: " + e.getMessage());
-        }
     }
 
     /**
