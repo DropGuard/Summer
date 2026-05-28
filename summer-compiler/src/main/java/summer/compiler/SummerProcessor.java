@@ -105,7 +105,11 @@ public class SummerProcessor extends AbstractProcessor {
         if (!generatedNewTypesInThisRound && !allBeans.isEmpty() && !aotGenerated) {
             processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE,
                     "[Summer AOT] Generating AOT context in round where no new types were generated.");
-            generateAotContext();
+            try {
+                generateAotContext();
+            } catch (IOException e) {
+                error("AOT generation failed: " + e.getMessage(), null);
+            }
             aotGenerated = true;
         }
 
@@ -199,7 +203,7 @@ public class SummerProcessor extends AbstractProcessor {
     // AOT Context generation
     // -----------------------------------------------------------------------
 
-    private void generateAotContext() {
+    private void generateAotContext() throws IOException {
         // Auto-discover framework beans from SPI modules
         discoverFrameworkBeans();
 
@@ -267,7 +271,7 @@ public class SummerProcessor extends AbstractProcessor {
      * For each bean's constructor/producer params, if the param type isn't among
      * collected beans, try to find it on the classpath and auto-register it.
      */
-    private void discoverTransitiveDependencies() {
+    private void discoverTransitiveDependencies() throws IOException {
         boolean changed = true;
         while (changed) {
             changed = false;
@@ -340,7 +344,7 @@ public class SummerProcessor extends AbstractProcessor {
      * For an interface type, tries to discover a concrete @Component implementation
      * from known framework packages on the classpath.
      */
-    private boolean tryDiscoverImplementation(TypeElement interfaceElement) {
+    private boolean tryDiscoverImplementation(TypeElement interfaceElement) throws IOException {
         CompositeIndex index = loadJandexIndex();
         DotName ifaceDot = DotName.createSimple(interfaceElement.getQualifiedName().toString());
 
@@ -360,7 +364,7 @@ public class SummerProcessor extends AbstractProcessor {
      * but not yet in allBeans. These are needed for AOP proxy wrapping but aren't
      * direct constructor dependencies of any user bean.
      */
-    private void discoverInterceptorBeans() {
+    private void discoverInterceptorBeans() throws IOException {
         Types typeUtils = processingEnv.getTypeUtils();
         TypeElement miType = processingEnv.getElementUtils()
                 .getTypeElement("summer.aop.MethodInterceptor");
@@ -1100,7 +1104,7 @@ public class SummerProcessor extends AbstractProcessor {
 
 
 
-    private void discoverFrameworkBeans() {
+    private void discoverFrameworkBeans() throws IOException {
         CompositeIndex index = loadJandexIndex();
 
         DotName componentDot = DotName.createSimple("summer.core.annotation.Component");
@@ -1158,27 +1162,19 @@ public class SummerProcessor extends AbstractProcessor {
      * Returns a CompositeIndex merging all discovered META-INF/jandex.idx files.
      * Caches the result so it's loaded only once per processor lifecycle.
      */
-    private CompositeIndex loadJandexIndex() {
+    private CompositeIndex loadJandexIndex() throws IOException {
         if (jandexIndex != null) return jandexIndex;
 
         List<IndexView> indexes = new ArrayList<>();
-        try {
-            ClassLoader cl = this.getClass().getClassLoader();
-            Enumeration<URL> urls = cl.getResources("META-INF/jandex.idx");
-            while (urls.hasMoreElements()) {
-                URL url = urls.nextElement();
-                try (InputStream is = url.openStream()) {
-                    indexes.add(new IndexReader(is).read());
-                    processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE,
-                            "[Summer AOT] Loaded Jandex index from " + url);
-                } catch (IOException e) {
-                    processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,
-                            "[Summer AOT] Failed to read Jandex index from " + url + ": " + e.getMessage());
-                }
-            }
-        } catch (IOException e) {
-            processingEnv.getMessager().printMessage(Diagnostic.Kind.WARNING,
-                    "[Summer AOT] Failed to enumerate Jandex indexes: " + e.getMessage());
+        ClassLoader cl = this.getClass().getClassLoader();
+        Enumeration<URL> urls = cl.getResources("META-INF/jandex.idx");
+        while (urls.hasMoreElements()) {
+            URL url = urls.nextElement();
+            InputStream is = url.openStream();
+            indexes.add(new IndexReader(is).read());
+            is.close();
+            processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE,
+                    "[Summer AOT] Loaded Jandex index from " + url);
         }
 
         processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE,
