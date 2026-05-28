@@ -10,7 +10,13 @@ import summer.core.annotation.Configuration;
 import summer.core.annotation.Bean;
 
 
-import org.jboss.jandex.*;
+import org.jboss.jandex.AnnotationInstance;
+import org.jboss.jandex.AnnotationTarget;
+import org.jboss.jandex.ClassInfo;
+import org.jboss.jandex.CompositeIndex;
+import org.jboss.jandex.DotName;
+import org.jboss.jandex.IndexReader;
+import org.jboss.jandex.IndexView;
 import java.io.InputStream;
 import java.net.URL;
 
@@ -382,7 +388,7 @@ public class SummerProcessor extends AbstractProcessor {
 
             // Extract the target annotation from @Intercepts to check if any bean uses it
             String targetAnnotationFqn = null;
-            AnnotationValue annValue = intercepts.value("annotations");
+            org.jboss.jandex.AnnotationValue annValue = intercepts.value("annotations");
             if (annValue != null) {
                 var annotationTypes = annValue.asClassArray();
                 if (annotationTypes.length > 0) {
