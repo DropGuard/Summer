@@ -1128,8 +1128,7 @@ public class SummerProcessor extends AbstractProcessor {
             if (metaAnn.target().kind() != AnnotationTarget.Kind.CLASS) continue;
             ClassInfo annotatedClass = metaAnn.target().asClass();
             // If this class is itself an annotation, it's a meta-annotation like @RestController
-            if (!java.lang.annotation.Annotation.class.getName().equals(
-                    annotatedClass.superName() != null ? annotatedClass.superName().toString() : "")) {
+            if (!annotatedClass.isAnnotation()) {
                 continue;
             }
             // Find all classes annotated with this meta-annotation
