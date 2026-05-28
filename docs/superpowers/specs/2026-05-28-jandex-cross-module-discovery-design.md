@@ -38,7 +38,9 @@ Every module adds `jandex-maven-plugin` (defined in parent POM `<pluginManagemen
 
 Runs in `process-classes` phase. Produces `META-INF/jandex.idx` containing full class metadata: annotations, interfaces, superclasses, constructors, methods.
 
-**Modules:** `summer-core`, `summer-aop`, `summer-web`, `summer-tx`, `summer-data-jdbc`, `summer-data-redis`, `summer-grpc`, `summer-validation-hv`, `summer-runtime`, and user application modules (e.g., `summer-example`).
+**Modules that need the plugin:** All framework library modules (`summer-core`, `summer-aop`, `summer-web`, `summer-tx`, `summer-data-jdbc`, `summer-data-redis`, `summer-grpc`, `summer-validation-hv`, `summer-runtime`). User **library** modules (that export beans consumed by other modules) also need it.
+
+**Modules that do NOT need the plugin:** User **application** modules (entry points). The APT processor discovers their beans directly via `roundEnv.getElementsAnnotatedWith()` during compilation — no index needed. At runtime, `ComponentScanner` falls back to live package scanning if no index is found.
 
 ### 2. SummerProcessor — Jandex-Based Discovery
 
