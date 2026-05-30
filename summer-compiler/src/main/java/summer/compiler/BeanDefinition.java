@@ -1,107 +1,69 @@
 package summer.compiler;
 
-import java.util.ArrayList;
 import java.util.List;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeMirror;
 
 /**
- * Compile-time metadata for a single bean discovered by the APT processor.
- * Captures everything needed to generate instantiation code in the AOT context.
+ * Abstraction over a discovered bean, hiding its source (annotation processor
+ * vs Jandex index).
  */
-final class BeanDefinition {
+interface BeanDefinition {
 
 	enum Kind {
-		/** A regular @Component or @RestController bean. */
-		COMPONENT,
-		/** A @Configuration class (itself a bean, may contain @Bean methods). */
-		CONFIGURATION,
-		/** A bean produced by a @Bean method on a @Configuration class. */
-		FACTORY_PRODUCT
+		COMPONENT, CONFIGURATION, FACTORY_PRODUCT
 	}
 
-	/** What kind of bean this is. */
-	final Kind kind;
+	Kind kind();
 
-	/**
-	 * The type element representing this bean's class. For COMPONENT/CONFIGURATION:
-	 * the annotated class itself. For FACTORY_PRODUCT: the type element of the
-	 * return type.
-	 */
-	final TypeElement typeElement;
+	/** Fully qualified name of the bean's type. */
+	String qualifiedName();
+
+	/** Simple name of the bean's type. */
+	String simpleName();
 
 	/** Camel-case variable name used in the generated wire() method. */
-	String variableName;
+	String variableName();
 
-	// --- Constructor info (for COMPONENT / CONFIGURATION) ---
+	void setVariableName(String name);
 
-	/** The constructor to invoke (single public constructor convention). */
-	ExecutableElement constructor;
+	// --- Constructor / producer params (qualified names) ---
 
-	/** Constructor parameter types, in order. */
-	List<TypeMirror> constructorParamTypes = new ArrayList<>();
+	List<String> constructorParamTypes();
 
-	// --- Factory info (for FACTORY_PRODUCT) ---
+	List<String> producerParamTypes();
 
-	/** The @Configuration class that declares this factory method. */
-	TypeElement configClass;
+	// --- Interfaces (qualified names) ---
 
-	/** The @Bean method to call. */
-	ExecutableElement producerMethod;
+	List<String> interfaceNames();
 
-	/** The resolved return type of the @Bean method. */
-	TypeMirror producedType;
+	// --- Class hierarchy ---
 
-	/** Parameter types of the @Bean method (dependencies to inject). */
-	List<TypeMirror> producerParamTypes = new ArrayList<>();
+	/** Qualified name of the superclass, or null if Object. */
+	String superClassName();
 
-	// --- AOP metadata ---
+	// --- Factory info ---
 
-	/** Whether this bean should be wrapped with a JDK dynamic proxy. */
-	boolean needsProxy;
+	/** For FACTORY_PRODUCT: qualified name of the @Configuration class. */
+	String configClassName();
 
-	/**
-	 * Interceptor beans to apply (references into the same BeanDefinition list).
-	 */
-	List<BeanDefinition> interceptors = new ArrayList<>();
+	// --- AOP ---
 
-	/** Interfaces implemented by this bean (for JDK proxy creation). */
-	List<TypeMirror> interfaces = new ArrayList<>();
+	boolean needsProxy();
+
+	void setNeedsProxy(boolean needsProxy);
+
+	List<BeanDefinition> interceptors();
+
+	// --- Dependency resolution (set by DependencyResolver) ---
+
+	List<BeanDefinition> resolvedDependencies();
+
+	BeanDefinition configBeanDefinition();
+
+	void setConfigBeanDefinition(BeanDefinition config);
 
 	// --- Lifecycle ---
 
-	/** Whether this bean (or produced type) implements AutoCloseable. */
-	boolean isAutoCloseable;
+	boolean isAutoCloseable();
 
-	// --- Dependency resolution bookkeeping ---
-
-	/** Resolved bean references for each dependency, set by DependencyResolver. */
-	List<BeanDefinition> resolvedDependencies = new ArrayList<>();
-
-	/**
-	 * For FACTORY_PRODUCT beans, the resolved BeanDefinition of the @Configuration
-	 * class.
-	 */
-	BeanDefinition configBeanDefinition;
-
-	BeanDefinition(Kind kind, TypeElement typeElement) {
-		this.kind = kind;
-		this.typeElement = typeElement;
-	}
-
-	/** Qualified name of the bean's type. */
-	String qualifiedName() {
-		return typeElement.getQualifiedName().toString();
-	}
-
-	/** Simple name of the bean's type. */
-	String simpleName() {
-		return typeElement.getSimpleName().toString();
-	}
-
-	@Override
-	public String toString() {
-		return kind + ":" + qualifiedName();
-	}
+	void setAutoCloseable(boolean autoCloseable);
 }

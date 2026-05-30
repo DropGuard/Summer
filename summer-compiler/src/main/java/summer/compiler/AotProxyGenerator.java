@@ -27,7 +27,10 @@ final class AotProxyGenerator {
 	 * interceptor chain without reflection.
 	 */
 	static void generate(BeanDefinition bean, ProcessingEnvironment processingEnv) {
-		String packageName = processingEnv.getElementUtils().getPackageOf(bean.typeElement).getQualifiedName()
+		if (!(bean instanceof AptBeanDefinition aptBean))
+			return; // Can't generate proxy for Jandex beans without TypeElement
+
+		String packageName = processingEnv.getElementUtils().getPackageOf(aptBean.typeElement).getQualifiedName()
 				.toString();
 		String proxyClassName = bean.simpleName() + "$$AotProxy";
 
@@ -36,11 +39,11 @@ final class AotProxyGenerator {
 						AnnotationSpec.builder(SuppressWarnings.class).addMember("value", "$S", "unchecked").build())
 				.addModifiers(Modifier.PUBLIC, Modifier.FINAL);
 
-		for (TypeMirror iface : bean.interfaces) {
+		for (TypeMirror iface : aptBean.interfaceMirrors) {
 			proxyBuilder.addSuperinterface(TypeName.get(iface));
 		}
 
-		proxyBuilder.addField(ClassName.get(bean.typeElement), "target", Modifier.PRIVATE, Modifier.FINAL);
+		proxyBuilder.addField(ClassName.get(aptBean.typeElement), "target", Modifier.PRIVATE, Modifier.FINAL);
 
 		ClassName interceptorType = ClassName.get("summer.aop", "MethodInterceptor");
 		TypeName interceptorList = ParameterizedTypeName.get(ClassName.get(java.util.List.class), interceptorType);
@@ -48,13 +51,14 @@ final class AotProxyGenerator {
 
 		// Constructor
 		MethodSpec constructor = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC)
-				.addParameter(ClassName.get(bean.typeElement), "target").addParameter(interceptorList, "interceptors")
-				.addStatement("this.target = target").addStatement("this.interceptors = interceptors").build();
+				.addParameter(ClassName.get(aptBean.typeElement), "target")
+				.addParameter(interceptorList, "interceptors").addStatement("this.target = target")
+				.addStatement("this.interceptors = interceptors").build();
 		proxyBuilder.addMethod(constructor);
 
 		// Find all interface methods and generate them
 		Map<String, ProxyMethod> uniqueMethods = new LinkedHashMap<>();
-		for (TypeMirror iface : bean.interfaces) {
+		for (TypeMirror iface : aptBean.interfaceMirrors) {
 			TypeElement ifaceElement = asTypeElement(iface, processingEnv);
 			if (ifaceElement != null) {
 				collectMethods(ifaceElement, ifaceElement, uniqueMethods);
@@ -64,7 +68,7 @@ final class AotProxyGenerator {
 		int methodIndex = 0;
 
 		for (ProxyMethod pm : uniqueMethods.values()) {
-			boolean isIntercepted = shouldInterceptMethod(bean.typeElement, pm.method, bean.interceptors,
+			boolean isIntercepted = shouldInterceptMethod(aptBean.typeElement, pm.method, bean.interceptors(),
 					processingEnv);
 
 			String targetFieldName = null;
@@ -75,7 +79,7 @@ final class AotProxyGenerator {
 				interfaceFieldName = pm.method.getSimpleName().toString() + "_" + methodIndex + "_interfaceMethod";
 				methodIndex++;
 
-				TypeSpec.Builder metadataTarget = buildMethodMetadata(bean.typeElement, pm.method, processingEnv);
+				TypeSpec.Builder metadataTarget = buildMethodMetadata(aptBean.typeElement, pm.method, processingEnv);
 
 				proxyBuilder
 						.addField(FieldSpec
@@ -102,7 +106,7 @@ final class AotProxyGenerator {
 			proxyFile.writeTo(processingEnv.getFiler());
 		} catch (IOException e) {
 			processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-					"Failed to write AOP proxy for: " + proxyClassName, bean.typeElement);
+					"Failed to write AOP proxy for: " + proxyClassName, aptBean.typeElement);
 		}
 	}
 
@@ -328,7 +332,9 @@ final class AotProxyGenerator {
 		}
 
 		for (BeanDefinition interceptor : interceptorBeans) {
-			List<TypeMirror> targetAnnotations = getInterceptsAnnotations(interceptor.typeElement);
+			if (!(interceptor instanceof AptBeanDefinition aptInterceptor))
+				continue;
+			List<TypeMirror> targetAnnotations = getInterceptsAnnotations(aptInterceptor.typeElement);
 			for (AnnotationMirror am : targetMethod.getAnnotationMirrors()) {
 				for (TypeMirror targetAnn : targetAnnotations) {
 					if (processingEnv.getTypeUtils().isSameType(am.getAnnotationType(), targetAnn)) {

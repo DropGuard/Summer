@@ -43,8 +43,7 @@ public abstract class AbstractValidationTCK {
 	void testValidationSuccess() {
 		byte[] bodyBytes = "{\"name\":\"Alice\"}".getBytes(StandardCharsets.UTF_8);
 		Request req = new Request("POST", "/api/validation/submit", null, "application/json", bodyBytes);
-		Response res = new Response();
-		WebContext ctx = new WebContext(req, res, bodyValidator, java.util.List.of());
+		WebContext ctx = new WebContext(req, bodyValidator, new JsonBodyConverter());
 
 		Object result = router.route(ctx);
 		assertEquals("ok:Alice", result);
@@ -54,8 +53,7 @@ public abstract class AbstractValidationTCK {
 	void testValidationFailureEmptyName() {
 		byte[] bodyBytes = "{\"name\":\"\"}".getBytes(StandardCharsets.UTF_8);
 		Request req = new Request("POST", "/api/validation/submit", null, "application/json", bodyBytes);
-		Response res = new Response();
-		WebContext ctx = new WebContext(req, res, bodyValidator, java.util.List.of());
+		WebContext ctx = new WebContext(req, bodyValidator, new JsonBodyConverter());
 
 		RuntimeException ex = assertThrows(RuntimeException.class, () -> {
 			router.route(ctx);
@@ -72,8 +70,7 @@ public abstract class AbstractValidationTCK {
 	void testValidationFailureShortName() {
 		byte[] bodyBytes = "{\"name\":\"A\"}".getBytes(StandardCharsets.UTF_8);
 		Request req = new Request("POST", "/api/validation/submit", null, "application/json", bodyBytes);
-		Response res = new Response();
-		WebContext ctx = new WebContext(req, res, bodyValidator, java.util.List.of());
+		WebContext ctx = new WebContext(req, bodyValidator, new JsonBodyConverter());
 
 		RuntimeException ex = assertThrows(RuntimeException.class, () -> {
 			router.route(ctx);

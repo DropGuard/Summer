@@ -30,16 +30,19 @@ final class RouteAdapterGenerator {
 		if (restControllerType == null)
 			return;
 
-		List<BeanDefinition> controllers = beans.stream()
+		List<AptBeanDefinition> controllers = beans.stream().filter(b -> b instanceof AptBeanDefinition)
+				.map(b -> (AptBeanDefinition) b)
 				.filter(b -> AnnotationHelper.hasAnnotation(b.typeElement, "summer.web.annotation.RestController"))
 				.toList();
 
-		List<BeanDefinition> componentsWithExceptionHandlers = new ArrayList<>();
+		List<AptBeanDefinition> componentsWithExceptionHandlers = new ArrayList<>();
 		for (BeanDefinition b : beans) {
-			boolean hasHandler = ElementFilter.methodsIn(b.typeElement.getEnclosedElements()).stream()
+			if (!(b instanceof AptBeanDefinition apt))
+				continue;
+			boolean hasHandler = ElementFilter.methodsIn(apt.typeElement.getEnclosedElements()).stream()
 					.anyMatch(m -> AnnotationHelper.hasAnnotation(m, "summer.web.annotation.ExceptionHandler"));
 			if (hasHandler) {
-				componentsWithExceptionHandlers.add(b);
+				componentsWithExceptionHandlers.add(apt);
 			}
 		}
 
@@ -78,7 +81,7 @@ final class RouteAdapterGenerator {
 		TypeMirror throwableType = processingEnv.getElementUtils().getTypeElement("java.lang.Throwable").asType();
 
 		// Register controller routes
-		for (BeanDefinition controller : controllers) {
+		for (AptBeanDefinition controller : controllers) {
 			String basePath = AnnotationHelper.getAnnotationStringValue(controller.typeElement,
 					"summer.web.annotation.RestController", processingEnv);
 			ClassName controllerClass = ClassName.get(controller.typeElement);
@@ -146,7 +149,7 @@ final class RouteAdapterGenerator {
 		}
 
 		// Register exception handlers
-		for (BeanDefinition component : componentsWithExceptionHandlers) {
+		for (AptBeanDefinition component : componentsWithExceptionHandlers) {
 			ClassName componentClass = ClassName.get(component.typeElement);
 
 			for (ExecutableElement method : ElementFilter.methodsIn(component.typeElement.getEnclosedElements())) {
@@ -207,8 +210,6 @@ final class RouteAdapterGenerator {
 				builder.add("ctx");
 			} else if (paramType.toString().equals("summer.web.Request")) {
 				builder.add("ctx.request()");
-			} else if (paramType.toString().equals("summer.web.Response")) {
-				builder.add("ctx.response()");
 			} else if (AnnotationHelper.hasAnnotation(param, "summer.web.annotation.PathParam")) {
 				String val = AnnotationHelper.getAnnotationStringValue(param, "summer.web.annotation.PathParam",
 						processingEnv);

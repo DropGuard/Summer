@@ -6,8 +6,8 @@ import summer.web.SummerApplication;
 
 @Configuration
 public class Application {
-    public static void main(String[] args) {
-        SummerApplication.builder(Application.class).useAot().run(args);
+    public static void main(String[] args) throws Exception {
+        SummerApplication.run(Application.class, args);
     }
 
     @summer.core.annotation.Bean

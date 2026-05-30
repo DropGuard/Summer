@@ -171,9 +171,15 @@ public class ComponentScanner {
 			if (classInfo.isInterface() || classInfo.isAbstract())
 				continue;
 
+			// Skip AOT-generated Provider classes (config.generated package)
+			String className = classInfo.name().toString();
+			if (className.contains(".config.generated.") || className.contains("$Generated")) {
+				continue;
+			}
+
 			if (isBeanClass(classInfo, index)) {
 				try {
-					componentClasses.add(Class.forName(classInfo.name().toString()));
+					componentClasses.add(Class.forName(className));
 				} catch (ClassNotFoundException e) {
 					log.debug("[Summer] Could not load indexed class: {}", classInfo.name());
 				}
@@ -202,7 +208,12 @@ public class ComponentScanner {
 		if (classInfo.hasAnnotation(COMPONENT))
 			return true;
 
-		for (AnnotationInstance ann : classInfo.annotations()) {
+		// Bug fix: use classAnnotations() instead of annotations().
+		// annotations() returns ALL annotations on the class and its members
+		// (fields, methods, constructors), which could cause a field/method-level
+		// annotation to be falsely treated as a meta-annotation on the class itself.
+		// classAnnotations() is scoped to the class declaration only.
+		for (AnnotationInstance ann : classInfo.classAnnotations()) {
 			if (hasComponentMetaAnnotation(index.getClassByName(ann.name()), index, visited)) {
 				return true;
 			}

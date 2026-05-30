@@ -14,10 +14,13 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import summer.core.ApplicationContext;
 import summer.validation.BodyValidator;
 import summer.web.BodyConverter;
+import summer.web.JsonBodyConverter;
 import summer.web.Router;
 import summer.web.ServerConfig;
+import summer.web.annotation.GlobalMiddleware;
 import summer.web.middleware.Middleware;
 
 public class NettyHttpServer {
@@ -27,7 +30,7 @@ public class NettyHttpServer {
 	private final Router router;
 	private final List<Middleware> middlewares;
 	private final BodyValidator validator;
-	private final List<BodyConverter> converters;
+	private final BodyConverter jsonConverter;
 
 	private EventLoopGroup bossGroup;
 	private EventLoopGroup workerGroup;
@@ -36,12 +39,36 @@ public class NettyHttpServer {
 	private final AtomicInteger activeConnections = new AtomicInteger(0);
 
 	public NettyHttpServer(ServerConfig config, Router router, List<Middleware> middlewares, BodyValidator validator,
-			List<BodyConverter> converters) {
+			BodyConverter jsonConverter) {
 		this.config = config;
 		this.router = router;
 		this.middlewares = middlewares;
 		this.validator = validator;
-		this.converters = converters;
+		this.jsonConverter = jsonConverter;
+	}
+
+	/**
+	 * Creates a NettyHttpServer by assembling components from the application
+	 * context.
+	 */
+	public static NettyHttpServer create(ApplicationContext context, ServerConfig config) {
+		List<Middleware> middlewares = context.getBeansOfType(Middleware.class).stream()
+				.filter(m -> m.getClass().isAnnotationPresent(GlobalMiddleware.class)).toList();
+		BodyConverter jsonConverter = findOptionalBean(context, BodyConverter.class);
+		if (jsonConverter == null) {
+			jsonConverter = new JsonBodyConverter();
+		}
+		BodyValidator validator = findOptionalBean(context, BodyValidator.class);
+
+		return new NettyHttpServer(config, context.getBean(Router.class), middlewares, validator, jsonConverter);
+	}
+
+	private static <T> T findOptionalBean(ApplicationContext context, Class<T> type) {
+		try {
+			return context.getBean(type);
+		} catch (Exception e) {
+			return null;
+		}
 	}
 
 	public AtomicInteger getActiveConnections() {
@@ -69,7 +96,7 @@ public class NettyHttpServer {
 							ch.pipeline().addLast(new HttpServerCodec())
 									.addLast(new HttpObjectAggregator(config.maxBodySize())) // Combine HTTP parts into
 																								// FullHttpRequest
-									.addLast(new NettyHttpServerHandler(router, middlewares, validator, converters,
+									.addLast(new NettyHttpServerHandler(router, middlewares, validator, jsonConverter,
 											NettyHttpServer.this));
 						}
 					}).option(ChannelOption.SO_BACKLOG, 1024).childOption(ChannelOption.TCP_NODELAY, true)

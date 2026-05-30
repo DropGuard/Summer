@@ -24,7 +24,7 @@ public class PostBodyParsingTest {
 	private WebContext jsonPostContext(String jsonBody) {
 		byte[] bodyBytes = jsonBody.getBytes(StandardCharsets.UTF_8);
 		Request request = new Request("POST", "/", "", "application/json", bodyBytes);
-		return new WebContext(request, null);
+		return new WebContext(request);
 	}
 
 	// ---- Tests ----

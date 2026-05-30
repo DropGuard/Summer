@@ -14,12 +14,18 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import summer.web.SummerApplication;
 
-public class WebSocketTest {
+public class WebSocketIT {
 
 	@BeforeAll
 	public static void startServer() throws InterruptedException {
-		new Thread(() -> SummerApplication.builder(Application.class).port(8081).useRuntime().run(new String[0]))
-				.start();
+		System.setProperty("summer.engine", "runtime");
+		new Thread(() -> {
+			try {
+				SummerApplication.run(Application.class, new String[0]);
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		}).start();
 		Thread.sleep(2000);
 	}
 
@@ -35,7 +41,7 @@ public class WebSocketTest {
 		AtomicReference<String> responseRef = new AtomicReference<>();
 
 		WebSocket webSocket = client.newWebSocketBuilder()
-				.buildAsync(URI.create("ws://localhost:8081/chat/room123"), new WebSocket.Listener() {
+				.buildAsync(URI.create("ws://localhost:8080/chat/room123"), new WebSocket.Listener() {
 					@Override
 					public void onOpen(WebSocket webSocket) {
 						webSocket.request(1);

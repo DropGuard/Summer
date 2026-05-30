@@ -1,12 +1,6 @@
 package summer.web;
 
-import java.lang.invoke.CallSite;
-import java.lang.invoke.LambdaMetafactory;
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -17,18 +11,11 @@ import summer.core.Component;
 import summer.web.annotation.Delete;
 import summer.web.annotation.ExceptionHandler;
 import summer.web.annotation.Get;
-import summer.web.annotation.PathParam;
 import summer.web.annotation.Post;
 import summer.web.annotation.Put;
 import summer.web.annotation.RestController;
 import summer.web.annotation.Use;
 import summer.web.middleware.Middleware;
-import summer.web.resolver.BodyResolver;
-import summer.web.resolver.ExceptionResolver;
-import summer.web.resolver.PathParamResolver;
-import summer.web.resolver.RequestResolver;
-import summer.web.resolver.ResponseResolver;
-import summer.web.resolver.WebContextResolver;
 
 /**
  * Router adapter that discovers and registers routes and exception handlers
@@ -40,15 +27,14 @@ public class AnnotationRouterAdapter implements RouteRegistrar {
 	private final Router router;
 	private final ApplicationContext context;
 	private final ExceptionRegistry exceptionRegistry;
+	private final HandlerFactory handlerFactory;
 
-	private final List<ArgumentResolver> resolvers = List.of(new WebContextResolver(), new RequestResolver(),
-			new ResponseResolver(), new PathParamResolver(), new ExceptionResolver(), new BodyResolver() // Fallback
-	);
-
-	public AnnotationRouterAdapter(Router router, ApplicationContext context, ExceptionRegistry exceptionRegistry) {
+	public AnnotationRouterAdapter(Router router, ApplicationContext context, ExceptionRegistry exceptionRegistry,
+			HandlerFactory handlerFactory) {
 		this.router = router;
 		this.context = context;
 		this.exceptionRegistry = exceptionRegistry;
+		this.handlerFactory = handlerFactory;
 	}
 
 	public void registerControllers() {
@@ -82,14 +68,14 @@ public class AnnotationRouterAdapter implements RouteRegistrar {
 
 	private void registerExceptionHandler(Object instance, Method method) {
 		ExceptionHandler ann = method.getAnnotation(ExceptionHandler.class);
-		Handler handler = createFastHandler(instance, method);
+		Handler handler = handlerFactory.create(instance, method);
 		exceptionRegistry.register(ann.value(), handler);
 		log.info("Exception Handler registered: {}", ann.value().getSimpleName());
 	}
 
 	private void registerRoute(Class<?> clazz, Object instance, Method method, String httpMethod) {
 		String path = getRoutePath(clazz, method, httpMethod);
-		Handler handler = createFastHandler(instance, method);
+		Handler handler = handlerFactory.create(instance, method);
 
 		// Apply @Use middleware
 		List<Class<? extends Middleware>> middlewareClasses = new ArrayList<>();
@@ -113,86 +99,6 @@ public class AnnotationRouterAdapter implements RouteRegistrar {
 
 		router.register(httpMethod, path, handler);
 		log.info("Route registered (Fast Binding + Middleware): {} {}", httpMethod, path);
-	}
-
-	private Handler createFastHandler(Object instance, Method method) {
-		try {
-			MethodHandles.Lookup lookup = MethodHandles.lookup();
-			MethodHandle methodHandle = lookup.unreflect(method).bindTo(instance);
-			MethodHandle adaptedHandle = methodHandle;
-
-			// 1. Handle Return Value (void -> "")
-			if (method.getReturnType().equals(void.class)) {
-				MethodHandle constantEmpty = MethodHandles.constant(Object.class, "");
-				adaptedHandle = MethodHandles.filterReturnValue(methodHandle,
-						MethodHandles.dropArguments(constantEmpty, 0, void.class));
-			} else {
-				adaptedHandle = adaptedHandle.asType(methodHandle.type().changeReturnType(Object.class));
-			}
-
-			// 2. Build Argument Extractors (WebContext -> Parameter)
-			Parameter[] parameters = method.getParameters();
-			MethodHandle[] filters = new MethodHandle[parameters.length];
-			int[] reorder = new int[parameters.length];
-
-			for (int i = 0; i < parameters.length; i++) {
-				Parameter p = parameters[i];
-				reorder[i] = 0; // All filters consume the same WebContext (index 0)
-
-				for (ArgumentResolver resolver : resolvers) {
-					if (resolver.supports(p)) {
-						filters[i] = resolver.resolve(p, lookup);
-						break;
-					}
-				}
-			}
-
-			adaptedHandle = MethodHandles.filterArguments(adaptedHandle, 0, filters);
-			adaptedHandle = MethodHandles.permuteArguments(adaptedHandle,
-					MethodType.methodType(Object.class, WebContext.class), reorder);
-
-			CallSite site = LambdaMetafactory.metafactory(lookup, "handle", MethodType.methodType(Handler.class),
-					MethodType.methodType(Object.class, WebContext.class), adaptedHandle,
-					MethodType.methodType(Object.class, WebContext.class));
-
-			return (Handler) site.getTarget().invoke();
-		} catch (Throwable t) {
-			// Fallback (e.g. for ExceptionHandler where we need to pass the exception
-			// object)
-			return ctx -> {
-				Object[] args = new Object[method.getParameterCount()];
-				Parameter[] params = method.getParameters();
-				for (int i = 0; i < params.length; i++) {
-					Class<?> type = params[i].getType();
-					if (type.equals(WebContext.class))
-						args[i] = ctx;
-					else if (type.equals(Request.class))
-						args[i] = ctx.request();
-					else if (type.equals(Response.class))
-						args[i] = ctx.response();
-					else if (params[i].isAnnotationPresent(PathParam.class))
-						args[i] = ctx.request().pathParam(params[i].getAnnotation(PathParam.class).value());
-					else if (Throwable.class.isAssignableFrom(type))
-						args[i] = ctx.request().getAttribute("last_exception");
-					else {
-						if (params[i].isAnnotationPresent(summer.web.annotation.Valid.class)) {
-							args[i] = ctx.validatedBody(type);
-						} else {
-							args[i] = ctx.body(type);
-						}
-					}
-				}
-				try {
-					Object res = method.invoke(instance, args);
-					return method.getReturnType().equals(void.class) ? "" : res;
-				} catch (java.lang.reflect.InvocationTargetException e) {
-					Throwable target = e.getTargetException();
-					throw (target instanceof RuntimeException re) ? re : new RuntimeException(target);
-				} catch (Exception e) {
-					throw (e instanceof RuntimeException re) ? re : new RuntimeException(e);
-				}
-			};
-		}
 	}
 
 	private String getRoutePath(Class<?> clazz, Method method, String httpMethod) {

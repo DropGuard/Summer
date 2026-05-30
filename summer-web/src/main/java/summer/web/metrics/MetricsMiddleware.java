@@ -1,6 +1,7 @@
 package summer.web.metrics;
 
 import summer.web.Handler;
+import summer.web.HttpStatus;
 import summer.web.annotation.GlobalMiddleware;
 import summer.web.middleware.Middleware;
 
@@ -25,7 +26,8 @@ public class MetricsMiddleware implements Middleware {
 				Object result = next.handle(ctx);
 
 				// If status is an error status, record it
-				if (ctx.response().getStatusCode() >= 500) {
+				HttpStatus status = ctx.statusCode();
+				if (status != null && status.code() >= 500) {
 					registry.recordError();
 				}
 

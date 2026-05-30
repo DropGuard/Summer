@@ -34,9 +34,9 @@ public class ExceptionMiddleware implements Middleware {
 				}
 
 				if (e instanceof SummerWebException webEx) {
-					ctx.response().setStatusCode(webEx.statusCode());
+					ctx.status(webEx.statusCode());
 				}
-				ctx.response().error(e);
+				ctx.error(e);
 				System.err.println("Request failed: " + ctx.request().getPath());
 				e.printStackTrace();
 				return null;

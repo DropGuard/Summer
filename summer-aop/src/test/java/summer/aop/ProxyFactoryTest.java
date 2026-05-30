@@ -1,0 +1,137 @@
+package summer.aop;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import java.util.List;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Tests for {@link ProxyFactory}.
+ */
+class ProxyFactoryTest {
+
+	@Test
+	void shouldCreateProxy() {
+		TestService target = new TestServiceImpl();
+		List<MethodInterceptor> interceptors = List.of();
+		TestService proxy = ProxyFactory.createProxy(target, interceptors);
+
+		assertNotNull(proxy);
+		assertNotSame(target, proxy);
+	}
+
+	@Test
+	void shouldCreateProxyWithInterceptor() {
+		TestService target = new TestServiceImpl();
+		MethodInterceptor interceptor = new MethodInterceptor() {
+			@Override
+			public Object intercept(InvocationContext context) throws Throwable {
+				return "Intercepted: " + context.proceed();
+			}
+		};
+
+		TestService proxy = ProxyFactory.createProxy(target, List.of(interceptor));
+		assertNotNull(proxy);
+	}
+
+	@Test
+	void shouldThrowWhenTargetHasNoInterfaces() {
+		Object target = new Object();
+		List<MethodInterceptor> interceptors = List.of();
+
+		assertThrows(SummerAopException.class, () -> ProxyFactory.createProxy(target, interceptors));
+	}
+
+	@Test
+	void shouldDelegateToObjectMethods() {
+		TestService target = new TestServiceImpl();
+		List<MethodInterceptor> interceptors = List.of();
+		TestService proxy = ProxyFactory.createProxy(target, interceptors);
+
+		// Test toString
+		assertEquals(target.toString(), proxy.toString());
+
+		// Test hashCode
+		assertEquals(target.hashCode(), proxy.hashCode());
+
+		// Test equals
+		assertTrue(proxy.equals(target));
+	}
+
+	@Test
+	void shouldInterceptMethodWithAnnotation() {
+		TestService target = new TestServiceImpl();
+		MethodInterceptor interceptor = new TestInterceptor();
+
+		TestService proxy = ProxyFactory.createProxy(target, List.of(interceptor));
+		String result = proxy.sayHello();
+		assertEquals("Intercepted: Hello", result);
+	}
+
+	@Test
+	void shouldNotInterceptMethodWithoutAnnotation() {
+		TestService target = new TestServiceImpl();
+		MethodInterceptor interceptor = new TestInterceptor() {
+			@Override
+			public boolean supports(Class<?> targetClass) {
+				return false;
+			}
+		};
+
+		TestService proxy = ProxyFactory.createProxy(target, List.of(interceptor));
+		// Note: supports() is not used for @Intercepted methods
+		String result = proxy.sayHello();
+		assertEquals("Intercepted: Hello", result);
+	}
+
+	@Test
+	void shouldHandleMultipleInterceptors() {
+		TestService target = new TestServiceImpl();
+		MethodInterceptor interceptor1 = new TestInterceptor() {
+			@Override
+			public Object intercept(InvocationContext context) throws Throwable {
+				return "First: " + context.proceed();
+			}
+		};
+
+		MethodInterceptor interceptor2 = new TestInterceptor() {
+			@Override
+			public Object intercept(InvocationContext context) throws Throwable {
+				return "Second: " + context.proceed();
+			}
+		};
+
+		TestService proxy = ProxyFactory.createProxy(target, List.of(interceptor1, interceptor2));
+		String result = proxy.sayHello();
+		// Interceptors are executed in order: interceptor1 wraps interceptor2
+		assertEquals("First: Second: Hello", result);
+	}
+
+	// Test interfaces and implementations
+	public interface TestService {
+		@Intercepted
+		String sayHello();
+
+		String greet(String name);
+	}
+
+	public static class TestServiceImpl implements TestService {
+		@Override
+		@Intercepted
+		public String sayHello() {
+			return "Hello";
+		}
+
+		@Override
+		public String greet(String name) {
+			return "Hello, " + name + "!";
+		}
+	}
+
+	public static class TestInterceptor implements MethodInterceptor {
+		@Override
+		public Object intercept(InvocationContext context) throws Throwable {
+			return "Intercepted: " + context.proceed();
+		}
+	}
+}

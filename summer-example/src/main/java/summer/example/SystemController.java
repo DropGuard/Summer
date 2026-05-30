@@ -21,7 +21,7 @@ public class SystemController {
 	@Get("/metrics")
 	public String metrics(WebContext ctx) {
 		// Set content type for Prometheus
-		ctx.response().setHeader("Content-Type", "text/plain; version=0.0.4");
+		ctx.setHeader("Content-Type", "text/plain; version=0.0.4");
 		return registry.scrape();
 	}
 

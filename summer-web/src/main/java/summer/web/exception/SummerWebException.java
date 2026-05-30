@@ -2,22 +2,23 @@ package summer.web.exception;
 
 import summer.core.ErrorCode;
 import summer.core.SummerException;
+import summer.web.HttpStatus;
 
 /**
  * Base class for all Web and HTTP-related exceptions in Summer. Carries an HTTP
  * status code for automatic response mapping.
  */
 public class SummerWebException extends SummerException {
-	private final int statusCode;
+	private final HttpStatus status;
 
-	public SummerWebException(ErrorCode errorCode, int statusCode, String message) {
+	public SummerWebException(ErrorCode errorCode, HttpStatus status, String message) {
 		super(errorCode, message);
-		this.statusCode = statusCode;
+		this.status = status;
 	}
 
-	public SummerWebException(ErrorCode errorCode, int statusCode, String message, Throwable cause) {
+	public SummerWebException(ErrorCode errorCode, HttpStatus status, String message, Throwable cause) {
 		super(errorCode, message, cause);
-		this.statusCode = statusCode;
+		this.status = status;
 	}
 
 	/**
@@ -25,7 +26,7 @@ public class SummerWebException extends SummerException {
 	 */
 	public SummerWebException(String message) {
 		super(ErrorCode.INTERNAL_ERROR, message);
-		this.statusCode = 500;
+		this.status = HttpStatus.INTERNAL_SERVER_ERROR;
 	}
 
 	/**
@@ -33,10 +34,10 @@ public class SummerWebException extends SummerException {
 	 */
 	public SummerWebException(String message, Throwable cause) {
 		super(ErrorCode.INTERNAL_ERROR, message, cause);
-		this.statusCode = 500;
+		this.status = HttpStatus.INTERNAL_SERVER_ERROR;
 	}
 
-	public int statusCode() {
-		return statusCode;
+	public HttpStatus statusCode() {
+		return status;
 	}
 }

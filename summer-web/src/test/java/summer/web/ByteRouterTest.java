@@ -69,6 +69,6 @@ public class ByteRouterTest {
 		byte[] pathBytes = path.getBytes(StandardCharsets.UTF_8);
 		// Request constructor needs a query, contentType, body, and headers
 		Request request = new Request(method, path, "", "application/json", new byte[0], new HashMap<>(), pathBytes);
-		return new WebContext(request, null);
+		return new WebContext(request);
 	}
 }

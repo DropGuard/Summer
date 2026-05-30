@@ -20,19 +20,18 @@ final class JandexDiscovery {
 	}
 
 	/**
-	 * Callback interface for registering discovered beans. Implemented by
-	 * SummerProcessor to delegate to its collect methods.
+	 * Callback interface for registering discovered beans.
 	 */
 	interface BeanCollector {
 		void collectComponent(TypeElement typeElement);
 		void collectConfiguration(TypeElement typeElement);
 		boolean alreadyCollected(TypeElement typeElement);
+		boolean alreadyCollectedByName(String qualifiedName);
 	}
 
 	/**
 	 * Loads all pre-built Jandex indexes from dependency JARs on the processor
-	 * classpath. Returns a CompositeIndex merging all discovered
-	 * META-INF/jandex.idx files.
+	 * classpath.
 	 */
 	static CompositeIndex loadIndex() throws IOException {
 		List<IndexView> indexes = new ArrayList<>();
@@ -40,9 +39,9 @@ final class JandexDiscovery {
 		Enumeration<URL> urls = cl.getResources("META-INF/jandex.idx");
 		while (urls.hasMoreElements()) {
 			URL url = urls.nextElement();
-			InputStream is = url.openStream();
-			indexes.add(new IndexReader(is).read());
-			is.close();
+			try (InputStream is = url.openStream()) {
+				indexes.add(new IndexReader(is).read());
+			}
 		}
 		return CompositeIndex.create(indexes);
 	}
@@ -50,10 +49,14 @@ final class JandexDiscovery {
 	/**
 	 * Discovers framework beans from Jandex indexes: @Component, @Configuration,
 	 * and meta-annotated components (@RestController, @GlobalMiddleware, etc.).
+	 *
+	 * For beans whose TypeElement is available (on processor classpath), uses
+	 * collectComponent/collectConfiguration. For beans whose TypeElement is NOT
+	 * available, emits a warning.
 	 */
 	static void discoverFrameworkBeans(List<BeanDefinition> allBeans, CompositeIndex index,
 			ProcessingEnvironment processingEnv, BeanCollector collector) {
-		DotName componentDot = DotName.createSimple("summer.core.annotation.Component");
+		DotName componentDot = DotName.createSimple("summer.core.Component");
 		DotName configDot = DotName.createSimple("summer.core.annotation.Configuration");
 
 		// Discover @Component-annotated classes from dependency indexes
@@ -61,22 +64,32 @@ final class JandexDiscovery {
 			if (ai.target().kind() != AnnotationTarget.Kind.CLASS)
 				continue;
 			ClassInfo ci = ai.target().asClass();
+			if (collector.alreadyCollectedByName(ci.name().toString()))
+				continue;
+
 			TypeElement te = processingEnv.getElementUtils().getTypeElement(ci.name().toString());
-			if (te != null && !collector.alreadyCollected(te)) {
+			if (te != null) {
 				collector.collectComponent(te);
+			} else {
+				processingEnv.getMessager().printMessage(javax.tools.Diagnostic.Kind.WARNING,
+						"[Summer AOT] Cannot resolve type: " + ci.name() + " — ensure it is on the compile classpath.");
 			}
 		}
 
-		// Discover @Configuration classes (meta-annotated with @Component, but need
-		// collectConfiguration to also pick up their @Bean methods)
+		// Discover @Configuration classes
 		for (AnnotationInstance ai : index.getAnnotations(configDot)) {
 			if (ai.target().kind() != AnnotationTarget.Kind.CLASS)
 				continue;
 			ClassInfo ci = ai.target().asClass();
+			if (collector.alreadyCollectedByName(ci.name().toString()))
+				continue;
+
 			TypeElement te = processingEnv.getElementUtils().getTypeElement(ci.name().toString());
-			if (te != null && !collector.alreadyCollected(te)) {
+			if (te != null) {
 				collector.collectConfiguration(te);
 			}
+			// Note: @Configuration from framework JARs without TypeElement
+			// are skipped — they need @Bean method processing which requires TypeElement
 		}
 
 		// Discover meta-annotated components: @RestController, @GlobalMiddleware, etc.
@@ -92,17 +105,23 @@ final class JandexDiscovery {
 				if (usage.target().kind() != AnnotationTarget.Kind.CLASS)
 					continue;
 				ClassInfo userClass = usage.target().asClass();
+				if (collector.alreadyCollectedByName(userClass.name().toString()))
+					continue;
+
 				TypeElement te = processingEnv.getElementUtils().getTypeElement(userClass.name().toString());
-				if (te != null && !collector.alreadyCollected(te)) {
+				if (te != null) {
 					collector.collectComponent(te);
+				} else {
+					processingEnv.getMessager().printMessage(javax.tools.Diagnostic.Kind.WARNING,
+							"[Summer AOT] Cannot resolve type: " + userClass.name()
+									+ " — ensure it is on the compile classpath.");
 				}
 			}
 		}
 	}
 
 	/**
-	 * Discovers MethodInterceptor beans with @Intercepts from Jandex indexes. These
-	 * are needed for AOP proxy wrapping but aren't direct constructor dependencies.
+	 * Discovers MethodInterceptor beans with @Intercepts from Jandex indexes.
 	 */
 	static void discoverInterceptorBeans(List<BeanDefinition> allBeans, CompositeIndex index,
 			ProcessingEnvironment processingEnv, BeanCollector collector) {
@@ -111,8 +130,14 @@ final class JandexDiscovery {
 		if (miType == null)
 			return;
 
-		boolean hasInterceptors = allBeans.stream().anyMatch(b -> typeUtils
-				.isAssignable(typeUtils.erasure(b.typeElement.asType()), typeUtils.erasure(miType.asType())));
+		boolean hasInterceptors = allBeans.stream().anyMatch(b -> {
+			if (b instanceof AptBeanDefinition apt) {
+				return typeUtils.isAssignable(typeUtils.erasure(apt.typeElement.asType()),
+						typeUtils.erasure(miType.asType()));
+			}
+			return b.interfaceNames().contains("summer.aop.MethodInterceptor");
+		});
+
 		if (hasInterceptors)
 			return;
 
@@ -124,10 +149,11 @@ final class JandexDiscovery {
 			if (intercepts == null)
 				continue;
 
+			if (collector.alreadyCollectedByName(ci.name().toString()))
+				continue;
+
 			TypeElement te = processingEnv.getElementUtils().getTypeElement(ci.name().toString());
 			if (te == null)
-				continue;
-			if (collector.alreadyCollected(te))
 				continue;
 
 			String targetAnnotationFqn = null;
@@ -141,9 +167,13 @@ final class JandexDiscovery {
 
 			if (targetAnnotationFqn != null) {
 				String finalTargetFqn = targetAnnotationFqn;
-				boolean hasTarget = allBeans.stream().anyMatch(
-						b -> javax.lang.model.util.ElementFilter.methodsIn(b.typeElement.getEnclosedElements()).stream()
-								.anyMatch(m -> AnnotationHelper.hasAnnotation(m, finalTargetFqn)));
+				boolean hasTarget = allBeans.stream().anyMatch(b -> {
+					if (b instanceof AptBeanDefinition apt) {
+						return javax.lang.model.util.ElementFilter.methodsIn(apt.typeElement.getEnclosedElements())
+								.stream().anyMatch(m -> AnnotationHelper.hasAnnotation(m, finalTargetFqn));
+					}
+					return false;
+				});
 
 				if (hasTarget && AnnotationHelper.hasAnnotation(te, "summer.core.Component")) {
 					collector.collectComponent(te);
@@ -153,61 +183,41 @@ final class JandexDiscovery {
 	}
 
 	/**
-	 * For an interface type, tries to discover a concrete @Component implementation
-	 * from the Jandex index.
-	 */
-	static boolean tryDiscoverImplementation(TypeElement interfaceElement, List<BeanDefinition> allBeans,
-			CompositeIndex index, ProcessingEnvironment processingEnv, BeanCollector collector) {
-		DotName ifaceDot = DotName.createSimple(interfaceElement.getQualifiedName().toString());
-
-		for (ClassInfo ci : index.getAllKnownImplementors(ifaceDot)) {
-			if (ci.isAbstract() || ci.isInterface())
-				continue;
-
-			TypeElement implElement = processingEnv.getElementUtils().getTypeElement(ci.name().toString());
-			if (implElement != null && tryCollectFromClasspath(implElement, allBeans, processingEnv, collector)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	/**
 	 * For each bean's constructor/producer params, if the param type isn't among
 	 * collected beans, try to find it on the classpath and auto-register it.
 	 */
 	static void discoverTransitiveDependencies(List<BeanDefinition> allBeans, CompositeIndex index,
 			ProcessingEnvironment processingEnv, BeanCollector collector) {
-		Types typeUtils = processingEnv.getTypeUtils();
 		boolean changed = true;
 		while (changed) {
 			changed = false;
-			List<TypeMirror> allParamTypes = new ArrayList<>();
+			List<String> allParamTypes = new ArrayList<>();
 			for (BeanDefinition bean : allBeans) {
-				if (bean.kind == BeanDefinition.Kind.FACTORY_PRODUCT) {
-					allParamTypes.addAll(bean.producerParamTypes);
+				if (bean.kind() == BeanDefinition.Kind.FACTORY_PRODUCT) {
+					allParamTypes.addAll(bean.producerParamTypes());
 				} else {
-					allParamTypes.addAll(bean.constructorParamTypes);
+					allParamTypes.addAll(bean.constructorParamTypes());
 				}
 			}
 
-			for (TypeMirror paramType : allParamTypes) {
-				TypeElement paramElement = asTypeElement(paramType, processingEnv);
-				if (paramElement == null)
+			for (String paramType : allParamTypes) {
+				if (isBeanSatisfiedByName(paramType, allBeans))
 					continue;
 
-				if (isBeanSatisfied(paramElement, allBeans, processingEnv))
-					continue;
-
-				if (tryCollectFromClasspath(paramElement, allBeans, processingEnv, collector)) {
-					changed = true;
-					continue;
+				TypeElement paramElement = processingEnv.getElementUtils().getTypeElement(paramType);
+				if (paramElement != null) {
+					if (tryCollectFromClasspath(paramElement, allBeans, processingEnv, collector)) {
+						changed = true;
+						continue;
+					}
 				}
 
-				if (paramElement.getKind() == ElementKind.INTERFACE) {
-					if (tryDiscoverImplementation(paramElement, allBeans, index, processingEnv, collector)) {
-						changed = true;
-					}
+				// Try to find in Jandex index
+				ClassInfo ci = index.getClassByName(DotName.createSimple(paramType));
+				if (ci != null && !collector.alreadyCollectedByName(paramType)) {
+					processingEnv.getMessager().printMessage(javax.tools.Diagnostic.Kind.WARNING,
+							"[Summer AOT] Cannot resolve type: " + paramType
+									+ " — ensure it is on the compile classpath.");
 				}
 			}
 		}
@@ -215,14 +225,16 @@ final class JandexDiscovery {
 
 	// --- Private helpers ---
 
-	private static boolean isBeanSatisfied(TypeElement typeElement, List<BeanDefinition> allBeans,
-			ProcessingEnvironment processingEnv) {
-		Types typeUtils = processingEnv.getTypeUtils();
-		TypeMirror targetType = typeUtils.erasure(typeElement.asType());
+	private static boolean isBeanSatisfiedByName(String qualifiedName, List<BeanDefinition> allBeans) {
 		for (BeanDefinition b : allBeans) {
-			TypeMirror beanType = typeUtils.erasure(b.typeElement.asType());
-			if (typeUtils.isSameType(beanType, targetType) || typeUtils.isAssignable(beanType, targetType)) {
+			if (b.qualifiedName().equals(qualifiedName)) {
 				return true;
+			}
+			// Check interfaces
+			for (String iface : b.interfaceNames()) {
+				if (iface.equals(qualifiedName)) {
+					return true;
+				}
 			}
 		}
 		return false;
@@ -246,10 +258,5 @@ final class JandexDiscovery {
 			return true;
 		}
 		return false;
-	}
-
-	private static TypeElement asTypeElement(TypeMirror typeMirror, ProcessingEnvironment processingEnv) {
-		javax.lang.model.element.Element element = processingEnv.getTypeUtils().asElement(typeMirror);
-		return (element instanceof TypeElement te) ? te : null;
 	}
 }

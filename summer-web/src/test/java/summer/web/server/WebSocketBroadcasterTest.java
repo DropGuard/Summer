@@ -46,7 +46,7 @@ public class WebSocketBroadcasterTest {
 
 		// 2. Start server
 		ServerConfig config = new ServerConfig(0, 30000, 1024 * 1024, 10000);
-		server = new NettyHttpServer(config, router, List.of(), null, List.of());
+		server = new NettyHttpServer(config, router, List.of(), null, null);
 
 		Thread serverThread = new Thread(() -> {
 			server.start();

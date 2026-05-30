@@ -10,8 +10,8 @@ import java.util.Map;
 import summer.validation.BodyValidator;
 import summer.web.BodyConverter;
 import summer.web.Handler;
+import summer.web.HttpStatus;
 import summer.web.Request;
-import summer.web.Response;
 import summer.web.Router;
 import summer.web.WebContext;
 import summer.web.middleware.Middleware;
@@ -21,15 +21,15 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 	private final Router router;
 	private final List<Middleware> middlewares;
 	private final BodyValidator validator;
-	private final List<BodyConverter> converters;
+	private final BodyConverter jsonConverter;
 	private final NettyHttpServer server;
 
 	public NettyHttpServerHandler(Router router, List<Middleware> middlewares, BodyValidator validator,
-			List<BodyConverter> converters, NettyHttpServer server) {
+			BodyConverter jsonConverter, NettyHttpServer server) {
 		this.router = router;
 		this.middlewares = middlewares;
 		this.validator = validator;
-		this.converters = converters;
+		this.jsonConverter = jsonConverter;
 		this.server = server;
 	}
 
@@ -92,35 +92,29 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 	private void processRequest(ChannelHandlerContext ctx, FullHttpRequest nettyReq, boolean keepAlive) {
 		try {
 			Request request = NettyRequestAdapter.adapt(nettyReq);
-			Response response = new Response();
-			WebContext webCtx = new WebContext(request, response, validator, converters);
+			WebContext webCtx = new WebContext(request, validator, jsonConverter);
 
 			Handler handler = createHandlerChain();
 			handler.handle(webCtx);
 
-			if (!response.isCommitted()) {
-				response.notFound();
+			if (webCtx.statusCode() == null) {
+				webCtx.text(HttpStatus.NOT_FOUND, "Not Found");
 			}
 
-			sendResponse(ctx, response, keepAlive);
+			sendResponse(ctx, webCtx, keepAlive);
 
 		} catch (Exception e) {
 			e.printStackTrace();
-			Response errResponse = new Response();
-			errResponse.error(e);
-			sendResponse(ctx, errResponse, keepAlive);
+			WebContext errCtx = new WebContext(NettyRequestAdapter.adapt(nettyReq), validator, jsonConverter);
+			errCtx.error(e);
+			sendResponse(ctx, errCtx, keepAlive);
 		}
 	}
 
 	private Handler createHandlerChain() {
 		Handler dispatchHandler = (c) -> {
 			try {
-				Object result = router.route(c);
-				if (result != null) {
-					c.ok(result);
-				} else {
-					c.notFound();
-				}
+				router.route(c);
 			} catch (Exception e) {
 				c.error(e);
 			}
@@ -135,14 +129,14 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 		return handler;
 	}
 
-	private void sendResponse(ChannelHandlerContext ctx, Response response, boolean keepAlive) {
-		HttpResponseStatus status = HttpResponseStatus.valueOf(response.getStatusCode());
+	private void sendResponse(ChannelHandlerContext ctx, WebContext webCtx, boolean keepAlive) {
+		HttpResponseStatus status = HttpResponseStatus.valueOf(webCtx.statusCode().code());
 
 		FullHttpResponse nettyResp;
-		if (response.getResultObject() != null && response.getConverter() != null) {
+		if (webCtx.resultObject() != null && webCtx.converter() != null) {
 			io.netty.buffer.ByteBuf buf = ctx.alloc().directBuffer();
 			try (io.netty.buffer.ByteBufOutputStream out = new io.netty.buffer.ByteBufOutputStream(buf)) {
-				response.getConverter().writeToStream(response.getResultObject(), out);
+				webCtx.converter().writeToStream(webCtx.resultObject(), out);
 			} catch (Exception e) {
 				buf.release();
 				e.printStackTrace();
@@ -162,15 +156,15 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 				return;
 			}
 			nettyResp = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status, buf);
-		} else if (response.getBody() != null && response.getBody().length > 0) {
+		} else if (webCtx.body() != null && webCtx.body().length > 0) {
 			nettyResp = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status,
-					Unpooled.wrappedBuffer(response.getBody()));
+					Unpooled.wrappedBuffer(webCtx.body()));
 		} else {
 			nettyResp = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status);
 		}
 
 		// Apply headers
-		for (Map.Entry<String, String> entry : response.getHeaders().entrySet()) {
+		for (Map.Entry<String, String> entry : webCtx.headers().entrySet()) {
 			nettyResp.headers().set(entry.getKey(), entry.getValue());
 		}
 

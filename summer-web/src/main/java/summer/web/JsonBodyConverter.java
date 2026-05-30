@@ -34,7 +34,7 @@ public class JsonBodyConverter implements BodyConverter {
 		objectMapper.registerModule(javaTimeModule);
 		objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-		objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+		objectMapper.setSerializationInclusion(JsonInclude.Include.ALWAYS);
 	}
 
 	@Override

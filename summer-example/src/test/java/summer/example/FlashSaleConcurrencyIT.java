@@ -5,9 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import summer.scanner.runtime.RuntimeDiEngine;
 import summer.test.annotation.SummerTest;
 
-@SummerTest(engine = SummerTest.Engine.RUNTIME)
+@SummerTest(RuntimeDiEngine.class)
 public class FlashSaleConcurrencyIT {
 
 	@Test

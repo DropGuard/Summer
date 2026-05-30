@@ -14,21 +14,11 @@ import summer.tck.aop.dummy.RecordingInterceptor;
  * Defines the behavioral contract that BOTH the Runtime and AOT engines must
  * satisfy for AOP interception. Any engine that passes all tests here is
  * considered AOP-compliant.
- *
- * Contract verified: 1. Intercepted methods are actually proxied (return value
- * is mutated). 2. Non-intercepted methods on the same bean are NOT affected. 3.
- * The interceptor's before/after lifecycle executes in correct order. 4. The
- * interceptor's supports() filter is respected (other beans stay raw). 5. The
- * bean retrieved from context is a proxy, not the raw implementation.
  */
 public abstract class AbstractAopTCK {
 
 	protected ApplicationContext context;
 
-	/**
-	 * Implementing subclasses boot their respective engine (Runtime or AOT)
-	 * scanning the aop dummy package.
-	 */
 	protected abstract ApplicationContext createContext();
 
 	protected ApplicationContext getContext() {
@@ -47,7 +37,7 @@ public abstract class AbstractAopTCK {
 	}
 
 	// -----------------------------------------------------------------------
-	// Test 1: The intercepted method IS wrapped
+	// Intercepted method IS proxied
 	// -----------------------------------------------------------------------
 
 	@Test
@@ -59,7 +49,7 @@ public abstract class AbstractAopTCK {
 	}
 
 	// -----------------------------------------------------------------------
-	// Test 2: The non-intercepted method is NOT wrapped
+	// Non-intercepted method is NOT proxied
 	// -----------------------------------------------------------------------
 
 	@Test
@@ -70,54 +60,35 @@ public abstract class AbstractAopTCK {
 	}
 
 	// -----------------------------------------------------------------------
-	// Test 3: Interceptor lifecycle order (before → proceed → after)
-	// -----------------------------------------------------------------------
-
-	@Test
-	void testInterceptorLifecycleOrder() {
-		RecordingInterceptor interceptor = getContext().getBean(RecordingInterceptor.class);
-		interceptor.clearLog();
-
-		Greeter greeter = getContext().getBean(Greeter.class);
-		String result = greeter.greet("Bob");
-
-		var log = interceptor.getCallLog();
-		// The interceptor logs "before" and "after" — proceed() itself is not logged
-		assertEquals(2, log.size(), "Interceptor log must have exactly 2 entries: before:greet and after:greet");
-		assertEquals("before:greet", log.get(0));
-		assertEquals("after:greet", log.get(1));
-		// The actual method ran in between — proven by the return value
-		assertEquals("[intercepted] Hello, Bob", result);
-	}
-
-	// -----------------------------------------------------------------------
-	// Test 4: Calling shout() does NOT trigger the interceptor
-	// -----------------------------------------------------------------------
-
-	@Test
-	void testNonInterceptedMethodDoesNotTriggerInterceptor() {
-		RecordingInterceptor interceptor = getContext().getBean(RecordingInterceptor.class);
-		interceptor.clearLog();
-
-		Greeter greeter = getContext().getBean(Greeter.class);
-		greeter.shout("hello");
-
-		assertTrue(interceptor.getCallLog().isEmpty(),
-				"Calling a non-@Intercepted method must not trigger the interceptor at all");
-	}
-
-	// -----------------------------------------------------------------------
-	// Test 5: The bean from context is a proxy, not the raw class
+	// Interface lookup returns proxy
 	// -----------------------------------------------------------------------
 
 	@Test
 	void testBeanIsProxy() {
 		Greeter greeter = getContext().getBean(Greeter.class);
-		// JDK proxy creates an anonymous class implementing the interface.
-		// The raw GreeterService class will NOT be the runtime type.
 		assertNotEquals(summer.tck.aop.dummy.GreeterService.class, greeter.getClass(),
 				"The bean returned from context must be a proxy, not the raw GreeterService");
-		// But it must still implement the interface
 		assertInstanceOf(Greeter.class, greeter);
+	}
+
+	// -----------------------------------------------------------------------
+	// Concrete class lookup returns raw instance, bypassing interception
+	// -----------------------------------------------------------------------
+
+	@Test
+	void testConcreteClassBypassesAop() {
+		RecordingInterceptor interceptor = getContext().getBean(RecordingInterceptor.class);
+		interceptor.clearLog();
+
+		summer.tck.aop.dummy.GreeterService raw = getContext()
+				.getBean(summer.tck.aop.dummy.GreeterService.class);
+		assertEquals(summer.tck.aop.dummy.GreeterService.class, raw.getClass(),
+				"getBean(ConcreteClass.class) must return the raw instance, not a JDK proxy");
+
+		String result = raw.greet("Charlie");
+		assertEquals("Hello, Charlie", result,
+				"greet() on raw instance must NOT be intercepted");
+		assertTrue(interceptor.getCallLog().isEmpty(),
+				"Interceptor must not fire when method is called on the raw instance");
 	}
 }

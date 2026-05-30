@@ -15,7 +15,6 @@ public class ResponseSerializationTest {
 
 	@Test
 	public void testJsonSerializationWithJavaTimeTypes() {
-		// 创建一个包含 Java 8 时间类型的复杂对象
 		Map<String, Object> testData = new HashMap<>();
 		testData.put("stringValue", "Hello World");
 		testData.put("intValue", 42);
@@ -24,25 +23,16 @@ public class ResponseSerializationTest {
 		testData.put("localDateTime", LocalDateTime.now());
 		testData.put("zonedDateTime", ZonedDateTime.now());
 
-		// 创建响应对象
-		Response response = new Response();
-
-		// 尝试序列化
 		try {
-			// 这里我们实际上不会发送响应到输出流，
-			// 但可以通过捕获输出或使用 mock 对象来测试
 			new JsonBodyConverter().write(testData);
-
-			// 如果没有抛出异常，我们就认为成功
 			assertTrue(true);
 		} catch (Exception e) {
-			fail("序列化过程中抛出了异常: " + e.getMessage());
+			fail("Serialization failed: " + e.getMessage());
 		}
 	}
 
 	@Test
 	public void testJsonSerializationWithCollections() {
-		// 创建包含集合类型的对象
 		List<Map<String, Object>> listData = new ArrayList<>();
 		Map<String, Object> item1 = new HashMap<>();
 		item1.put("name", "Item 1");
@@ -54,30 +44,25 @@ public class ResponseSerializationTest {
 		item2.put("value", 20);
 		listData.add(item2);
 
-		Response response = new Response();
-
 		try {
 			new JsonBodyConverter().write(listData);
 			assertTrue(true);
 		} catch (Exception e) {
-			fail("集合类型序列化失败: " + e.getMessage());
+			fail("Collection serialization failed: " + e.getMessage());
 		}
 	}
 
 	@Test
 	public void testJsonSerializationWithNullValues() {
-		// 创建包含 null 值的对象
 		Map<String, Object> testData = new HashMap<>();
 		testData.put("nullValue", null);
 		testData.put("validValue", "Some Value");
-
-		Response response = new Response();
 
 		try {
 			new JsonBodyConverter().write(testData);
 			assertTrue(true);
 		} catch (Exception e) {
-			fail("包含 null 值的对象序列化失败: " + e.getMessage());
+			fail("Serialization with null values failed: " + e.getMessage());
 		}
 	}
 }

@@ -6,9 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import summer.scanner.runtime.RuntimeDiEngine;
 import summer.test.annotation.SummerTest;
 
-@SummerTest
+@SummerTest(RuntimeDiEngine.class)
 class UserControllerTest {
 
 	@Test

@@ -17,12 +17,12 @@ public class LoggingMiddleware implements Middleware {
 		return ctx -> {
 			long startTime = System.currentTimeMillis();
 
-			log.info("Processing request: {} {}", ctx.request().getMethod(), ctx.request().getPath());
+			log.info("Processing request: {} {}", ctx.method(), ctx.path());
 
 			try {
 				Object result = handler.handle(ctx);
 				long duration = System.currentTimeMillis() - startTime;
-				log.info("Completed response: {} in {}ms", ctx.response().getStatusCode(), duration);
+				log.info("Completed response: {} in {}ms", ctx.statusCode(), duration);
 				return result;
 			} catch (Exception e) {
 				long duration = System.currentTimeMillis() - startTime;

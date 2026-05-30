@@ -28,6 +28,7 @@
         <module>summer-compiler</module>
         <module>summer-runtime</module>
         <module>summer-example</module>
+        <module>summer-realworld</module>
         <module>summer-test-fixtures</module>
         <module>summer-tck</module>
         <module>summer-grpc</module>
