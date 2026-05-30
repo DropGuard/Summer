@@ -138,68 +138,6 @@ final class JandexDiscovery {
 	}
 
 	/**
-	 * Discovers MethodInterceptor beans with @Intercepts from Jandex indexes.
-	 */
-	static void discoverInterceptorBeans(List<BeanDefinition> allBeans, CompositeIndex index,
-			ProcessingEnvironment processingEnv, BeanCollector collector) {
-		Types typeUtils = processingEnv.getTypeUtils();
-		TypeElement miType = processingEnv.getElementUtils().getTypeElement("summer.aop.MethodInterceptor");
-		if (miType == null)
-			return;
-
-		boolean hasInterceptors = allBeans.stream().anyMatch(b -> {
-			if (b instanceof AptBeanDefinition apt) {
-				return typeUtils.isAssignable(typeUtils.erasure(apt.typeElement.asType()),
-						typeUtils.erasure(miType.asType()));
-			}
-			return b.interfaceNames().contains("summer.aop.MethodInterceptor");
-		});
-
-		if (hasInterceptors)
-			return;
-
-		DotName miDot = DotName.createSimple("summer.aop.MethodInterceptor");
-		DotName interceptsDot = DotName.createSimple("summer.aop.Intercepts");
-
-		for (ClassInfo ci : index.getAllKnownImplementors(miDot)) {
-			AnnotationInstance intercepts = ci.annotation(interceptsDot);
-			if (intercepts == null)
-				continue;
-
-			if (collector.alreadyCollectedByName(ci.name().toString()))
-				continue;
-
-			TypeElement te = processingEnv.getElementUtils().getTypeElement(ci.name().toString());
-			if (te == null)
-				continue;
-
-			String targetAnnotationFqn = null;
-			org.jboss.jandex.AnnotationValue annValue = intercepts.value("annotations");
-			if (annValue != null) {
-				var annotationTypes = annValue.asClassArray();
-				if (annotationTypes.length > 0) {
-					targetAnnotationFqn = annotationTypes[0].name().toString();
-				}
-			}
-
-			if (targetAnnotationFqn != null) {
-				String finalTargetFqn = targetAnnotationFqn;
-				boolean hasTarget = allBeans.stream().anyMatch(b -> {
-					if (b instanceof AptBeanDefinition apt) {
-						return javax.lang.model.util.ElementFilter.methodsIn(apt.typeElement.getEnclosedElements())
-								.stream().anyMatch(m -> AnnotationHelper.hasAnnotation(m, finalTargetFqn));
-					}
-					return false;
-				});
-
-				if (hasTarget && AnnotationHelper.hasAnnotation(te, "summer.core.Component")) {
-					collector.collectComponent(te);
-				}
-			}
-		}
-	}
-
-	/**
 	 * For each bean's constructor/producer params, if the param type isn't among
 	 * collected beans, try to find it on the classpath and auto-register it.
 	 */

@@ -97,8 +97,6 @@ public class SummerProcessor extends AbstractProcessor {
 
 		JandexDiscovery.discoverFrameworkBeans(allBeans, index, processingEnv, beanCollector);
 		JandexDiscovery.discoverTransitiveDependencies(allBeans, index, processingEnv, beanCollector);
-		JandexDiscovery.discoverInterceptorBeans(allBeans, index, processingEnv, beanCollector);
-		JandexDiscovery.discoverTransitiveDependencies(allBeans, index, processingEnv, beanCollector);
 
 		ConditionalEvaluator.resolveReplacements(allBeans, processingEnv);
 		ConditionalEvaluator.evaluateConditions(allBeans, processingEnv);
