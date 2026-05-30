@@ -1,0 +1,4 @@
+port: 8080
+connectionTimeout: 30000
+maxBodySize: 10485760
+readTimeout: 10000
