@@ -92,8 +92,8 @@ final class DependencyResolver {
 	}
 
 	/**
-	 * Finds a bean whose type is assignable to the requested paramType. Exact match
-	 * is preferred; interface → implementation match is used as fallback.
+	 * Finds a bean matching the requested paramType. First tries exact type match,
+	 * then matches by interface implementation.
 	 */
 	AptBeanDefinition findBean(String paramType, List<AptBeanDefinition> allBeans) {
 		// Pass 1: exact type match
@@ -103,16 +103,16 @@ final class DependencyResolver {
 			}
 		}
 
-		// Pass 2: assignability (interface → implementation, or subclass
+		// Pass 2: interface → implementation
 		List<AptBeanDefinition> matches = new ArrayList<>();
 		for (AptBeanDefinition candidate : allBeans) {
-			if (isAssignable(candidate, paramType)) {
+			if (candidate.interfaceNames().contains(paramType)) {
 				matches.add(candidate);
 			}
 		}
 
 		if (matches.size() == 1) {
-			return matches.get(0);
+			return matches.getFirst();
 		}
 
 		if (matches.size() > 1) {
@@ -121,32 +121,6 @@ final class DependencyResolver {
 		}
 
 		return null;
-	}
-
-	/**
-	 * Checks if a candidate bean is assignable to the target type. Handles
-	 * interface implementation and class inheritance.
-	 */
-	private boolean isAssignable(AptBeanDefinition candidate, String targetType) {
-		// Check if candidate implements the target interface
-		for (String iface : candidate.interfaceNames()) {
-			if (iface.equals(targetType)) {
-				return true;
-			}
-		}
-
-		// Check if candidate extends the target class
-		String superClass = candidate.superClassName();
-		while (superClass != null && !superClass.equals("java.lang.Object")) {
-			if (superClass.equals(targetType)) {
-				return true;
-			}
-			// Walk up the hierarchy (we'd need to find the parent bean, but for simplicity
-			// just check the class name chain
-			break; // TODO: full hierarchy walk if needed
-		}
-
-		return false;
 	}
 
 	// -----------------------------------------------------------------------
