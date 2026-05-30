@@ -19,14 +19,15 @@ public class YamlConfigLoaderTest {
 
 	@Test
 	void shouldLoadSimpleYaml() {
-		// test-config.yml is placed in src/test/resources
-		ServerSection config = YamlConfigLoader.load("test-server.yml", ServerSection.class);
+		ServerSection config = YamlConfigLoader.loadOrDefault("test-server.yml", ServerSection.class,
+				new ServerSection(8080));
 		assertEquals(9090, config.port());
 	}
 
 	@Test
 	void shouldLoadNestedYaml() {
-		AppConfig config = YamlConfigLoader.load("test-app.yml", AppConfig.class);
+		AppConfig config = YamlConfigLoader.loadOrDefault("test-app.yml", AppConfig.class, null);
+		assertNotNull(config);
 		assertEquals(3000, config.server().port());
 		assertEquals("jdbc:h2:mem:test", config.database().url());
 		assertEquals("sa", config.database().username());
@@ -41,6 +42,7 @@ public class YamlConfigLoaderTest {
 
 	@Test
 	void shouldThrowOnMalformedYaml() {
-		assertThrows(Exception.class, () -> YamlConfigLoader.load("test-malformed.yml", ServerSection.class));
+		assertThrows(Exception.class,
+				() -> YamlConfigLoader.loadOrDefault("test-malformed.yml", ServerSection.class, null));
 	}
 }

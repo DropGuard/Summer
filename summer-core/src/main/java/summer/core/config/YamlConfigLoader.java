@@ -13,12 +13,12 @@ import summer.core.exception.ConfigurationException;
  *
  * <p>
  * Usage:
- * 
+ *
  * <pre>{@code
  * record ServerConfig(int port) {
  * }
- * 
- * ServerConfig config = YamlConfigLoader.load("application.yml", ServerConfig.class);
+ *
+ * ServerConfig config = YamlConfigLoader.loadOrDefault("application.yml", ServerConfig.class, new ServerConfig(8080));
  * }</pre>
  */
 public final class YamlConfigLoader {
@@ -31,32 +31,8 @@ public final class YamlConfigLoader {
 
 	/**
 	 * Loads a YAML classpath resource and deserializes it into a Java Record.
-	 *
-	 * @param classpathResource
-	 *            the resource path (e.g. "application.yml")
-	 * @param recordType
-	 *            the target Record class
-	 * @return a fully populated, immutable Record instance
-	 */
-	public static <T> T load(String classpathResource, Class<T> recordType) {
-		try (InputStream stream = Thread.currentThread().getContextClassLoader()
-				.getResourceAsStream(classpathResource)) {
-			if (stream == null) {
-				throw new ConfigurationException(ErrorCode.CONFIG_NOT_FOUND,
-						"Configuration file not found on classpath: " + classpathResource);
-			}
-			return YAML_MAPPER.readValue(stream, recordType);
-		} catch (ConfigurationException e) {
-			throw e;
-		} catch (Exception e) {
-			throw new ConfigurationException(ErrorCode.CONFIG_PARSE_ERROR,
-					"Failed to parse YAML configuration '" + classpathResource + "': " + e.getMessage(), e);
-		}
-	}
-
-	/**
-	 * Loads a YAML classpath resource, or returns a default value if the file is
-	 * not found.
+	 * Returns the default value if the file is not found on the classpath.
+	 * Throws {@link ConfigurationException} if the file exists but cannot be parsed.
 	 */
 	public static <T> T loadOrDefault(String classpathResource, Class<T> recordType, T defaultValue) {
 		try (InputStream stream = Thread.currentThread().getContextClassLoader()
