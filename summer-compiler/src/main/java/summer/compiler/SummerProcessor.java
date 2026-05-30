@@ -17,7 +17,7 @@ import summer.core.annotation.Configuration;
 		"summer.data.jdbc.annotation.RowModel"})
 public class SummerProcessor extends AbstractProcessor {
 
-	private final List<BeanDefinition> allBeans = new ArrayList<>();
+	private final List<AptBeanDefinition> allBeans = new ArrayList<>();
 	private BeanCollectorImpl beanCollector;
 	private boolean aotGenerated = false;
 	private boolean generatedNewTypesInThisRound = false;
@@ -104,15 +104,15 @@ public class SummerProcessor extends AbstractProcessor {
 		AopAnalyzer.analyze(allBeans, processingEnv);
 
 		DependencyResolver resolver = new DependencyResolver(processingEnv.getMessager());
-		List<BeanDefinition> sorted = resolver.resolve(allBeans);
+		List<AptBeanDefinition> sorted = resolver.resolve(allBeans);
 
 		if (sorted.isEmpty()) {
 			error("Dependency resolution failed — cannot generate AOT context.", null);
 			return;
 		}
 
-		for (BeanDefinition bean : sorted) {
-			if (bean.needsProxy()) {
+		for (AptBeanDefinition bean : sorted) {
+			if (bean.needsProxy) {
 				AotProxyGenerator.generate(bean, processingEnv);
 				generatedNewTypesInThisRound = true;
 			}
@@ -129,7 +129,7 @@ public class SummerProcessor extends AbstractProcessor {
 		generator.generate(sorted, generateWebAdapter);
 	}
 
-	private boolean shouldGenerateWebAdapter(List<BeanDefinition> sorted) {
+	private boolean shouldGenerateWebAdapter(List<AptBeanDefinition> sorted) {
 		TypeElement restControllerType = processingEnv.getElementUtils()
 				.getTypeElement("summer.web.annotation.RestController");
 		if (restControllerType == null)

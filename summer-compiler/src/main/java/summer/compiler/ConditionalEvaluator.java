@@ -13,11 +13,11 @@ final class ConditionalEvaluator {
 	private ConditionalEvaluator() {
 	}
 
-	static void resolveReplacements(List<BeanDefinition> allBeans, ProcessingEnvironment processingEnv) {
+	static void resolveReplacements(List<AptBeanDefinition> allBeans, ProcessingEnvironment processingEnv) {
 		Map<TypeElement, TypeElement> replacementMap = new HashMap<>();
 
-		for (BeanDefinition bean : allBeans) {
-			if (bean.kind() != BeanDefinition.Kind.CONFIGURATION)
+		for (AptBeanDefinition bean : allBeans) {
+			if (bean.kind != AptBeanDefinition.Kind.CONFIGURATION)
 				continue;
 			if (!(bean instanceof AptBeanDefinition aptBean))
 				continue;
@@ -54,18 +54,18 @@ final class ConditionalEvaluator {
 		}
 
 		allBeans.removeIf(bean -> replacedNames.contains(bean.qualifiedName())
-				|| (bean.kind() == BeanDefinition.Kind.FACTORY_PRODUCT && bean.configClassName() != null
+				|| (bean.kind == AptBeanDefinition.Kind.FACTORY_PRODUCT && bean.configClassName() != null
 						&& replacedNames.contains(bean.configClassName())));
 	}
 
-	static void evaluateConditions(List<BeanDefinition> allBeans, ProcessingEnvironment processingEnv) {
+	static void evaluateConditions(List<AptBeanDefinition> allBeans, ProcessingEnvironment processingEnv) {
 		Types typeUtils = processingEnv.getTypeUtils();
 
 		boolean changed = true;
 		while (changed) {
 			changed = false;
-			List<BeanDefinition> toRemove = new ArrayList<>();
-			for (BeanDefinition bean : allBeans) {
+			List<AptBeanDefinition> toRemove = new ArrayList<>();
+			for (AptBeanDefinition bean : allBeans) {
 				if (!(bean instanceof AptBeanDefinition aptBean))
 					continue;
 
@@ -79,7 +79,7 @@ final class ConditionalEvaluator {
 					continue;
 
 				boolean satisfied = false;
-				for (BeanDefinition other : allBeans) {
+				for (AptBeanDefinition other : allBeans) {
 					if (other == bean)
 						continue;
 					if (other instanceof AptBeanDefinition otherApt) {

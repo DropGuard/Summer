@@ -24,7 +24,7 @@ final class RouteAdapterGenerator {
 	 * Generates the route adapter if any @RestController or @ExceptionHandler beans
 	 * exist.
 	 */
-	static void generate(List<BeanDefinition> beans, ProcessingEnvironment processingEnv) {
+	static void generate(List<AptBeanDefinition> beans, ProcessingEnvironment processingEnv) {
 		TypeElement restControllerType = processingEnv.getElementUtils()
 				.getTypeElement("summer.web.annotation.RestController");
 		if (restControllerType == null)
@@ -36,7 +36,7 @@ final class RouteAdapterGenerator {
 				.toList();
 
 		List<AptBeanDefinition> componentsWithExceptionHandlers = new ArrayList<>();
-		for (BeanDefinition b : beans) {
+		for (AptBeanDefinition b : beans) {
 			if (!(b instanceof AptBeanDefinition apt))
 				continue;
 			boolean hasHandler = ElementFilter.methodsIn(apt.typeElement.getEnclosedElements()).stream()

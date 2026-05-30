@@ -26,7 +26,7 @@ final class AotProxyGenerator {
 	 * interfaces of the target bean and delegates method calls through the
 	 * interceptor chain without reflection.
 	 */
-	static void generate(BeanDefinition bean, ProcessingEnvironment processingEnv) {
+	static void generate(AptBeanDefinition bean, ProcessingEnvironment processingEnv) {
 		if (!(bean instanceof AptBeanDefinition aptBean))
 			return; // Can't generate proxy for Jandex beans without TypeElement
 
@@ -68,7 +68,7 @@ final class AotProxyGenerator {
 		int methodIndex = 0;
 
 		for (ProxyMethod pm : uniqueMethods.values()) {
-			boolean isIntercepted = shouldInterceptMethod(aptBean.typeElement, pm.method, bean.interceptors(),
+			boolean isIntercepted = shouldInterceptMethod(aptBean.typeElement, pm.method, bean.interceptors,
 					processingEnv);
 
 			String targetFieldName = null;
@@ -95,7 +95,7 @@ final class AotProxyGenerator {
 			}
 
 			proxyBuilder
-					.addMethod(buildProxyMethod(pm, isIntercepted, targetFieldName, interfaceFieldName, processingEnv));
+					.addMethod(buildProxyMethod(pm, isIntercepted, targetFieldName, interfaceFieldName));
 		}
 
 		// sneakyThrow
@@ -201,9 +201,8 @@ final class AotProxyGenerator {
 						val = ClassName.get((TypeElement) ve.getEnclosingElement()) + "." + ve.getSimpleName();
 					} else if (val instanceof TypeMirror) {
 						val = TypeName.get((TypeMirror) val) + ".class";
-					} else if (val instanceof java.util.List) {
-						java.util.List<?> list = (java.util.List<?>) val;
-						StringBuilder arrayValues = new StringBuilder();
+					} else if (val instanceof List<?> list) {
+                        StringBuilder arrayValues = new StringBuilder();
 						TypeMirror returnTm = entry.getKey().getReturnType();
 						TypeMirror erasedReturnTm = processingEnv.getTypeUtils().erasure(returnTm);
 						TypeName returnType = TypeName.get(erasedReturnTm);
@@ -214,19 +213,16 @@ final class AotProxyGenerator {
 								Object innerVal = ((javax.lang.model.element.AnnotationValue) elem).getValue();
 								if (i > 0)
 									arrayValues.append(", ");
-								if (innerVal instanceof String)
-									arrayValues.append("\"").append(innerVal).append("\"");
-								else if (innerVal instanceof VariableElement) {
-									VariableElement ve = (VariableElement) innerVal;
-									arrayValues.append(ClassName.get((TypeElement) ve.getEnclosingElement()))
-											.append(".").append(ve.getSimpleName());
-								} else if (innerVal instanceof TypeMirror) {
-									TypeMirror tm = (TypeMirror) innerVal;
-									arrayValues.append(TypeName.get(processingEnv.getTypeUtils().erasure(tm)))
-											.append(".class");
-								} else {
-									arrayValues.append(innerVal);
-								}
+                                switch (innerVal) {
+                                    case String _ -> arrayValues.append("\"").append(innerVal).append("\"");
+                                    case VariableElement ve ->
+                                            arrayValues.append(ClassName.get((TypeElement) ve.getEnclosingElement()))
+                                                    .append(".").append(ve.getSimpleName());
+                                    case TypeMirror tm ->
+                                            arrayValues.append(TypeName.get(processingEnv.getTypeUtils().erasure(tm)))
+                                                    .append(".class");
+                                    case null, default -> arrayValues.append(innerVal);
+                                }
 							}
 						}
 						arrayValues.append("}");
@@ -249,7 +245,7 @@ final class AotProxyGenerator {
 	}
 
 	private static MethodSpec buildProxyMethod(ProxyMethod pm, boolean isIntercepted, String targetFieldName,
-			String interfaceFieldName, ProcessingEnvironment processingEnv) {
+			String interfaceFieldName) {
 		MethodSpec.Builder methodBuilder = MethodSpec.methodBuilder(pm.method.getSimpleName().toString())
 				.addAnnotation(Override.class).addModifiers(Modifier.PUBLIC)
 				.returns(TypeName.get(pm.method.getReturnType()));
@@ -322,7 +318,7 @@ final class AotProxyGenerator {
 	}
 
 	private static boolean shouldInterceptMethod(TypeElement beanClass, ExecutableElement interfaceMethod,
-			List<BeanDefinition> interceptorBeans, ProcessingEnvironment processingEnv) {
+			List<AptBeanDefinition> interceptorBeans, ProcessingEnvironment processingEnv) {
 		ExecutableElement targetMethod = findMatchingMethod(beanClass, interfaceMethod, processingEnv);
 		if (targetMethod == null)
 			return false;
@@ -331,7 +327,7 @@ final class AotProxyGenerator {
 			return true;
 		}
 
-		for (BeanDefinition interceptor : interceptorBeans) {
+		for (AptBeanDefinition interceptor : interceptorBeans) {
 			if (!(interceptor instanceof AptBeanDefinition aptInterceptor))
 				continue;
 			List<TypeMirror> targetAnnotations = getInterceptsAnnotations(aptInterceptor.typeElement);

@@ -10,10 +10,10 @@ import summer.core.annotation.Bean;
 
 final class BeanCollectorImpl implements JandexDiscovery.BeanCollector {
 
-	private final List<BeanDefinition> allBeans;
+	private final List<AptBeanDefinition> allBeans;
 	private final ProcessingEnvironment processingEnv;
 
-	BeanCollectorImpl(List<BeanDefinition> allBeans, ProcessingEnvironment processingEnv) {
+	BeanCollectorImpl(List<AptBeanDefinition> allBeans, ProcessingEnvironment processingEnv) {
 		this.allBeans = allBeans;
 		this.processingEnv = processingEnv;
 	}
@@ -34,11 +34,11 @@ final class BeanCollectorImpl implements JandexDiscovery.BeanCollector {
 			return;
 		}
 
-		AptBeanDefinition bean = new AptBeanDefinition(BeanDefinition.Kind.COMPONENT, typeElement);
+		AptBeanDefinition bean = new AptBeanDefinition(AptBeanDefinition.Kind.COMPONENT, typeElement);
 		fillConstructorInfo(bean);
 		fillInterfaces(bean);
-		bean.setAutoCloseable(isAutoCloseable(typeElement));
-		bean.setVariableName(toVariableName(typeElement.getSimpleName().toString()));
+		bean.isAutoCloseable = isAutoCloseable(typeElement);
+		bean.variableName = toVariableName(typeElement.getSimpleName().toString());
 		allBeans.add(bean);
 	}
 
@@ -55,10 +55,10 @@ final class BeanCollectorImpl implements JandexDiscovery.BeanCollector {
 			return;
 		}
 
-		AptBeanDefinition configBean = new AptBeanDefinition(BeanDefinition.Kind.CONFIGURATION, typeElement);
+		AptBeanDefinition configBean = new AptBeanDefinition(AptBeanDefinition.Kind.CONFIGURATION, typeElement);
 		fillConstructorInfo(configBean);
-		configBean.setAutoCloseable(isAutoCloseable(typeElement));
-		configBean.setVariableName(toVariableName(typeElement.getSimpleName().toString()));
+		configBean.isAutoCloseable = isAutoCloseable(typeElement);
+		configBean.variableName = toVariableName(typeElement.getSimpleName().toString());
 		allBeans.add(configBean);
 
 		for (ExecutableElement method : ElementFilter.methodsIn(typeElement.getEnclosedElements())) {
@@ -93,14 +93,14 @@ final class BeanCollectorImpl implements JandexDiscovery.BeanCollector {
 
 	void resolveVariableNameConflicts() {
 		Set<String> usedNames = new HashSet<>();
-		for (BeanDefinition bean : allBeans) {
-			String base = bean.variableName();
+		for (AptBeanDefinition bean : allBeans) {
+			String base = bean.variableName;
 			String name = base;
 			int suffix = 2;
 			while (!usedNames.add(name)) {
 				name = base + suffix++;
 			}
-			bean.setVariableName(name);
+			bean.variableName = name;
 		}
 	}
 
@@ -112,12 +112,12 @@ final class BeanCollectorImpl implements JandexDiscovery.BeanCollector {
 			return;
 		}
 
-		AptBeanDefinition bean = new AptBeanDefinition(BeanDefinition.Kind.FACTORY_PRODUCT, returnElement);
+		AptBeanDefinition bean = new AptBeanDefinition(AptBeanDefinition.Kind.FACTORY_PRODUCT, returnElement);
 		bean.configClass = configClass;
 		bean.producerMethod = method;
 		bean.producedType = returnType;
-		bean.setAutoCloseable(isAutoCloseable(returnElement));
-		bean.setVariableName(toVariableName(returnElement.getSimpleName().toString()));
+		bean.isAutoCloseable = isAutoCloseable(returnElement);
+		bean.variableName = toVariableName(returnElement.getSimpleName().toString());
 
 		for (VariableElement param : method.getParameters()) {
 			bean.producerParamTypeMirrors.add(param.asType());

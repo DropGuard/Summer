@@ -7,15 +7,19 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 
 /**
- * Bean discovered via annotation processing (application beans). Uses
- * javax.lang.model APIs for type information.
+ * Bean discovered via annotation processing. Uses javax.lang.model APIs for
+ * type information.
  */
-final class AptBeanDefinition implements BeanDefinition {
+final class AptBeanDefinition {
+
+	enum Kind {
+		COMPONENT, CONFIGURATION, FACTORY_PRODUCT
+	}
 
 	final Kind kind;
 	final TypeElement typeElement;
 
-	private String variableName;
+	String variableName;
 
 	// Constructor info
 	ExecutableElement constructor;
@@ -28,60 +32,43 @@ final class AptBeanDefinition implements BeanDefinition {
 	final List<TypeMirror> producerParamTypeMirrors = new ArrayList<>();
 
 	// AOP
-	private boolean needsProxy;
-	final List<BeanDefinition> interceptors = new ArrayList<>();
+	boolean needsProxy;
+	final List<AptBeanDefinition> interceptors = new ArrayList<>();
 	final List<TypeMirror> interfaceMirrors = new ArrayList<>();
 
 	// Lifecycle
 	boolean isAutoCloseable;
 
 	// Dependency resolution
-	final List<BeanDefinition> resolvedDependencies = new ArrayList<>();
-	BeanDefinition configBeanDefinition;
+	final List<AptBeanDefinition> resolvedDependencies = new ArrayList<>();
+	AptBeanDefinition configBeanDefinition;
 
 	AptBeanDefinition(Kind kind, TypeElement typeElement) {
 		this.kind = kind;
 		this.typeElement = typeElement;
 	}
 
-	@Override
-	public Kind kind() {
-		return kind;
-	}
-	@Override
-	public String qualifiedName() {
+	String qualifiedName() {
 		return typeElement.getQualifiedName().toString();
 	}
-	@Override
-	public String simpleName() {
+
+	String simpleName() {
 		return typeElement.getSimpleName().toString();
 	}
-	@Override
-	public String variableName() {
-		return variableName;
-	}
-	@Override
-	public void setVariableName(String name) {
-		this.variableName = name;
-	}
 
-	@Override
-	public List<String> constructorParamTypes() {
+	List<String> constructorParamTypes() {
 		return constructorParamTypeMirrors.stream().map(TypeMirror::toString).toList();
 	}
 
-	@Override
-	public List<String> producerParamTypes() {
+	List<String> producerParamTypes() {
 		return producerParamTypeMirrors.stream().map(TypeMirror::toString).toList();
 	}
 
-	@Override
-	public List<String> interfaceNames() {
+	List<String> interfaceNames() {
 		return interfaceMirrors.stream().map(TypeMirror::toString).toList();
 	}
 
-	@Override
-	public String superClassName() {
+	String superClassName() {
 		TypeMirror superclass = typeElement.getSuperclass();
 		if (superclass == null || superclass.toString().equals("java.lang.Object")) {
 			return null;
@@ -89,42 +76,8 @@ final class AptBeanDefinition implements BeanDefinition {
 		return superclass.toString();
 	}
 
-	@Override
-	public String configClassName() {
+	String configClassName() {
 		return configClass != null ? configClass.getQualifiedName().toString() : null;
-	}
-
-	@Override
-	public boolean needsProxy() {
-		return needsProxy;
-	}
-	@Override
-	public void setNeedsProxy(boolean needsProxy) {
-		this.needsProxy = needsProxy;
-	}
-	@Override
-	public List<BeanDefinition> interceptors() {
-		return interceptors;
-	}
-	@Override
-	public List<BeanDefinition> resolvedDependencies() {
-		return resolvedDependencies;
-	}
-	@Override
-	public BeanDefinition configBeanDefinition() {
-		return configBeanDefinition;
-	}
-	@Override
-	public void setConfigBeanDefinition(BeanDefinition config) {
-		this.configBeanDefinition = config;
-	}
-	@Override
-	public boolean isAutoCloseable() {
-		return isAutoCloseable;
-	}
-	@Override
-	public void setAutoCloseable(boolean autoCloseable) {
-		this.isAutoCloseable = autoCloseable;
 	}
 
 	@Override

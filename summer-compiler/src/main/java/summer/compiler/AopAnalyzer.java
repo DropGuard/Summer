@@ -12,14 +12,14 @@ final class AopAnalyzer {
 	private AopAnalyzer() {
 	}
 
-	static void analyze(List<BeanDefinition> allBeans, ProcessingEnvironment processingEnv) {
+	static void analyze(List<AptBeanDefinition> allBeans, ProcessingEnvironment processingEnv) {
 		Types typeUtils = processingEnv.getTypeUtils();
 		TypeElement interceptorType = processingEnv.getElementUtils().getTypeElement("summer.aop.MethodInterceptor");
 		if (interceptorType == null)
 			return;
 
-		List<BeanDefinition> interceptorBeans = new ArrayList<>();
-		for (BeanDefinition bean : allBeans) {
+		List<AptBeanDefinition> interceptorBeans = new ArrayList<>();
+		for (AptBeanDefinition bean : allBeans) {
 			if (bean instanceof AptBeanDefinition apt) {
 				if (typeUtils.isAssignable(typeUtils.erasure(apt.typeElement.asType()),
 						typeUtils.erasure(interceptorType.asType()))) {
@@ -31,10 +31,10 @@ final class AopAnalyzer {
 		if (interceptorBeans.isEmpty())
 			return;
 
-		for (BeanDefinition bean : allBeans) {
+		for (AptBeanDefinition bean : allBeans) {
 			if (interceptorBeans.contains(bean))
 				continue;
-			if (bean.kind() == BeanDefinition.Kind.FACTORY_PRODUCT)
+			if (bean.kind == AptBeanDefinition.Kind.FACTORY_PRODUCT)
 				continue;
 			if (bean.interfaceNames().isEmpty())
 				continue;
@@ -45,10 +45,10 @@ final class AopAnalyzer {
 					"summer.aop.Intercepted");
 
 			boolean matchesAnyStaticTrigger = false;
-			List<BeanDefinition> matchingStaticInterceptors = new ArrayList<>();
-			List<BeanDefinition> dynamicInterceptors = new ArrayList<>();
+			List<AptBeanDefinition> matchingStaticInterceptors = new ArrayList<>();
+			List<AptBeanDefinition> dynamicInterceptors = new ArrayList<>();
 
-			for (BeanDefinition interceptor : interceptorBeans) {
+			for (AptBeanDefinition interceptor : interceptorBeans) {
 				AptBeanDefinition aptInterceptor = (AptBeanDefinition) interceptor;
 				List<TypeMirror> targets = AotProxyGenerator.getInterceptsAnnotations(aptInterceptor.typeElement);
 				if (targets.isEmpty()) {
@@ -65,9 +65,9 @@ final class AopAnalyzer {
 
 			boolean needsProxy = hasIntercepted || matchesAnyStaticTrigger;
 			if (needsProxy) {
-				bean.setNeedsProxy(true);
-				bean.interceptors().addAll(matchingStaticInterceptors);
-				bean.interceptors().addAll(dynamicInterceptors);
+				bean.needsProxy = true;
+				bean.interceptors.addAll(matchingStaticInterceptors);
+				bean.interceptors.addAll(dynamicInterceptors);
 			}
 		}
 	}

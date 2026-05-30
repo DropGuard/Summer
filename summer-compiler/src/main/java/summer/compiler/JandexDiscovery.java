@@ -71,7 +71,7 @@ final class JandexDiscovery {
 	 * collectComponent/collectConfiguration. For beans whose TypeElement is NOT
 	 * available, emits a warning.
 	 */
-	static void discoverFrameworkBeans(List<BeanDefinition> allBeans, CompositeIndex index,
+	static void discoverFrameworkBeans(List<AptBeanDefinition> allBeans, CompositeIndex index,
 			ProcessingEnvironment processingEnv, BeanCollector collector) {
 		DotName componentDot = DotName.createSimple("summer.core.Component");
 		DotName configDot = DotName.createSimple("summer.core.annotation.Configuration");
@@ -141,14 +141,14 @@ final class JandexDiscovery {
 	 * For each bean's constructor/producer params, if the param type isn't among
 	 * collected beans, try to find it on the classpath and auto-register it.
 	 */
-	static void discoverTransitiveDependencies(List<BeanDefinition> allBeans, CompositeIndex index,
+	static void discoverTransitiveDependencies(List<AptBeanDefinition> allBeans, CompositeIndex index,
 			ProcessingEnvironment processingEnv, BeanCollector collector) {
 		boolean changed = true;
 		while (changed) {
 			changed = false;
 			List<String> allParamTypes = new ArrayList<>();
-			for (BeanDefinition bean : allBeans) {
-				if (bean.kind() == BeanDefinition.Kind.FACTORY_PRODUCT) {
+			for (AptBeanDefinition bean : allBeans) {
+				if (bean.kind == AptBeanDefinition.Kind.FACTORY_PRODUCT) {
 					allParamTypes.addAll(bean.producerParamTypes());
 				} else {
 					allParamTypes.addAll(bean.constructorParamTypes());
@@ -180,8 +180,8 @@ final class JandexDiscovery {
 
 	// --- Private helpers ---
 
-	private static boolean isBeanSatisfiedByName(String qualifiedName, List<BeanDefinition> allBeans) {
-		for (BeanDefinition b : allBeans) {
+	private static boolean isBeanSatisfiedByName(String qualifiedName, List<AptBeanDefinition> allBeans) {
+		for (AptBeanDefinition b : allBeans) {
 			if (b.qualifiedName().equals(qualifiedName)) {
 				return true;
 			}
@@ -195,7 +195,7 @@ final class JandexDiscovery {
 		return false;
 	}
 
-	private static boolean tryCollectFromClasspath(TypeElement element, List<BeanDefinition> allBeans,
+	private static boolean tryCollectFromClasspath(TypeElement element, List<AptBeanDefinition> allBeans,
 			ProcessingEnvironment processingEnv, BeanCollector collector) {
 		if (collector.alreadyCollected(element))
 			return false;
