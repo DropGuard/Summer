@@ -5,12 +5,8 @@ import java.io.IOException;
 import java.util.*;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.*;
-import javax.lang.model.type.MirroredTypesException;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.ElementFilter;
-import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
-import summer.aop.Intercepts;
 
 /**
  * Generates AOT proxy classes for beans that need interception. Extracted from
@@ -68,7 +64,7 @@ final class AotProxyGenerator {
 		int methodIndex = 0;
 
 		for (ProxyMethod pm : uniqueMethods.values()) {
-			boolean isIntercepted = shouldInterceptMethod(aptBean.typeElement, pm.method, bean.interceptors,
+			boolean isIntercepted = AopAnalyzer.shouldInterceptMethod(aptBean.typeElement, pm.method, bean.interceptors,
 					processingEnv);
 
 			String targetFieldName = null;
@@ -110,44 +106,6 @@ final class AotProxyGenerator {
 		}
 	}
 
-	// --- AOP analysis (used by SummerProcessor.analyzeAop) ---
-
-	static List<TypeMirror> getInterceptsAnnotations(TypeElement element) {
-		Intercepts intercepts = element.getAnnotation(Intercepts.class);
-		if (intercepts == null)
-			return Collections.emptyList();
-		try {
-			intercepts.annotations(); // triggers MirroredTypesException
-			return Collections.emptyList();
-		} catch (MirroredTypesException e) {
-			return new ArrayList<>(e.getTypeMirrors());
-		}
-	}
-
-	static boolean beanHasMethodsWithAnnotation(TypeElement bean, String annotationFqn) {
-		for (ExecutableElement method : ElementFilter.methodsIn(bean.getEnclosedElements())) {
-			if (AnnotationHelper.hasAnnotation(method, annotationFqn)) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	static boolean beanHasAnnotatedMethods(TypeElement bean, List<TypeMirror> targetAnnotations,
-			ProcessingEnvironment processingEnv) {
-		Types typeUtils = processingEnv.getTypeUtils();
-		for (ExecutableElement method : ElementFilter.methodsIn(bean.getEnclosedElements())) {
-			for (AnnotationMirror am : method.getAnnotationMirrors()) {
-				for (TypeMirror target : targetAnnotations) {
-					if (typeUtils.isSameType(am.getAnnotationType(), target)) {
-						return true;
-					}
-				}
-			}
-		}
-		return false;
-	}
-
 	// --- Private helpers ---
 
 	private static TypeSpec.Builder buildMethodMetadata(TypeElement beanClass, ExecutableElement interfaceMethod,
@@ -172,7 +130,7 @@ final class AotProxyGenerator {
 				.returns(TypeVariableName.get("T"))
 				.addParameter(ParameterizedTypeName.get(ClassName.get(Class.class), TypeVariableName.get("T")), "cls");
 
-		ExecutableElement actualMethod = findMatchingMethod(beanClass, interfaceMethod, processingEnv);
+		ExecutableElement actualMethod = AopAnalyzer.findMatchingMethod(beanClass, interfaceMethod, processingEnv);
 		if (actualMethod != null) {
 			for (AnnotationMirror mirror : actualMethod.getAnnotationMirrors()) {
 				TypeElement annType = (TypeElement) mirror.getAnnotationType().asElement();
@@ -315,60 +273,6 @@ final class AotProxyGenerator {
 						AnnotationSpec.builder(SuppressWarnings.class).addMember("value", "$S", "unchecked").build())
 				.returns(RuntimeException.class).addParameter(Throwable.class, "t")
 				.addException(TypeVariableName.get("T")).addStatement("throw (T) t").build();
-	}
-
-	private static boolean shouldInterceptMethod(TypeElement beanClass, ExecutableElement interfaceMethod,
-			List<AptBeanDefinition> interceptorBeans, ProcessingEnvironment processingEnv) {
-		ExecutableElement targetMethod = findMatchingMethod(beanClass, interfaceMethod, processingEnv);
-		if (targetMethod == null)
-			return false;
-
-		if (AnnotationHelper.hasAnnotation(targetMethod, "summer.aop.Intercepted")) {
-			return true;
-		}
-
-		for (AptBeanDefinition interceptor : interceptorBeans) {
-			if (!(interceptor instanceof AptBeanDefinition aptInterceptor))
-				continue;
-			List<TypeMirror> targetAnnotations = getInterceptsAnnotations(aptInterceptor.typeElement);
-			for (AnnotationMirror am : targetMethod.getAnnotationMirrors()) {
-				for (TypeMirror targetAnn : targetAnnotations) {
-					if (processingEnv.getTypeUtils().isSameType(am.getAnnotationType(), targetAnn)) {
-						return true;
-					}
-				}
-			}
-		}
-		return false;
-	}
-
-	private static ExecutableElement findMatchingMethod(TypeElement beanClass, ExecutableElement interfaceMethod,
-			ProcessingEnvironment processingEnv) {
-		Types typeUtils = processingEnv.getTypeUtils();
-		String name = interfaceMethod.getSimpleName().toString();
-		List<TypeMirror> interfaceParamTypes = interfaceMethod.getParameters().stream().map(VariableElement::asType)
-				.toList();
-
-		for (ExecutableElement method : ElementFilter.methodsIn(beanClass.getEnclosedElements())) {
-			if (method.getSimpleName().toString().equals(name)) {
-				List<TypeMirror> targetParamTypes = method.getParameters().stream().map(VariableElement::asType)
-						.toList();
-				if (targetParamTypes.size() == interfaceParamTypes.size()) {
-					boolean match = true;
-					for (int i = 0; i < targetParamTypes.size(); i++) {
-						if (!typeUtils.isSameType(typeUtils.erasure(targetParamTypes.get(i)),
-								typeUtils.erasure(interfaceParamTypes.get(i)))) {
-							match = false;
-							break;
-						}
-					}
-					if (match) {
-						return method;
-					}
-				}
-			}
-		}
-		return null;
 	}
 
 	private static void collectMethods(TypeElement interfaceElement, TypeElement originalInterface,
