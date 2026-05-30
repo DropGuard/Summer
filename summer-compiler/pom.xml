@@ -67,36 +67,12 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Summer framework modules — needed at compile time for Jandex-based bean discovery.
-             Their jandex.idx files must be on the annotation processor classpath. -->
+        <!-- Summer web module — needed for RouteAdapterGenerator code generation.
+             Other framework modules are discovered via Jandex from the user's classpath.
+             Users should add framework modules to <annotationProcessorPaths> in their pom.xml. -->
         <dependency>
             <groupId>summer</groupId>
             <artifactId>summer-web</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-tx</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-data-jdbc</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-data-redis</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-grpc</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-validation-hv</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

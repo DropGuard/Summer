@@ -30,20 +30,37 @@ final class JandexDiscovery {
 	}
 
 	/**
-	 * Loads all pre-built Jandex indexes from dependency JARs on the processor
-	 * classpath.
+	 * Loads all pre-built Jandex indexes from dependency JARs. Searches both the
+	 * processor classpath and the compile classpath (via thread context classloader)
+	 * so framework modules are discovered even when using annotationProcessorPaths.
 	 */
 	static CompositeIndex loadIndex() throws IOException {
 		List<IndexView> indexes = new ArrayList<>();
-		ClassLoader cl = JandexDiscovery.class.getClassLoader();
+		Set<String> seen = new HashSet<>();
+
+		// Search processor classpath
+		collectIndexes(JandexDiscovery.class.getClassLoader(), indexes, seen);
+
+		// Search compile classpath (framework JARs may only be here)
+		ClassLoader tccl = Thread.currentThread().getContextClassLoader();
+		if (tccl != null && tccl != JandexDiscovery.class.getClassLoader()) {
+			collectIndexes(tccl, indexes, seen);
+		}
+
+		return CompositeIndex.create(indexes);
+	}
+
+	private static void collectIndexes(ClassLoader cl, List<IndexView> indexes, Set<String> seen) throws IOException {
 		Enumeration<URL> urls = cl.getResources("META-INF/jandex.idx");
 		while (urls.hasMoreElements()) {
 			URL url = urls.nextElement();
-			try (InputStream is = url.openStream()) {
-				indexes.add(new IndexReader(is).read());
+			String key = url.toString();
+			if (seen.add(key)) {
+				try (InputStream is = url.openStream()) {
+					indexes.add(new IndexReader(is).read());
+				}
 			}
 		}
-		return CompositeIndex.create(indexes);
 	}
 
 	/**
