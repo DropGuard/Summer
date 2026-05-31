@@ -1,14 +1,14 @@
 package summer.web;
 
-import java.lang.reflect.Parameter;
 import jakarta.validation.Valid;
+import java.lang.reflect.Parameter;
 import summer.core.Component;
 import summer.core.annotation.Replaces;
 
 /**
- * Handler factory that adds @Valid support via reflection.
- * Extends HandlerFactory to override resolveArg() and add validation logic.
- * Replaces the base HandlerFactory in the DI container.
+ * Handler factory that adds @Valid support via reflection. Extends
+ * HandlerFactory to override resolveArg() and add validation logic. Replaces
+ * the base HandlerFactory in the DI container.
  */
 @Component
 @Replaces(HandlerFactory.class)

@@ -12,6 +12,7 @@ import summer.tck.di.conditional.*;
  *
  * <p>
  * Tests whether the DI container correctly registers or skips beans based on
+ * 
  * @ConditionalOnBean conditions.
  */
 public abstract class AbstractConditionalOnBeanTCK {
@@ -54,7 +55,8 @@ public abstract class AbstractConditionalOnBeanTCK {
 	@Test
 	void testConditionalOnMissingComponent() {
 		ApplicationContext ctx = getContext();
-		// MissingComponent does not exist, so ConditionalOnMissingComponent should NOT be registered
+		// MissingComponent does not exist, so ConditionalOnMissingComponent should NOT
+		// be registered
 		assertThrows(Exception.class, () -> ctx.getBean(ConditionalOnMissingComponent.class),
 				"ConditionalOnMissingComponent should NOT be registered when MissingComponent does not exist");
 	}
@@ -62,12 +64,12 @@ public abstract class AbstractConditionalOnBeanTCK {
 	@Test
 	void testConditionalOnInterface() {
 		ApplicationContext ctx = getContext();
-		// RequiredInterface exists (via RequiredInterfaceImpl), so ConditionalOnInterface should be registered
+		// RequiredInterface exists (via RequiredInterfaceImpl), so
+		// ConditionalOnInterface should be registered
 		RequiredInterface required = ctx.getBean(RequiredInterface.class);
 		assertNotNull(required, "RequiredInterface should be registered");
 
 		ConditionalOnInterface conditional = ctx.getBean(ConditionalOnInterface.class);
-		assertNotNull(conditional,
-				"ConditionalOnInterface should be registered when RequiredInterface exists");
+		assertNotNull(conditional, "ConditionalOnInterface should be registered when RequiredInterface exists");
 	}
 }

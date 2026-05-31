@@ -80,14 +80,12 @@ public abstract class AbstractAopTCK {
 		RecordingInterceptor interceptor = getContext().getBean(RecordingInterceptor.class);
 		interceptor.clearLog();
 
-		summer.tck.aop.dummy.GreeterService raw = getContext()
-				.getBean(summer.tck.aop.dummy.GreeterService.class);
+		summer.tck.aop.dummy.GreeterService raw = getContext().getBean(summer.tck.aop.dummy.GreeterService.class);
 		assertEquals(summer.tck.aop.dummy.GreeterService.class, raw.getClass(),
 				"getBean(ConcreteClass.class) must return the raw instance, not a JDK proxy");
 
 		String result = raw.greet("Charlie");
-		assertEquals("Hello, Charlie", result,
-				"greet() on raw instance must NOT be intercepted");
+		assertEquals("Hello, Charlie", result, "greet() on raw instance must NOT be intercepted");
 		assertTrue(interceptor.getCallLog().isEmpty(),
 				"Interceptor must not fire when method is called on the raw instance");
 	}

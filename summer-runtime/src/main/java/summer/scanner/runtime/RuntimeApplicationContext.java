@@ -94,7 +94,6 @@ public class RuntimeApplicationContext implements ApplicationContext {
 			return (T) instance;
 		}
 
-
 		if (componentScanner.getComponentClasses().contains(type)) {
 			return (T) beanFactory.instantiateBean(type);
 		}

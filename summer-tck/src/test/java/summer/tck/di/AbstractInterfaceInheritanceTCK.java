@@ -79,7 +79,6 @@ public abstract class AbstractInterfaceInheritanceTCK {
 		ServiceClient client = ctx.getBean(ServiceClient.class);
 		assertNotNull(client, "ServiceClient should be instantiated");
 		assertNotNull(client.getBaseService(), "ServiceClient should have BaseService injected");
-		assertInstanceOf(ServiceImpl.class, client.getBaseService(),
-				"Injected BaseService should be ServiceImpl");
+		assertInstanceOf(ServiceImpl.class, client.getBaseService(), "Injected BaseService should be ServiceImpl");
 	}
 }
