@@ -1,4 +1,4 @@
-.PHONY: all clean compile build test run run-aot run-runtime benchmark
+.PHONY: all clean compile build test run run-aot run-runtime benchmark fmt
 
 MVN ?= mvnd
 export MAVEN_OPTS := --sun-misc-unsafe-memory-access=allow
@@ -30,3 +30,6 @@ run-runtime:
 
 benchmark:
 	python summer-benchmark/run-benchmarks.py
+
+fmt:
+	$(MVN) spotless:apply
