@@ -13,18 +13,21 @@ final class ConditionalEvaluator {
 	private ConditionalEvaluator() {
 	}
 
-	static void resolveReplacements(List<AptBeanDefinition> allBeans, ProcessingEnvironment processingEnv) {
-		Map<TypeElement, TypeElement> replacementMap = new HashMap<>();
+	static void resolveReplacements(List<BeanDefinition> allBeans, ProcessingEnvironment processingEnv) {
+		Map<String, String> replacementMap = new HashMap<>();
 
-		for (AptBeanDefinition bean : allBeans) {
-			if (bean.kind != AptBeanDefinition.Kind.CONFIGURATION)
-				continue;
-			if (!(bean instanceof AptBeanDefinition aptBean))
-				continue;
-			if (!AnnotationHelper.hasAnnotation(aptBean.typeElement, "summer.core.annotation.Replaces"))
+		for (BeanDefinition bean : allBeans) {
+			if (bean.kind != BeanDefinition.Kind.CONFIGURATION)
 				continue;
 
-			List<TypeMirror> targets = AnnotationHelper.getAnnotationClassListValue(aptBean.typeElement,
+			TypeElement typeElement = processingEnv.getElementUtils().getTypeElement(bean.qualifiedName);
+			if (typeElement == null)
+				continue;
+
+			if (!AnnotationHelper.hasAnnotation(typeElement, "summer.core.annotation.Replaces"))
+				continue;
+
+			List<TypeMirror> targets = AnnotationHelper.getAnnotationClassListValue(typeElement,
 					"summer.core.annotation.Replaces", processingEnv);
 			if (targets.isEmpty())
 				continue;
@@ -33,44 +36,40 @@ final class ConditionalEvaluator {
 			if (targetElement == null)
 				continue;
 
-			if (replacementMap.containsKey(targetElement)) {
-				processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-						"Duplicate @Replaces: both " + replacementMap.get(targetElement).getQualifiedName() + " and "
-								+ aptBean.typeElement.getQualifiedName() + " replace "
-								+ targetElement.getQualifiedName(),
-						aptBean.typeElement);
+			String targetName = targetElement.getQualifiedName().toString();
+			if (replacementMap.containsKey(targetName)) {
+				processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "Duplicate @Replaces: both "
+						+ replacementMap.get(targetName) + " and " + bean.qualifiedName + " replace " + targetName,
+						typeElement);
 				return;
 			}
 
-			replacementMap.put(targetElement, aptBean.typeElement);
+			replacementMap.put(targetName, bean.qualifiedName);
 		}
 
 		if (replacementMap.isEmpty())
 			return;
 
-		Set<String> replacedNames = new HashSet<>();
-		for (TypeElement replaced : replacementMap.keySet()) {
-			replacedNames.add(replaced.getQualifiedName().toString());
-		}
+		Set<String> replacedNames = replacementMap.keySet();
 
-		allBeans.removeIf(bean -> replacedNames.contains(bean.qualifiedName())
-				|| (bean.kind == AptBeanDefinition.Kind.FACTORY_PRODUCT && bean.configClassName() != null
-						&& replacedNames.contains(bean.configClassName())));
+		allBeans.removeIf(b -> replacedNames.contains(b.qualifiedName) || (b.kind == BeanDefinition.Kind.FACTORY_PRODUCT
+				&& b.configClassName != null && replacedNames.contains(b.configClassName)));
 	}
 
-	static void evaluateConditions(List<AptBeanDefinition> allBeans, ProcessingEnvironment processingEnv) {
+	static void evaluateConditions(List<BeanDefinition> allBeans, ProcessingEnvironment processingEnv) {
 		Types typeUtils = processingEnv.getTypeUtils();
 
 		boolean changed = true;
 		while (changed) {
 			changed = false;
-			List<AptBeanDefinition> toRemove = new ArrayList<>();
-			for (AptBeanDefinition bean : allBeans) {
-				if (!(bean instanceof AptBeanDefinition aptBean))
+			List<BeanDefinition> toRemove = new ArrayList<>();
+			for (BeanDefinition bean : allBeans) {
+				TypeElement typeElement = processingEnv.getElementUtils().getTypeElement(bean.qualifiedName);
+				if (typeElement == null)
 					continue;
 
-				javax.lang.model.element.AnnotationMirror condMirror = AnnotationHelper
-						.getAnnotationMirror(aptBean.typeElement, "summer.core.annotation.ConditionalOnBean");
+				javax.lang.model.element.AnnotationMirror condMirror = AnnotationHelper.getAnnotationMirror(typeElement,
+						"summer.core.annotation.ConditionalOnBean");
 				if (condMirror == null)
 					continue;
 
@@ -79,15 +78,18 @@ final class ConditionalEvaluator {
 					continue;
 
 				boolean satisfied = false;
-				for (AptBeanDefinition other : allBeans) {
+				for (BeanDefinition other : allBeans) {
 					if (other == bean)
 						continue;
-					if (other instanceof AptBeanDefinition otherApt) {
-						if (typeUtils.isAssignable(typeUtils.erasure(otherApt.typeElement.asType()),
-								typeUtils.erasure(requiredType))) {
-							satisfied = true;
-							break;
-						}
+
+					TypeElement otherTypeElement = processingEnv.getElementUtils().getTypeElement(other.qualifiedName);
+					if (otherTypeElement == null)
+						continue;
+
+					if (typeUtils.isAssignable(typeUtils.erasure(otherTypeElement.asType()),
+							typeUtils.erasure(requiredType))) {
+						satisfied = true;
+						break;
 					}
 				}
 				if (!satisfied) {

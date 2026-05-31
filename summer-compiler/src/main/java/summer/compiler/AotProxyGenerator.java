@@ -9,53 +9,47 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 
 /**
- * Generates AOT proxy classes for beans that need interception. Extracted from
- * SummerProcessor to separate proxy code generation from bean collection.
+ * Generates AOT proxy classes for beans that need interception.
  */
 final class AotProxyGenerator {
 
 	private AotProxyGenerator() {
 	}
 
-	/**
-	 * Generates an AOT proxy class for the given bean. The proxy implements all
-	 * interfaces of the target bean and delegates method calls through the
-	 * interceptor chain without reflection.
-	 */
-	static void generate(AptBeanDefinition bean, ProcessingEnvironment processingEnv) {
-		if (!(bean instanceof AptBeanDefinition aptBean))
-			return; // Can't generate proxy for Jandex beans without TypeElement
+	static void generate(BeanDefinition bean, ProcessingEnvironment processingEnv) {
+		TypeElement typeElement = processingEnv.getElementUtils().getTypeElement(bean.qualifiedName);
+		if (typeElement == null)
+			return;
 
-		String packageName = processingEnv.getElementUtils().getPackageOf(aptBean.typeElement).getQualifiedName()
-				.toString();
-		String proxyClassName = bean.simpleName() + "$$AotProxy";
+		String packageName = processingEnv.getElementUtils().getPackageOf(typeElement).getQualifiedName().toString();
+		String proxyClassName = bean.simpleName + "$$AotProxy";
 
 		TypeSpec.Builder proxyBuilder = TypeSpec.classBuilder(proxyClassName)
 				.addAnnotation(
 						AnnotationSpec.builder(SuppressWarnings.class).addMember("value", "$S", "unchecked").build())
 				.addModifiers(Modifier.PUBLIC, Modifier.FINAL);
 
-		for (TypeMirror iface : aptBean.interfaceMirrors) {
-			proxyBuilder.addSuperinterface(TypeName.get(iface));
+		for (String ifaceName : bean.interfaceNames) {
+			TypeElement ifaceElement = processingEnv.getElementUtils().getTypeElement(ifaceName);
+			if (ifaceElement != null) {
+				proxyBuilder.addSuperinterface(TypeName.get(ifaceElement.asType()));
+			}
 		}
 
-		proxyBuilder.addField(ClassName.get(aptBean.typeElement), "target", Modifier.PRIVATE, Modifier.FINAL);
+		proxyBuilder.addField(ClassName.get(typeElement), "target", Modifier.PRIVATE, Modifier.FINAL);
 
 		ClassName interceptorType = ClassName.get("summer.aop", "MethodInterceptor");
 		TypeName interceptorList = ParameterizedTypeName.get(ClassName.get(java.util.List.class), interceptorType);
 		proxyBuilder.addField(interceptorList, "interceptors", Modifier.PRIVATE, Modifier.FINAL);
 
-		// Constructor
 		MethodSpec constructor = MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC)
-				.addParameter(ClassName.get(aptBean.typeElement), "target")
-				.addParameter(interceptorList, "interceptors").addStatement("this.target = target")
-				.addStatement("this.interceptors = interceptors").build();
+				.addParameter(ClassName.get(typeElement), "target").addParameter(interceptorList, "interceptors")
+				.addStatement("this.target = target").addStatement("this.interceptors = interceptors").build();
 		proxyBuilder.addMethod(constructor);
 
-		// Find all interface methods and generate them
 		Map<String, ProxyMethod> uniqueMethods = new LinkedHashMap<>();
-		for (TypeMirror iface : aptBean.interfaceMirrors) {
-			TypeElement ifaceElement = asTypeElement(iface, processingEnv);
+		for (String ifaceName : bean.interfaceNames) {
+			TypeElement ifaceElement = processingEnv.getElementUtils().getTypeElement(ifaceName);
 			if (ifaceElement != null) {
 				collectMethods(ifaceElement, ifaceElement, uniqueMethods);
 			}
@@ -64,7 +58,7 @@ final class AotProxyGenerator {
 		int methodIndex = 0;
 
 		for (ProxyMethod pm : uniqueMethods.values()) {
-			boolean isIntercepted = AopAnalyzer.shouldInterceptMethod(aptBean.typeElement, pm.method, bean.interceptors,
+			boolean isIntercepted = AopAnalyzer.shouldInterceptMethod(typeElement, pm.method, bean.interceptors,
 					processingEnv);
 
 			String targetFieldName = null;
@@ -75,7 +69,7 @@ final class AotProxyGenerator {
 				interfaceFieldName = pm.method.getSimpleName().toString() + "_" + methodIndex + "_interfaceMethod";
 				methodIndex++;
 
-				TypeSpec.Builder metadataTarget = buildMethodMetadata(aptBean.typeElement, pm.method, processingEnv);
+				TypeSpec.Builder metadataTarget = buildMethodMetadata(typeElement, pm.method, processingEnv);
 
 				proxyBuilder
 						.addField(FieldSpec
@@ -90,11 +84,9 @@ final class AotProxyGenerator {
 								.initializer("$L", metadataTarget.build()).build());
 			}
 
-			proxyBuilder
-					.addMethod(buildProxyMethod(pm, isIntercepted, targetFieldName, interfaceFieldName));
+			proxyBuilder.addMethod(buildProxyMethod(pm, isIntercepted, targetFieldName, interfaceFieldName));
 		}
 
-		// sneakyThrow
 		proxyBuilder.addMethod(buildSneakyThrow());
 
 		JavaFile proxyFile = JavaFile.builder(packageName, proxyBuilder.build()).build();
@@ -102,11 +94,9 @@ final class AotProxyGenerator {
 			proxyFile.writeTo(processingEnv.getFiler());
 		} catch (IOException e) {
 			processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
-					"Failed to write AOP proxy for: " + proxyClassName, aptBean.typeElement);
+					"Failed to write AOP proxy for: " + proxyClassName, typeElement);
 		}
 	}
-
-	// --- Private helpers ---
 
 	private static TypeSpec.Builder buildMethodMetadata(TypeElement beanClass, ExecutableElement interfaceMethod,
 			ProcessingEnvironment processingEnv) {
@@ -160,7 +150,7 @@ final class AotProxyGenerator {
 					} else if (val instanceof TypeMirror) {
 						val = TypeName.get((TypeMirror) val) + ".class";
 					} else if (val instanceof List<?> list) {
-                        StringBuilder arrayValues = new StringBuilder();
+						StringBuilder arrayValues = new StringBuilder();
 						TypeMirror returnTm = entry.getKey().getReturnType();
 						TypeMirror erasedReturnTm = processingEnv.getTypeUtils().erasure(returnTm);
 						TypeName returnType = TypeName.get(erasedReturnTm);
@@ -171,16 +161,16 @@ final class AotProxyGenerator {
 								Object innerVal = ((javax.lang.model.element.AnnotationValue) elem).getValue();
 								if (i > 0)
 									arrayValues.append(", ");
-                                switch (innerVal) {
-                                    case String _ -> arrayValues.append("\"").append(innerVal).append("\"");
-                                    case VariableElement ve ->
-                                            arrayValues.append(ClassName.get((TypeElement) ve.getEnclosingElement()))
-                                                    .append(".").append(ve.getSimpleName());
-                                    case TypeMirror tm ->
-                                            arrayValues.append(TypeName.get(processingEnv.getTypeUtils().erasure(tm)))
-                                                    .append(".class");
-                                    case null, default -> arrayValues.append(innerVal);
-                                }
+								switch (innerVal) {
+									case String _ -> arrayValues.append("\"").append(innerVal).append("\"");
+									case VariableElement ve ->
+										arrayValues.append(ClassName.get((TypeElement) ve.getEnclosingElement()))
+												.append(".").append(ve.getSimpleName());
+									case TypeMirror tm ->
+										arrayValues.append(TypeName.get(processingEnv.getTypeUtils().erasure(tm)))
+												.append(".class");
+									case null, default -> arrayValues.append(innerVal);
+								}
 							}
 						}
 						arrayValues.append("}");
@@ -301,8 +291,6 @@ final class AotProxyGenerator {
 		StringBuilder sb = new StringBuilder();
 		sb.append(method.getSimpleName().toString()).append("(");
 		for (VariableElement p : method.getParameters()) {
-			// We need typeUtils for erasure, but we don't have it here.
-			// Use the raw type string as a fallback — good enough for dedup.
 			sb.append(p.asType().toString()).append(",");
 		}
 		sb.append(")");

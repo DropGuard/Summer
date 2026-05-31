@@ -18,7 +18,7 @@ import summer.core.annotation.Configuration;
 		"summer.data.jdbc.annotation.RowModel"})
 public class SummerProcessor extends AbstractProcessor {
 
-	private final List<AptBeanDefinition> allBeans = new ArrayList<>();
+	private final List<BeanDefinition> allBeans = new ArrayList<>();
 	private BeanCollectorImpl beanCollector;
 	private boolean aotGenerated = false;
 	private boolean generatedNewTypesInThisRound = false;
@@ -99,8 +99,9 @@ public class SummerProcessor extends AbstractProcessor {
 	private void generateAotContext() throws IOException {
 		CompositeIndex index = JandexDiscovery.loadIndex();
 
-		JandexDiscovery.discoverFrameworkBeans(allBeans, index, processingEnv, beanCollector);
-		JandexDiscovery.discoverTransitiveDependencies(allBeans, index, processingEnv, beanCollector);
+		// Create Jandex collector that creates BeanDefinition from ClassInfo
+		JandexBeanCollector jandexCollector = new JandexBeanCollector(allBeans);
+		JandexDiscovery.discoverBeansFromIndex(allBeans, index, jandexCollector);
 
 		ConditionalEvaluator.resolveReplacements(allBeans, processingEnv);
 		ConditionalEvaluator.evaluateConditions(allBeans, processingEnv);
@@ -108,9 +109,9 @@ public class SummerProcessor extends AbstractProcessor {
 		AopAnalyzer.analyze(allBeans, processingEnv);
 
 		DependencyResolver resolver = new DependencyResolver();
-		List<AptBeanDefinition> sorted = resolver.resolve(allBeans);
+		List<BeanDefinition> sorted = resolver.resolve(allBeans);
 
-		for (AptBeanDefinition bean : sorted) {
+		for (BeanDefinition bean : sorted) {
 			if (bean.needsProxy) {
 				AotProxyGenerator.generate(bean, processingEnv);
 				generatedNewTypesInThisRound = true;
@@ -128,23 +129,106 @@ public class SummerProcessor extends AbstractProcessor {
 		generator.generate(sorted, generateWebAdapter);
 	}
 
-	private boolean shouldGenerateWebAdapter(List<AptBeanDefinition> sorted) {
+	private boolean shouldGenerateWebAdapter(List<BeanDefinition> sorted) {
 		TypeElement restControllerType = processingEnv.getElementUtils()
 				.getTypeElement("summer.web.annotation.RestController");
 		if (restControllerType == null)
 			return false;
 
 		boolean hasWebController = sorted.stream().anyMatch(b -> {
-			if (b instanceof AptBeanDefinition apt)
-				return AnnotationHelper.hasAnnotation(apt.typeElement, "summer.web.annotation.RestController");
-			return false;
+			TypeElement te = processingEnv.getElementUtils().getTypeElement(b.qualifiedName);
+			return te != null && AnnotationHelper.hasAnnotation(te, "summer.web.annotation.RestController");
 		});
 		boolean hasExceptionHandler = sorted.stream().anyMatch(b -> {
-			if (b instanceof AptBeanDefinition apt)
-				return javax.lang.model.util.ElementFilter.methodsIn(apt.typeElement.getEnclosedElements()).stream()
-						.anyMatch(m -> AnnotationHelper.hasAnnotation(m, "summer.web.annotation.ExceptionHandler"));
-			return false;
+			TypeElement te = processingEnv.getElementUtils().getTypeElement(b.qualifiedName);
+			if (te == null)
+				return false;
+			return javax.lang.model.util.ElementFilter.methodsIn(te.getEnclosedElements()).stream()
+					.anyMatch(m -> AnnotationHelper.hasAnnotation(m, "summer.web.annotation.ExceptionHandler"));
 		});
 		return hasWebController || hasExceptionHandler;
+	}
+
+	/**
+	 * Jandex-specific collector that creates BeanDefinition from ClassInfo.
+	 */
+	private static class JandexBeanCollector implements JandexDiscovery.BeanCollector {
+		private final List<BeanDefinition> allBeans;
+
+		JandexBeanCollector(List<BeanDefinition> allBeans) {
+			this.allBeans = allBeans;
+		}
+
+		@Override
+		public void collectComponent(org.jboss.jandex.ClassInfo ci) {
+			BeanDefinition bean = new BeanDefinition(BeanDefinition.Kind.COMPONENT, ci.name().toString(),
+					ci.simpleName());
+
+			org.jboss.jandex.MethodInfo ctor = ci.firstMethod("<init>");
+			if (ctor != null) {
+				for (int i = 0; i < ctor.parametersCount(); i++) {
+					bean.constructorParamTypes.add(ctor.parameterType(i).name().toString());
+				}
+			}
+
+			for (org.jboss.jandex.Type iface : ci.interfaceTypes()) {
+				bean.interfaceNames.add(iface.name().toString());
+			}
+
+			bean.variableName = toVariableName(ci.simpleName());
+			allBeans.add(bean);
+		}
+
+		@Override
+		public void collectConfiguration(org.jboss.jandex.ClassInfo ci) {
+			BeanDefinition configBean = new BeanDefinition(BeanDefinition.Kind.CONFIGURATION, ci.name().toString(),
+					ci.simpleName());
+
+			org.jboss.jandex.MethodInfo ctor = ci.firstMethod("<init>");
+			if (ctor != null) {
+				for (int i = 0; i < ctor.parametersCount(); i++) {
+					configBean.constructorParamTypes.add(ctor.parameterType(i).name().toString());
+				}
+			}
+
+			configBean.variableName = toVariableName(ci.simpleName());
+			allBeans.add(configBean);
+
+			for (org.jboss.jandex.MethodInfo method : ci.methods()) {
+				if (method.hasAnnotation(org.jboss.jandex.DotName.createSimple("summer.core.annotation.Bean"))) {
+					collectFactoryProduct(ci, method);
+				}
+			}
+		}
+
+		@Override
+		public boolean alreadyCollectedByName(String qualifiedName) {
+			return allBeans.stream().anyMatch(b -> b.qualifiedName.equals(qualifiedName));
+		}
+
+		private void collectFactoryProduct(org.jboss.jandex.ClassInfo configClass, org.jboss.jandex.MethodInfo method) {
+			org.jboss.jandex.Type returnType = method.returnType();
+			if (returnType == null)
+				return;
+
+			BeanDefinition bean = new BeanDefinition(BeanDefinition.Kind.FACTORY_PRODUCT, returnType.name().toString(),
+					returnType.name().withoutPackagePrefix());
+
+			bean.configClassName = configClass.name().toString();
+			bean.producerMethodName = method.name();
+			bean.variableName = toVariableName(returnType.name().withoutPackagePrefix());
+
+			for (int i = 0; i < method.parametersCount(); i++) {
+				bean.producerParamTypes.add(method.parameterType(i).name().toString());
+			}
+
+			allBeans.add(bean);
+		}
+
+		private static String toVariableName(String simpleName) {
+			if (simpleName.isEmpty())
+				return "bean";
+			return Character.toLowerCase(simpleName.charAt(0)) + simpleName.substring(1);
+		}
 	}
 }

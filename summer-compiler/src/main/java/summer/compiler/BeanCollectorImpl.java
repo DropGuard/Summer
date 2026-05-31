@@ -9,18 +9,17 @@ import summer.core.ErrorCode;
 import summer.core.SummerException;
 import summer.core.annotation.Bean;
 
-final class BeanCollectorImpl implements JandexDiscovery.BeanCollector {
+final class BeanCollectorImpl {
 
-	private final List<AptBeanDefinition> allBeans;
+	private final List<BeanDefinition> allBeans;
 	private final ProcessingEnvironment processingEnv;
 
-	BeanCollectorImpl(List<AptBeanDefinition> allBeans, ProcessingEnvironment processingEnv) {
+	BeanCollectorImpl(List<BeanDefinition> allBeans, ProcessingEnvironment processingEnv) {
 		this.allBeans = allBeans;
 		this.processingEnv = processingEnv;
 	}
 
-	@Override
-	public void collectComponent(TypeElement typeElement) {
+	void collectComponent(TypeElement typeElement) {
 		if (alreadyCollected(typeElement))
 			return;
 		if (isTestInnerClass(typeElement))
@@ -35,16 +34,17 @@ final class BeanCollectorImpl implements JandexDiscovery.BeanCollector {
 					"Bean class must be public for AOT compilation: " + typeElement.getQualifiedName());
 		}
 
-		AptBeanDefinition bean = new AptBeanDefinition(AptBeanDefinition.Kind.COMPONENT, typeElement);
-		fillConstructorInfo(bean);
-		fillInterfaces(bean);
+		BeanDefinition bean = new BeanDefinition(BeanDefinition.Kind.COMPONENT,
+				typeElement.getQualifiedName().toString(), typeElement.getSimpleName().toString());
+
+		fillConstructorInfo(bean, typeElement);
+		fillInterfaces(bean, typeElement);
 		bean.isAutoCloseable = isAutoCloseable(typeElement);
 		bean.variableName = toVariableName(typeElement.getSimpleName().toString());
 		allBeans.add(bean);
 	}
 
-	@Override
-	public void collectConfiguration(TypeElement typeElement) {
+	void collectConfiguration(TypeElement typeElement) {
 		if (alreadyCollected(typeElement))
 			return;
 		if (isTestInnerClass(typeElement))
@@ -55,8 +55,10 @@ final class BeanCollectorImpl implements JandexDiscovery.BeanCollector {
 					"Configuration class must be public for AOT compilation: " + typeElement.getQualifiedName());
 		}
 
-		AptBeanDefinition configBean = new AptBeanDefinition(AptBeanDefinition.Kind.CONFIGURATION, typeElement);
-		fillConstructorInfo(configBean);
+		BeanDefinition configBean = new BeanDefinition(BeanDefinition.Kind.CONFIGURATION,
+				typeElement.getQualifiedName().toString(), typeElement.getSimpleName().toString());
+
+		fillConstructorInfo(configBean, typeElement);
 		configBean.isAutoCloseable = isAutoCloseable(typeElement);
 		configBean.variableName = toVariableName(typeElement.getSimpleName().toString());
 		allBeans.add(configBean);
@@ -68,15 +70,13 @@ final class BeanCollectorImpl implements JandexDiscovery.BeanCollector {
 		}
 	}
 
-	@Override
-	public boolean alreadyCollected(TypeElement typeElement) {
+	boolean alreadyCollected(TypeElement typeElement) {
 		String qn = typeElement.getQualifiedName().toString();
-		return allBeans.stream().anyMatch(b -> b.qualifiedName().equals(qn));
+		return allBeans.stream().anyMatch(b -> b.qualifiedName.equals(qn));
 	}
 
-	@Override
-	public boolean alreadyCollectedByName(String qualifiedName) {
-		return allBeans.stream().anyMatch(b -> b.qualifiedName().equals(qualifiedName));
+	boolean alreadyCollectedByName(String qualifiedName) {
+		return allBeans.stream().anyMatch(b -> b.qualifiedName.equals(qualifiedName));
 	}
 
 	void collectByAnnotationName(String annotationFqn, javax.annotation.processing.RoundEnvironment roundEnv) {
@@ -93,7 +93,7 @@ final class BeanCollectorImpl implements JandexDiscovery.BeanCollector {
 
 	void resolveVariableNameConflicts() {
 		Set<String> usedNames = new HashSet<>();
-		for (AptBeanDefinition bean : allBeans) {
+		for (BeanDefinition bean : allBeans) {
 			String base = bean.variableName;
 			String name = base;
 			int suffix = 2;
@@ -112,51 +112,49 @@ final class BeanCollectorImpl implements JandexDiscovery.BeanCollector {
 					"@Bean method return type is not a declared type: " + returnType);
 		}
 
-		AptBeanDefinition bean = new AptBeanDefinition(AptBeanDefinition.Kind.FACTORY_PRODUCT, returnElement);
-		bean.configClass = configClass;
-		bean.producerMethod = method;
-		bean.producedType = returnType;
+		BeanDefinition bean = new BeanDefinition(BeanDefinition.Kind.FACTORY_PRODUCT,
+				returnElement.getQualifiedName().toString(), returnElement.getSimpleName().toString());
+
+		bean.configClassName = configClass.getQualifiedName().toString();
+		bean.producerMethodName = method.getSimpleName().toString();
 		bean.isAutoCloseable = isAutoCloseable(returnElement);
 		bean.variableName = toVariableName(returnElement.getSimpleName().toString());
 
 		for (VariableElement param : method.getParameters()) {
-			bean.producerParamTypeMirrors.add(param.asType());
+			bean.producerParamTypes.add(param.asType().toString());
 		}
 
 		allBeans.add(bean);
 	}
 
-	private void fillConstructorInfo(AptBeanDefinition bean) {
-		List<ExecutableElement> constructors = ElementFilter.constructorsIn(bean.typeElement.getEnclosedElements())
-				.stream().filter(c -> c.getModifiers().contains(Modifier.PUBLIC)).toList();
+	private void fillConstructorInfo(BeanDefinition bean, TypeElement typeElement) {
+		List<ExecutableElement> constructors = ElementFilter.constructorsIn(typeElement.getEnclosedElements()).stream()
+				.filter(c -> c.getModifiers().contains(Modifier.PUBLIC)).toList();
 
 		if (constructors.isEmpty()) {
 			throw new SummerException(ErrorCode.BEAN_CREATION_FAILED,
-					"No public constructor found for " + bean.qualifiedName());
+					"No public constructor found for " + bean.qualifiedName);
 		}
 		if (constructors.size() != 1) {
-			throw new SummerException(ErrorCode.BEAN_CREATION_FAILED,
-					"Component " + bean.qualifiedName() + " must have exactly ONE public constructor. Found: "
-							+ constructors.size());
+			throw new SummerException(ErrorCode.BEAN_CREATION_FAILED, "Component " + bean.qualifiedName
+					+ " must have exactly ONE public constructor. Found: " + constructors.size());
 		}
 		ExecutableElement ctor = constructors.getFirst();
 
-		bean.constructor = ctor;
 		for (VariableElement param : ctor.getParameters()) {
-			bean.constructorParamTypeMirrors.add(param.asType());
+			bean.constructorParamTypes.add(param.asType().toString());
 		}
 	}
 
-	private void fillInterfaces(AptBeanDefinition bean) {
-		collectInterfaces(bean.typeElement, bean.interfaceMirrors, new HashSet<>());
+	private void fillInterfaces(BeanDefinition bean, TypeElement typeElement) {
+		collectInterfaces(typeElement, bean.interfaceNames, new HashSet<>());
 	}
 
-	private void collectInterfaces(TypeElement type, List<TypeMirror> result, Set<String> visited) {
+	private void collectInterfaces(TypeElement type, List<String> result, Set<String> visited) {
 		for (TypeMirror iface : type.getInterfaces()) {
 			String name = iface.toString();
 			if (visited.add(name)) {
-				result.add(iface);
-				// Recursively collect parent interfaces
+				result.add(name);
 				Element element = processingEnv.getTypeUtils().asElement(iface);
 				if (element instanceof TypeElement ifaceElement) {
 					collectInterfaces(ifaceElement, result, visited);

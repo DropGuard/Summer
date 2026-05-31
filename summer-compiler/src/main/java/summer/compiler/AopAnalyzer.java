@@ -16,19 +16,18 @@ final class AopAnalyzer {
 	private AopAnalyzer() {
 	}
 
-	/**
-	 * Marks beans that need AOP proxying based on @Intercepted methods and
-	 * interceptor @Intercepts annotations.
-	 */
-	static void analyze(List<AptBeanDefinition> allBeans, ProcessingEnvironment processingEnv) {
+	static void analyze(List<BeanDefinition> allBeans, ProcessingEnvironment processingEnv) {
 		Types typeUtils = processingEnv.getTypeUtils();
 		TypeElement interceptorType = processingEnv.getElementUtils().getTypeElement("summer.aop.MethodInterceptor");
 		if (interceptorType == null)
 			return;
 
-		List<AptBeanDefinition> interceptorBeans = new ArrayList<>();
-		for (AptBeanDefinition bean : allBeans) {
-			if (typeUtils.isAssignable(typeUtils.erasure(bean.typeElement.asType()),
+		List<BeanDefinition> interceptorBeans = new ArrayList<>();
+		for (BeanDefinition bean : allBeans) {
+			TypeElement typeElement = processingEnv.getElementUtils().getTypeElement(bean.qualifiedName);
+			if (typeElement == null)
+				continue;
+			if (typeUtils.isAssignable(typeUtils.erasure(typeElement.asType()),
 					typeUtils.erasure(interceptorType.asType()))) {
 				interceptorBeans.add(bean);
 			}
@@ -37,26 +36,35 @@ final class AopAnalyzer {
 		if (interceptorBeans.isEmpty())
 			return;
 
-		for (AptBeanDefinition bean : allBeans) {
+		for (BeanDefinition bean : allBeans) {
 			if (interceptorBeans.contains(bean))
 				continue;
-			if (bean.kind == AptBeanDefinition.Kind.FACTORY_PRODUCT)
+			if (bean.kind == BeanDefinition.Kind.FACTORY_PRODUCT)
 				continue;
-			if (bean.interfaceNames().isEmpty())
+			if (bean.interfaceNames.isEmpty())
 				continue;
 
-			boolean hasIntercepted = beanHasMethodsWithAnnotation(bean.typeElement, "summer.aop.Intercepted");
+			TypeElement typeElement = processingEnv.getElementUtils().getTypeElement(bean.qualifiedName);
+			if (typeElement == null)
+				continue;
+
+			boolean hasIntercepted = beanHasMethodsWithAnnotation(typeElement, "summer.aop.Intercepted");
 
 			boolean matchesAnyStaticTrigger = false;
-			List<AptBeanDefinition> matchingStaticInterceptors = new ArrayList<>();
-			List<AptBeanDefinition> dynamicInterceptors = new ArrayList<>();
+			List<BeanDefinition> matchingStaticInterceptors = new ArrayList<>();
+			List<BeanDefinition> dynamicInterceptors = new ArrayList<>();
 
-			for (AptBeanDefinition interceptor : interceptorBeans) {
-				List<TypeMirror> targets = getInterceptsAnnotations(interceptor.typeElement);
+			for (BeanDefinition interceptor : interceptorBeans) {
+				TypeElement interceptorElement = processingEnv.getElementUtils()
+						.getTypeElement(interceptor.qualifiedName);
+				if (interceptorElement == null)
+					continue;
+
+				List<TypeMirror> targets = getInterceptsAnnotations(interceptorElement);
 				if (targets.isEmpty()) {
 					dynamicInterceptors.add(interceptor);
 				} else {
-					if (beanHasAnnotatedMethods(bean.typeElement, targets, processingEnv)) {
+					if (beanHasAnnotatedMethods(typeElement, targets, processingEnv)) {
 						matchesAnyStaticTrigger = true;
 						matchingStaticInterceptors.add(interceptor);
 					} else if (hasIntercepted) {
@@ -74,12 +82,8 @@ final class AopAnalyzer {
 		}
 	}
 
-	/**
-	 * Checks if a method on the bean class should be intercepted, based on
-	 * @Intercepted annotation or interceptor @Intercepts triggers.
-	 */
 	static boolean shouldInterceptMethod(TypeElement beanClass, ExecutableElement interfaceMethod,
-			List<AptBeanDefinition> interceptorBeans, ProcessingEnvironment processingEnv) {
+			List<BeanDefinition> interceptorBeans, ProcessingEnvironment processingEnv) {
 		ExecutableElement targetMethod = findMatchingMethod(beanClass, interfaceMethod, processingEnv);
 		if (targetMethod == null)
 			return false;
@@ -88,8 +92,12 @@ final class AopAnalyzer {
 			return true;
 		}
 
-		for (AptBeanDefinition interceptor : interceptorBeans) {
-			List<TypeMirror> targetAnnotations = getInterceptsAnnotations(interceptor.typeElement);
+		for (BeanDefinition interceptor : interceptorBeans) {
+			TypeElement interceptorElement = processingEnv.getElementUtils().getTypeElement(interceptor.qualifiedName);
+			if (interceptorElement == null)
+				continue;
+
+			List<TypeMirror> targetAnnotations = getInterceptsAnnotations(interceptorElement);
 			for (AnnotationMirror am : targetMethod.getAnnotationMirrors()) {
 				for (TypeMirror targetAnn : targetAnnotations) {
 					if (processingEnv.getTypeUtils().isSameType(am.getAnnotationType(), targetAnn)) {
@@ -101,15 +109,12 @@ final class AopAnalyzer {
 		return false;
 	}
 
-	/**
-	 * Extracts the annotation types from an @Intercepts annotation.
-	 */
 	static List<TypeMirror> getInterceptsAnnotations(TypeElement element) {
 		Intercepts intercepts = element.getAnnotation(Intercepts.class);
 		if (intercepts == null)
 			return Collections.emptyList();
 		try {
-			intercepts.annotations(); // triggers MirroredTypesException
+			intercepts.annotations();
 			return Collections.emptyList();
 		} catch (MirroredTypesException e) {
 			return new ArrayList<>(e.getTypeMirrors());
@@ -140,10 +145,6 @@ final class AopAnalyzer {
 		return false;
 	}
 
-	/**
-	 * Finds the actual method on the bean class matching an interface method by
-	 * name and parameter types.
-	 */
 	static ExecutableElement findMatchingMethod(TypeElement beanClass, ExecutableElement interfaceMethod,
 			ProcessingEnvironment processingEnv) {
 		Types typeUtils = processingEnv.getTypeUtils();

@@ -29,23 +29,16 @@ final class AotContextGenerator {
 		this.messager = messager;
 	}
 
-	/**
-	 * Parses a type name string (possibly with generics) into a JavaPoet TypeName.
-	 * For generic types, returns the raw type (without generics) since Java doesn't
-	 * support GenericService<String>.class syntax.
-	 */
 	static TypeName parseTypeName(String typeName) {
 		int genericStart = typeName.indexOf('<');
 		if (genericStart < 0) {
 			return ClassName.bestGuess(typeName);
 		}
-
-		// Return raw type (without generics) for use with .class
 		String rawType = typeName.substring(0, genericStart);
 		return ClassName.bestGuess(rawType);
 	}
 
-	void generate(List<AptBeanDefinition> sortedBeans, boolean hasWeb) {
+	void generate(List<BeanDefinition> sortedBeans, boolean hasWeb) {
 		TypeSpec contextClass = TypeSpec.classBuilder(CLASS_NAME).addModifiers(Modifier.PUBLIC, Modifier.FINAL)
 				.addSuperinterface(APPLICATION_CONTEXT)
 				.addJavadoc("Auto-generated AOT context. Do not edit manually!\n")
@@ -61,7 +54,6 @@ final class AotContextGenerator {
 		try {
 			javaFile.writeTo(filer);
 
-			// Generate META-INF/services/summer.core.ApplicationContext for ServiceLoader
 			javax.tools.FileObject serviceFile = filer.createResource(javax.tools.StandardLocation.CLASS_OUTPUT, "",
 					"META-INF/services/" + APPLICATION_CONTEXT.canonicalName());
 			try (java.io.Writer w = serviceFile.openWriter()) {
@@ -75,15 +67,10 @@ final class AotContextGenerator {
 		}
 	}
 
-	// -----------------------------------------------------------------------
-	// Fields
-	// -----------------------------------------------------------------------
-
 	private FieldSpec buildSingletonsField() {
 		ParameterizedTypeName mapType = ParameterizedTypeName.get(ClassName.get(Map.class),
 				ParameterizedTypeName.get(ClassName.get(Class.class), WildcardTypeName.subtypeOf(Object.class)),
 				ClassName.get(Object.class));
-
 		return FieldSpec.builder(mapType, "singletons", Modifier.PRIVATE, Modifier.FINAL)
 				.initializer("new $T<>()", LinkedHashMap.class).build();
 	}
@@ -91,29 +78,20 @@ final class AotContextGenerator {
 	private FieldSpec buildCloseablesField() {
 		ParameterizedTypeName listType = ParameterizedTypeName.get(ClassName.get(List.class),
 				ClassName.get(AutoCloseable.class));
-
 		return FieldSpec.builder(listType, "closeables", Modifier.PRIVATE, Modifier.FINAL)
 				.initializer("new $T<>()", ArrayList.class).build();
 	}
-
-	// -----------------------------------------------------------------------
-	// Constructor
-	// -----------------------------------------------------------------------
 
 	private MethodSpec buildConstructor() {
 		return MethodSpec.constructorBuilder().addModifiers(Modifier.PUBLIC).addStatement("wire()").build();
 	}
 
-	// -----------------------------------------------------------------------
-	// wire() — the core instantiation method
-	// -----------------------------------------------------------------------
-
-	private MethodSpec buildWireMethod(List<AptBeanDefinition> sortedBeans, boolean hasWeb) {
+	private MethodSpec buildWireMethod(List<BeanDefinition> sortedBeans, boolean hasWeb) {
 		MethodSpec.Builder wire = MethodSpec.methodBuilder("wire").addModifiers(Modifier.PRIVATE);
 
 		for (int i = 0; i < sortedBeans.size(); i++) {
-			AptBeanDefinition bean = sortedBeans.get(i);
-			ClassName beanClass = ClassName.bestGuess(bean.qualifiedName());
+			BeanDefinition bean = sortedBeans.get(i);
+			ClassName beanClass = ClassName.bestGuess(bean.qualifiedName);
 			String var = bean.variableName;
 
 			if (i > 0) {
@@ -125,14 +103,12 @@ final class AotContextGenerator {
 				case FACTORY_PRODUCT -> emitFactoryProductInstantiation(wire, bean, var);
 			}
 
-			// Register in singletons map
 			if (bean.needsProxy) {
-				// Concrete key → raw instance (proxy can't be cast to concrete class)
 				wire.addStatement("singletons.put($T.class, $N)", beanClass, var + "_impl");
 			} else {
 				wire.addStatement("singletons.put($T.class, $N)", beanClass, var);
 			}
-			for (String iface : bean.interfaceNames()) {
+			for (String iface : bean.interfaceNames) {
 				wire.addStatement("singletons.putIfAbsent($T.class, $N)", parseTypeName(iface), var);
 			}
 
@@ -154,13 +130,13 @@ final class AotContextGenerator {
 		return wire.build();
 	}
 
-	private void emitComponentInstantiation(MethodSpec.Builder wire, AptBeanDefinition bean, ClassName beanClass,
+	private void emitComponentInstantiation(MethodSpec.Builder wire, BeanDefinition bean, ClassName beanClass,
 			String var) {
 		CodeBlock args = buildConstructorArgs(bean);
 
 		if (bean.needsProxy) {
 			String implVar = var + "_impl";
-			if (bean.constructorParamTypes().isEmpty()) {
+			if (bean.constructorParamTypes.isEmpty()) {
 				wire.addStatement("$T $N = new $T()", beanClass, implVar, beanClass);
 			} else {
 				wire.addStatement("$T $N = new $T($L)", beanClass, implVar, beanClass, args);
@@ -171,18 +147,18 @@ final class AotContextGenerator {
 					ClassName.get("summer.aop", "MethodInterceptor"), interceptorsListVar,
 					ClassName.get(ArrayList.class));
 
-			for (AptBeanDefinition interceptor : bean.interceptors) {
+			for (BeanDefinition interceptor : bean.interceptors) {
 				wire.beginControlFlow("if ($N.supports($T.class))", interceptor.variableName, beanClass)
 						.addStatement("$N.add($N)", interceptorsListVar, interceptor.variableName).endControlFlow();
 			}
 
-			TypeName proxyType = bean.interfaceNames().isEmpty()
+			TypeName proxyType = bean.interfaceNames.isEmpty()
 					? beanClass
-					: ClassName.bestGuess(bean.interfaceNames().get(0));
+					: ClassName.bestGuess(bean.interfaceNames.getFirst());
 			ClassName proxyClass = ClassName.get(beanClass.packageName(), beanClass.simpleName() + "$$AotProxy");
 			wire.addStatement("$T $N = new $T($N, $N)", proxyType, var, proxyClass, implVar, interceptorsListVar);
 		} else {
-			if (bean.constructorParamTypes().isEmpty()) {
+			if (bean.constructorParamTypes.isEmpty()) {
 				wire.addStatement("$T $N = new $T()", beanClass, var, beanClass);
 			} else {
 				wire.addStatement("$T $N = new $T($L)", beanClass, var, beanClass, args);
@@ -190,10 +166,10 @@ final class AotContextGenerator {
 		}
 	}
 
-	private CodeBlock buildConstructorArgs(AptBeanDefinition bean) {
+	private CodeBlock buildConstructorArgs(BeanDefinition bean) {
 		CodeBlock.Builder args = CodeBlock.builder();
 		int depIdx = 0;
-		List<String> paramTypes = bean.constructorParamTypes();
+		List<String> paramTypes = bean.constructorParamTypes;
 		for (int i = 0; i < paramTypes.size(); i++) {
 			if (i > 0)
 				args.add(", ");
@@ -212,24 +188,20 @@ final class AotContextGenerator {
 		return args.build();
 	}
 
-	private void emitFactoryProductInstantiation(MethodSpec.Builder wire, AptBeanDefinition bean, String var) {
-		ClassName producedClass = ClassName.bestGuess(bean.qualifiedName());
+	private void emitFactoryProductInstantiation(MethodSpec.Builder wire, BeanDefinition bean, String var) {
+		ClassName producedClass = ClassName.bestGuess(bean.qualifiedName);
 		String configVar = bean.configBeanDefinition.variableName;
-		// For AptBeanDefinition, we need the method name. For now, use a convention.
-		String methodName = "unknown"; // Will be set properly for AptBeanDefinition
-		if (bean instanceof AptBeanDefinition apt && apt.producerMethod != null) {
-			methodName = apt.producerMethod.getSimpleName().toString();
-		}
+		String methodName = bean.producerMethodName;
 		CodeBlock args = buildArgs(bean.resolvedDependencies);
 
-		if (bean.producerParamTypes().isEmpty()) {
+		if (bean.producerParamTypes.isEmpty()) {
 			wire.addStatement("$T $N = $N.$N()", producedClass, var, configVar, methodName);
 		} else {
 			wire.addStatement("$T $N = $N.$N($L)", producedClass, var, configVar, methodName, args);
 		}
 	}
 
-	private CodeBlock buildArgs(List<AptBeanDefinition> deps) {
+	private CodeBlock buildArgs(List<BeanDefinition> deps) {
 		CodeBlock.Builder args = CodeBlock.builder();
 		for (int i = 0; i < deps.size(); i++) {
 			if (i > 0)
@@ -239,13 +211,8 @@ final class AotContextGenerator {
 		return args.build();
 	}
 
-	// -----------------------------------------------------------------------
-	// ApplicationContext method implementations
-	// -----------------------------------------------------------------------
-
 	private MethodSpec buildGetBean() {
 		TypeVariableName typeVar = TypeVariableName.get("T");
-
 		return MethodSpec.methodBuilder("getBean").addAnnotation(Override.class)
 				.addAnnotation(
 						AnnotationSpec.builder(SuppressWarnings.class).addMember("value", "$S", "unchecked").build())
@@ -253,14 +220,13 @@ final class AotContextGenerator {
 				.addParameter(ParameterizedTypeName.get(ClassName.get(Class.class), typeVar), "type")
 				.addStatement("$T bean = singletons.get(type)", Object.class).beginControlFlow("if (bean != null)")
 				.addStatement("return (T) bean").endControlFlow()
-				.addStatement("throw new $T($T.BEAN_NOT_FOUND, $S + type.getName())", SUMMER_EXCEPTION,
-						ERROR_CODE, "No bean found of type: ")
+				.addStatement("throw new $T($T.BEAN_NOT_FOUND, $S + type.getName())", SUMMER_EXCEPTION, ERROR_CODE,
+						"No bean found of type: ")
 				.build();
 	}
 
 	private MethodSpec buildGetBeansOfType() {
 		TypeVariableName typeVar = TypeVariableName.get("T");
-
 		return MethodSpec.methodBuilder("getBeansOfType").addAnnotation(Override.class)
 				.addAnnotation(
 						AnnotationSpec.builder(SuppressWarnings.class).addMember("value", "$S", "unchecked").build())
@@ -275,7 +241,6 @@ final class AotContextGenerator {
 	private MethodSpec buildGetComponentClasses() {
 		ParameterizedTypeName returnType = ParameterizedTypeName.get(ClassName.get(Set.class),
 				ParameterizedTypeName.get(ClassName.get(Class.class), WildcardTypeName.subtypeOf(Object.class)));
-
 		return MethodSpec.methodBuilder("getComponentClasses").addAnnotation(Override.class)
 				.addModifiers(Modifier.PUBLIC).returns(returnType).addStatement("return singletons.keySet()").build();
 	}

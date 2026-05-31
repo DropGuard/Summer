@@ -11,44 +11,40 @@ import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 
 /**
- * Generates the {@code GeneratedAnnotationRouterAdapter} class that registers
- * web routes and exception handlers at compile time. Extracted from
- * SummerProcessor to separate web route generation from bean collection.
+ * Generates the {@code GeneratedAnnotationRouterAdapter} class.
  */
 final class RouteAdapterGenerator {
 
 	private RouteAdapterGenerator() {
 	}
 
-	/**
-	 * Generates the route adapter if any @RestController or @ExceptionHandler beans
-	 * exist.
-	 */
-	static void generate(List<AptBeanDefinition> beans, ProcessingEnvironment processingEnv) {
+	static void generate(List<BeanDefinition> beans, ProcessingEnvironment processingEnv) {
 		TypeElement restControllerType = processingEnv.getElementUtils()
 				.getTypeElement("summer.web.annotation.RestController");
 		if (restControllerType == null)
 			return;
 
-		List<AptBeanDefinition> controllers = beans.stream().filter(b -> b instanceof AptBeanDefinition)
-				.map(b -> (AptBeanDefinition) b)
-				.filter(b -> AnnotationHelper.hasAnnotation(b.typeElement, "summer.web.annotation.RestController"))
-				.toList();
+		List<BeanDefinition> controllers = new ArrayList<>();
+		List<BeanDefinition> componentsWithExceptionHandlers = new ArrayList<>();
 
-		List<AptBeanDefinition> componentsWithExceptionHandlers = new ArrayList<>();
-		for (AptBeanDefinition b : beans) {
-			if (!(b instanceof AptBeanDefinition apt))
+		for (BeanDefinition b : beans) {
+			TypeElement typeElement = processingEnv.getElementUtils().getTypeElement(b.qualifiedName);
+			if (typeElement == null)
 				continue;
-			boolean hasHandler = ElementFilter.methodsIn(apt.typeElement.getEnclosedElements()).stream()
+
+			if (AnnotationHelper.hasAnnotation(typeElement, "summer.web.annotation.RestController")) {
+				controllers.add(b);
+			}
+
+			boolean hasHandler = ElementFilter.methodsIn(typeElement.getEnclosedElements()).stream()
 					.anyMatch(m -> AnnotationHelper.hasAnnotation(m, "summer.web.annotation.ExceptionHandler"));
 			if (hasHandler) {
-				componentsWithExceptionHandlers.add(apt);
+				componentsWithExceptionHandlers.add(b);
 			}
 		}
 
-		if (controllers.isEmpty() && componentsWithExceptionHandlers.isEmpty()) {
+		if (controllers.isEmpty() && componentsWithExceptionHandlers.isEmpty())
 			return;
-		}
 
 		TypeSpec.Builder adapterBuilder = TypeSpec.classBuilder("GeneratedAnnotationRouterAdapter")
 				.addModifiers(Modifier.PUBLIC, Modifier.FINAL)
@@ -80,13 +76,16 @@ final class RouteAdapterGenerator {
 		Types types = processingEnv.getTypeUtils();
 		TypeMirror throwableType = processingEnv.getElementUtils().getTypeElement("java.lang.Throwable").asType();
 
-		// Register controller routes
-		for (AptBeanDefinition controller : controllers) {
-			String basePath = AnnotationHelper.getAnnotationStringValue(controller.typeElement,
-					"summer.web.annotation.RestController", processingEnv);
-			ClassName controllerClass = ClassName.get(controller.typeElement);
+		for (BeanDefinition controller : controllers) {
+			TypeElement controllerElement = processingEnv.getElementUtils().getTypeElement(controller.qualifiedName);
+			if (controllerElement == null)
+				continue;
 
-			for (ExecutableElement method : ElementFilter.methodsIn(controller.typeElement.getEnclosedElements())) {
+			String basePath = AnnotationHelper.getAnnotationStringValue(controllerElement,
+					"summer.web.annotation.RestController", processingEnv);
+			ClassName controllerClass = ClassName.get(controllerElement);
+
+			for (ExecutableElement method : ElementFilter.methodsIn(controllerElement.getEnclosedElements())) {
 				String httpMethod = null;
 				String methodPath = null;
 
@@ -126,8 +125,8 @@ final class RouteAdapterGenerator {
 					registerMethod.addStatement("$T handler = ctx -> {\n$L}", ClassName.get("summer.web", "Handler"),
 							lambdaBody.build());
 
-					List<TypeMirror> classMiddlewares = AnnotationHelper.getAnnotationClassListValue(
-							controller.typeElement, "summer.web.annotation.Use", processingEnv);
+					List<TypeMirror> classMiddlewares = AnnotationHelper.getAnnotationClassListValue(controllerElement,
+							"summer.web.annotation.Use", processingEnv);
 					List<TypeMirror> methodMiddlewares = AnnotationHelper.getAnnotationClassListValue(method,
 							"summer.web.annotation.Use", processingEnv);
 					List<TypeMirror> allMiddlewares = new ArrayList<>();
@@ -148,11 +147,14 @@ final class RouteAdapterGenerator {
 			}
 		}
 
-		// Register exception handlers
-		for (AptBeanDefinition component : componentsWithExceptionHandlers) {
-			ClassName componentClass = ClassName.get(component.typeElement);
+		for (BeanDefinition component : componentsWithExceptionHandlers) {
+			TypeElement componentElement = processingEnv.getElementUtils().getTypeElement(component.qualifiedName);
+			if (componentElement == null)
+				continue;
 
-			for (ExecutableElement method : ElementFilter.methodsIn(component.typeElement.getEnclosedElements())) {
+			ClassName componentClass = ClassName.get(componentElement);
+
+			for (ExecutableElement method : ElementFilter.methodsIn(componentElement.getEnclosedElements())) {
 				if (AnnotationHelper.hasAnnotation(method, "summer.web.annotation.ExceptionHandler")) {
 					List<TypeMirror> exceptionClasses = AnnotationHelper.getAnnotationClassListValue(method,
 							"summer.web.annotation.ExceptionHandler", processingEnv);
@@ -193,8 +195,6 @@ final class RouteAdapterGenerator {
 					"Failed to write GeneratedAnnotationRouterAdapter: " + e.getMessage());
 		}
 	}
-
-	// --- Private helpers ---
 
 	private static CodeBlock buildMethodCallArgs(ExecutableElement method, Types types, TypeMirror throwableType,
 			ProcessingEnvironment processingEnv) {
