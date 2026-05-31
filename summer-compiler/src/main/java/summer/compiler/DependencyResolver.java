@@ -1,8 +1,8 @@
 package summer.compiler;
 
 import java.util.*;
-import javax.annotation.processing.Messager;
-import javax.tools.Diagnostic;
+import summer.core.ErrorCode;
+import summer.core.SummerException;
 
 /**
  * Compile-time dependency resolver that builds a dependency graph from
@@ -14,20 +14,16 @@ import javax.tools.Diagnostic;
  */
 final class DependencyResolver {
 
-	private final Messager messager;
-
-	DependencyResolver(Messager messager) {
-		this.messager = messager;
-	}
-
 	/**
 	 * Resolves all inter-bean dependencies and returns the beans in topological
-	 * (dependency-first) order. Reports errors via {@link Messager} if circular
-	 * dependencies are detected or a required dependency cannot be found.
+	 * (dependency-first) order. Throws exceptions if circular dependencies are
+	 * detected or a required dependency cannot be found.
 	 *
 	 * @param beans
 	 *            all discovered bean definitions
-	 * @return sorted list (leaves first), or empty list on error
+	 * @return sorted list (leaves first)
+	 * @throws SummerException
+	 *             on dependency errors
 	 */
 	List<AptBeanDefinition> resolve(List<AptBeanDefinition> beans) {
 		// 1. Resolve each bean's dependencies to concrete AptBeanDefinition references
@@ -44,7 +40,7 @@ final class DependencyResolver {
 
 		// 3. Cycle detection
 		if (hasCycle(beans)) {
-			return Collections.emptyList();
+			throw new SummerException(ErrorCode.CIRCULAR_DEPENDENCY, "Circular dependency detected");
 		}
 
 		// 4. Topological sort
@@ -70,11 +66,10 @@ final class DependencyResolver {
 			}
 			AptBeanDefinition resolved = findBean(paramType, allBeans);
 			if (resolved == null) {
-				messager.printMessage(Diagnostic.Kind.ERROR,
+				throw new SummerException(ErrorCode.BEAN_NOT_FOUND,
 						"No bean found for dependency type: " + paramType + " required by " + bean.qualifiedName());
-			} else {
-				bean.resolvedDependencies.add(resolved);
 			}
+			bean.resolvedDependencies.add(resolved);
 		}
 	}
 
@@ -87,13 +82,14 @@ final class DependencyResolver {
 				return;
 			}
 		}
-		messager.printMessage(Diagnostic.Kind.ERROR,
+		throw new SummerException(ErrorCode.BEAN_NOT_FOUND,
 				"Could not find @Configuration bean for factory product: " + factoryProduct.qualifiedName());
 	}
 
 	/**
 	 * Finds a bean matching the requested paramType. First tries exact type match,
-	 * then matches by interface implementation.
+	 * then matches by interface implementation. Returns null if not found or
+	 * ambiguous.
 	 */
 	AptBeanDefinition findBean(String paramType, List<AptBeanDefinition> allBeans) {
 		// Pass 1: exact type match
@@ -115,11 +111,7 @@ final class DependencyResolver {
 			return matches.getFirst();
 		}
 
-		if (matches.size() > 1) {
-			throw new summer.core.SummerException(summer.core.ErrorCode.AMBIGUOUS_BEAN,
-					"Ambiguous dependency. Multiple beans found for type: " + paramType);
-		}
-
+		// Not found or ambiguous
 		return null;
 	}
 
@@ -141,8 +133,6 @@ final class DependencyResolver {
 
 	private boolean hasCycleDfs(AptBeanDefinition bean, Set<AptBeanDefinition> visited, Set<AptBeanDefinition> stack) {
 		if (stack.contains(bean)) {
-			messager.printMessage(Diagnostic.Kind.ERROR,
-					"Circular dependency detected involving bean: " + bean.qualifiedName());
 			return true;
 		}
 		if (visited.contains(bean)) {
@@ -226,8 +216,10 @@ final class DependencyResolver {
 		}
 
 		if (sorted.size() != beans.size()) {
-			messager.printMessage(Diagnostic.Kind.ERROR, "Could not resolve all dependencies. Possible cycle among: "
-					+ beans.stream().filter(b -> !sorted.contains(b)).map(AptBeanDefinition::qualifiedName).toList());
+			throw new SummerException(ErrorCode.CIRCULAR_DEPENDENCY,
+					"Could not resolve all dependencies. Possible cycle among: "
+							+ beans.stream().filter(b -> !sorted.contains(b)).map(AptBeanDefinition::qualifiedName)
+									.toList());
 		}
 
 		return sorted;

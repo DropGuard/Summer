@@ -8,7 +8,7 @@ import summer.tck.compiler.MemoryCompiler;
 public final class AotCompilation {
 
 	/** Base path to test fixture sources, relative to the TCK module root. */
-	public static final String FIXTURES_SRC = "../summer-test-fixtures/src/main/java/summer/tck";
+	public static final String FIXTURES_SRC = "src/test/java/summer/tck";
 
 	private AotCompilation() {
 	}
@@ -25,9 +25,7 @@ public final class AotCompilation {
 	public static ApplicationContext loadContext(ClassLoader loader) {
 		try {
 			Class<?> aotCtxClass = loader.loadClass("summer.core.aot.GeneratedAotContext");
-			ApplicationContext ctx = (ApplicationContext) aotCtxClass.getConstructor().newInstance();
-			ApplicationContext.init(ctx);
-			return ctx;
+			return (ApplicationContext) aotCtxClass.getConstructor().newInstance();
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to load and instantiate GeneratedAotContext", e);
 		}

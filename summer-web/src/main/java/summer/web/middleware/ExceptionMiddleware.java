@@ -1,5 +1,7 @@
 package summer.web.middleware;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import summer.web.ExceptionRegistry;
 import summer.web.Handler;
 import summer.web.annotation.GlobalMiddleware;
@@ -11,6 +13,7 @@ import summer.web.exception.SummerWebException;
  */
 @GlobalMiddleware
 public class ExceptionMiddleware implements Middleware {
+	private static final Logger log = LoggerFactory.getLogger(ExceptionMiddleware.class);
 	private final ExceptionRegistry registry;
 
 	public ExceptionMiddleware(ExceptionRegistry registry) {
@@ -37,8 +40,7 @@ public class ExceptionMiddleware implements Middleware {
 					ctx.status(webEx.statusCode());
 				}
 				ctx.error(e);
-				System.err.println("Request failed: " + ctx.request().getPath());
-				e.printStackTrace();
+				log.error("Request failed: {}", ctx.request().getPath(), e);
 				return null;
 			}
 		};

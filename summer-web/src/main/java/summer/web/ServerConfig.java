@@ -1,7 +1,7 @@
 package summer.web;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import summer.core.config.YamlConfigLoader;
+import summer.core.config.ConfigurationBinder;
 
 /**
  * Immutable server configuration bound from {@code application.yml}.
@@ -32,6 +32,6 @@ public record ServerConfig(@JsonProperty("port") int port, @JsonProperty("connec
 	public static final ServerConfig DEFAULT = new ServerConfig(8080, 30000, 10485760, 10000);
 
 	public static ServerConfig fromYaml() {
-		return YamlConfigLoader.loadOrDefault("application.yml", ServerConfig.class, DEFAULT);
+		return ConfigurationBinder.bindOrDefault("application.yml", ServerConfig.class, DEFAULT);
 	}
 }

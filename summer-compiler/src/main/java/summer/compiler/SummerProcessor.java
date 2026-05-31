@@ -9,6 +9,7 @@ import javax.lang.model.element.*;
 import javax.tools.Diagnostic;
 import org.jboss.jandex.CompositeIndex;
 import summer.core.Component;
+import summer.core.SummerException;
 import summer.core.annotation.Configuration;
 
 @AutoService(Processor.class)
@@ -29,67 +30,70 @@ public class SummerProcessor extends AbstractProcessor {
 
 	@Override
 	public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-		if (beanCollector == null) {
-			beanCollector = new BeanCollectorImpl(allBeans, processingEnv);
-		}
-
 		if (roundEnv.processingOver()) {
-			processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE,
-					"[Summer AOT] Processing over. Collected " + allBeans.size() + " beans.");
 			return false;
 		}
 
-		generatedNewTypesInThisRound = false;
-
-		processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE,
-				"[Summer AOT] Round with annotations: " + annotations);
-
-		for (Element e : roundEnv.getElementsAnnotatedWith(Component.class)) {
-			if (e.getKind() == ElementKind.CLASS) {
-				beanCollector.collectComponent((TypeElement) e);
+		try {
+			if (beanCollector == null) {
+				beanCollector = new BeanCollectorImpl(allBeans, processingEnv);
 			}
-		}
 
-		for (Element e : roundEnv.getElementsAnnotatedWith(Configuration.class)) {
-			if (e.getKind() == ElementKind.CLASS) {
-				TypeElement configClass = (TypeElement) e;
-				beanCollector.collectConfiguration(configClass);
-				if (ProviderGenerator.generate(configClass, processingEnv)) {
-					generatedNewTypesInThisRound = true;
+			generatedNewTypesInThisRound = false;
+
+			processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE,
+					"[Summer AOT] Round with annotations: " + annotations);
+
+			for (Element e : roundEnv.getElementsAnnotatedWith(Component.class)) {
+				if (e.getKind() == ElementKind.CLASS) {
+					beanCollector.collectComponent((TypeElement) e);
 				}
 			}
-		}
 
-		beanCollector.collectByAnnotationName("summer.web.annotation.RestController", roundEnv);
-		beanCollector.collectByAnnotationName("summer.web.annotation.GlobalMiddleware", roundEnv);
-
-		TypeElement rowModelType = processingEnv.getElementUtils()
-				.getTypeElement("summer.data.jdbc.annotation.RowModel");
-		if (rowModelType != null) {
-			for (Element e : roundEnv.getElementsAnnotatedWith(rowModelType)) {
-				if (e.getKind() == ElementKind.RECORD || e.getKind() == ElementKind.CLASS) {
-					if (RowMapperGenerator.generate((TypeElement) e, processingEnv)) {
+			for (Element e : roundEnv.getElementsAnnotatedWith(Configuration.class)) {
+				if (e.getKind() == ElementKind.CLASS) {
+					TypeElement configClass = (TypeElement) e;
+					beanCollector.collectConfiguration(configClass);
+					if (ProviderGenerator.generate(configClass, processingEnv)) {
 						generatedNewTypesInThisRound = true;
 					}
 				}
 			}
-		}
 
-		processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE,
-				"[Summer AOT] After round: " + allBeans.size() + " beans collected so far.");
+			beanCollector.collectByAnnotationName("summer.web.annotation.RestController", roundEnv);
+			beanCollector.collectByAnnotationName("summer.web.annotation.GlobalMiddleware", roundEnv);
 
-		if (!generatedNewTypesInThisRound && !allBeans.isEmpty() && !aotGenerated) {
-			processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE,
-					"[Summer AOT] Generating AOT context in round where no new types were generated.");
-			try {
-				generateAotContext();
-			} catch (IOException e) {
-				error("AOT generation failed: " + e.getMessage(), null);
+			TypeElement rowModelType = processingEnv.getElementUtils()
+					.getTypeElement("summer.data.jdbc.annotation.RowModel");
+			if (rowModelType != null) {
+				for (Element e : roundEnv.getElementsAnnotatedWith(rowModelType)) {
+					if (e.getKind() == ElementKind.RECORD || e.getKind() == ElementKind.CLASS) {
+						if (RowMapperGenerator.generate((TypeElement) e, processingEnv)) {
+							generatedNewTypesInThisRound = true;
+						}
+					}
+				}
 			}
-			aotGenerated = true;
-		}
 
-		return true;
+			processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE,
+					"[Summer AOT] After round: " + allBeans.size() + " beans collected so far.");
+
+			if (!generatedNewTypesInThisRound && !allBeans.isEmpty() && !aotGenerated) {
+				processingEnv.getMessager().printMessage(Diagnostic.Kind.NOTE,
+						"[Summer AOT] Generating AOT context in round where no new types were generated.");
+				generateAotContext();
+				aotGenerated = true;
+			}
+
+			return true;
+		} catch (SummerException e) {
+			processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, "[Summer] " + e.getMessage());
+			return false;
+		} catch (Exception e) {
+			processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
+					"[Summer] Internal error: " + e.getMessage());
+			return false;
+		}
 	}
 
 	private void generateAotContext() throws IOException {
@@ -103,13 +107,8 @@ public class SummerProcessor extends AbstractProcessor {
 		beanCollector.resolveVariableNameConflicts();
 		AopAnalyzer.analyze(allBeans, processingEnv);
 
-		DependencyResolver resolver = new DependencyResolver(processingEnv.getMessager());
+		DependencyResolver resolver = new DependencyResolver();
 		List<AptBeanDefinition> sorted = resolver.resolve(allBeans);
-
-		if (sorted.isEmpty()) {
-			error("Dependency resolution failed — cannot generate AOT context.", null);
-			return;
-		}
 
 		for (AptBeanDefinition bean : sorted) {
 			if (bean.needsProxy) {
@@ -147,9 +146,5 @@ public class SummerProcessor extends AbstractProcessor {
 			return false;
 		});
 		return hasWebController || hasExceptionHandler;
-	}
-
-	private void error(String msg, Element element) {
-		processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, msg, element);
 	}
 }

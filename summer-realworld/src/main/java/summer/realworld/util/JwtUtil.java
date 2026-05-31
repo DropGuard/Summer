@@ -5,13 +5,22 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.util.Date;
 import javax.crypto.SecretKey;
+import summer.core.config.ConfigurationBinder;
 
 public class JwtUtil {
-	private static final String SECRET = "your-256-bit-secret-key-here-make-it-long-enough";
+
+	public record JwtProperties(String secret) {
+	}
+
+	private static final JwtProperties PROPS = loadProperties();
 	private static final long ACCESS_TOKEN_EXPIRATION = 15 * 60 * 1000; // 15 minutes
 	private static final long REFRESH_TOKEN_EXPIRATION = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-	private static final SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes());
+	private static final SecretKey key = Keys.hmacShaKeyFor(PROPS.secret().getBytes());
+
+	private static JwtProperties loadProperties() {
+		return ConfigurationBinder.bind("application.yml", JwtProperties.class, "jwt");
+	}
 
 	public static String generateAccessToken(Long userId, String username, String email) {
 		return Jwts.builder().subject(String.valueOf(userId)).claim("username", username).claim("email", email)

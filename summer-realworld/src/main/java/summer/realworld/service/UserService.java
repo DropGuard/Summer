@@ -2,6 +2,7 @@ package summer.realworld.service;
 
 import java.time.LocalDateTime;
 import java.util.Optional;
+import org.mindrot.jbcrypt.BCrypt;
 import summer.realworld.model.User;
 import summer.realworld.repository.UserRepository;
 
@@ -32,7 +33,7 @@ public class UserService {
 		User user = new User();
 		user.setUsername(username);
 		user.setEmail(email);
-		user.setPassword(password);
+		user.setPassword(BCrypt.hashpw(password, BCrypt.gensalt()));
 		user.setCreatedAt(LocalDateTime.now());
 		user.setUpdatedAt(LocalDateTime.now());
 		return userRepository.save(user);
@@ -78,7 +79,7 @@ public class UserService {
 			if (password.length() < 8) {
 				throw new ValidationException("password", "is too short (minimum is 8 characters)");
 			}
-			user.setPassword(password);
+			user.setPassword(BCrypt.hashpw(password, BCrypt.gensalt()));
 		}
 		if (bio != null) {
 			user.setBio(bio.isBlank() ? null : bio);

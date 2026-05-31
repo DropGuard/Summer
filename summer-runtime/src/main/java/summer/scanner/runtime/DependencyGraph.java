@@ -5,6 +5,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import summer.core.ApplicationContext;
 import summer.core.ErrorCode;
+import summer.core.exception.AmbiguousBeanException;
 import summer.core.exception.BeanCreationException;
 
 /**
@@ -28,10 +29,29 @@ public class DependencyGraph {
 
 	private Set<Class<?>> getDependencies(Class<?> clazz, Set<Class<?>> componentClasses) {
 		Constructor<?> constructor = getConstructor(clazz);
-		return Arrays.stream(constructor.getParameterTypes()).filter(paramType -> paramType != ApplicationContext.class)
-				.flatMap(paramType -> componentClasses.stream().filter(
-						componentClass -> paramType.isAssignableFrom(componentClass) && !componentClass.isInterface()))
+		return Arrays.stream(constructor.getParameterTypes())
+				.filter(paramType -> paramType != ApplicationContext.class)
+				.map(paramType -> resolveDependency(paramType, componentClasses))
+				.filter(Objects::nonNull)
 				.collect(Collectors.toSet());
+	}
+
+	private Class<?> resolveDependency(Class<?> paramType, Set<Class<?>> componentClasses) {
+		List<Class<?>> matches = componentClasses.stream()
+				.filter(componentClass -> paramType.isAssignableFrom(componentClass) && !componentClass.isInterface())
+				.toList();
+
+		if (matches.isEmpty()) {
+			return null;
+		}
+		if (matches.size() == 1) {
+			return matches.getFirst();
+		}
+
+		// Multiple implementations found - ambiguous dependency
+		throw new summer.core.exception.AmbiguousBeanException(
+				"Ambiguous dependency. Multiple beans found for type: " + paramType.getName()
+						+ ". Found: " + matches.stream().map(Class::getName).toList());
 	}
 
 	private Constructor<?> getConstructor(Class<?> clazz) {

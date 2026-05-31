@@ -69,7 +69,6 @@ public class SummerApplication {
 		var it = java.util.ServiceLoader.load(ApplicationContext.class).iterator();
 		if (it.hasNext()) {
 			ApplicationContext ctx = it.next();
-			ApplicationContext.init(ctx);
 			log.info("AOT Context loaded via ServiceLoader.");
 			return ctx;
 		}

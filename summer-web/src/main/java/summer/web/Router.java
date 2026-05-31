@@ -13,7 +13,11 @@ public class Router {
 
 	private final Node root = new Node();
 
-	public void register(String method, String path, Handler handler) {
+	/**
+	 * Navigates the trie to the node for the given path, creating nodes as needed.
+	 * Returns the terminal node for the path.
+	 */
+	private Node navigateToNode(String path) {
 		String[] segments = tokenize(path);
 		Node current = root;
 
@@ -32,7 +36,11 @@ public class Router {
 				current = current.staticChildren.computeIfAbsent(segment, k -> new Node(k));
 			}
 		}
-		current.handlers.put(method.toUpperCase(), handler);
+		return current;
+	}
+
+	public void register(String method, String path, Handler handler) {
+		navigateToNode(path).handlers.put(method.toUpperCase(), handler);
 	}
 
 	public void get(String path, Handler handler) {
@@ -60,13 +68,13 @@ public class Router {
 			return dispatch(root, ctx);
 		}
 
+		Map<String, String> params = new HashMap<>();
 		Node current = root;
 		int start = 0;
 		for (int i = 0; i <= path.length; i++) {
 			if (i == path.length || path[i] == '/') {
 				if (i > start) {
-					// Segment found: path[start...i-1]
-					current = findNext(current, path, start, i, ctx);
+					current = findNext(current, path, start, i, params);
 					if (current == null)
 						return null;
 				}
@@ -74,26 +82,8 @@ public class Router {
 			}
 		}
 
+		params.forEach(ctx.request()::setAttribute);
 		return dispatch(current, ctx);
-	}
-
-	private Node findNext(Node current, byte[] path, int start, int end, WebContext ctx) {
-		// 1. Try static children
-		for (Node child : current.staticChildren.values()) {
-			if (bytesEqual(child.nameBytes, path, start, end)) {
-				return child;
-			}
-		}
-
-		// 2. Try parameter child
-		if (current.paramChild != null) {
-			String raw = new String(path, start, end - start, java.nio.charset.StandardCharsets.UTF_8);
-			String paramValue = java.net.URLDecoder.decode(raw, java.nio.charset.StandardCharsets.UTF_8);
-			ctx.request().setAttribute(current.paramName, paramValue);
-			return current.paramChild;
-		}
-
-		return null;
 	}
 
 	private Object dispatch(Node node, WebContext ctx) {
@@ -102,32 +92,14 @@ public class Router {
 	}
 
 	public void ws(String path, summer.web.websocket.WebSocketHandler handler) {
-		String[] segments = tokenize(path);
-		Node current = root;
-
-		for (String segment : segments) {
-			if (segment.startsWith("{") && segment.endsWith("}")) {
-				String paramName = segment.substring(1, segment.length() - 1);
-				if (current.paramChild != null && !current.paramName.equals(paramName)) {
-					throw new summer.web.exception.RouteConflictException(path);
-				}
-				if (current.paramChild == null) {
-					current.paramChild = new Node();
-					current.paramName = paramName;
-				}
-				current = current.paramChild;
-			} else {
-				current = current.staticChildren.computeIfAbsent(segment, k -> new Node(k));
-			}
-		}
-		current.wsHandler = handler;
+		navigateToNode(path).wsHandler = handler;
 	}
 
 	public WsMatch routeWs(String pathStr) {
 		byte[] path = pathStr.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-		Map<String, String> pathParams = new HashMap<>();
+		Map<String, String> params = new HashMap<>();
 		if (path == null || path.length == 0 || (path.length == 1 && path[0] == '/')) {
-			return root.wsHandler != null ? new WsMatch(root.wsHandler, pathParams) : null;
+			return root.wsHandler != null ? new WsMatch(root.wsHandler, params) : null;
 		}
 
 		Node current = root;
@@ -135,7 +107,7 @@ public class Router {
 		for (int i = 0; i <= path.length; i++) {
 			if (i == path.length || path[i] == '/') {
 				if (i > start) {
-					current = findNextForWs(current, path, start, i, pathParams);
+					current = findNext(current, path, start, i, params);
 					if (current == null)
 						return null;
 				}
@@ -143,10 +115,10 @@ public class Router {
 			}
 		}
 
-		return current.wsHandler != null ? new WsMatch(current.wsHandler, pathParams) : null;
+		return current.wsHandler != null ? new WsMatch(current.wsHandler, params) : null;
 	}
 
-	private Node findNextForWs(Node current, byte[] path, int start, int end, Map<String, String> pathParams) {
+	private Node findNext(Node current, byte[] path, int start, int end, Map<String, String> params) {
 		for (Node child : current.staticChildren.values()) {
 			if (bytesEqual(child.nameBytes, path, start, end)) {
 				return child;
@@ -155,7 +127,7 @@ public class Router {
 		if (current.paramChild != null) {
 			String raw = new String(path, start, end - start, java.nio.charset.StandardCharsets.UTF_8);
 			String paramValue = java.net.URLDecoder.decode(raw, java.nio.charset.StandardCharsets.UTF_8);
-			pathParams.put(current.paramName, paramValue);
+			params.put(current.paramName, paramValue);
 			return current.paramChild;
 		}
 		return null;

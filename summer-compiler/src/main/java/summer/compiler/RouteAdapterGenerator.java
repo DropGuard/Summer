@@ -217,7 +217,7 @@ final class RouteAdapterGenerator {
 			} else if (types.isAssignable(paramType, throwableType)) {
 				builder.add("($T) ctx.request().getAttribute(\"last_exception\")", TypeName.get(paramType));
 			} else {
-				if (AnnotationHelper.hasAnnotation(param, "summer.web.annotation.Valid")) {
+				if (AnnotationHelper.hasAnnotation(param, "jakarta.validation.Valid")) {
 					builder.add("ctx.validatedBody($T.class)", TypeName.get(types.erasure(paramType)));
 				} else {
 					builder.add("ctx.body($T.class)", TypeName.get(types.erasure(paramType)));

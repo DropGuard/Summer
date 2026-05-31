@@ -33,30 +33,6 @@ public interface ApplicationContext {
 	 */
 	void destroy();
 
-	// --- Global Instance Management ---
-
-	class Holder {
-		private static volatile ApplicationContext INSTANCE;
-	}
-
-	/**
-	 * Sets the global singleton application context.
-	 */
-	static void init(ApplicationContext context) {
-		Holder.INSTANCE = context;
-	}
-
-	/**
-	 * Gets the global singleton application context. Throws an exception if it
-	 * hasn't been initialized yet.
-	 */
-	static ApplicationContext getInstance() {
-		if (Holder.INSTANCE == null) {
-			throw new BeansException(ErrorCode.BEAN_CREATION_FAILED, "ApplicationContext has not been initialized yet");
-		}
-		return Holder.INSTANCE;
-	}
-
 	/**
 	 * Loads the compile-time generated AOT context. The class
 	 * {@code summer.core.aot.GeneratedAotContext} must have been produced by
@@ -65,9 +41,7 @@ public interface ApplicationContext {
 	static ApplicationContext aot() {
 		try {
 			Class<?> clazz = Class.forName("summer.core.aot.GeneratedAotContext");
-			ApplicationContext ctx = (ApplicationContext) clazz.getConstructor().newInstance();
-			ApplicationContext.init(ctx);
-			return ctx;
+			return (ApplicationContext) clazz.getConstructor().newInstance();
 		} catch (ClassNotFoundException e) {
 			throw new BeansException(ErrorCode.BEAN_CREATION_FAILED,
 					"GeneratedAotContext not found. Ensure summer-compiler is on the annotation processor path.");

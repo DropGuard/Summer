@@ -2,6 +2,7 @@ package summer.core;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import summer.core.exception.BeansException;
@@ -12,23 +13,16 @@ import summer.core.exception.BeansException;
 class ApplicationContextTest {
 
 	@Test
-	void shouldThrowWhenContextNotInitialized() {
-		// Reset the global context
-		assertThrows(BeansException.class, ApplicationContext::getInstance);
-	}
-
-	@Test
-	void shouldSetAndGetGlobalContext() {
-		// Create a mock context
-		ApplicationContext mockContext = new ApplicationContext() {
+	void shouldCreateAnonymousImplementation() {
+		ApplicationContext context = new ApplicationContext() {
 			@Override
 			public <T> T getBean(Class<T> type) {
 				return null;
 			}
 
 			@Override
-			public <T> java.util.List<T> getBeansOfType(Class<T> type) {
-				return java.util.List.of();
+			public <T> List<T> getBeansOfType(Class<T> type) {
+				return List.of();
 			}
 
 			@Override
@@ -42,18 +36,14 @@ class ApplicationContextTest {
 			}
 		};
 
-		// Initialize the global context
-		ApplicationContext.init(mockContext);
-		assertSame(mockContext, ApplicationContext.getInstance());
-
-		// Cleanup
-		ApplicationContext.init(null);
+		assertNotNull(context);
+		assertNull(context.getBean(String.class));
+		assertTrue(context.getBeansOfType(String.class).isEmpty());
+		assertTrue(context.getComponentClasses().isEmpty());
 	}
 
 	@Test
-	void shouldHandleNullInitialization() {
-		// Reset the global context
-		ApplicationContext.init(null);
-		assertThrows(BeansException.class, ApplicationContext::getInstance);
+	void shouldThrowWhenAotContextNotFound() {
+		assertThrows(BeansException.class, ApplicationContext::aot);
 	}
 }

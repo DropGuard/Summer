@@ -29,6 +29,22 @@ final class AotContextGenerator {
 		this.messager = messager;
 	}
 
+	/**
+	 * Parses a type name string (possibly with generics) into a JavaPoet TypeName.
+	 * For generic types, returns the raw type (without generics) since Java doesn't
+	 * support GenericService<String>.class syntax.
+	 */
+	static TypeName parseTypeName(String typeName) {
+		int genericStart = typeName.indexOf('<');
+		if (genericStart < 0) {
+			return ClassName.bestGuess(typeName);
+		}
+
+		// Return raw type (without generics) for use with .class
+		String rawType = typeName.substring(0, genericStart);
+		return ClassName.bestGuess(rawType);
+	}
+
 	void generate(List<AptBeanDefinition> sortedBeans, boolean hasWeb) {
 		TypeSpec contextClass = TypeSpec.classBuilder(CLASS_NAME).addModifiers(Modifier.PUBLIC, Modifier.FINAL)
 				.addSuperinterface(APPLICATION_CONTEXT)
@@ -117,7 +133,7 @@ final class AotContextGenerator {
 				wire.addStatement("singletons.put($T.class, $N)", beanClass, var);
 			}
 			for (String iface : bean.interfaceNames()) {
-				wire.addStatement("singletons.putIfAbsent($T.class, $N)", ClassName.bestGuess(iface), var);
+				wire.addStatement("singletons.putIfAbsent($T.class, $N)", parseTypeName(iface), var);
 			}
 
 			if (bean.isAutoCloseable) {

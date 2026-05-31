@@ -62,44 +62,65 @@ class RuntimeBeanFactory {
 		currentlyInstantiating.add(clazz);
 
 		try {
-			Constructor<?> constructor = dependencyGraph.getConstructorForClass(clazz);
-			Object[] dependencies = Arrays.stream(constructor.getParameterTypes()).map(paramType -> {
-				if (paramType == ApplicationContext.class) {
-					return context;
-				}
-				return context.getBean(paramType);
-			}).toArray();
-
-			Object instance = constructor.newInstance(dependencies);
-
-			if (instance instanceof Provider<?> provider) {
-				Object providedInstance = provider.provide();
-				Class<?> providedType = getProvidedType(clazz);
-				if (providedInstance instanceof AutoCloseable closeable) {
-					closeables.add(closeable);
-				}
-				singletons.put(providedType, providedInstance);
-				singletons.put(clazz, instance);
-				currentlyInstantiating.remove(clazz);
-				return providedInstance;
-			}
-
-			if (instance instanceof AutoCloseable closeable) {
-				closeables.add(closeable);
-			}
-			singletons.put(clazz, instance);
-			for (Class<?> iface : clazz.getInterfaces()) {
-				singletons.putIfAbsent(iface, instance);
-			}
-
-			currentlyInstantiating.remove(clazz);
-			return instance;
-		} catch (NoSuchBeanException e) {
-			currentlyInstantiating.remove(clazz);
-			throw e;
-		} catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-			currentlyInstantiating.remove(clazz);
+			Object instance = createInstance(clazz);
+			return registerBean(clazz, instance);
+		} catch (Exception e) {
+			if (e instanceof NoSuchBeanException nse)
+				throw nse;
 			throw new BeanCreationException("Failed to instantiate bean: " + clazz.getName(), e);
+		} finally {
+			currentlyInstantiating.remove(clazz);
+		}
+	}
+
+	private Object createInstance(Class<?> clazz) throws Exception {
+		Constructor<?> constructor = dependencyGraph.getConstructorForClass(clazz);
+		Object[] dependencies = resolveDependencies(constructor);
+		return constructor.newInstance(dependencies);
+	}
+
+	private Object[] resolveDependencies(Constructor<?> constructor) {
+		return Arrays.stream(constructor.getParameterTypes()).map(paramType -> {
+			if (paramType == ApplicationContext.class) {
+				return context;
+			}
+			return context.getBean(paramType);
+		}).toArray();
+	}
+
+	private Object registerBean(Class<?> clazz, Object instance) {
+		if (instance instanceof Provider<?> provider) {
+			return registerProvider(clazz, provider);
+		}
+		return registerRegularBean(clazz, instance);
+	}
+
+	private Object registerProvider(Class<?> clazz, Provider<?> provider) {
+		Object providedInstance = provider.provide();
+		Class<?> providedType = getProvidedType(clazz);
+		trackCloseable(providedInstance);
+		singletons.put(providedType, providedInstance);
+		singletons.put(clazz, provider);
+		return providedInstance;
+	}
+
+	private Object registerRegularBean(Class<?> clazz, Object instance) {
+		trackCloseable(instance);
+		singletons.put(clazz, instance);
+		registerAllInterfaces(clazz, instance);
+		return instance;
+	}
+
+	private void registerAllInterfaces(Class<?> clazz, Object instance) {
+		for (Class<?> iface : clazz.getInterfaces()) {
+			singletons.putIfAbsent(iface, instance);
+			registerAllInterfaces(iface, instance);
+		}
+	}
+
+	private void trackCloseable(Object instance) {
+		if (instance instanceof AutoCloseable closeable) {
+			closeables.add(closeable);
 		}
 	}
 
@@ -116,9 +137,7 @@ class RuntimeBeanFactory {
 			Object[] args = Arrays.stream(producer.getParameterTypes()).map(context::getBean).toArray();
 			Object result = producer.invoke(configBean, args);
 			singletons.put(producedType, result);
-			for (Class<?> iface : result.getClass().getInterfaces()) {
-				singletons.putIfAbsent(iface, result);
-			}
+			registerAllInterfaces(result.getClass(), result);
 			if (result instanceof AutoCloseable closeable) {
 				closeables.add(closeable);
 			}

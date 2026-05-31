@@ -13,6 +13,8 @@ out/
 
 ### Accidental local artifacts ###
 nul
+/summer/
+/META-INF/
 
 ### Eclipse ###
 .apt_generated
@@ -42,6 +44,8 @@ bin/
 ### Tooling ###
 .gitnexus/
 .claude/
+.antigravitycli/
+.omo/
 *.log
 
 ### Documentation ###

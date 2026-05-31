@@ -27,7 +27,7 @@ public class HandlerFactory {
 		};
 	}
 
-	private Object resolveArg(WebContext ctx, Parameter param) {
+	protected Object resolveArg(WebContext ctx, Parameter param) {
 		Class<?> type = param.getType();
 		if (type == WebContext.class)
 			return ctx;

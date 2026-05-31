@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import org.mindrot.jbcrypt.BCrypt;
 import summer.realworld.dto.UserDtos;
 import summer.realworld.model.User;
 import summer.realworld.service.UserService;
@@ -54,7 +55,7 @@ public class UserController {
 		}
 
 		Optional<User> userOpt = userService.findByEmail(u.email());
-		if (userOpt.isEmpty() || !userOpt.get().getPassword().equals(u.password())) {
+		if (userOpt.isEmpty() || !BCrypt.checkpw(u.password(), userOpt.get().getPassword())) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.credentials());
 			return;
 		}

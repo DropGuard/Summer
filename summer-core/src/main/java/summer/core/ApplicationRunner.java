@@ -2,9 +2,7 @@ package summer.core;
 
 /**
  * Interface used to indicate that a bean should run when it is contained within
- * an ApplicationContext. Multiple ApplicationRunner beans can be defined within
- * the same application context and can be ordered using
- * {@link summer.core.Order} (if supported).
+ * an ApplicationContext.
  *
  * This is primarily used by engines (like Web Server, gRPC Server, or scheduled
  * tasks) to hook into the startup lifecycle after the context has been fully

@@ -1,0 +1,13 @@
+port: 9090
+connectionTimeout: 30000
+maxBodySize: 10485760
+readTimeout: 10000
+
+jwt:
+  secret: test-secret-for-unit-tests
+  expiration: 3600000
+
+database:
+  url: jdbc:h2:mem:test
+  username: sa
+  password: ""

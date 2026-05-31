@@ -5,7 +5,8 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.*;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
-import javax.tools.Diagnostic;
+import summer.core.ErrorCode;
+import summer.core.SummerException;
 import summer.core.annotation.Bean;
 
 final class BeanCollectorImpl implements JandexDiscovery.BeanCollector {
@@ -30,8 +31,8 @@ final class BeanCollectorImpl implements JandexDiscovery.BeanCollector {
 			return;
 
 		if (!typeElement.getModifiers().contains(Modifier.PUBLIC)) {
-			error("Bean class must be public for AOT compilation: " + typeElement.getQualifiedName(), typeElement);
-			return;
+			throw new SummerException(ErrorCode.BEAN_CREATION_FAILED,
+					"Bean class must be public for AOT compilation: " + typeElement.getQualifiedName());
 		}
 
 		AptBeanDefinition bean = new AptBeanDefinition(AptBeanDefinition.Kind.COMPONENT, typeElement);
@@ -50,9 +51,8 @@ final class BeanCollectorImpl implements JandexDiscovery.BeanCollector {
 			return;
 
 		if (!typeElement.getModifiers().contains(Modifier.PUBLIC)) {
-			error("Configuration class must be public for AOT compilation: " + typeElement.getQualifiedName(),
-					typeElement);
-			return;
+			throw new SummerException(ErrorCode.BEAN_CREATION_FAILED,
+					"Configuration class must be public for AOT compilation: " + typeElement.getQualifiedName());
 		}
 
 		AptBeanDefinition configBean = new AptBeanDefinition(AptBeanDefinition.Kind.CONFIGURATION, typeElement);
@@ -108,8 +108,8 @@ final class BeanCollectorImpl implements JandexDiscovery.BeanCollector {
 		TypeMirror returnType = method.getReturnType();
 		TypeElement returnElement = asTypeElement(returnType);
 		if (returnElement == null) {
-			error("@Bean method return type is not a declared type: " + returnType, method);
-			return;
+			throw new SummerException(ErrorCode.BEAN_CREATION_FAILED,
+					"@Bean method return type is not a declared type: " + returnType);
 		}
 
 		AptBeanDefinition bean = new AptBeanDefinition(AptBeanDefinition.Kind.FACTORY_PRODUCT, returnElement);
@@ -131,13 +131,13 @@ final class BeanCollectorImpl implements JandexDiscovery.BeanCollector {
 				.stream().filter(c -> c.getModifiers().contains(Modifier.PUBLIC)).toList();
 
 		if (constructors.isEmpty()) {
-			error("No public constructor found for " + bean.qualifiedName(), bean.typeElement);
-			return;
+			throw new SummerException(ErrorCode.BEAN_CREATION_FAILED,
+					"No public constructor found for " + bean.qualifiedName());
 		}
 		if (constructors.size() != 1) {
-			error("Component " + bean.qualifiedName() + " must have exactly ONE public constructor. Found: "
-					+ constructors.size(), bean.typeElement);
-			return;
+			throw new SummerException(ErrorCode.BEAN_CREATION_FAILED,
+					"Component " + bean.qualifiedName() + " must have exactly ONE public constructor. Found: "
+							+ constructors.size());
 		}
 		ExecutableElement ctor = constructors.getFirst();
 
@@ -148,8 +148,20 @@ final class BeanCollectorImpl implements JandexDiscovery.BeanCollector {
 	}
 
 	private void fillInterfaces(AptBeanDefinition bean) {
-		for (TypeMirror iface : bean.typeElement.getInterfaces()) {
-			bean.interfaceMirrors.add(iface);
+		collectInterfaces(bean.typeElement, bean.interfaceMirrors, new HashSet<>());
+	}
+
+	private void collectInterfaces(TypeElement type, List<TypeMirror> result, Set<String> visited) {
+		for (TypeMirror iface : type.getInterfaces()) {
+			String name = iface.toString();
+			if (visited.add(name)) {
+				result.add(iface);
+				// Recursively collect parent interfaces
+				Element element = processingEnv.getTypeUtils().asElement(iface);
+				if (element instanceof TypeElement ifaceElement) {
+					collectInterfaces(ifaceElement, result, visited);
+				}
+			}
 		}
 	}
 
@@ -193,9 +205,5 @@ final class BeanCollectorImpl implements JandexDiscovery.BeanCollector {
 	private TypeElement asTypeElement(TypeMirror typeMirror) {
 		Element element = processingEnv.getTypeUtils().asElement(typeMirror);
 		return (element instanceof TypeElement te) ? te : null;
-	}
-
-	private void error(String msg, Element element) {
-		processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR, msg, element);
 	}
 }
