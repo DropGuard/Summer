@@ -67,14 +67,9 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Summer web module — needed for RouteAdapterGenerator code generation.
-             Other framework modules are discovered via Jandex from the user's classpath.
-             Users should add framework modules to <annotationProcessorPaths> in their pom.xml. -->
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-web</artifactId>
-            <version>${project.version}</version>
-        </dependency>
+        <!-- Summer web module is NOT a compile dependency.
+             All web-related classes are referenced via strings (ClassName.get).
+             Framework beans are discovered via Jandex from the user's classpath. -->
     </dependencies>
 
     <build>

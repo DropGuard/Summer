@@ -20,11 +20,12 @@ import java.lang.annotation.Target;
  * <pre>{@code
  * // YAML:
  * // jwt:
- * //   secret: my-secret
- * //   expiration: 3600000
+ * // secret: my-secret
+ * // expiration: 3600000
  * 
  * @ConfigurationProperties(prefix = "jwt")
- * public record JwtProperties(String secret, long expiration) {}
+ * public record JwtProperties(String secret, long expiration) {
+ * }
  * }</pre>
  * 
  * <p>
@@ -36,8 +37,8 @@ import java.lang.annotation.Target;
 public @interface ConfigurationProperties {
 
 	/**
-	 * The prefix of the properties to bind.
-	 * If empty, the entire configuration file is bound.
+	 * The prefix of the properties to bind. If empty, the entire configuration file
+	 * is bound.
 	 */
 	String prefix() default "";
 }

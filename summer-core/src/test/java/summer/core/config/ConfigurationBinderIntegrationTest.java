@@ -8,8 +8,8 @@ import org.junit.jupiter.api.Test;
  * Integration tests for {@link ConfigurationBinder}.
  * 
  * <p>
- * These tests verify the complete configuration binding flow,
- * including YAML parsing, prefix extraction, and type binding.
+ * These tests verify the complete configuration binding flow, including YAML
+ * parsing, prefix extraction, and type binding.
  * </p>
  */
 class ConfigurationBinderIntegrationTest {
@@ -85,8 +85,8 @@ class ConfigurationBinderIntegrationTest {
 		DatabaseProperties defaultDb = new DatabaseProperties("jdbc:h2:mem:default", "root", "password");
 
 		// Try to bind from a non-existent file with prefix
-		DatabaseProperties db = ConfigurationBinder.bindOrDefault("nonexistent.yml", DatabaseProperties.class, "database",
-				defaultDb);
+		DatabaseProperties db = ConfigurationBinder.bindOrDefault("nonexistent.yml", DatabaseProperties.class,
+				"database", defaultDb);
 
 		// Should return the default
 		assertSame(defaultDb, db);

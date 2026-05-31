@@ -11,11 +11,12 @@ import org.jboss.jandex.CompositeIndex;
 import summer.core.Component;
 import summer.core.SummerException;
 import summer.core.annotation.Configuration;
+import summer.core.config.ConfigurationProperties;
 
 @AutoService(Processor.class)
 @SupportedAnnotationTypes({"summer.core.Component", "summer.core.annotation.Configuration",
 		"summer.web.annotation.RestController", "summer.web.annotation.GlobalMiddleware",
-		"summer.data.jdbc.annotation.RowModel"})
+		"summer.data.jdbc.annotation.RowModel", "summer.core.config.ConfigurationProperties"})
 public class SummerProcessor extends AbstractProcessor {
 
 	private final List<BeanDefinition> allBeans = new ArrayList<>();
@@ -55,6 +56,16 @@ public class SummerProcessor extends AbstractProcessor {
 					TypeElement configClass = (TypeElement) e;
 					beanCollector.collectConfiguration(configClass);
 					if (ProviderGenerator.generate(configClass, processingEnv)) {
+						generatedNewTypesInThisRound = true;
+					}
+				}
+			}
+
+			// Process @ConfigurationProperties records
+			for (Element e : roundEnv.getElementsAnnotatedWith(ConfigurationProperties.class)) {
+				if (e.getKind() == ElementKind.RECORD || e.getKind() == ElementKind.CLASS) {
+					TypeElement configType = (TypeElement) e;
+					if (ConfigPropertiesGenerator.generate(configType, processingEnv)) {
 						generatedNewTypesInThisRound = true;
 					}
 				}
@@ -152,7 +163,7 @@ public class SummerProcessor extends AbstractProcessor {
 	/**
 	 * Jandex-specific collector that creates BeanDefinition from ClassInfo.
 	 */
-	private static class JandexBeanCollector implements JandexDiscovery.BeanCollector {
+	private class JandexBeanCollector implements JandexDiscovery.BeanCollector {
 		private final List<BeanDefinition> allBeans;
 
 		JandexBeanCollector(List<BeanDefinition> allBeans) {
@@ -161,6 +172,9 @@ public class SummerProcessor extends AbstractProcessor {
 
 		@Override
 		public void collectComponent(org.jboss.jandex.ClassInfo ci) {
+			if (ci.isAnnotation())
+				return; // Skip annotation classes
+
 			BeanDefinition bean = new BeanDefinition(BeanDefinition.Kind.COMPONENT, ci.name().toString(),
 					ci.simpleName());
 
