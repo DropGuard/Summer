@@ -14,6 +14,7 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import summer.web.RadixRouter;
 import summer.web.Router;
 import summer.web.ServerConfig;
 
@@ -25,7 +26,7 @@ public class WebSocketBroadcasterTest {
 
 	@BeforeAll
 	public static void setup() throws Exception {
-		Router router = new Router();
+		Router router = new RadixRouter();
 		broadcaster = new NettyWebSocketBroadcaster();
 
 		// 1. Setup route

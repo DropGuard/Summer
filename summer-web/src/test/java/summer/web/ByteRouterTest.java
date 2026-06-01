@@ -13,7 +13,7 @@ public class ByteRouterTest {
 
 	@BeforeEach
 	void setUp() {
-		router = new Router();
+		router = new RadixRouter();
 	}
 
 	@Test

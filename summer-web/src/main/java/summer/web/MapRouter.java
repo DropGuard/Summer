@@ -34,9 +34,9 @@ import summer.web.websocket.WebSocketHandler;
  * {@code /users/{id}}).
  * </p>
  */
-@Replaces(Router.class)
+@Replaces(RadixRouter.class)
 @Component
-public class MapRouter extends Router {
+public class MapRouter implements Router {
 
 	/**
 	 * Stores registered routes: "METHOD /path" -> RouteEntry
@@ -90,13 +90,13 @@ public class MapRouter extends Router {
 	}
 
 	@Override
-	public WsMatch routeWs(String path) {
+	public Router.WsMatch routeWs(String path) {
 		String normalizedPath = normalizePath(path);
 
 		// Try exact match
 		WebSocketHandler handler = wsHandlers.get(normalizedPath);
 		if (handler != null) {
-			return new WsMatch(handler, new HashMap<>());
+			return new Router.WsMatch(handler, new HashMap<>());
 		}
 
 		// Try pattern matching
@@ -104,7 +104,7 @@ public class MapRouter extends Router {
 			RouteEntry routeEntry = parsePath(entry.getKey());
 			Map<String, String> params = matchPattern(routeEntry.pattern, normalizedPath);
 			if (params != null) {
-				return new WsMatch(entry.getValue(), params);
+				return new Router.WsMatch(entry.getValue(), params);
 			}
 		}
 
