@@ -1,25 +1,30 @@
 package summer.web;
 
-import jakarta.validation.Valid;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.List;
 import summer.core.Component;
-import summer.core.annotation.Replaces;
 import summer.web.resolver.ParameterResolver;
 
 /**
- * Handler factory that adds @Valid support via reflection. Implements
- * HandlerFactory interface and adds validation logic. Replaces the
- * DefaultHandlerFactory in the DI container.
+ * Default handler factory using parameter resolvers to bind request data.
+ *
+ * <p>
+ * Uses {@link ParameterResolver} to bind request data to method parameters.
+ * The resolver is injected at construction time, allowing different
+ * implementations for different DI engines:
+ * </p>
+ * <ul>
+ * <li>Runtime: {@code ReflectionParameterResolver} (reflection-based)</li>
+ * <li>AOT: generated code (zero reflection)</li>
+ * </ul>
  */
 @Component
-@Replaces(DefaultHandlerFactory.class)
-public class ValidatingHandlerFactory implements HandlerFactory {
+public class DefaultHandlerFactory implements HandlerFactory {
 
 	private final List<ParameterResolver> resolvers;
 
-	public ValidatingHandlerFactory(List<ParameterResolver> resolvers) {
+	public DefaultHandlerFactory(List<ParameterResolver> resolvers) {
 		this.resolvers = resolvers;
 	}
 
@@ -43,13 +48,7 @@ public class ValidatingHandlerFactory implements HandlerFactory {
 		};
 	}
 
-	private Object resolveArg(WebContext ctx, Parameter param) {
-		// Use validatedBody for @Valid parameters
-		if (param.isAnnotationPresent(Valid.class)) {
-			return ctx.validatedBody(param.getType());
-		}
-
-		// Delegate to default resolver for all other parameters
+	protected Object resolveArg(WebContext ctx, Parameter param) {
 		for (ParameterResolver resolver : resolvers) {
 			if (resolver.supports(param)) {
 				return resolver.resolve(ctx, param);
