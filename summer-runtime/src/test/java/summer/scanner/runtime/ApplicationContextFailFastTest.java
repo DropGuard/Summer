@@ -29,15 +29,7 @@ public class ApplicationContextFailFastTest {
 	public static class FailingInterceptor implements MethodInterceptor {
 		@Override
 		public Object intercept(InvocationContext context) throws Throwable {
-			return context.proceed();
-		}
-
-		@Override
-		public boolean supports(Class<?> targetClass) {
-			if (targetClass == TestService.class) {
-				throw new RuntimeException("Simulated AOP failure");
-			}
-			return false;
+			throw new RuntimeException("Simulated AOP failure");
 		}
 	}
 }

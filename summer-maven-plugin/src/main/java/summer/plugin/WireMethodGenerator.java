@@ -1,16 +1,17 @@
 package summer.plugin;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Generates the {@code wire()} method body for {@code GeneratedAotContext}.
  * 
- * <p>Handles bean instantiation, dependency injection, and AOP proxy wiring.</p>
+ * <p>
+ * Handles bean instantiation, dependency injection, and AOP proxy wiring.
+ * </p>
  */
 final class WireMethodGenerator {
 
@@ -100,8 +101,7 @@ final class WireMethodGenerator {
 				String elementType = bean.listElementTypes.get(i);
 				CodeBlock listExpr = buildListExpression(bean, elementType);
 				args.add(listExpr);
-				long consumed = bean.resolvedDependencies.stream()
-						.skip(depIdx)
+				long consumed = bean.resolvedDependencies.stream().skip(depIdx)
 						.filter(d -> d.qualifiedName.equals(elementType) || d.interfaceNames.contains(elementType))
 						.count();
 				depIdx += (int) consumed;
@@ -119,8 +119,7 @@ final class WireMethodGenerator {
 
 	private CodeBlock buildListExpression(BeanDefinition bean, String elementType) {
 		List<BeanDefinition> listDeps = bean.resolvedDependencies.stream()
-				.filter(d -> d.qualifiedName.equals(elementType) || d.interfaceNames.contains(elementType))
-				.toList();
+				.filter(d -> d.qualifiedName.equals(elementType) || d.interfaceNames.contains(elementType)).toList();
 		if (listDeps.isEmpty()) {
 			return CodeBlock.of("java.util.List.of()");
 		}

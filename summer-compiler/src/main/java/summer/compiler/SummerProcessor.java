@@ -12,19 +12,23 @@ import summer.core.config.ConfigurationProperties;
 /**
  * Annotation processor for Summer framework.
  * 
- * <p>This processor handles simple code generation tasks only:</p>
+ * <p>
+ * This processor handles simple code generation tasks only:
+ * </p>
  * <ul>
- *   <li>RowMapper generation for @RowModel records</li>
- *   <li>ConfigurationProperties generation</li>
- *   <li>Provider generation for @Configuration classes</li>
+ * <li>RowMapper generation for @RowModel records</li>
+ * <li>ConfigurationProperties generation</li>
+ * <li>Provider generation for @Configuration classes</li>
  * </ul>
  * 
- * <p>Bean discovery and AOT context generation have been moved to
- * {@code summer-maven-plugin} which has full classpath access.</p>
+ * <p>
+ * Bean discovery and AOT context generation have been moved to
+ * {@code summer-maven-plugin} which has full classpath access.
+ * </p>
  */
 @AutoService(Processor.class)
-@SupportedAnnotationTypes({"summer.core.annotation.Configuration",
-		"summer.data.jdbc.annotation.RowModel", "summer.core.config.ConfigurationProperties"})
+@SupportedAnnotationTypes({"summer.core.annotation.Configuration", "summer.data.jdbc.annotation.RowModel",
+		"summer.core.config.ConfigurationProperties"})
 public class SummerProcessor extends AbstractProcessor {
 
 	private boolean generatedNewTypesInThisRound = false;

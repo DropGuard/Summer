@@ -10,9 +10,9 @@ import summer.web.resolver.ParameterResolver;
  * Default handler factory using parameter resolvers to bind request data.
  *
  * <p>
- * Uses {@link ParameterResolver} to bind request data to method parameters.
- * The resolver is injected at construction time, allowing different
- * implementations for different DI engines:
+ * Uses {@link ParameterResolver} to bind request data to method parameters. The
+ * resolver is injected at construction time, allowing different implementations
+ * for different DI engines:
  * </p>
  * <ul>
  * <li>Runtime: {@code ReflectionParameterResolver} (reflection-based)</li>

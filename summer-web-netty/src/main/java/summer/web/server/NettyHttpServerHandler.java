@@ -7,30 +7,37 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.*;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import summer.validation.BodyValidator;
 import summer.web.BodyConverter;
 import summer.web.Handler;
 import summer.web.HttpStatus;
 import summer.web.Request;
 import summer.web.Router;
+import summer.web.ServerConfig;
 import summer.web.WebContext;
 import summer.web.middleware.Middleware;
 
 public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+
+	private static final Logger log = LoggerFactory.getLogger(NettyHttpServerHandler.class);
 
 	private final Router router;
 	private final List<Middleware> middlewares;
 	private final BodyValidator validator;
 	private final BodyConverter jsonConverter;
 	private final NettyHttpServer server;
+	private final ServerConfig config;
 
 	public NettyHttpServerHandler(Router router, List<Middleware> middlewares, BodyValidator validator,
-			BodyConverter jsonConverter, NettyHttpServer server) {
+			BodyConverter jsonConverter, NettyHttpServer server, ServerConfig config) {
 		this.router = router;
 		this.middlewares = middlewares;
 		this.validator = validator;
 		this.jsonConverter = jsonConverter;
 		this.server = server;
+		this.config = config;
 	}
 
 	@Override
@@ -45,6 +52,17 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 			int questionMarkIndex = uri.indexOf('?');
 			if (questionMarkIndex != -1) {
 				path = uri.substring(0, questionMarkIndex);
+			}
+
+			// Validate Origin header to prevent CSWSH attacks
+			String origin = nettyReq.headers().get(HttpHeaderNames.ORIGIN);
+			String host = nettyReq.headers().get(HttpHeaderNames.HOST);
+			if (!config.isOriginAllowed(origin, host)) {
+				log.warn("WebSocket connection rejected: origin '{}' not allowed for host '{}'", origin, host);
+				sendSimpleResponse(ctx, HttpResponseStatus.FORBIDDEN, "Origin not allowed");
+				if (server != null)
+					server.getActiveConnections().decrementAndGet();
+				return;
 			}
 
 			Router.WsMatch wsMatch = router.routeWs(path);
@@ -89,6 +107,15 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 		});
 	}
 
+	private void sendSimpleResponse(ChannelHandlerContext ctx, HttpResponseStatus status, String message) {
+		byte[] bytes = message.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+		FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status,
+				Unpooled.wrappedBuffer(bytes));
+		response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain");
+		response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, bytes.length);
+		ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+	}
+
 	private void processRequest(ChannelHandlerContext ctx, FullHttpRequest nettyReq, boolean keepAlive) {
 		try {
 			Request request = NettyRequestAdapter.adapt(nettyReq);
@@ -104,7 +131,6 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 			sendResponse(ctx, webCtx, keepAlive);
 
 		} catch (Exception e) {
-			e.printStackTrace();
 			WebContext errCtx = new WebContext(NettyRequestAdapter.adapt(nettyReq), validator, jsonConverter);
 			errCtx.error(e);
 			sendResponse(ctx, errCtx, keepAlive);
@@ -139,9 +165,8 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 				webCtx.converter().writeToStream(webCtx.resultObject(), out);
 			} catch (Exception e) {
 				buf.release();
-				e.printStackTrace();
-				byte[] errorBytes = ("Serialization Error: " + e.getMessage())
-						.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+				log.error("Serialization error", e);
+				byte[] errorBytes = "Internal Server Error".getBytes(java.nio.charset.StandardCharsets.UTF_8);
 				nettyResp = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR,
 						Unpooled.wrappedBuffer(errorBytes));
 				nettyResp.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain");
@@ -182,7 +207,7 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-		cause.printStackTrace();
+		log.error("Channel exception", cause);
 		ctx.close();
 	}
 }

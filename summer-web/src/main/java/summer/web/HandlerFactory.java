@@ -16,8 +16,10 @@ public interface HandlerFactory {
 	/**
 	 * Creates a handler for the given method.
 	 *
-	 * @param instance the object instance containing the method
-	 * @param method   the method to invoke
+	 * @param instance
+	 *            the object instance containing the method
+	 * @param method
+	 *            the method to invoke
 	 * @return a handler that invokes the method with resolved parameters
 	 */
 	Handler create(Object instance, Method method);

@@ -20,25 +20,6 @@ class MethodInterceptorTest {
 		};
 
 		assertNotNull(interceptor);
-		assertTrue(interceptor.supports(Object.class));
-	}
-
-	@Test
-	void shouldSupportTargetClass() {
-		MethodInterceptor interceptor = new MethodInterceptor() {
-			@Override
-			public Object intercept(InvocationContext context) throws Throwable {
-				return context.proceed();
-			}
-
-			@Override
-			public boolean supports(Class<?> targetClass) {
-				return targetClass == String.class;
-			}
-		};
-
-		assertTrue(interceptor.supports(String.class));
-		assertFalse(interceptor.supports(Integer.class));
 	}
 
 	@Test
@@ -93,15 +74,6 @@ class MethodInterceptorTest {
 		InvocationContext context = new TestInvocationContext(target, methodMetadata, new Object[0]);
 
 		assertThrows(RuntimeException.class, () -> interceptor.intercept(context));
-	}
-
-	@Test
-	void shouldSupportDefaultSupportsMethod() {
-		MethodInterceptor interceptor = context -> context.proceed();
-
-		assertTrue(interceptor.supports(Object.class));
-		assertTrue(interceptor.supports(String.class));
-		assertTrue(interceptor.supports(Integer.class));
 	}
 
 	// Test helper class

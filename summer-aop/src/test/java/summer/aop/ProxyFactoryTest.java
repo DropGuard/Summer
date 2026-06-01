@@ -71,17 +71,18 @@ class ProxyFactoryTest {
 	@Test
 	void shouldNotInterceptMethodWithoutAnnotation() {
 		TestService target = new TestServiceImpl();
-		MethodInterceptor interceptor = new TestInterceptor() {
+		// Use an interceptor without @TestIntercepted binding
+		MethodInterceptor interceptor = new MethodInterceptor() {
 			@Override
-			public boolean supports(Class<?> targetClass) {
-				return false;
+			public Object intercept(InvocationContext context) throws Throwable {
+				return "Intercepted: " + context.proceed();
 			}
 		};
 
 		TestService proxy = ProxyFactory.createProxy(target, List.of(interceptor));
-		// Note: supports() is not used for @Intercepted methods
+		// No binding annotation on interceptor, so no interception
 		String result = proxy.sayHello();
-		assertEquals("Intercepted: Hello", result);
+		assertEquals("Hello", result);
 	}
 
 	@Test
@@ -109,7 +110,7 @@ class ProxyFactoryTest {
 
 	// Test interfaces and implementations
 	public interface TestService {
-		@Intercepted
+		@TestIntercepted
 		String sayHello();
 
 		String greet(String name);
@@ -117,7 +118,7 @@ class ProxyFactoryTest {
 
 	public static class TestServiceImpl implements TestService {
 		@Override
-		@Intercepted
+		@TestIntercepted
 		public String sayHello() {
 			return "Hello";
 		}

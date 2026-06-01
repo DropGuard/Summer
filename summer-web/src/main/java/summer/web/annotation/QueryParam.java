@@ -15,7 +15,7 @@ import java.lang.annotation.Target;
  * <pre>{@code
  * @Get("/search")
  * public String search(@QueryParam("q") String query, @QueryParam("page") int page) {
- *     // /search?q=hello&page=1
+ * 	// /search?q=hello&page=1
  * }
  * }</pre>
  */

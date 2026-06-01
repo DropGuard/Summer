@@ -1,5 +1,6 @@
 package summer.example;
 
+import summer.web.HttpStatus;
 import summer.web.WebContext;
 import summer.web.annotation.Get;
 import summer.web.annotation.RestController;
@@ -19,14 +20,13 @@ public class SystemController {
 	}
 
 	@Get("/metrics")
-	public String metrics(WebContext ctx) {
-		// Set content type for Prometheus
+	public void metrics(WebContext ctx) {
 		ctx.setHeader("Content-Type", "text/plain; version=0.0.4");
-		return registry.scrape();
+		ctx.text(HttpStatus.OK, registry.scrape());
 	}
 
 	@Get("/health")
-	public String health() {
-		return "UP";
+	public void health(WebContext ctx) {
+		ctx.text(HttpStatus.OK, "UP");
 	}
 }

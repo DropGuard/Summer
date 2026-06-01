@@ -11,7 +11,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Maven plugin dependency resolver. Uses qualified name strings for type matching.
+ * Maven plugin dependency resolver. Uses qualified name strings for type
+ * matching.
  */
 public final class DependencyResolver {
 
@@ -171,9 +172,8 @@ public final class DependencyResolver {
 		}
 
 		if (sorted.size() != beans.size()) {
-			throw new RuntimeException(
-					"Could not resolve all dependencies. Possible cycle among: "
-							+ beans.stream().filter(b -> !sorted.contains(b)).map(b -> b.qualifiedName).toList());
+			throw new RuntimeException("Could not resolve all dependencies. Possible cycle among: "
+					+ beans.stream().filter(b -> !sorted.contains(b)).map(b -> b.qualifiedName).toList());
 		}
 		return sorted;
 	}

@@ -1,17 +1,11 @@
 package summer.plugin;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
 import org.jboss.jandex.ClassInfo;
-import org.jboss.jandex.CompositeIndex;
 import org.jboss.jandex.DotName;
-import org.jboss.jandex.Index;
-import org.jboss.jandex.IndexReader;
 import org.jboss.jandex.IndexView;
 
 /**
@@ -25,8 +19,10 @@ public final class BeanDiscovery {
 	/**
 	 * Discover all beans from a Jandex index.
 	 * 
-	 * @param index the Jandex index to scan
-	 * @param packagePrefix only discover beans in this package (null = all)
+	 * @param index
+	 *            the Jandex index to scan
+	 * @param packagePrefix
+	 *            only discover beans in this package (null = all)
 	 * @return list of discovered bean definitions
 	 */
 	public static List<BeanDefinition> discoverBeans(IndexView index, String packagePrefix) {
@@ -39,8 +35,10 @@ public final class BeanDiscovery {
 
 		// Phase 1: @Component and @Configuration beans
 		for (ClassInfo ci : index.getKnownClasses()) {
-			if (ci.isAnnotation()) continue;
-			if (packagePrefix != null && !ci.name().toString().startsWith(packagePrefix)) continue;
+			if (ci.isAnnotation())
+				continue;
+			if (packagePrefix != null && !ci.name().toString().startsWith(packagePrefix))
+				continue;
 
 			boolean isComponent = ci.hasAnnotation(componentDot);
 			boolean isConfig = ci.hasAnnotation(configDot);
@@ -49,8 +47,8 @@ public final class BeanDiscovery {
 				String qualifiedName = ci.name().toString();
 				if (collected.add(qualifiedName)) {
 					BeanDefinition bean = new BeanDefinition(
-						isConfig ? BeanDefinition.Kind.CONFIGURATION : BeanDefinition.Kind.COMPONENT,
-						qualifiedName, ci.simpleName());
+							isConfig ? BeanDefinition.Kind.CONFIGURATION : BeanDefinition.Kind.COMPONENT, qualifiedName,
+							ci.simpleName());
 
 					collectConstructorParams(bean, ci);
 					collectInterfaces(bean, ci, index);
@@ -61,18 +59,20 @@ public final class BeanDiscovery {
 
 		// Phase 2: Meta-annotated components (e.g., @RestController)
 		for (ClassInfo ci : index.getKnownClasses()) {
-			if (!ci.isAnnotation() || !ci.hasAnnotation(componentDot)) continue;
+			if (!ci.isAnnotation() || !ci.hasAnnotation(componentDot))
+				continue;
 
 			DotName metaAnnotationName = ci.name();
 			for (ClassInfo usage : index.getKnownClasses()) {
-				if (usage.isAnnotation() || !usage.hasAnnotation(metaAnnotationName)) continue;
-				if (packagePrefix != null && !usage.name().toString().startsWith(packagePrefix)) continue;
+				if (usage.isAnnotation() || !usage.hasAnnotation(metaAnnotationName))
+					continue;
+				if (packagePrefix != null && !usage.name().toString().startsWith(packagePrefix))
+					continue;
 
 				String qualifiedName = usage.name().toString();
 				if (collected.add(qualifiedName)) {
-					BeanDefinition bean = new BeanDefinition(
-						BeanDefinition.Kind.COMPONENT,
-						qualifiedName, usage.simpleName());
+					BeanDefinition bean = new BeanDefinition(BeanDefinition.Kind.COMPONENT, qualifiedName,
+							usage.simpleName());
 
 					collectConstructorParams(bean, usage);
 					collectInterfaces(bean, usage, index);
@@ -83,22 +83,25 @@ public final class BeanDiscovery {
 
 		// Phase 3: @Bean factory methods in @Configuration classes
 		for (BeanDefinition configBean : new ArrayList<>(beans)) {
-			if (configBean.kind != BeanDefinition.Kind.CONFIGURATION) continue;
+			if (configBean.kind != BeanDefinition.Kind.CONFIGURATION)
+				continue;
 
 			ClassInfo configCi = index.getClassByName(DotName.createSimple(configBean.qualifiedName));
-			if (configCi == null) continue;
+			if (configCi == null)
+				continue;
 
 			for (org.jboss.jandex.MethodInfo method : configCi.methods()) {
-				if (!method.hasAnnotation(beanDot)) continue;
+				if (!method.hasAnnotation(beanDot))
+					continue;
 
 				org.jboss.jandex.Type returnType = method.returnType();
-				if (returnType == null) continue;
+				if (returnType == null)
+					continue;
 
 				String returnTypeName = returnType.name().toString();
 				if (collected.add(returnTypeName)) {
-					BeanDefinition factoryBean = new BeanDefinition(
-						BeanDefinition.Kind.FACTORY_PRODUCT,
-						returnTypeName, returnType.name().withoutPackagePrefix());
+					BeanDefinition factoryBean = new BeanDefinition(BeanDefinition.Kind.FACTORY_PRODUCT, returnTypeName,
+							returnType.name().withoutPackagePrefix());
 					factoryBean.configClassName = configBean.qualifiedName;
 					factoryBean.producerMethodName = method.name();
 
@@ -115,7 +118,8 @@ public final class BeanDiscovery {
 
 	private static void collectConstructorParams(BeanDefinition bean, ClassInfo ci) {
 		org.jboss.jandex.MethodInfo ctor = ci.firstMethod("<init>");
-		if (ctor == null) return;
+		if (ctor == null)
+			return;
 
 		for (int i = 0; i < ctor.parametersCount(); i++) {
 			bean.constructorParamTypes.add(ctor.parameterType(i).name().toString());
@@ -136,7 +140,8 @@ public final class BeanDiscovery {
 		collectInterfacesRecursive(bean, ci, index, new HashSet<>());
 	}
 
-	private static void collectInterfacesRecursive(BeanDefinition bean, ClassInfo ci, IndexView index, Set<String> visited) {
+	private static void collectInterfacesRecursive(BeanDefinition bean, ClassInfo ci, IndexView index,
+			Set<String> visited) {
 		for (org.jboss.jandex.Type iface : ci.interfaceTypes()) {
 			String ifaceName = iface.name().toString();
 			if (visited.add(ifaceName)) {

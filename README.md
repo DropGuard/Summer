@@ -131,7 +131,7 @@ Once exposed, you can point your Prometheus instance to `/metrics` to begin scra
 
 ## 📈 Performance Benchmarking
 
-Summer is designed for high-concurrency throughput using Java's virtual threads and a zero-allocation byte-level router. To see the framework's performance in action:
+Summer is designed for high-concurrency throughput using Java's virtual threads and a byte-level router that minimizes allocations. To see the framework's performance in action:
 
 1. **Start the Example App**:
    ```bash
@@ -152,7 +152,7 @@ Summer is designed for high-concurrency throughput using Java's virtual threads 
 
 ### Why Summer is Fast
 - **Virtual Threads**: Every request is a lightweight thread; no thread pool exhaustion.
-- **Zero-Allocation Router**: Routing is performed directly on raw bytes, bypassing `String.split()` and minimizing GC pauses.
+- **Byte-Level Router**: Routing compares path segments as raw bytes, avoiding String allocation for the path itself. Path parameters still require String creation.
 - **Minimalistic Core**: No deep interceptor chains or complex proxy logic for standard requests.
 
 * * *
@@ -167,7 +167,7 @@ Summer is an experiment in reduction — not expansion. If a feature is not list
 *   Prototype scope (Singleton only; use `Provider<T>` for manual instance creation)
 *   Multi-threaded application startup (context initialization is single-threaded by design)
 *   Distributed/XA transactions
-*   Conditional auto-configuration & classpath-based guessing
+*   Classpath-based guessing (e.g., "if DataSource is on classpath, auto-configure JdbcTemplate"). Explicit engine selection with `@ConditionalOnBean` is supported — components may follow the active engine via marker beans.
 *   Bean post-processor ecosystem & complex lifecycle hooks
 *   Security module
 *   Built-in thread pool / executor service (use virtual threads or bring your own)

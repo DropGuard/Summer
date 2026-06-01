@@ -1,6 +1,8 @@
 package summer.web;
 
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import summer.validation.BodyValidator;
 import summer.validation.ValidationResult;
 import summer.web.exception.ArchitectureViolationException;
@@ -11,8 +13,33 @@ import summer.web.exception.ValidatorNotFoundException;
 /**
  * Facade for HTTP request processing. Controllers and framework handlers
  * interact with this — Response is fully encapsulated.
+ *
+ * <h2>Deferred Write Pattern</h2>
+ * <p>
+ * Summer embeds Netty and uses virtual threads for request processing. This
+ * creates two execution contexts with different threading models:
+ * </p>
+ * <ul>
+ * <li><b>Virtual thread</b> (request processing): Controller calls
+ * {@code ctx.ok(data)} or {@code ctx.json(status, data)} to write the response
+ * into this context.</li>
+ * <li><b>Netty Event Loop</b> (IO): After processing completes, Netty reads
+ * from this context via {@code statusCode()}, {@code resultObject()},
+ * {@code body()} etc. and writes the actual HTTP response to the channel.</li>
+ * </ul>
+ *
+ * <p>
+ * This separation is intentional — the response is <em>deferred</em> until the
+ * IO thread is ready. Controllers must explicitly set response data via the
+ * write facade methods; return values from handler methods are ignored.
+ * </p>
+ *
+ * @see Response
+ * @see summer.web.server.NettyHttpServerHandler
  */
 public class WebContext {
+
+	private static final Logger log = LoggerFactory.getLogger(WebContext.class);
 
 	private final Request request;
 	private final Response response = new Response();
@@ -56,17 +83,30 @@ public class WebContext {
 	}
 
 	// --- Write facade ---
+	// These methods set response data on the context (deferred write).
+	// The actual IO is performed later by the Netty Event Loop thread.
 
+	/**
+	 * Sets the HTTP status code.
+	 */
 	public WebContext status(HttpStatus status) {
 		response.status = status;
 		return this;
 	}
 
+	/**
+	 * Sets a response header.
+	 */
 	public WebContext setHeader(String name, String value) {
 		response.headers.put(name, value);
 		return this;
 	}
 
+	/**
+	 * Sets a JSON response with the given status and data object. The object will
+	 * be serialized by the configured {@link BodyConverter} when the response is
+	 * flushed by the IO layer.
+	 */
 	public void json(HttpStatus status, Object data) {
 		response.status = status;
 		response.resultObject = data;
@@ -74,10 +114,16 @@ public class WebContext {
 		response.headers.put("Content-Type", jsonConverter.getContentType());
 	}
 
+	/**
+	 * Sets a 200 OK JSON response.
+	 */
 	public void ok(Object data) {
 		json(HttpStatus.OK, data);
 	}
 
+	/**
+	 * Sets a plain text response.
+	 */
 	public void text(HttpStatus status, String body) {
 		response.status = status;
 		if (body != null) {
@@ -86,9 +132,14 @@ public class WebContext {
 		response.headers.put("Content-Type", "text/plain");
 	}
 
+	/**
+	 * Sets a 500 Internal Server Error response. Logs the full exception
+	 * server-side; only a generic message is sent to the client to avoid leaking
+	 * implementation details.
+	 */
 	public void error(Throwable e) {
-		String message = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
-		text(HttpStatus.INTERNAL_SERVER_ERROR, message);
+		log.error("Request processing error", e);
+		text(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error");
 	}
 
 	// --- Request helpers ---

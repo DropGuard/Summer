@@ -20,6 +20,9 @@ jobs:
         java-version: '25'
         distribution: 'temurin'
         cache: maven
+
+    - name: Check formatting
+      run: mvn spotless:check --batch-mode
         
     - name: Build with Maven
       # The env.CI=true is automatically set by GitHub Actions,

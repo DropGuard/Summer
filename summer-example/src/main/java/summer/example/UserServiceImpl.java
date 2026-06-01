@@ -15,7 +15,7 @@ public class UserServiceImpl implements UserService {
 
 	@Override
 	@Transactional
-	@LogExecutionTime
+	@Logged
 	public User create(User user) {
 		String newId = user.id() == null ? java.util.UUID.randomUUID().toString() : user.id();
 		User toSave = new User(newId, user.name(), user.email());
@@ -24,14 +24,14 @@ public class UserServiceImpl implements UserService {
 	}
 
 	@Override
-	@LogExecutionTime
+	@Logged
 	public User findById(String id) {
 		return userRepository.findById(id);
 	}
 
 	@Override
 	@Transactional
-	@LogExecutionTime
+	@Logged
 	public User update(String id, User user) {
 		User existing = userRepository.findById(id);
 		if (existing == null) {
@@ -44,13 +44,13 @@ public class UserServiceImpl implements UserService {
 
 	@Override
 	@Transactional
-	@LogExecutionTime
+	@Logged
 	public void delete(String id) {
 		userRepository.deleteById(id);
 	}
 
 	@Override
-	@LogExecutionTime
+	@Logged
 	public java.util.List<User> findAll() {
 		return userRepository.findAll();
 	}

@@ -154,6 +154,12 @@ public class Request {
 
 	/**
 	 * Extracts a path parameter by name.
+	 *
+	 * <p>
+	 * Warning: The returned value is URL-decoded. If outputting to HTML, you must
+	 * escape it to prevent XSS. For JSON responses, Jackson handles escaping
+	 * automatically.
+	 * </p>
 	 */
 	public String pathParam(String name) {
 		return getAttribute(name);
@@ -161,6 +167,12 @@ public class Request {
 
 	/**
 	 * Extracts a query parameter by name.
+	 *
+	 * <p>
+	 * Warning: The returned value is URL-decoded. If outputting to HTML, you must
+	 * escape it to prevent XSS. For JSON responses, Jackson handles escaping
+	 * automatically.
+	 * </p>
 	 */
 	public String queryParam(String name) {
 		return getQueryParameter(name);

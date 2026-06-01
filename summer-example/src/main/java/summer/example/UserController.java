@@ -1,7 +1,8 @@
 package summer.example;
 
 import jakarta.validation.Valid;
-import java.util.List;
+import summer.web.HttpStatus;
+import summer.web.WebContext;
 import summer.web.annotation.Delete;
 import summer.web.annotation.Get;
 import summer.web.annotation.PathParam;
@@ -20,30 +21,31 @@ public class UserController {
 	}
 
 	@Get("")
-	public List<User> getAllUsers() {
-		return userService.findAll();
+	public void getAllUsers(WebContext ctx) {
+		ctx.json(HttpStatus.OK, userService.findAll());
 	}
 
 	@Get("/{id}")
-	public User getUser(@PathParam("id") String id) {
-		return userService.findById(id);
+	public void getUser(WebContext ctx, @PathParam("id") String id) {
+		ctx.json(HttpStatus.OK, userService.findById(id));
 	}
 
 	@Post("")
-	public User createUser(@Valid UserDto userDto) {
+	public void createUser(WebContext ctx, @Valid UserDto userDto) {
 		User user = new User(null, userDto.name(), userDto.email());
-		return userService.create(user);
+		ctx.json(HttpStatus.CREATED, userService.create(user));
 	}
 
 	@Put("/{id}")
-	public User updateUser(@PathParam("id") String id, @Valid UserDto userDto) {
+	public void updateUser(WebContext ctx, @PathParam("id") String id, @Valid UserDto userDto) {
 		User user = new User(id, userDto.name(), userDto.email());
-		return userService.update(id, user);
+		ctx.json(HttpStatus.OK, userService.update(id, user));
 	}
 
 	@Delete("/{id}")
 	@Use(AuthMiddleware.class) // Protect sensitive action
-	public void deleteUser(@PathParam("id") String id) {
+	public void deleteUser(WebContext ctx, @PathParam("id") String id) {
 		userService.delete(id);
+		ctx.status(HttpStatus.NO_CONTENT);
 	}
 }

@@ -12,19 +12,14 @@ import summer.core.Component;
  * into a log (for order verification). 2. Wraps the return value with
  * "[intercepted] " prefix (for result mutation verification).
  *
- * Only applies to GreeterService — verifies that supports() filtering works.
+ * Bound to methods annotated with {@code @Recorded}.
  */
 @Component
+@Recorded
 public class RecordingInterceptor implements MethodInterceptor {
 
 	/** Shared call log — tests can inspect this to verify interception happened. */
 	private final List<String> callLog = new ArrayList<>();
-
-	@Override
-	public boolean supports(Class<?> targetClass) {
-		// Only intercept GreeterService, not any other bean
-		return GreeterService.class.isAssignableFrom(targetClass);
-	}
 
 	@Override
 	public Object intercept(InvocationContext context) throws Throwable {

@@ -3,8 +3,12 @@ package summer.web.server;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SummerWebSocketFrameHandler extends SimpleChannelInboundHandler<TextWebSocketFrame> {
+
+	private static final Logger log = LoggerFactory.getLogger(SummerWebSocketFrameHandler.class);
 
 	private final NettyWebSocketContext wsContext;
 
@@ -25,7 +29,7 @@ public class SummerWebSocketFrameHandler extends SimpleChannelInboundHandler<Tex
 
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-		cause.printStackTrace();
+		log.error("WebSocket error", cause);
 		ctx.close();
 	}
 }

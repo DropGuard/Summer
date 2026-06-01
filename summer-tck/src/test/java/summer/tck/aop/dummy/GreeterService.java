@@ -1,22 +1,22 @@
 package summer.tck.aop.dummy;
 
-import summer.aop.Intercepted;
 import summer.core.Component;
 
 /**
- * Concrete implementation. greet() is marked for interception; shout() is not.
- * This lets us verify that ONLY annotated methods are proxied.
+ * Concrete implementation. greet() is annotated with @Recorded for
+ * interception; shout() is not. This lets us verify that ONLY annotated methods
+ * are proxied.
  */
 @Component
 public class GreeterService implements Greeter {
 
-	@Intercepted
+	@Recorded
 	@Override
 	public String greet(String name) {
 		return "Hello, " + name;
 	}
 
-	// NOT annotated with @Intercepted — interception must NOT apply here
+	// NOT annotated with @Recorded — interception must NOT apply here
 	@Override
 	public String shout(String message) {
 		return message.toUpperCase();

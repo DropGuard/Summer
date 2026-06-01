@@ -16,17 +16,22 @@ public interface Router {
 	/**
 	 * Registers a handler for the given HTTP method and path pattern.
 	 *
-	 * @param method  the HTTP method (GET, POST, PUT, DELETE, etc.)
-	 * @param path    the path pattern (e.g., "/users/{id}")
-	 * @param handler the request handler
+	 * @param method
+	 *            the HTTP method (GET, POST, PUT, DELETE, etc.)
+	 * @param path
+	 *            the path pattern (e.g., "/users/{id}")
+	 * @param handler
+	 *            the request handler
 	 */
 	void register(String method, String path, Handler handler);
 
 	/**
 	 * Registers a GET handler for the given path pattern.
 	 *
-	 * @param path    the path pattern
-	 * @param handler the request handler
+	 * @param path
+	 *            the path pattern
+	 * @param handler
+	 *            the request handler
 	 */
 	default void get(String path, Handler handler) {
 		register("GET", path, handler);
@@ -35,8 +40,10 @@ public interface Router {
 	/**
 	 * Registers a POST handler for the given path pattern.
 	 *
-	 * @param path    the path pattern
-	 * @param handler the request handler
+	 * @param path
+	 *            the path pattern
+	 * @param handler
+	 *            the request handler
 	 */
 	default void post(String path, Handler handler) {
 		register("POST", path, handler);
@@ -45,8 +52,10 @@ public interface Router {
 	/**
 	 * Registers a PUT handler for the given path pattern.
 	 *
-	 * @param path    the path pattern
-	 * @param handler the request handler
+	 * @param path
+	 *            the path pattern
+	 * @param handler
+	 *            the request handler
 	 */
 	default void put(String path, Handler handler) {
 		register("PUT", path, handler);
@@ -55,8 +64,10 @@ public interface Router {
 	/**
 	 * Registers a DELETE handler for the given path pattern.
 	 *
-	 * @param path    the path pattern
-	 * @param handler the request handler
+	 * @param path
+	 *            the path pattern
+	 * @param handler
+	 *            the request handler
 	 */
 	default void delete(String path, Handler handler) {
 		register("DELETE", path, handler);
@@ -65,7 +76,8 @@ public interface Router {
 	/**
 	 * Routes an incoming request to the appropriate handler.
 	 *
-	 * @param ctx the web context containing the request
+	 * @param ctx
+	 *            the web context containing the request
 	 * @return the handler result, or null if no route matches
 	 */
 	Object route(WebContext ctx);
@@ -73,15 +85,18 @@ public interface Router {
 	/**
 	 * Registers a WebSocket handler for the given path pattern.
 	 *
-	 * @param path    the path pattern
-	 * @param handler the WebSocket handler
+	 * @param path
+	 *            the path pattern
+	 * @param handler
+	 *            the WebSocket handler
 	 */
 	void ws(String path, WebSocketHandler handler);
 
 	/**
 	 * Routes a WebSocket upgrade request to the appropriate handler.
 	 *
-	 * @param path the request path
+	 * @param path
+	 *            the request path
 	 * @return the WebSocket match containing handler and path parameters, or null
 	 *         if no route matches
 	 */

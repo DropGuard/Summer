@@ -44,8 +44,6 @@ public class ComponentScanner {
 	public void scan(String... packageNames) {
 		IndexView index = buildIndex(packageNames);
 		registerDiscoveredBeans(index);
-		// Register Jandex-based RowMapperFactory for runtime RowMapper creation
-		JandexRowMapperFactory.registerIfPossible(index);
 	}
 
 	private IndexView buildIndex(String... packageNames) {

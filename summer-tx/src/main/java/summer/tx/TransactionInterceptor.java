@@ -1,6 +1,5 @@
 package summer.tx;
 
-import summer.aop.Intercepts;
 import summer.aop.InvocationContext;
 import summer.aop.MethodInterceptor;
 import summer.core.Component;
@@ -9,22 +8,20 @@ import summer.core.annotation.ConditionalOnBean;
 /**
  * Transaction interceptor that manages transaction boundaries around method
  * calls.
+ *
+ * <p>
+ * Bound to {@code @Transactional} via {@code @InterceptorBinding}.
+ * </p>
  */
 @Component
 @ConditionalOnBean(TransactionManager.class)
-@Intercepts(annotations = Transactional.class)
+@Transactional
 public class TransactionInterceptor implements MethodInterceptor {
 	private static final ThreadLocal<Boolean> interceptorActive = ThreadLocal.withInitial(() -> false);
 	private final TransactionManager transactionManager;
 
 	public TransactionInterceptor(TransactionManager transactionManager) {
 		this.transactionManager = transactionManager;
-	}
-
-	@Override
-	public boolean supports(Class<?> targetClass) {
-		return java.util.Arrays.stream(targetClass.getMethods())
-				.anyMatch(method -> method.isAnnotationPresent(Transactional.class));
 	}
 
 	public static boolean isInterceptorActive() {

@@ -1,25 +1,25 @@
 package summer.plugin;
 
-import java.io.IOException;
-import java.util.List;
-
-import org.jboss.jandex.ClassInfo;
-import org.jboss.jandex.IndexView;
-import org.jboss.jandex.MethodInfo;
-import org.jboss.jandex.Type;
-
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
+import java.io.IOException;
+import java.util.List;
+import org.jboss.jandex.ClassInfo;
+import org.jboss.jandex.IndexView;
+import org.jboss.jandex.MethodInfo;
+import org.jboss.jandex.Type;
 
 /**
  * Generates RowMapper implementations for @RowModel annotated records.
  * 
- * <p>This runs in summer-maven-plugin with full classpath access,
- * complementing summer-compiler's APT-based generation.</p>
+ * <p>
+ * This runs in summer-maven-plugin with full classpath access, complementing
+ * summer-compiler's APT-based generation.
+ * </p>
  */
 public final class RowMapperGenerator {
 
@@ -31,13 +31,16 @@ public final class RowMapperGenerator {
 	/**
 	 * Generate RowMapper classes for all @RowModel annotated records.
 	 * 
-	 * @param index the Jandex index
-	 * @param beans discovered bean definitions
-	 * @param outputDir directory to write generated source files
+	 * @param index
+	 *            the Jandex index
+	 * @param beans
+	 *            discovered bean definitions
+	 * @param outputDir
+	 *            directory to write generated source files
 	 */
 	public void generate(IndexView index, List<BeanDefinition> beans, java.io.File outputDir) throws IOException {
-		ClassInfo rowModelAnnotation = index.getClassByName(
-				org.jboss.jandex.DotName.createSimple(ROW_MODEL_ANNOTATION));
+		ClassInfo rowModelAnnotation = index
+				.getClassByName(org.jboss.jandex.DotName.createSimple(ROW_MODEL_ANNOTATION));
 		if (rowModelAnnotation == null) {
 			return;
 		}
@@ -66,12 +69,9 @@ public final class RowMapperGenerator {
 		TypeName genericRowMapper = ParameterizedTypeName.get(rowMapperInterface, rowModelClass);
 
 		// Build mapRow method
-		MethodSpec.Builder mapRowMethod = MethodSpec.methodBuilder("mapRow")
-				.addAnnotation(Override.class)
-				.addModifiers(javax.lang.model.element.Modifier.PUBLIC)
-				.returns(rowModelClass)
-				.addParameter(ClassName.get("java.sql", "ResultSet"), "rs")
-				.addParameter(int.class, "rowNum")
+		MethodSpec.Builder mapRowMethod = MethodSpec.methodBuilder("mapRow").addAnnotation(Override.class)
+				.addModifiers(javax.lang.model.element.Modifier.PUBLIC).returns(rowModelClass)
+				.addParameter(ClassName.get("java.sql", "ResultSet"), "rs").addParameter(int.class, "rowNum")
 				.addException(ClassName.get("java.sql", "SQLException"));
 
 		// Get record components from the record's constructor
@@ -113,12 +113,8 @@ public final class RowMapperGenerator {
 
 		TypeSpec mapperClass = TypeSpec.classBuilder(mapperName)
 				.addModifiers(javax.lang.model.element.Modifier.PUBLIC, javax.lang.model.element.Modifier.FINAL)
-				.addSuperinterface(genericRowMapper)
-				.addMethod(mapRowMethod.build())
-				.build();
+				.addSuperinterface(genericRowMapper).addMethod(mapRowMethod.build()).build();
 
-		JavaFile.builder(packageName, mapperClass)
-				.build()
-				.writeTo(outputDir);
+		JavaFile.builder(packageName, mapperClass).build().writeTo(outputDir);
 	}
 }

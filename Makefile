@@ -1,4 +1,4 @@
-.PHONY: all clean compile install test run benchmark fmt arch realworld
+.PHONY: all clean compile install test run benchmark fmt check pre-commit arch realworld
 
 MVN ?= mvnd
 export MAVEN_OPTS := --sun-misc-unsafe-memory-access=allow
@@ -28,6 +28,11 @@ benchmark:
 
 fmt:
 	$(MVN) spotless:apply
+
+check:
+	$(MVN) spotless:check
+
+pre-commit: fmt check test
 
 arch:
 	$(MVN) test -pl summer-archunit

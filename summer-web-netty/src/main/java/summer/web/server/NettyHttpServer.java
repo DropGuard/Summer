@@ -97,7 +97,7 @@ public class NettyHttpServer {
 									.addLast(new HttpObjectAggregator(config.maxBodySize())) // Combine HTTP parts into
 																								// FullHttpRequest
 									.addLast(new NettyHttpServerHandler(router, middlewares, validator, jsonConverter,
-											NettyHttpServer.this));
+											NettyHttpServer.this, config));
 						}
 					}).option(ChannelOption.SO_BACKLOG, 1024).childOption(ChannelOption.TCP_NODELAY, true)
 					.childOption(ChannelOption.SO_KEEPALIVE, true);

@@ -12,8 +12,9 @@ import summer.web.resolver.ParameterResolver;
  * Reflection-based parameter resolver for HTTP handler methods.
  *
  * <p>
- * Resolves method parameters by inspecting annotations and types using reflection.
- * This is the default implementation used for runtime web request handling.
+ * Resolves method parameters by inspecting annotations and types using
+ * reflection. This is the default implementation used for runtime web request
+ * handling.
  * </p>
  */
 @Component
@@ -22,10 +23,8 @@ public class ReflectionParameterResolver implements ParameterResolver {
 	@Override
 	public boolean supports(Parameter parameter) {
 		Class<?> type = parameter.getType();
-		return type == WebContext.class || type == Request.class
-				|| parameter.isAnnotationPresent(PathParam.class)
-				|| parameter.isAnnotationPresent(QueryParam.class)
-				|| Throwable.class.isAssignableFrom(type);
+		return type == WebContext.class || type == Request.class || parameter.isAnnotationPresent(PathParam.class)
+				|| parameter.isAnnotationPresent(QueryParam.class) || Throwable.class.isAssignableFrom(type);
 	}
 
 	@Override
@@ -90,11 +89,16 @@ public class ReflectionParameterResolver implements ParameterResolver {
 	 * Returns the default value for primitive types.
 	 */
 	private Object defaultValue(Class<?> targetType) {
-		if (targetType == int.class) return 0;
-		if (targetType == long.class) return 0L;
-		if (targetType == boolean.class) return false;
-		if (targetType == double.class) return 0.0;
-		if (targetType == float.class) return 0.0f;
+		if (targetType == int.class)
+			return 0;
+		if (targetType == long.class)
+			return 0L;
+		if (targetType == boolean.class)
+			return false;
+		if (targetType == double.class)
+			return 0.0;
+		if (targetType == float.class)
+			return 0.0f;
 		return null;
 	}
 }

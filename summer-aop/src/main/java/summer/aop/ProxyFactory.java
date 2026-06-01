@@ -1,5 +1,6 @@
 package summer.aop;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
@@ -60,17 +61,16 @@ public class ProxyFactory {
 					}).proceed();
 		}
 
+		/**
+		 * Determines if a method should be intercepted by checking if any interceptor
+		 * has an {@code @InterceptorBinding} annotation that matches an annotation on
+		 * the target method.
+		 */
 		private boolean shouldIntercept(Method targetMethod, List<MethodInterceptor> interceptors) {
-			// 1. Explicitly annotated with @Intercepted
-			if (targetMethod.isAnnotationPresent(Intercepted.class)) {
-				return true;
-			}
-			// 2. Annotated with any trigger annotation declared by the active interceptors
 			for (MethodInterceptor interceptor : interceptors) {
-				Intercepts intercepts = interceptor.getClass().getAnnotation(Intercepts.class);
-				if (intercepts != null) {
-					for (Class<? extends java.lang.annotation.Annotation> ann : intercepts.annotations()) {
-						if (targetMethod.isAnnotationPresent(ann)) {
+				for (Annotation ann : interceptor.getClass().getAnnotations()) {
+					if (ann.annotationType().isAnnotationPresent(InterceptorBinding.class)) {
+						if (targetMethod.isAnnotationPresent(ann.annotationType())) {
 							return true;
 						}
 					}

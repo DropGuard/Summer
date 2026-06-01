@@ -2,6 +2,7 @@ package summer.scanner.runtime;
 
 import summer.core.ApplicationContext;
 import summer.core.DiEngine;
+import summer.core.RuntimeDiMarker;
 
 /**
  * Runtime DI engine that discovers beans via classpath scanning and reflection.
@@ -10,6 +11,8 @@ import summer.core.DiEngine;
 public class RuntimeDiEngine implements DiEngine {
 	@Override
 	public ApplicationContext create(Class<?> entryPoint) {
-		return new RuntimeApplicationContext().scan(entryPoint.getPackageName());
+		RuntimeApplicationContext ctx = new RuntimeApplicationContext();
+		ctx.registerComponent(RuntimeDiMarker.class);
+		return ctx.scan(entryPoint.getPackageName());
 	}
 }

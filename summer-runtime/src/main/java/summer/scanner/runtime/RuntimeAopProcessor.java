@@ -1,8 +1,10 @@
 package summer.scanner.runtime;
 
+import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import summer.aop.InterceptorBinding;
 import summer.aop.MethodInterceptor;
 import summer.aop.ProxyFactory;
 
@@ -18,7 +20,7 @@ final class RuntimeAopProcessor {
 		}
 
 		List<MethodInterceptor> matching = allInterceptors.stream().filter(Objects::nonNull)
-				.filter(interceptor -> interceptor.supports(clazz)).toList();
+				.filter(interceptor -> hasMatchingBinding(interceptor, clazz)).toList();
 
 		if (matching.isEmpty()) {
 			return instance;
@@ -29,5 +31,25 @@ final class RuntimeAopProcessor {
 			singletons.put(iface, proxy);
 		}
 		return proxy;
+	}
+
+	/**
+	 * Checks if an interceptor has an {@code @InterceptorBinding} annotation that
+	 * matches any annotation on the target class's methods.
+	 */
+	private static boolean hasMatchingBinding(MethodInterceptor interceptor, Class<?> targetClass) {
+		Class<?> interceptorClass = interceptor.getClass();
+		for (Annotation ann : interceptorClass.getAnnotations()) {
+			if (ann.annotationType().isAnnotationPresent(InterceptorBinding.class)) {
+				// Found a binding annotation on the interceptor
+				// Check if any method on the target class has the same annotation
+				for (java.lang.reflect.Method method : targetClass.getMethods()) {
+					if (method.isAnnotationPresent(ann.annotationType())) {
+						return true;
+					}
+				}
+			}
+		}
+		return false;
 	}
 }

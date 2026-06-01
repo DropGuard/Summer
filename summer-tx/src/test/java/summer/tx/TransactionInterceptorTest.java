@@ -22,22 +22,6 @@ class TransactionInterceptorTest {
 	}
 
 	@Test
-	void shouldSupportClassWithTransactionalMethod() throws Exception {
-		TransactionManager manager = new TestTransactionManager();
-		TransactionInterceptor interceptor = new TransactionInterceptor(manager);
-
-		assertTrue(interceptor.supports(TestService.class));
-	}
-
-	@Test
-	void shouldNotSupportClassWithoutTransactionalMethod() throws Exception {
-		TransactionManager manager = new TestTransactionManager();
-		TransactionInterceptor interceptor = new TransactionInterceptor(manager);
-
-		assertFalse(interceptor.supports(NonTransactionalService.class));
-	}
-
-	@Test
 	void shouldInterceptTransactionalMethod() throws Throwable {
 		TransactionManager manager = new TestTransactionManager();
 		TransactionInterceptor interceptor = new TransactionInterceptor(manager);
