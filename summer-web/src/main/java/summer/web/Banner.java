@@ -3,9 +3,9 @@ package summer.web;
 /**
  * Application banner displayed on startup.
  */
-final class Banner {
+public final class Banner {
 
-	static final String TEXT = "\n" + "   _____                                         \n"
+	public static final String TEXT = "\n" + "   _____                                         \n"
 			+ "  / ___/__  ______ ___  ____ ___  ___  _____     \n"
 			+ "  \\__ \\/ / / / __ `__ \\/ __ `__ \\/ _ \\/ ___/ \n"
 			+ " ___/ / /_/ / / / / / / / / / / /  __/ /         \n"

@@ -26,6 +26,10 @@
         </dependency>
         <dependency>
             <groupId>summer</groupId>
+            <artifactId>summer-webmvc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>summer</groupId>
             <artifactId>summer-aop</artifactId>
         </dependency>
         <dependency>
@@ -152,22 +156,6 @@
                         </goals>
                     </execution>
                 </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <compilerArgs>
-                        <arg>-Xlint:-processing</arg>
-                    </compilerArgs>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>summer</groupId>
-                            <artifactId>summer-compiler</artifactId>
-                            <version>${project.version}</version>
-                        </path>
-                    </annotationProcessorPaths>
-                </configuration>
             </plugin>
             <plugin>
                 <groupId>io.smallrye</groupId>

@@ -21,11 +21,10 @@
             <artifactId>summer-core</artifactId>
         </dependency>
 
-        <!-- Runtime classpath scanner -->
+        <!-- Summer Validation API -->
         <dependency>
             <groupId>summer</groupId>
-            <artifactId>summer-runtime</artifactId>
-            <version>${project.version}</version>
+            <artifactId>summer-validation-api</artifactId>
         </dependency>
 
         <!-- Jakarta Validation API -->
@@ -43,12 +42,6 @@
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
-        </dependency>
-
-        <!-- Netty -->
-        <dependency>
-            <groupId>io.netty</groupId>
-            <artifactId>netty-all</artifactId>
         </dependency>
 
         <!-- Testing -->

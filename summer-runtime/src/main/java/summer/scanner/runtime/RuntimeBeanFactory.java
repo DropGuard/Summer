@@ -80,12 +80,28 @@ class RuntimeBeanFactory {
 	}
 
 	private Object[] resolveDependencies(Constructor<?> constructor) {
-		return Arrays.stream(constructor.getParameterTypes()).map(paramType -> {
+		java.lang.reflect.Type[] genericTypes = constructor.getGenericParameterTypes();
+		Class<?>[] paramTypes = constructor.getParameterTypes();
+		Object[] args = new Object[paramTypes.length];
+
+		for (int i = 0; i < paramTypes.length; i++) {
+			Class<?> paramType = paramTypes[i];
+			java.lang.reflect.Type genericType = genericTypes[i];
+
 			if (paramType == ApplicationContext.class) {
-				return context;
+				args[i] = context;
+			} else if (paramType == List.class && genericType instanceof java.lang.reflect.ParameterizedType pt) {
+				java.lang.reflect.Type elementType = pt.getActualTypeArguments()[0];
+				if (elementType instanceof Class<?> elementClass) {
+					args[i] = context.getBeansOfType(elementClass);
+				} else {
+					args[i] = context.getBean(paramType);
+				}
+			} else {
+				args[i] = context.getBean(paramType);
 			}
-			return context.getBean(paramType);
-		}).toArray();
+		}
+		return args;
 	}
 
 	private Object registerBean(Class<?> clazz, Object instance) {

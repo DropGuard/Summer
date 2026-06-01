@@ -2,11 +2,31 @@ package summer.web;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.util.List;
 import summer.core.Component;
-import summer.web.annotation.PathParam;
+import summer.web.resolver.ParameterResolver;
 
+/**
+ * Factory for creating HTTP request handlers.
+ *
+ * <p>
+ * Uses {@link ParameterResolver} to bind request data to method parameters.
+ * The resolver is injected at construction time, allowing different
+ * implementations for different DI engines:
+ * </p>
+ * <ul>
+ * <li>Runtime: {@code ReflectionParameterResolver} (reflection-based)</li>
+ * <li>AOT: generated code (zero reflection)</li>
+ * </ul>
+ */
 @Component
 public class HandlerFactory {
+
+	private final List<ParameterResolver> resolvers;
+
+	public HandlerFactory(List<ParameterResolver> resolvers) {
+		this.resolvers = resolvers;
+	}
 
 	public Handler create(Object instance, Method method) {
 		method.setAccessible(true);
@@ -28,15 +48,13 @@ public class HandlerFactory {
 	}
 
 	protected Object resolveArg(WebContext ctx, Parameter param) {
-		Class<?> type = param.getType();
-		if (type == WebContext.class)
-			return ctx;
-		if (type == Request.class)
-			return ctx.request();
-		if (param.isAnnotationPresent(PathParam.class))
-			return ctx.request().pathParam(param.getAnnotation(PathParam.class).value());
-		if (Throwable.class.isAssignableFrom(type))
-			return ctx.request().getAttribute("last_exception");
-		return ctx.body(type);
+		for (ParameterResolver resolver : resolvers) {
+			if (resolver.supports(param)) {
+				return resolver.resolve(ctx, param);
+			}
+		}
+
+		// Default: try to bind from request body
+		return ctx.body(param.getType());
 	}
 }

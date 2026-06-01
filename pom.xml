@@ -21,7 +21,12 @@
 
     <modules>
         <module>summer-core</module>
+        <module>summer-validation-api</module>
         <module>summer-web</module>
+        <module>summer-web-netty</module>
+        <module>summer-web-middleware</module>
+        <module>summer-web-websocket</module>
+        <module>summer-webmvc</module>
         <module>summer-aop</module>
         <module>summer-tx</module>
         <module>summer-validation-hv</module>
@@ -34,6 +39,9 @@
         <module>summer-data-redis</module>
         <module>summer-data-jdbc</module>
         <module>summer-test</module>
+        <module>summer-maven-plugin</module>
+        <module>summer-tck-fixtures</module>
+        <module>summer-archunit</module>
     </modules>
 
     <dependencyManagement>
@@ -46,7 +54,32 @@
             </dependency>
             <dependency>
                 <groupId>summer</groupId>
+                <artifactId>summer-validation-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>summer</groupId>
                 <artifactId>summer-web</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>summer</groupId>
+                <artifactId>summer-web-netty</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>summer</groupId>
+                <artifactId>summer-web-middleware</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>summer</groupId>
+                <artifactId>summer-web-websocket</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>summer</groupId>
+                <artifactId>summer-webmvc</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -62,6 +95,11 @@
             <dependency>
                 <groupId>summer</groupId>
                 <artifactId>summer-validation-hv</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>summer</groupId>
+                <artifactId>summer-runtime</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>

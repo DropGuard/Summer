@@ -14,10 +14,23 @@
     <description>Unified test suite for Summer dual DI engines</description>
 
     <dependencies>
+        <!-- Test fixtures from separate module (tests cross-module bean discovery) -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-tck-fixtures</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
         <!-- Use test scope for everything as this module is purely for internal testing -->
         <dependency>
             <groupId>summer</groupId>
             <artifactId>summer-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-maven-plugin</artifactId>
+            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -41,6 +54,12 @@
         <dependency>
             <groupId>summer</groupId>
             <artifactId>summer-web</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-webmvc</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
@@ -73,6 +92,22 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-data-jdbc</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>io.grpc</groupId>
             <artifactId>grpc-stub</artifactId>
         </dependency>
@@ -92,6 +127,19 @@
             </extension>
         </extensions>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>summer</groupId>
+                            <artifactId>summer-compiler</artifactId>
+                            <version>${project.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.xolstice.maven.plugins</groupId>
                 <artifactId>protobuf-maven-plugin</artifactId>

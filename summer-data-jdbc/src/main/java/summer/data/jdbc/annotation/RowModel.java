@@ -10,6 +10,6 @@ import java.lang.annotation.Target;
  * compile-time.
  */
 @Target(ElementType.TYPE)
-@Retention(RetentionPolicy.SOURCE)
+@Retention(RetentionPolicy.RUNTIME)
 public @interface RowModel {
 }

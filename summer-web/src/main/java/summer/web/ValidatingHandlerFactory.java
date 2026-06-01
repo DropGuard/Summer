@@ -2,8 +2,10 @@ package summer.web;
 
 import jakarta.validation.Valid;
 import java.lang.reflect.Parameter;
+import java.util.List;
 import summer.core.Component;
 import summer.core.annotation.Replaces;
+import summer.web.resolver.ParameterResolver;
 
 /**
  * Handler factory that adds @Valid support via reflection. Extends
@@ -13,6 +15,10 @@ import summer.core.annotation.Replaces;
 @Component
 @Replaces(HandlerFactory.class)
 public class ValidatingHandlerFactory extends HandlerFactory {
+
+	public ValidatingHandlerFactory(List<ParameterResolver> resolvers) {
+		super(resolvers);
+	}
 
 	@Override
 	protected Object resolveArg(WebContext ctx, Parameter param) {

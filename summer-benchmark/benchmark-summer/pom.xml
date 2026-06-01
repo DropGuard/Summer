@@ -22,28 +22,26 @@
         </dependency>
         <dependency>
             <groupId>summer</groupId>
-            <artifactId>summer-compiler</artifactId>
+            <artifactId>summer-webmvc</artifactId>
             <version>0.1.0</version>
-            <scope>provided</scope>
         </dependency>
-
     </dependencies>
 
     <build>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
-                <configuration>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>summer</groupId>
-                            <artifactId>summer-compiler</artifactId>
-                            <version>0.1.0</version>
-                        </path>
-                    </annotationProcessorPaths>
-                </configuration>
+                <groupId>summer</groupId>
+                <artifactId>summer-maven-plugin</artifactId>
+                <version>0.1.0</version>
+                <executions>
+                    <execution>
+                        <id>generate-aot</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>generate-aot</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

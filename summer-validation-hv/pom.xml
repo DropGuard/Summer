@@ -19,10 +19,16 @@
     </properties>
 
     <dependencies>
-        <!-- Summer core -->
+        <!-- Summer Core -->
         <dependency>
             <groupId>summer</groupId>
-            <artifactId>summer-web</artifactId>
+            <artifactId>summer-core</artifactId>
+        </dependency>
+
+        <!-- Summer Validation API -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-validation-api</artifactId>
         </dependency>
 
         <!-- Jakarta Validation API -->
@@ -43,6 +49,13 @@
             <groupId>org.glassfish</groupId>
             <artifactId>jakarta.el</artifactId>
             <version>4.0.2</version>
+        </dependency>
+
+        <!-- Summer Runtime (for testing) -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-runtime</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <!-- Testing -->

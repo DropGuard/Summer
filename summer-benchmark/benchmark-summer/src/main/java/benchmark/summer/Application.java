@@ -2,7 +2,7 @@ package benchmark.summer;
 
 
 import summer.core.annotation.Configuration;
-import summer.web.SummerApplication;
+import summer.webmvc.SummerApplication;
 
 @Configuration
 public class Application {
