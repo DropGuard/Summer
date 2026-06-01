@@ -26,6 +26,10 @@
         </dependency>
         <dependency>
             <groupId>summer</groupId>
+            <artifactId>summer-web-middleware</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>summer</groupId>
             <artifactId>summer-webmvc</artifactId>
         </dependency>
         <dependency>
