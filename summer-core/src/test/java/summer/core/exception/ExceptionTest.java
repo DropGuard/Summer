@@ -11,37 +11,17 @@ import summer.core.ErrorCode;
 class ExceptionTest {
 
 	@Test
-	void shouldCreateBeansExceptionWithErrorCode() {
-		BeansException ex = new BeansException(ErrorCode.BEAN_CREATION_FAILED, "Test message");
-		assertEquals("Test message", ex.getMessage());
-	}
-
-	@Test
-	void shouldCreateBeansExceptionWithErrorCodeAndCause() {
-		Exception cause = new RuntimeException("Root cause");
-		BeansException ex = new BeansException(ErrorCode.BEAN_CREATION_FAILED, "Test message", cause);
-		assertEquals("Test message", ex.getMessage());
-		assertSame(cause, ex.getCause());
-	}
-
-	@Test
-	void shouldCreateBeansExceptionWithMessage() {
-		BeansException ex = new BeansException(ErrorCode.INTERNAL_ERROR, "Test message");
-		assertEquals("Test message", ex.getMessage());
-	}
-
-	@Test
 	void shouldCreateNoSuchBeanException() {
 		NoSuchBeanException ex = new NoSuchBeanException("No bean found");
 		assertEquals("No bean found", ex.getMessage());
-		assertInstanceOf(BeansException.class, ex);
+		assertInstanceOf(SummerException.class, ex);
 	}
 
 	@Test
 	void shouldCreateCircularDependencyException() {
 		CircularDependencyException ex = new CircularDependencyException("Circular dependency");
 		assertEquals("Circular dependency", ex.getMessage());
-		assertInstanceOf(BeansException.class, ex);
+		assertInstanceOf(SummerException.class, ex);
 	}
 
 	@Test
@@ -56,7 +36,7 @@ class ExceptionTest {
 	void shouldCreateAmbiguousBeanException() {
 		AmbiguousBeanException ex = new AmbiguousBeanException("Ambiguous bean");
 		assertEquals("Ambiguous bean", ex.getMessage());
-		assertInstanceOf(BeansException.class, ex);
+		assertInstanceOf(SummerException.class, ex);
 	}
 
 	@Test

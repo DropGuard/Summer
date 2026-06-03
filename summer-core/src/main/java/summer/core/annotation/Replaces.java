@@ -6,10 +6,9 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks a {@link Configuration} class as a replacement for another
- * configuration class. When present, the target configuration class and all
- * beans produced by it are excluded from the application context, and this
- * configuration class takes over.
+ * Marks a class as a replacement for another {@link Component} or
+ * {@link Configuration} class. When present, the target class is excluded
+ * from the application context, and this class takes over.
  *
  * <p>
  * Multiple {@code @Replaces} targeting the same configuration class is a

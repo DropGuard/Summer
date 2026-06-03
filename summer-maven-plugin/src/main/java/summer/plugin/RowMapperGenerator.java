@@ -7,7 +7,6 @@ import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import java.io.IOException;
-import java.util.List;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.IndexView;
 import org.jboss.jandex.MethodInfo;
@@ -33,12 +32,10 @@ public final class RowMapperGenerator {
 	 * 
 	 * @param index
 	 *            the Jandex index
-	 * @param beans
-	 *            discovered bean definitions
 	 * @param outputDir
 	 *            directory to write generated source files
 	 */
-	public void generate(IndexView index, List<BeanDefinition> beans, java.io.File outputDir) throws IOException {
+	public void generate(IndexView index, java.io.File outputDir) throws IOException {
 		ClassInfo rowModelAnnotation = index
 				.getClassByName(org.jboss.jandex.DotName.createSimple(ROW_MODEL_ANNOTATION));
 		if (rowModelAnnotation == null) {

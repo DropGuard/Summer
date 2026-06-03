@@ -31,8 +31,6 @@ import summer.core.config.ConfigurationProperties;
 		"summer.core.config.ConfigurationProperties"})
 public class SummerProcessor extends AbstractProcessor {
 
-	private boolean generatedNewTypesInThisRound = false;
-
 	@Override
 	public SourceVersion getSupportedSourceVersion() {
 		return SourceVersion.latestSupported();
@@ -45,46 +43,44 @@ public class SummerProcessor extends AbstractProcessor {
 		}
 
 		try {
-			generatedNewTypesInThisRound = false;
-
-			// Process @Configuration classes - generate Provider classes
-			for (Element e : roundEnv.getElementsAnnotatedWith(Configuration.class)) {
-				if (e.getKind() == ElementKind.CLASS) {
-					TypeElement configClass = (TypeElement) e;
-					if (ProviderGenerator.generate(configClass, processingEnv)) {
-						generatedNewTypesInThisRound = true;
-					}
-				}
-			}
-
-			// Process @ConfigurationProperties records
-			for (Element e : roundEnv.getElementsAnnotatedWith(ConfigurationProperties.class)) {
-				if (e.getKind() == ElementKind.RECORD || e.getKind() == ElementKind.CLASS) {
-					TypeElement configType = (TypeElement) e;
-					if (ConfigPropertiesGenerator.generate(configType, processingEnv)) {
-						generatedNewTypesInThisRound = true;
-					}
-				}
-			}
-
-			// Process @RowModel records - generate RowMapper classes
-			TypeElement rowModelType = processingEnv.getElementUtils()
-					.getTypeElement("summer.data.jdbc.annotation.RowModel");
-			if (rowModelType != null) {
-				for (Element e : roundEnv.getElementsAnnotatedWith(rowModelType)) {
-					if (e.getKind() == ElementKind.RECORD || e.getKind() == ElementKind.CLASS) {
-						if (RowMapperGenerator.generate((TypeElement) e, processingEnv)) {
-							generatedNewTypesInThisRound = true;
-						}
-					}
-				}
-			}
-
+			processConfigurations(roundEnv);
+			processConfigurationProperties(roundEnv);
+			processRowModels(roundEnv);
 			return true;
 		} catch (Exception e) {
 			processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
 					"[Summer] Internal error: " + e.getMessage());
 			return false;
+		}
+	}
+
+	private void processConfigurations(RoundEnvironment roundEnv) {
+		for (Element e : roundEnv.getElementsAnnotatedWith(Configuration.class)) {
+			if (e.getKind() == ElementKind.CLASS) {
+				TypeElement configClass = (TypeElement) e;
+				ProviderGenerator.generate(configClass, processingEnv);
+			}
+		}
+	}
+
+	private void processConfigurationProperties(RoundEnvironment roundEnv) {
+		for (Element e : roundEnv.getElementsAnnotatedWith(ConfigurationProperties.class)) {
+			if (e.getKind() == ElementKind.RECORD || e.getKind() == ElementKind.CLASS) {
+				TypeElement configType = (TypeElement) e;
+				ConfigPropertiesGenerator.generate(configType, processingEnv);
+			}
+		}
+	}
+
+	private void processRowModels(RoundEnvironment roundEnv) {
+		TypeElement rowModelType = processingEnv.getElementUtils()
+				.getTypeElement("summer.data.jdbc.annotation.RowModel");
+		if (rowModelType != null) {
+			for (Element e : roundEnv.getElementsAnnotatedWith(rowModelType)) {
+				if (e.getKind() == ElementKind.RECORD || e.getKind() == ElementKind.CLASS) {
+					RowMapperGenerator.generate((TypeElement) e, processingEnv);
+				}
+			}
 		}
 	}
 }

@@ -1,7 +1,7 @@
 package summer.tx;
 
 import summer.core.ErrorCode;
-import summer.core.SummerException;
+import summer.core.exception.SummerException;
 
 /**
  * Exception class for transaction related errors in Summer framework.

@@ -1,18 +1,32 @@
 package summer.tck.web;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.charset.StandardCharsets;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+
 import summer.core.ApplicationContext;
-import summer.web.*;
+import summer.web.ExceptionRegistry;
+import summer.web.Handler;
+import summer.web.HttpContext;
+import summer.web.HttpRouter;
+import summer.web.Request;
+import summer.web.RouteRegistrar;
 
 public abstract class AbstractWebRouteTCK {
 
 	protected ApplicationContext context;
-	protected Router router;
+	protected HttpRouter router;
 	protected ExceptionRegistry exceptionRegistry;
 
 	protected abstract ApplicationContext createAndInitializeContext();
@@ -23,7 +37,7 @@ public abstract class AbstractWebRouteTCK {
 		RouteRegistrar adapter = context.getBean(RouteRegistrar.class);
 		adapter.registerControllers();
 
-		router = context.getBean(Router.class);
+		router = context.getBean(HttpRouter.class);
 		exceptionRegistry = context.getBean(ExceptionRegistry.class);
 	}
 
@@ -35,57 +49,31 @@ public abstract class AbstractWebRouteTCK {
 		}
 	}
 
-	@Test
-	void testGetRouteWithPathParam() {
-		Request req = new Request("GET", "/api/users/456", null, null, null);
-		WebContext ctx = new WebContext(req);
+	@ParameterizedTest
+	@MethodSource("routeTestCases")
+	void testRoute(String method, String path, String body, String expected) {
+		byte[] bodyBytes = body != null ? body.getBytes(StandardCharsets.UTF_8) : null;
+		String contentType = body != null ? "application/json" : null;
+		Request req = new Request(method, path, null, contentType, bodyBytes);
+		HttpContext ctx = new HttpContext(req);
 
 		Object result = router.route(ctx);
-		assertEquals("user:456", result);
+		assertEquals(expected, result);
 	}
 
-	@Test
-	void testPostRouteWithRequestBodyRecord() {
-		byte[] bodyBytes = "{\"name\":\"Alice\"}".getBytes(StandardCharsets.UTF_8);
-		Request req = new Request("POST", "/api/users", null, "application/json", bodyBytes);
-		WebContext ctx = new WebContext(req);
-
-		Object result = router.route(ctx);
-		assertEquals("created:Alice", result);
-	}
-
-	@Test
-	void testPutRouteWithPathParamAndBody() {
-		byte[] bodyBytes = "{\"name\":\"Bob\"}".getBytes(StandardCharsets.UTF_8);
-		Request req = new Request("PUT", "/api/users/123", null, "application/json", bodyBytes);
-		WebContext ctx = new WebContext(req);
-
-		Object result = router.route(ctx);
-		assertEquals("updated:123:Bob", result);
-	}
-
-	@Test
-	void testDeleteRouteWithPathParam() {
-		Request req = new Request("DELETE", "/api/users/123", null, null, null);
-		WebContext ctx = new WebContext(req);
-
-		Object result = router.route(ctx);
-		assertEquals("deleted:123", result);
-	}
-
-	@Test
-	void testGetRouteWithMiddleware() {
-		Request req = new Request("GET", "/api/users/secured", null, null, null);
-		WebContext ctx = new WebContext(req);
-
-		Object result = router.route(ctx);
-		assertEquals("[secured] secret", result);
+	static Stream<Arguments> routeTestCases() {
+		return Stream.of(
+				Arguments.of("GET", "/api/users/456", null, "user:456"),
+				Arguments.of("POST", "/api/users", "{\"name\":\"Alice\"}", "created:Alice"),
+				Arguments.of("PUT", "/api/users/123", "{\"name\":\"Bob\"}", "updated:123:Bob"),
+				Arguments.of("DELETE", "/api/users/123", null, "deleted:123"),
+				Arguments.of("GET", "/api/users/secured", null, "[secured] secret"));
 	}
 
 	@Test
 	void testExceptionHandlerIsTriggeredAndResolved() {
 		Request req = new Request("GET", "/api/users/error", null, null, null);
-		WebContext ctx = new WebContext(req);
+		HttpContext ctx = new HttpContext(req);
 
 		try {
 			router.route(ctx);

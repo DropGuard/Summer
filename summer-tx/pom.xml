@@ -27,6 +27,13 @@
             <artifactId>summer-aop</artifactId>
         </dependency>
 
+        <!-- Summer Runtime (for RuntimeMethodMetadata in tests) -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-runtime</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- HikariCP for connection pooling -->
         <dependency>
             <groupId>com.zaxxer</groupId>

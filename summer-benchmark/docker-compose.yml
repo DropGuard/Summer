@@ -1,6 +1,6 @@
 services:
   spring-boot:
-    image: eclipse-temurin:25-jre-alpine
+    image: eclipse-temurin:26-jre-alpine
     command: java --enable-preview -XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:+AlwaysPreTouch -jar /app/spring-boot-baseline-1.0.0-SNAPSHOT.jar
     volumes:
       - ./benchmark-spring-boot/target:/app
@@ -37,7 +37,7 @@ services:
         condition: service_healthy
 
   summer:
-    image: eclipse-temurin:25-jre-alpine
+    image: eclipse-temurin:26-jre-alpine
     command: java --enable-preview -XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:+AlwaysPreTouch -jar /app/benchmark-summer-0.1.0.jar
     volumes:
       - ./benchmark-summer/target:/app

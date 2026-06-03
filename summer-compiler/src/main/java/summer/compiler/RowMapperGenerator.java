@@ -31,29 +31,7 @@ final class RowMapperGenerator {
 
 		if (rowModelElement.getKind() == ElementKind.RECORD) {
 			List<? extends RecordComponentElement> recordComponents = rowModelElement.getRecordComponents();
-			StringBuilder args = new StringBuilder();
-
-			for (RecordComponentElement comp : recordComponents) {
-				if (args.length() > 0)
-					args.append(", ");
-				String name = comp.getSimpleName().toString();
-				String type = comp.asType().toString();
-
-				if (type.equals("int") || type.equals("java.lang.Integer")) {
-					args.append("rs.getInt(\"").append(name).append("\")");
-				} else if (type.equals("long") || type.equals("java.lang.Long")) {
-					args.append("rs.getLong(\"").append(name).append("\")");
-				} else if (type.equals("double") || type.equals("java.lang.Double")) {
-					args.append("rs.getDouble(\"").append(name).append("\")");
-				} else if (type.equals("boolean") || type.equals("java.lang.Boolean")) {
-					args.append("rs.getBoolean(\"").append(name).append("\")");
-				} else if (type.equals("java.lang.String")) {
-					args.append("rs.getString(\"").append(name).append("\")");
-				} else {
-					args.append("(").append(type).append(") rs.getObject(\"").append(name).append("\")");
-				}
-			}
-			mapRowMethod.addStatement("return new $T(" + args.toString() + ")", rowModelClass);
+			mapRowMethod.addStatement("return new $T(" + buildRecordArgs(recordComponents) + ")", rowModelClass);
 		} else {
 			processingEnv.getMessager().printMessage(Diagnostic.Kind.ERROR,
 					"@RowModel is currently only supported on Java Records", rowModelElement);
@@ -68,6 +46,34 @@ final class RowMapperGenerator {
 			return true;
 		} catch (IOException e) {
 			return false;
+		}
+	}
+
+	private static String buildRecordArgs(List<? extends RecordComponentElement> recordComponents) {
+		StringBuilder args = new StringBuilder();
+		for (RecordComponentElement comp : recordComponents) {
+			if (args.length() > 0)
+				args.append(", ");
+			String name = comp.getSimpleName().toString();
+			String type = comp.asType().toString();
+			args.append(mapColumnReader(type, name));
+		}
+		return args.toString();
+	}
+
+	private static String mapColumnReader(String type, String name) {
+		if (type.equals("int") || type.equals("java.lang.Integer")) {
+			return "rs.getInt(\"" + name + "\")";
+		} else if (type.equals("long") || type.equals("java.lang.Long")) {
+			return "rs.getLong(\"" + name + "\")";
+		} else if (type.equals("double") || type.equals("java.lang.Double")) {
+			return "rs.getDouble(\"" + name + "\")";
+		} else if (type.equals("boolean") || type.equals("java.lang.Boolean")) {
+			return "rs.getBoolean(\"" + name + "\")";
+		} else if (type.equals("java.lang.String")) {
+			return "rs.getString(\"" + name + "\")";
+		} else {
+			return "(" + type + ") rs.getObject(\"" + name + "\")";
 		}
 	}
 }

@@ -1,5 +1,11 @@
 package summer.web.server;
 
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -10,16 +16,12 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import summer.core.ApplicationContext;
-import summer.validation.BodyValidator;
 import summer.web.BodyConverter;
+import summer.web.HttpRouter;
 import summer.web.JsonBodyConverter;
-import summer.web.Router;
 import summer.web.ServerConfig;
+import summer.web.WsRouter;
 import summer.web.annotation.GlobalMiddleware;
 import summer.web.middleware.Middleware;
 
@@ -27,9 +29,9 @@ public class NettyHttpServer {
 	private static final Logger log = LoggerFactory.getLogger(NettyHttpServer.class);
 
 	private final ServerConfig config;
-	private final Router router;
+	private final HttpRouter httpRouter;
+	private final WsRouter wsRouter;
 	private final List<Middleware> middlewares;
-	private final BodyValidator validator;
 	private final BodyConverter jsonConverter;
 
 	private EventLoopGroup bossGroup;
@@ -38,12 +40,12 @@ public class NettyHttpServer {
 
 	private final AtomicInteger activeConnections = new AtomicInteger(0);
 
-	public NettyHttpServer(ServerConfig config, Router router, List<Middleware> middlewares, BodyValidator validator,
-			BodyConverter jsonConverter) {
+	public NettyHttpServer(ServerConfig config, HttpRouter httpRouter, WsRouter wsRouter,
+			List<Middleware> middlewares, BodyConverter jsonConverter) {
 		this.config = config;
-		this.router = router;
+		this.httpRouter = httpRouter;
+		this.wsRouter = wsRouter;
 		this.middlewares = middlewares;
-		this.validator = validator;
 		this.jsonConverter = jsonConverter;
 	}
 
@@ -52,15 +54,16 @@ public class NettyHttpServer {
 	 * context.
 	 */
 	public static NettyHttpServer create(ApplicationContext context, ServerConfig config) {
-		List<Middleware> middlewares = context.getBeansOfType(Middleware.class).stream()
+		List<Middleware> middlewares = context.getBeans(Middleware.class).stream()
 				.filter(m -> m.getClass().isAnnotationPresent(GlobalMiddleware.class)).toList();
 		BodyConverter jsonConverter = findOptionalBean(context, BodyConverter.class);
 		if (jsonConverter == null) {
 			jsonConverter = new JsonBodyConverter();
 		}
-		BodyValidator validator = findOptionalBean(context, BodyValidator.class);
 
-		return new NettyHttpServer(config, context.getBean(Router.class), middlewares, validator, jsonConverter);
+		HttpRouter httpRouter = context.getBean(HttpRouter.class);
+		WsRouter wsRouter = context.getBean(WsRouter.class);
+		return new NettyHttpServer(config, httpRouter, wsRouter, middlewares, jsonConverter);
 	}
 
 	private static <T> T findOptionalBean(ApplicationContext context, Class<T> type) {
@@ -96,8 +99,9 @@ public class NettyHttpServer {
 							ch.pipeline().addLast(new HttpServerCodec())
 									.addLast(new HttpObjectAggregator(config.maxBodySize())) // Combine HTTP parts into
 																								// FullHttpRequest
-									.addLast(new NettyHttpServerHandler(router, middlewares, validator, jsonConverter,
-											NettyHttpServer.this, config));
+									.addLast(
+											new NettyHttpServerHandler(httpRouter, wsRouter, middlewares, jsonConverter,
+													NettyHttpServer.this, config));
 						}
 					}).option(ChannelOption.SO_BACKLOG, 1024).childOption(ChannelOption.TCP_NODELAY, true)
 					.childOption(ChannelOption.SO_KEEPALIVE, true);

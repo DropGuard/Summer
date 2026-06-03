@@ -42,6 +42,9 @@ public class SummerExtension implements BeforeAllCallback, AfterAllCallback, Par
 	public Object resolveParameter(ParameterContext parameterContext, ExtensionContext extensionContext)
 			throws ParameterResolutionException {
 		ApplicationContext context = getContext(extensionContext);
+		if (context == null) {
+			throw new ParameterResolutionException("No Summer ApplicationContext found in test hierarchy");
+		}
 		Class<?> paramType = parameterContext.getParameter().getType();
 
 		try {

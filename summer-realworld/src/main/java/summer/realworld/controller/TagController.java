@@ -4,10 +4,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
 import summer.realworld.model.Article;
 import summer.realworld.service.ArticleService;
+import summer.web.HttpContext;
 import summer.web.HttpStatus;
-import summer.web.WebContext;
 import summer.web.annotation.Get;
 import summer.web.annotation.RestController;
 
@@ -20,7 +21,7 @@ public class TagController {
 	}
 
 	@Get("/tags")
-	public void getTags(WebContext ctx) {
+	public void getTags(HttpContext ctx) {
 		List<Article> articles = articleService.findAll();
 		Set<String> tags = articles.stream().filter(article -> article.getTagList() != null)
 				.flatMap(article -> article.getTagList().stream()).collect(Collectors.toSet());

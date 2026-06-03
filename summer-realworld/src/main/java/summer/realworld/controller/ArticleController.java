@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+
 import summer.realworld.dto.ArticleDtos;
 import summer.realworld.model.Article;
 import summer.realworld.model.User;
@@ -17,8 +18,8 @@ import summer.realworld.service.ArticleService;
 import summer.realworld.service.UserService;
 import summer.realworld.util.Errors;
 import summer.realworld.util.JwtUtil;
+import summer.web.HttpContext;
 import summer.web.HttpStatus;
-import summer.web.WebContext;
 import summer.web.annotation.Delete;
 import summer.web.annotation.Get;
 import summer.web.annotation.PathParam;
@@ -42,7 +43,7 @@ public class ArticleController {
 	}
 
 	@Get("/articles")
-	public void listArticles(WebContext ctx) {
+	public void listArticles(HttpContext ctx) {
 		String tag = ctx.queryParam("tag");
 		String author = ctx.queryParam("author");
 		String favorited = ctx.queryParam("favorited");
@@ -84,7 +85,7 @@ public class ArticleController {
 	}
 
 	@Get("/articles/feed")
-	public void feedArticles(WebContext ctx) {
+	public void feedArticles(HttpContext ctx) {
 		Long currentUserId = getCurrentUserId(ctx);
 		if (currentUserId == null) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
@@ -110,7 +111,7 @@ public class ArticleController {
 	}
 
 	@Get("/articles/{slug}")
-	public void getArticle(WebContext ctx, @PathParam("slug") String slug) {
+	public void getArticle(HttpContext ctx, @PathParam("slug") String slug) {
 		Optional<Article> articleOpt = articleService.findBySlug(slug);
 		if (articleOpt.isEmpty()) {
 			ctx.json(HttpStatus.NOT_FOUND, Errors.articleNotFound());
@@ -122,7 +123,7 @@ public class ArticleController {
 	}
 
 	@Post("/articles")
-	public void createArticle(WebContext ctx) {
+	public void createArticle(HttpContext ctx) {
 		Long currentUserId = getCurrentUserId(ctx);
 		if (currentUserId == null) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
@@ -141,7 +142,7 @@ public class ArticleController {
 	}
 
 	@Put("/articles/{slug}")
-	public void updateArticle(WebContext ctx, @PathParam("slug") String slug) {
+	public void updateArticle(HttpContext ctx, @PathParam("slug") String slug) {
 		Long currentUserId = getCurrentUserId(ctx);
 		if (currentUserId == null) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
@@ -179,7 +180,7 @@ public class ArticleController {
 	}
 
 	@Delete("/articles/{slug}")
-	public void deleteArticle(WebContext ctx, @PathParam("slug") String slug) {
+	public void deleteArticle(HttpContext ctx, @PathParam("slug") String slug) {
 		Long currentUserId = getCurrentUserId(ctx);
 		if (currentUserId == null) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
@@ -203,7 +204,7 @@ public class ArticleController {
 	}
 
 	@Post("/articles/{slug}/favorite")
-	public void favoriteArticle(WebContext ctx, @PathParam("slug") String slug) {
+	public void favoriteArticle(HttpContext ctx, @PathParam("slug") String slug) {
 		Long currentUserId = getCurrentUserId(ctx);
 		if (currentUserId == null) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
@@ -221,7 +222,7 @@ public class ArticleController {
 	}
 
 	@Delete("/articles/{slug}/favorite")
-	public void unfavoriteArticle(WebContext ctx, @PathParam("slug") String slug) {
+	public void unfavoriteArticle(HttpContext ctx, @PathParam("slug") String slug) {
 		Long currentUserId = getCurrentUserId(ctx);
 		if (currentUserId == null) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
@@ -240,8 +241,9 @@ public class ArticleController {
 
 	/**
 	 * @param includeBody
-	 *            true for single article (includes body field), false for list
-	 *            (excludes body)
+	 *                    true for single article (includes body field), false for
+	 *                    list
+	 *                    (excludes body)
 	 */
 	private Map<String, Object> createArticleResponse(Article article, Long currentUserId, boolean includeBody) {
 		boolean favorited = currentUserId != null && favoriteRepository.isFavorited(currentUserId, article.getId());
@@ -280,7 +282,7 @@ public class ArticleController {
 		return authorResponse;
 	}
 
-	private Long getCurrentUserId(WebContext ctx) {
+	private Long getCurrentUserId(HttpContext ctx) {
 		String authHeader = ctx.header("Authorization");
 		if (authHeader != null && authHeader.startsWith("Token ")) {
 			try {
@@ -293,7 +295,7 @@ public class ArticleController {
 	}
 
 	@SuppressWarnings("unchecked")
-	private Map<String, Object> parseRawArticleBody(WebContext ctx) {
+	private Map<String, Object> parseRawArticleBody(HttpContext ctx) {
 		try {
 			byte[] raw = ctx.request().getBody();
 			if (raw == null || raw.length == 0)

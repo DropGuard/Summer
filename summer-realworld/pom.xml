@@ -26,7 +26,7 @@
         </dependency>
         <dependency>
             <groupId>summer</groupId>
-            <artifactId>summer-webmvc</artifactId>
+            <artifactId>summer-boot</artifactId>
         </dependency>
         <dependency>
             <groupId>summer</groupId>
@@ -35,11 +35,6 @@
         <dependency>
             <groupId>summer</groupId>
             <artifactId>summer-tx</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-validation-hv</artifactId>
-            <version>${project.version}</version>
         </dependency>
 
         <!-- H2 Database -->

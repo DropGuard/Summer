@@ -14,6 +14,8 @@ import javax.lang.model.type.TypeMirror;
  */
 final class AnnotationHelper {
 
+	private static final String VALUE = "value";
+
 	private AnnotationHelper() {
 	}
 
@@ -41,7 +43,7 @@ final class AnnotationHelper {
 				Map<? extends ExecutableElement, ? extends AnnotationValue> values = processingEnv.getElementUtils()
 						.getElementValuesWithDefaults(am);
 				for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry : values.entrySet()) {
-					if (entry.getKey().getSimpleName().toString().equals("value")) {
+					if (entry.getKey().getSimpleName().toString().equals(VALUE)) {
 						return entry.getValue().getValue().toString();
 					}
 				}
@@ -52,7 +54,7 @@ final class AnnotationHelper {
 
 	static Object getAnnotationClassValue(AnnotationMirror mirror, ProcessingEnvironment processingEnv) {
 		for (var entry : processingEnv.getElementUtils().getElementValuesWithDefaults(mirror).entrySet()) {
-			if (entry.getKey().getSimpleName().toString().equals("value")) {
+			if (entry.getKey().getSimpleName().toString().equals(VALUE)) {
 				return entry.getValue().getValue();
 			}
 		}
@@ -67,25 +69,28 @@ final class AnnotationHelper {
 				Map<? extends ExecutableElement, ? extends AnnotationValue> values = processingEnv.getElementUtils()
 						.getElementValuesWithDefaults(am);
 				for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry : values.entrySet()) {
-					if (entry.getKey().getSimpleName().toString().equals("value")) {
-						Object val = entry.getValue().getValue();
-						if (val instanceof List<?> list) {
-							for (Object item : list) {
-								if (item instanceof AnnotationValue av) {
-									Object innerVal = av.getValue();
-									if (innerVal instanceof TypeMirror tm) {
-										result.add(tm);
-									}
-								}
-							}
-						} else if (val instanceof TypeMirror tm) {
-							result.add(tm);
-						}
+					if (entry.getKey().getSimpleName().toString().equals(VALUE)) {
+						extractTypeMirrors(entry.getValue().getValue(), result);
 					}
 				}
 			}
 		}
 		return result;
+	}
+
+	private static void extractTypeMirrors(Object val, List<TypeMirror> result) {
+		if (val instanceof List<?> list) {
+			for (Object item : list) {
+				if (item instanceof AnnotationValue av) {
+					Object innerVal = av.getValue();
+					if (innerVal instanceof TypeMirror tm) {
+						result.add(tm);
+					}
+				}
+			}
+		} else if (val instanceof TypeMirror tm) {
+			result.add(tm);
+		}
 	}
 
 	static List<String> getAnnotationStringArrayValue(AnnotationMirror am, String paramName,
@@ -95,18 +100,21 @@ final class AnnotationHelper {
 				.getElementValuesWithDefaults(am);
 		for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry : values.entrySet()) {
 			if (entry.getKey().getSimpleName().toString().equals(paramName)) {
-				Object val = entry.getValue().getValue();
-				if (val instanceof List<?> list) {
-					for (Object item : list) {
-						if (item instanceof AnnotationValue av) {
-							result.add(av.getValue().toString().replace("\"", ""));
-						}
-					}
-				} else if (val instanceof String s) {
-					result.add(s);
-				}
+				extractStrings(entry.getValue().getValue(), result);
 			}
 		}
 		return result;
+	}
+
+	private static void extractStrings(Object val, List<String> result) {
+		if (val instanceof List<?> list) {
+			for (Object item : list) {
+				if (item instanceof AnnotationValue av) {
+					result.add(av.getValue().toString().replace("\"", ""));
+				}
+			}
+		} else if (val instanceof String s) {
+			result.add(s);
+		}
 	}
 }

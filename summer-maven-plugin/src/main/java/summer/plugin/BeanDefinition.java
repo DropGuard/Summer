@@ -38,6 +38,9 @@ public final class BeanDefinition {
 	boolean needsProxy;
 	final List<BeanDefinition> interceptors = new ArrayList<>();
 
+	// Routes (for @RestController beans)
+	public final List<RouteInfo> routes = new ArrayList<>();
+
 	// Lifecycle
 	public boolean isAutoCloseable;
 

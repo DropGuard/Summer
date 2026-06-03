@@ -8,7 +8,9 @@ import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import summer.core.reflect.ClassInstantiator;
 import summer.data.jdbc.JdbcTemplate;
+import summer.data.jdbc.RowMapperRegistry;
 import summer.tck.data.jdbc.dummy.User;
 
 public abstract class AbstractJdbcTemplateTCK {
@@ -23,7 +25,8 @@ public abstract class AbstractJdbcTemplateTCK {
 		config.setUsername("sa");
 		config.setPassword("");
 		dataSource = new HikariDataSource(config);
-		jdbcTemplate = new JdbcTemplate(dataSource);
+		ClassInstantiator instantiator = className -> Class.forName(className).getDeclaredConstructor().newInstance();
+		jdbcTemplate = new JdbcTemplate(dataSource, new RowMapperRegistry(instantiator));
 
 		jdbcTemplate.update("CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY, name VARCHAR(255))");
 		jdbcTemplate.update("TRUNCATE TABLE users");

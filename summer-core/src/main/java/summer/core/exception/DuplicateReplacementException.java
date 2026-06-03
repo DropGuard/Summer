@@ -1,7 +1,6 @@
 package summer.core.exception;
 
 import summer.core.ErrorCode;
-import summer.core.SummerException;
 
 /**
  * Thrown when multiple {@code @Replaces} annotations target the same

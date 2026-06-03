@@ -5,7 +5,7 @@ import summer.core.ErrorCode;
 /**
  * Thrown when a circular dependency is detected between beans.
  */
-public class CircularDependencyException extends BeansException {
+public class CircularDependencyException extends SummerException {
 	public CircularDependencyException(ErrorCode errorCode, String message) {
 		super(errorCode, message);
 	}

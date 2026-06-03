@@ -1,7 +1,7 @@
 package summer.tck.aop;
 
 import summer.core.ApplicationContext;
-import summer.scanner.runtime.RuntimeDiEngine;
+import summer.runtime.RuntimeDiEngine;
 import summer.tck.aop.dummy.GreeterService;
 
 /**

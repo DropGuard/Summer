@@ -3,7 +3,6 @@ package summer.grpc.client;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.AbstractStub;
-import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -11,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import summer.core.Component;
 import summer.core.ErrorCode;
+import summer.core.reflect.MethodInvoker;
 import summer.grpc.exception.SummerGrpcException;
 
 /**
@@ -23,6 +23,11 @@ public class GrpcChannelManager implements AutoCloseable {
 	private static final Logger log = LoggerFactory.getLogger(GrpcChannelManager.class);
 
 	private final Map<String, ManagedChannel> channels = new ConcurrentHashMap<>();
+	private final MethodInvoker methodInvoker;
+
+	public GrpcChannelManager(MethodInvoker methodInvoker) {
+		this.methodInvoker = methodInvoker;
+	}
 
 	/**
 	 * Gets or creates a ManagedChannel for the specified target.
@@ -49,8 +54,8 @@ public class GrpcChannelManager implements AutoCloseable {
 	public <T extends AbstractStub<T>> T getBlockingStub(Class<?> grpcClass, String target) {
 		ManagedChannel channel = getChannel(target);
 		try {
-			Method newStubMethod = grpcClass.getMethod("newBlockingStub", io.grpc.Channel.class);
-			return (T) newStubMethod.invoke(null, channel);
+			return (T) methodInvoker.invokeStatic(grpcClass, "newBlockingStub",
+					new Class<?>[] { io.grpc.Channel.class }, channel);
 		} catch (Exception e) {
 			throw new SummerGrpcException(ErrorCode.GRPC_ERROR,
 					"Failed to create blocking stub for " + grpcClass.getName(), e);

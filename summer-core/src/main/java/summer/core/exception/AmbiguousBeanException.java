@@ -6,7 +6,7 @@ import summer.core.ErrorCode;
  * Thrown when multiple beans match a required dependency type, causing
  * ambiguity.
  */
-public class AmbiguousBeanException extends BeansException {
+public class AmbiguousBeanException extends SummerException {
 	public AmbiguousBeanException(ErrorCode errorCode, String message) {
 		super(errorCode, message);
 	}

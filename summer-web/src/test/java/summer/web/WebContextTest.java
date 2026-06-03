@@ -1,21 +1,28 @@
 package summer.web;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
 import java.util.Map;
+
 import org.junit.jupiter.api.Test;
+
 import summer.web.exception.SummerWebException;
 
 /**
- * Tests for {@link WebContext}.
+ * Tests for {@link HttpContext}.
  */
 class WebContextTest {
 
 	@Test
 	void shouldCreateWebContext() {
 		Request request = createRequest("GET", "/test");
-		WebContext ctx = new WebContext(request);
+		HttpContext ctx = new HttpContext(request);
 
 		assertSame(request, ctx.request());
 		assertNull(ctx.statusCode());
@@ -24,7 +31,7 @@ class WebContextTest {
 	@Test
 	void shouldGetPathFromRequest() {
 		Request request = createRequest("GET", "/test/path");
-		WebContext ctx = new WebContext(request);
+		HttpContext ctx = new HttpContext(request);
 
 		assertEquals("/test/path", ctx.path());
 	}
@@ -32,7 +39,7 @@ class WebContextTest {
 	@Test
 	void shouldGetMethodFromRequest() {
 		Request request = createRequest("GET", "/test");
-		WebContext ctx = new WebContext(request);
+		HttpContext ctx = new HttpContext(request);
 
 		assertEquals("GET", ctx.method());
 	}
@@ -41,7 +48,7 @@ class WebContextTest {
 	void shouldGetPathParam() {
 		Request request = createRequest("GET", "/users/123");
 		request.setAttribute("id", "123");
-		WebContext ctx = new WebContext(request);
+		HttpContext ctx = new HttpContext(request);
 
 		assertEquals("123", ctx.pathParam("id"));
 	}
@@ -49,7 +56,7 @@ class WebContextTest {
 	@Test
 	void shouldGetQueryParam() {
 		Request request = createRequestWithQuery("GET", "/test", "name=test");
-		WebContext ctx = new WebContext(request);
+		HttpContext ctx = new HttpContext(request);
 
 		assertEquals("test", ctx.queryParam("name"));
 	}
@@ -59,7 +66,7 @@ class WebContextTest {
 		Map<String, String> headers = new HashMap<>();
 		headers.put("content-type", "application/json");
 		Request request = createRequest("GET", "/test", headers);
-		WebContext ctx = new WebContext(request);
+		HttpContext ctx = new HttpContext(request);
 
 		assertEquals("application/json", ctx.header("Content-Type"));
 	}
@@ -67,9 +74,9 @@ class WebContextTest {
 	@Test
 	void shouldSetStatusCode() {
 		Request request = createRequest("GET", "/test");
-		WebContext ctx = new WebContext(request);
+		HttpContext ctx = new HttpContext(request);
 
-		WebContext result = ctx.status(HttpStatus.CREATED);
+		HttpContext result = ctx.status(HttpStatus.CREATED);
 		assertSame(ctx, result);
 		assertEquals(HttpStatus.CREATED, ctx.statusCode());
 	}
@@ -77,9 +84,9 @@ class WebContextTest {
 	@Test
 	void shouldSetHeader() {
 		Request request = createRequest("GET", "/test");
-		WebContext ctx = new WebContext(request);
+		HttpContext ctx = new HttpContext(request);
 
-		WebContext result = ctx.setHeader("X-Custom", "value");
+		HttpContext result = ctx.setHeader("X-Custom", "value");
 		assertSame(ctx, result);
 		assertEquals("value", ctx.headers().get("X-Custom"));
 	}
@@ -87,7 +94,7 @@ class WebContextTest {
 	@Test
 	void shouldUseDefaultJsonConverterWhenNoneProvided() {
 		Request request = createRequest("GET", "/test");
-		WebContext ctx = new WebContext(request);
+		HttpContext ctx = new HttpContext(request);
 
 		// Should use default JsonBodyConverter
 		ctx.json(HttpStatus.OK, "test");
@@ -119,7 +126,7 @@ class WebContextTest {
 				return "application/json";
 			}
 		};
-		WebContext ctx = new WebContext(request, null, customConverter);
+		HttpContext ctx = new HttpContext(request, customConverter);
 
 		ctx.json(HttpStatus.OK, "test");
 		assertSame(customConverter, ctx.converter());
@@ -130,7 +137,7 @@ class WebContextTest {
 		Map<String, String> headers = new HashMap<>();
 		headers.put("content-type", "application/json");
 		Request request = createRequest("POST", "/test", headers);
-		WebContext ctx = new WebContext(request);
+		HttpContext ctx = new HttpContext(request);
 
 		assertThrows(SummerWebException.class, () -> ctx.body(NotARecord.class));
 	}
@@ -138,7 +145,7 @@ class WebContextTest {
 	@Test
 	void shouldSendOkResponse() {
 		Request request = createRequest("GET", "/test");
-		WebContext ctx = new WebContext(request);
+		HttpContext ctx = new HttpContext(request);
 
 		ctx.ok("test result");
 
@@ -148,7 +155,7 @@ class WebContextTest {
 	@Test
 	void shouldSendJsonResponse() {
 		Request request = createRequest("GET", "/test");
-		WebContext ctx = new WebContext(request);
+		HttpContext ctx = new HttpContext(request);
 
 		ctx.json(HttpStatus.NOT_FOUND, "Not Found");
 
@@ -158,7 +165,7 @@ class WebContextTest {
 	@Test
 	void shouldSendErrorResponse() {
 		Request request = createRequest("GET", "/test");
-		WebContext ctx = new WebContext(request);
+		HttpContext ctx = new HttpContext(request);
 
 		Exception error = new RuntimeException("Test error");
 		ctx.error(error);
@@ -169,7 +176,7 @@ class WebContextTest {
 	@Test
 	void shouldSendWithCustomStatusCode() {
 		Request request = createRequest("POST", "/test");
-		WebContext ctx = new WebContext(request);
+		HttpContext ctx = new HttpContext(request);
 
 		ctx.json(HttpStatus.CREATED, "created");
 

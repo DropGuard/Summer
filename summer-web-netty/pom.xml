@@ -15,10 +15,15 @@
     <description>Netty HTTP server implementation for Summer framework</description>
 
     <dependencies>
-        <!-- Summer Web -->
+        <!-- Summer Web (interfaces) -->
         <dependency>
             <groupId>summer</groupId>
             <artifactId>summer-web</artifactId>
+        </dependency>
+        <!-- Summer Web HTTP (implementations) -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-web-http</artifactId>
         </dependency>
 
         <!-- Netty -->
@@ -36,6 +41,11 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-web-websocket</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

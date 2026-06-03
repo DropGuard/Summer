@@ -9,7 +9,7 @@ import java.lang.annotation.Target;
  * Test-purpose interceptor binding for verifying AOP behavior.
  */
 @InterceptorBinding
-@Target(ElementType.METHOD)
+@Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface TestIntercepted {
 }

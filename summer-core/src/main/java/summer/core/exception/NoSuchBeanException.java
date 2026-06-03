@@ -5,7 +5,7 @@ import summer.core.ErrorCode;
 /**
  * Thrown when a required bean could not be found in the application context.
  */
-public class NoSuchBeanException extends BeansException {
+public class NoSuchBeanException extends SummerException {
 	public NoSuchBeanException(ErrorCode errorCode, String message) {
 		super(errorCode, message);
 	}

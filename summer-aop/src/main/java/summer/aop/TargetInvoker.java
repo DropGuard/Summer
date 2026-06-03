@@ -2,7 +2,7 @@ package summer.aop;
 
 /**
  * Functional interface used to execute the target method without reflection.
- * This allows the AotInvocationContext to be 100% reflection-free during
+ * This allows the DefaultInvocationContext to be 100% reflection-free during
  * invocation.
  */
 @FunctionalInterface

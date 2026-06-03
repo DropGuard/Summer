@@ -1,7 +1,7 @@
 package summer.tck.web;
 
 import summer.core.ApplicationContext;
-import summer.scanner.runtime.RuntimeDiEngine;
+import summer.runtime.RuntimeDiEngine;
 import summer.tck.web.dummy.UserController;
 
 public class RuntimeWebRouteTest extends AbstractWebRouteTCK {

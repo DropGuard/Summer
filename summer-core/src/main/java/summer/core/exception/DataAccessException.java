@@ -5,7 +5,7 @@ import summer.core.ErrorCode;
 /**
  * Thrown when a database access operation fails.
  */
-public class DataAccessException extends SummerDataException {
+public class DataAccessException extends SummerException {
 	public DataAccessException(String message) {
 		super(ErrorCode.DATA_ACCESS_ERROR, message);
 	}

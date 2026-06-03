@@ -22,7 +22,7 @@
         </dependency>
         <dependency>
             <groupId>summer</groupId>
-            <artifactId>summer-webmvc</artifactId>
+            <artifactId>summer-boot</artifactId>
             <version>0.1.0</version>
         </dependency>
     </dependencies>

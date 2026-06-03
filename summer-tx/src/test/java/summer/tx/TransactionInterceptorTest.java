@@ -4,9 +4,10 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.lang.reflect.Method;
 import org.junit.jupiter.api.Test;
-import summer.aop.InvocationContext;
+import summer.aop.InterceptorChain;
+
 import summer.aop.MethodMetadata;
-import summer.aop.RuntimeMethodMetadata;
+import summer.runtime.RuntimeMethodMetadata;
 
 /**
  * Tests for {@link TransactionInterceptor}.
@@ -28,9 +29,9 @@ class TransactionInterceptorTest {
 
 		TestService target = new TestServiceImpl();
 		MethodMetadata methodMetadata = new RuntimeMethodMetadata(TestService.class.getMethod("transactionalMethod"));
-		InvocationContext context = new TestInvocationContext(target, methodMetadata, new Object[0]);
+		InterceptorChain chain = new TestInterceptorChain(target, methodMetadata, new Object[0]);
 
-		Object result = interceptor.intercept(context);
+		Object result = interceptor.intercept(chain);
 		assertEquals("result", result);
 	}
 
@@ -42,9 +43,9 @@ class TransactionInterceptorTest {
 		TestService target = new TestServiceImpl();
 		MethodMetadata methodMetadata = new RuntimeMethodMetadata(
 				TestService.class.getMethod("nonTransactionalMethod"));
-		InvocationContext context = new TestInvocationContext(target, methodMetadata, new Object[0]);
+		InterceptorChain chain = new TestInterceptorChain(target, methodMetadata, new Object[0]);
 
-		Object result = interceptor.intercept(context);
+		Object result = interceptor.intercept(chain);
 		assertEquals("result", result);
 	}
 
@@ -55,14 +56,14 @@ class TransactionInterceptorTest {
 
 		TestService target = new TestServiceImpl();
 		MethodMetadata methodMetadata = new RuntimeMethodMetadata(TestService.class.getMethod("transactionalMethod"));
-		InvocationContext context = new TestInvocationContext(target, methodMetadata, new Object[0]) {
+		InterceptorChain chain = new TestInterceptorChain(target, methodMetadata, new Object[0]) {
 			@Override
 			public Object proceed() throws Throwable {
 				throw new RuntimeException("Test exception");
 			}
 		};
 
-		assertThrows(RuntimeException.class, () -> interceptor.intercept(context));
+		assertThrows(RuntimeException.class, () -> interceptor.intercept(chain));
 	}
 
 	// Test interfaces and implementations
@@ -135,13 +136,13 @@ class TransactionInterceptorTest {
 		}
 	}
 
-	// Test InvocationContext implementation
-	private static class TestInvocationContext implements InvocationContext {
+	// Test InterceptorChain implementation
+	private static class TestInterceptorChain implements InterceptorChain {
 		private final Object target;
 		private final MethodMetadata methodMetadata;
 		private final Object[] arguments;
 
-		TestInvocationContext(Object target, MethodMetadata methodMetadata, Object[] arguments) {
+		TestInterceptorChain(Object target, MethodMetadata methodMetadata, Object[] arguments) {
 			this.target = target;
 			this.methodMetadata = methodMetadata;
 			this.arguments = arguments;

@@ -25,7 +25,7 @@ public class GrpcServerRunner implements ApplicationRunner, AutoCloseable {
 
 	@Override
 	public void run(ApplicationContext context) throws Exception {
-		List<BindableService> services = context.getBeansOfType(BindableService.class);
+		List<BindableService> services = context.getBeans(BindableService.class);
 
 		if (services.isEmpty()) {
 			return; // No gRPC services to expose

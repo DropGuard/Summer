@@ -21,7 +21,8 @@ public class JdbcTemplateTest {
 		config.setUsername("sa");
 		config.setPassword("");
 		dataSource = new HikariDataSource(config);
-		jdbcTemplate = new JdbcTemplate(dataSource);
+		RowMapperRegistry rowMapperRegistry = new RowMapperRegistry(className -> Class.forName(className).getDeclaredConstructor().newInstance());
+		jdbcTemplate = new JdbcTemplate(dataSource, rowMapperRegistry);
 
 		jdbcTemplate.update("CREATE TABLE IF NOT EXISTS test_users (id INT PRIMARY KEY, name VARCHAR(255))");
 		jdbcTemplate.update("TRUNCATE TABLE test_users");

@@ -25,45 +25,45 @@ final class WireMethodGenerator {
 		for (int i = 0; i < sortedBeans.size(); i++) {
 			BeanDefinition bean = sortedBeans.get(i);
 			ClassName beanClass = ClassName.bestGuess(bean.qualifiedName);
-			String var = bean.variableName;
+			String varName = bean.variableName;
 
 			if (i > 0) {
 				wire.addCode("\n");
 			}
 
 			switch (bean.kind) {
-				case COMPONENT, CONFIGURATION -> emitComponentInstantiation(wire, bean, beanClass, var);
-				case FACTORY_PRODUCT -> emitFactoryProductInstantiation(wire, bean, var);
+				case COMPONENT, CONFIGURATION -> emitComponentInstantiation(wire, bean, beanClass, varName);
+				case FACTORY_PRODUCT -> emitFactoryProductInstantiation(wire, bean, varName);
 			}
 
 			if (bean.needsProxy) {
-				wire.addStatement("singletons.put($T.class, $N)", beanClass, var + "_impl");
+				wire.addStatement("singletons.put($T.class, $N)", beanClass, varName + "_impl");
 			} else {
-				wire.addStatement("singletons.put($T.class, $N)", beanClass, var);
+				wire.addStatement("singletons.put($T.class, $N)", beanClass, varName);
 			}
 			for (String iface : bean.interfaceNames) {
-				wire.addStatement("singletons.putIfAbsent($T.class, $N)", context.parseTypeName(iface), var);
+				wire.addStatement("singletons.putIfAbsent($T.class, $N)", context.parseTypeName(iface), varName);
 			}
 
 			if (bean.isAutoCloseable) {
-				wire.addStatement("closeables.add($N)", var);
+				wire.addStatement("closeables.add($N)", varName);
 			}
 		}
 	}
 
 	private void emitComponentInstantiation(MethodSpec.Builder wire, BeanDefinition bean, ClassName beanClass,
-			String var) {
+			String varName) {
 		CodeBlock args = buildConstructorArgs(bean);
 
 		if (bean.needsProxy) {
-			String implVar = var + "_impl";
+			String implVar = varName + "_impl";
 			if (bean.constructorParamTypes.isEmpty()) {
 				wire.addStatement("$T $N = new $T()", beanClass, implVar, beanClass);
 			} else {
 				wire.addStatement("$T $N = new $T($L)", beanClass, implVar, beanClass, args);
 			}
 
-			String interceptorsListVar = var + "_interceptors";
+			String interceptorsListVar = varName + "_interceptors";
 			wire.addStatement("$T<$T> $N = new $T<>()", ClassName.get(List.class),
 					ClassName.get("summer.aop", "MethodInterceptor"), interceptorsListVar,
 					ClassName.get(ArrayList.class));
@@ -77,12 +77,12 @@ final class WireMethodGenerator {
 					? beanClass
 					: ClassName.bestGuess(bean.interfaceNames.get(0));
 			ClassName proxyClass = ClassName.get(beanClass.packageName(), beanClass.simpleName() + "$$AotProxy");
-			wire.addStatement("$T $N = new $T($N, $N)", proxyType, var, proxyClass, implVar, interceptorsListVar);
+			wire.addStatement("$T $N = new $T($N, $N)", proxyType, varName, proxyClass, implVar, interceptorsListVar);
 		} else {
 			if (bean.constructorParamTypes.isEmpty()) {
-				wire.addStatement("$T $N = new $T()", beanClass, var, beanClass);
+				wire.addStatement("$T $N = new $T()", beanClass, varName, beanClass);
 			} else {
-				wire.addStatement("$T $N = new $T($L)", beanClass, var, beanClass, args);
+				wire.addStatement("$T $N = new $T($L)", beanClass, varName, beanClass, args);
 			}
 		}
 	}
@@ -134,16 +134,16 @@ final class WireMethodGenerator {
 		return cb.build();
 	}
 
-	private void emitFactoryProductInstantiation(MethodSpec.Builder wire, BeanDefinition bean, String var) {
+	private void emitFactoryProductInstantiation(MethodSpec.Builder wire, BeanDefinition bean, String varName) {
 		ClassName producedClass = ClassName.bestGuess(bean.qualifiedName);
 		String configVar = bean.configBeanDefinition.variableName;
 		String methodName = bean.producerMethodName;
 		CodeBlock args = buildArgs(bean.resolvedDependencies);
 
 		if (bean.producerParamTypes.isEmpty()) {
-			wire.addStatement("$T $N = $N.$N()", producedClass, var, configVar, methodName);
+			wire.addStatement("$T $N = $N.$N()", producedClass, varName, configVar, methodName);
 		} else {
-			wire.addStatement("$T $N = $N.$N($L)", producedClass, var, configVar, methodName, args);
+			wire.addStatement("$T $N = $N.$N($L)", producedClass, varName, configVar, methodName, args);
 		}
 	}
 

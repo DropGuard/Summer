@@ -16,17 +16,17 @@ This module contains the strict, containerized load testing suite for the Summer
 To ensure an absolutely fair and production-like comparison, this benchmark suite runs completely isolated inside Docker containers rather than on bare metal.
 
 **Strict Constraints applied via `docker-compose`:**
-1. **Identical Base Image**: Both frameworks use `eclipse-temurin:25-jre-alpine` (a highly stripped-down Linux environment using `musl` libc).
+1. **Identical Base Image**: Both frameworks use `eclipse-temurin:26-jre-alpine` (a highly stripped-down Linux environment using `musl` libc).
 2. **Resource Limits**: Both containers are strictly hard-capped to **2 CPUs** and **512MB RAM**. This deliberately simulates a typical constrained Kubernetes Pod, testing how each framework handles garbage collection pressure and thread contention under limits.
 3. **Variable Control**:
-    - Both use **Virtual Threads** (Java 25).
+    - Both use **Virtual Threads** (Java 26).
     - Both use **Jackson** for JSON serialization.
     - No external I/O (Database/Redis) is used; state is stored in a `ConcurrentHashMap` to strictly measure *framework overhead* rather than database speed.
 
 ## Running the Benchmark
 
 ### 1. Requirements
-- Java 25 (installed on the host for compilation)
+- Java 26 (installed on the host for compilation)
 - Maven
 - Docker & Docker Compose
 - Python 3

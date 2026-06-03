@@ -7,6 +7,9 @@ import summer.web.Request;
 
 public class NettyRequestAdapter {
 
+	private NettyRequestAdapter() {
+	}
+
 	public static Request adapt(FullHttpRequest nettyReq) {
 		String uri = nettyReq.uri();
 		String path = uri;

@@ -21,13 +21,6 @@
             <artifactId>summer-web</artifactId>
         </dependency>
 
-        <!-- Summer Web Netty (for WebSocket implementation) -->
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-web-netty</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
         <!-- Testing -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

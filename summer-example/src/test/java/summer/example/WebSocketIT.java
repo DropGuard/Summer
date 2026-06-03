@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import summer.webmvc.SummerApplication;
+import summer.boot.SummerApplication;
 
 public class WebSocketIT {
 

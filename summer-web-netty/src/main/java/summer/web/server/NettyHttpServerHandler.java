@@ -1,40 +1,49 @@
 package summer.web.server;
 
+import java.util.List;
+import java.util.Map;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.handler.codec.http.*;
-import java.util.List;
-import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import summer.validation.BodyValidator;
+import io.netty.handler.codec.http.DefaultFullHttpResponse;
+import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.FullHttpResponse;
+import io.netty.handler.codec.http.HttpHeaderNames;
+import io.netty.handler.codec.http.HttpHeaderValues;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.netty.handler.codec.http.HttpUtil;
+import io.netty.handler.codec.http.HttpVersion;
 import summer.web.BodyConverter;
 import summer.web.Handler;
+import summer.web.HttpContext;
 import summer.web.HttpStatus;
+import summer.web.HttpRouter;
 import summer.web.Request;
-import summer.web.Router;
 import summer.web.ServerConfig;
-import summer.web.WebContext;
+import summer.web.WsRouter;
 import summer.web.middleware.Middleware;
 
 public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 
 	private static final Logger log = LoggerFactory.getLogger(NettyHttpServerHandler.class);
 
-	private final Router router;
+	private final HttpRouter httpRouter;
+	private final WsRouter wsRouter;
 	private final List<Middleware> middlewares;
-	private final BodyValidator validator;
 	private final BodyConverter jsonConverter;
 	private final NettyHttpServer server;
 	private final ServerConfig config;
 
-	public NettyHttpServerHandler(Router router, List<Middleware> middlewares, BodyValidator validator,
+	public NettyHttpServerHandler(HttpRouter httpRouter, WsRouter wsRouter, List<Middleware> middlewares,
 			BodyConverter jsonConverter, NettyHttpServer server, ServerConfig config) {
-		this.router = router;
+		this.httpRouter = httpRouter;
+		this.wsRouter = wsRouter;
 		this.middlewares = middlewares;
-		this.validator = validator;
 		this.jsonConverter = jsonConverter;
 		this.server = server;
 		this.config = config;
@@ -65,7 +74,7 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 				return;
 			}
 
-			Router.WsMatch wsMatch = router.routeWs(path);
+			WsRouter.WsMatch wsMatch = wsRouter.routeWs(path);
 			if (wsMatch != null) {
 				// It's a valid WebSocket route. Set up the context.
 				NettyWebSocketContext wsContext = new NettyWebSocketContext(ctx, wsMatch.pathParams);
@@ -119,7 +128,7 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 	private void processRequest(ChannelHandlerContext ctx, FullHttpRequest nettyReq, boolean keepAlive) {
 		try {
 			Request request = NettyRequestAdapter.adapt(nettyReq);
-			WebContext webCtx = new WebContext(request, validator, jsonConverter);
+			HttpContext webCtx = new HttpContext(request, jsonConverter);
 
 			Handler handler = createHandlerChain();
 			handler.handle(webCtx);
@@ -131,7 +140,7 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 			sendResponse(ctx, webCtx, keepAlive);
 
 		} catch (Exception e) {
-			WebContext errCtx = new WebContext(NettyRequestAdapter.adapt(nettyReq), validator, jsonConverter);
+			HttpContext errCtx = new HttpContext(NettyRequestAdapter.adapt(nettyReq), jsonConverter);
 			errCtx.error(e);
 			sendResponse(ctx, errCtx, keepAlive);
 		}
@@ -140,7 +149,7 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 	private Handler createHandlerChain() {
 		Handler dispatchHandler = (c) -> {
 			try {
-				router.route(c);
+				httpRouter.route(c);
 			} catch (Exception e) {
 				c.error(e);
 			}
@@ -155,32 +164,15 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 		return handler;
 	}
 
-	private void sendResponse(ChannelHandlerContext ctx, WebContext webCtx, boolean keepAlive) {
+	private void sendResponse(ChannelHandlerContext ctx, HttpContext webCtx, boolean keepAlive) {
 		HttpResponseStatus status = HttpResponseStatus.valueOf(webCtx.statusCode().code());
 
 		FullHttpResponse nettyResp;
 		if (webCtx.resultObject() != null && webCtx.converter() != null) {
-			io.netty.buffer.ByteBuf buf = ctx.alloc().directBuffer();
-			try (io.netty.buffer.ByteBufOutputStream out = new io.netty.buffer.ByteBufOutputStream(buf)) {
-				webCtx.converter().writeToStream(webCtx.resultObject(), out);
-			} catch (Exception e) {
-				buf.release();
-				log.error("Serialization error", e);
-				byte[] errorBytes = "Internal Server Error".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-				nettyResp = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.INTERNAL_SERVER_ERROR,
-						Unpooled.wrappedBuffer(errorBytes));
-				nettyResp.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain");
-				nettyResp.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, errorBytes.length);
-				if (keepAlive) {
-					nettyResp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
-					ctx.writeAndFlush(nettyResp);
-				} else {
-					nettyResp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
-					ctx.writeAndFlush(nettyResp).addListener(ChannelFutureListener.CLOSE);
-				}
-				return;
+			nettyResp = serializeResponse(ctx, webCtx, status, keepAlive);
+			if (nettyResp == null) {
+				return; // Error response already sent
 			}
-			nettyResp = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status, buf);
 		} else if (webCtx.body() != null && webCtx.body().length > 0) {
 			nettyResp = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status,
 					Unpooled.wrappedBuffer(webCtx.body()));
@@ -203,6 +195,31 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 			nettyResp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
 			ctx.writeAndFlush(nettyResp).addListener(ChannelFutureListener.CLOSE);
 		}
+	}
+
+	private FullHttpResponse serializeResponse(ChannelHandlerContext ctx, HttpContext webCtx,
+			HttpResponseStatus status, boolean keepAlive) {
+		io.netty.buffer.ByteBuf buf = ctx.alloc().directBuffer();
+		try (io.netty.buffer.ByteBufOutputStream out = new io.netty.buffer.ByteBufOutputStream(buf)) {
+			webCtx.converter().writeToStream(webCtx.resultObject(), out);
+		} catch (Exception e) {
+			buf.release();
+			log.error("Serialization error", e);
+			byte[] errorBytes = "Internal Server Error".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+			FullHttpResponse errorResp = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1,
+					HttpResponseStatus.INTERNAL_SERVER_ERROR, Unpooled.wrappedBuffer(errorBytes));
+			errorResp.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain");
+			errorResp.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, errorBytes.length);
+			if (keepAlive) {
+				errorResp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
+				ctx.writeAndFlush(errorResp);
+			} else {
+				errorResp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
+				ctx.writeAndFlush(errorResp).addListener(ChannelFutureListener.CLOSE);
+			}
+			return null;
+		}
+		return new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status, buf);
 	}
 
 	@Override

@@ -1,8 +1,11 @@
 package summer.web;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.charset.StandardCharsets;
+
 import org.junit.jupiter.api.Test;
 
 /**
@@ -21,10 +24,10 @@ public class PostBodyParsingTest {
 
 	// ---- Helpers ----
 
-	private WebContext jsonPostContext(String jsonBody) {
+	private HttpContext jsonPostContext(String jsonBody) {
 		byte[] bodyBytes = jsonBody.getBytes(StandardCharsets.UTF_8);
 		Request request = new Request("POST", "/", "", "application/json", bodyBytes);
-		return new WebContext(request);
+		return new HttpContext(request);
 	}
 
 	// ---- Tests ----
@@ -34,7 +37,7 @@ public class PostBodyParsingTest {
 		String json = """
 				{"name": "Alice", "email": "alice@example.com", "age": 30}
 				""";
-		WebContext ctx = jsonPostContext(json);
+		HttpContext ctx = jsonPostContext(json);
 
 		CreateUserRequest dto = ctx.body(CreateUserRequest.class);
 
@@ -50,7 +53,7 @@ public class PostBodyParsingTest {
 		String json = """
 				{"name": "Bob", "email": "bob@example.com"}
 				""";
-		WebContext ctx = jsonPostContext(json);
+		HttpContext ctx = jsonPostContext(json);
 
 		CreateUserRequest dto = ctx.body(CreateUserRequest.class);
 		assertNotNull(dto);
@@ -64,7 +67,7 @@ public class PostBodyParsingTest {
 		String json = """
 				{"username": "charlie", "password": "s3cr3t", "unexpectedField": "should be ignored"}
 				""";
-		WebContext ctx = jsonPostContext(json);
+		HttpContext ctx = jsonPostContext(json);
 
 		LoginRequest dto = ctx.body(LoginRequest.class);
 		assertNotNull(dto);
@@ -82,14 +85,14 @@ public class PostBodyParsingTest {
 		String json = """
 				{"name": "Dave"}
 				""";
-		WebContext ctx = jsonPostContext(json);
+		HttpContext ctx = jsonPostContext(json);
 
-		assertThrows(summer.core.SummerException.class, () -> ctx.body(NotARecord.class));
+		assertThrows(summer.core.exception.SummerException.class, () -> ctx.body(NotARecord.class));
 	}
 
 	@Test
 	void testEmptyBodyThrowsOnParse() {
-		WebContext ctx = jsonPostContext("");
+		HttpContext ctx = jsonPostContext("");
 
 		assertThrows(RuntimeException.class, () -> ctx.body(CreateUserRequest.class));
 	}

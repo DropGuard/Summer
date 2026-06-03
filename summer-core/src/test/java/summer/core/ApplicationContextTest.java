@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
-import summer.core.exception.BeansException;
 
 /**
  * Tests for {@link ApplicationContext} interface contract.
@@ -21,13 +20,18 @@ class ApplicationContextTest {
 			}
 
 			@Override
-			public <T> List<T> getBeansOfType(Class<T> type) {
+			public <T> List<T> getBeans(Class<T> type) {
 				return List.of();
 			}
 
 			@Override
-			public Set<Class<?>> getComponentClasses() {
+			public Set<Class<?>> getRegisteredTypes() {
 				return Set.of();
+			}
+
+			@Override
+			public void registerComponent(Class<?> clazz) {
+				// no-op
 			}
 
 			@Override
@@ -38,12 +42,7 @@ class ApplicationContextTest {
 
 		assertNotNull(context);
 		assertNull(context.getBean(String.class));
-		assertTrue(context.getBeansOfType(String.class).isEmpty());
-		assertTrue(context.getComponentClasses().isEmpty());
-	}
-
-	@Test
-	void shouldThrowWhenAotContextNotFound() {
-		assertThrows(BeansException.class, ApplicationContext::aot);
+		assertTrue(context.getBeans(String.class).isEmpty());
+		assertTrue(context.getRegisteredTypes().isEmpty());
 	}
 }

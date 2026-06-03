@@ -1,6 +1,6 @@
 package summer.tck.di;
 
-import summer.scanner.runtime.RuntimeDiEngine;
+import summer.runtime.RuntimeDiEngine;
 import summer.tck.di.circular.CircularA;
 
 public class RuntimeCircularDependencyTest extends AbstractCircularDependencyTCK {

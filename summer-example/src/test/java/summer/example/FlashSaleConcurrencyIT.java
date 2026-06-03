@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
-import summer.scanner.runtime.RuntimeDiEngine;
+import summer.runtime.RuntimeDiEngine;
 import summer.test.annotation.SummerTest;
 
 @SummerTest(RuntimeDiEngine.class)

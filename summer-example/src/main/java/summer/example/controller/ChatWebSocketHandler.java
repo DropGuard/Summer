@@ -1,7 +1,7 @@
 package summer.example.controller;
 
 import summer.core.Component;
-import summer.web.Router;
+import summer.web.WsRouter;
 import summer.web.websocket.WebSocketBroadcaster;
 import summer.web.websocket.WebSocketContext;
 import summer.web.websocket.WebSocketHandler;
@@ -11,10 +11,10 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 
 	private final WebSocketBroadcaster broadcaster;
 
-	public ChatWebSocketHandler(Router router, WebSocketBroadcaster broadcaster) {
+	public ChatWebSocketHandler(WsRouter wsRouter, WebSocketBroadcaster broadcaster) {
 		this.broadcaster = broadcaster;
 		// Automatically register this handler to the router
-		router.ws("/chat/{room}", this);
+		wsRouter.ws("/chat/{room}", this);
 	}
 
 	@Override

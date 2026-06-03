@@ -1,12 +1,16 @@
 package summer.web;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+
 import org.junit.jupiter.api.Test;
+
 import summer.web.middleware.Middleware;
 
 /**
@@ -16,10 +20,10 @@ import summer.web.middleware.Middleware;
  */
 public class MiddlewareChainTest {
 
-	private WebContext makeContext(String method, String path) {
+	private HttpContext makeContext(String method, String path) {
 		byte[] pathBytes = path.getBytes(StandardCharsets.UTF_8);
 		Request request = new Request(method, path, "", "application/json", new byte[0], new HashMap<>(), pathBytes);
-		return new WebContext(request);
+		return new HttpContext(request);
 	}
 
 	// ---- Reusable test middleware factory ----
@@ -125,7 +129,7 @@ public class MiddlewareChainTest {
 		headers.put("authorization", "Bearer user-42");
 		byte[] pathBytes = "/profile".getBytes(StandardCharsets.UTF_8);
 		Request request = new Request("GET", "/profile", "", "application/json", new byte[0], headers, pathBytes);
-		WebContext ctx = new WebContext(request);
+		HttpContext ctx = new HttpContext(request);
 
 		Object result = chain.handle(ctx);
 		assertEquals("user-42", result);

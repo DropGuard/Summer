@@ -6,7 +6,7 @@ import summer.core.ErrorCode;
  * Thrown when a bean fails to be instantiated or its @Bean method fails to
  * invoke.
  */
-public class BeanCreationException extends BeansException {
+public class BeanCreationException extends SummerException {
 	public BeanCreationException(ErrorCode errorCode, String message) {
 		super(errorCode, message);
 	}

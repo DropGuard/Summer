@@ -1,7 +1,7 @@
 package summer.grpc.exception;
 
 import summer.core.ErrorCode;
-import summer.core.SummerException;
+import summer.core.exception.SummerException;
 
 /**
  * Base class for all gRPC-related exceptions in Summer.

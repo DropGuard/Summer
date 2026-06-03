@@ -9,6 +9,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import summer.core.exception.CircularDependencyException;
+import summer.core.exception.NoSuchBeanException;
 
 /**
  * Maven plugin dependency resolver. Uses qualified name strings for type
@@ -28,7 +30,7 @@ public final class DependencyResolver {
 		}
 
 		if (hasCycle(beans)) {
-			throw new RuntimeException("Circular dependency detected");
+			throw new CircularDependencyException("Circular dependency detected");
 		}
 
 		return topologicalSort(beans);
@@ -56,7 +58,7 @@ public final class DependencyResolver {
 
 			BeanDefinition resolved = findBean(paramType, allBeans);
 			if (resolved == null) {
-				throw new RuntimeException(
+				throw new NoSuchBeanException(
 						"No bean found for dependency type: " + paramType + " required by " + bean.qualifiedName);
 			}
 			bean.resolvedDependencies.add(resolved);
@@ -81,7 +83,7 @@ public final class DependencyResolver {
 				return;
 			}
 		}
-		throw new RuntimeException(
+		throw new NoSuchBeanException(
 				"Could not find @Configuration bean for factory product: " + factoryProduct.qualifiedName);
 	}
 
@@ -138,22 +140,7 @@ public final class DependencyResolver {
 	}
 
 	private List<BeanDefinition> topologicalSort(List<BeanDefinition> beans) {
-		Map<BeanDefinition, Set<BeanDefinition>> incoming = new LinkedHashMap<>();
-		for (BeanDefinition b : beans)
-			incoming.put(b, new LinkedHashSet<>());
-
-		for (BeanDefinition b : beans) {
-			for (BeanDefinition dep : b.resolvedDependencies) {
-				if (dep != null)
-					incoming.get(b).add(dep);
-			}
-			if (b.configBeanDefinition != null)
-				incoming.get(b).add(b.configBeanDefinition);
-			if (b.needsProxy) {
-				for (BeanDefinition interceptor : b.interceptors)
-					incoming.get(b).add(interceptor);
-			}
-		}
+		Map<BeanDefinition, Set<BeanDefinition>> incoming = buildIncomingEdges(beans);
 
 		List<BeanDefinition> sorted = new ArrayList<>();
 		Deque<BeanDefinition> queue = new ArrayDeque<>();
@@ -172,9 +159,30 @@ public final class DependencyResolver {
 		}
 
 		if (sorted.size() != beans.size()) {
-			throw new RuntimeException("Could not resolve all dependencies. Possible cycle among: "
-					+ beans.stream().filter(b -> !sorted.contains(b)).map(b -> b.qualifiedName).toList());
+			throw new CircularDependencyException(
+					"Could not resolve all dependencies. Possible cycle among: "
+							+ beans.stream().filter(b -> !sorted.contains(b)).map(b -> b.qualifiedName).toList());
 		}
 		return sorted;
+	}
+
+	private Map<BeanDefinition, Set<BeanDefinition>> buildIncomingEdges(List<BeanDefinition> beans) {
+		Map<BeanDefinition, Set<BeanDefinition>> incoming = new LinkedHashMap<>();
+		for (BeanDefinition b : beans)
+			incoming.put(b, new LinkedHashSet<>());
+
+		for (BeanDefinition b : beans) {
+			for (BeanDefinition dep : b.resolvedDependencies) {
+				if (dep != null)
+					incoming.get(b).add(dep);
+			}
+			if (b.configBeanDefinition != null)
+				incoming.get(b).add(b.configBeanDefinition);
+			if (b.needsProxy) {
+				for (BeanDefinition interceptor : b.interceptors)
+					incoming.get(b).add(interceptor);
+			}
+		}
+		return incoming;
 	}
 }

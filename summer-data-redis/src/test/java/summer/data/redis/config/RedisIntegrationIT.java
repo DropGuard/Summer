@@ -10,7 +10,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 import summer.core.ApplicationContext;
-import summer.scanner.runtime.RuntimeDiEngine;
+import summer.runtime.RuntimeDiEngine;
 
 @Testcontainers
 public class RedisIntegrationIT {

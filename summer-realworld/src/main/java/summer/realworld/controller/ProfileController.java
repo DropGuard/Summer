@@ -3,13 +3,14 @@ package summer.realworld.controller;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+
 import summer.realworld.model.User;
 import summer.realworld.repository.FollowRepository;
 import summer.realworld.service.UserService;
 import summer.realworld.util.Errors;
 import summer.realworld.util.JwtUtil;
+import summer.web.HttpContext;
 import summer.web.HttpStatus;
-import summer.web.WebContext;
 import summer.web.annotation.Delete;
 import summer.web.annotation.Get;
 import summer.web.annotation.PathParam;
@@ -27,7 +28,7 @@ public class ProfileController {
 	}
 
 	@Get("/profiles/{username}")
-	public void getProfile(WebContext ctx, @PathParam("username") String username) {
+	public void getProfile(HttpContext ctx, @PathParam("username") String username) {
 		Optional<User> userOpt = userService.findByUsername(username);
 		if (userOpt.isEmpty()) {
 			ctx.json(HttpStatus.NOT_FOUND, Errors.profileNotFound());
@@ -39,7 +40,7 @@ public class ProfileController {
 	}
 
 	@Post("/profiles/{username}/follow")
-	public void followUser(WebContext ctx, @PathParam("username") String username) {
+	public void followUser(HttpContext ctx, @PathParam("username") String username) {
 		Long currentUserId = getCurrentUserId(ctx);
 		if (currentUserId == null) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
@@ -57,7 +58,7 @@ public class ProfileController {
 	}
 
 	@Delete("/profiles/{username}/follow")
-	public void unfollowUser(WebContext ctx, @PathParam("username") String username) {
+	public void unfollowUser(HttpContext ctx, @PathParam("username") String username) {
 		Long currentUserId = getCurrentUserId(ctx);
 		if (currentUserId == null) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
@@ -86,7 +87,7 @@ public class ProfileController {
 		return Map.of("profile", profileResponse);
 	}
 
-	private Long getCurrentUserId(WebContext ctx) {
+	private Long getCurrentUserId(HttpContext ctx) {
 		String authHeader = ctx.header("Authorization");
 		if (authHeader != null && authHeader.startsWith("Token ")) {
 			try {

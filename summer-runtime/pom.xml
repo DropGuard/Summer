@@ -28,6 +28,13 @@
             <artifactId>summer-web</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- Summer Web HTTP (for router implementations in tests) -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-web-http</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
 
         <!-- Summer AOP (for ProxyFactory and MethodInterceptor) -->
         <dependency>

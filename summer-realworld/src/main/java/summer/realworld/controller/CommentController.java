@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
 import summer.realworld.dto.CommentDtos;
 import summer.realworld.model.Article;
 import summer.realworld.model.Comment;
@@ -15,8 +16,8 @@ import summer.realworld.service.CommentService;
 import summer.realworld.service.UserService;
 import summer.realworld.util.Errors;
 import summer.realworld.util.JwtUtil;
+import summer.web.HttpContext;
 import summer.web.HttpStatus;
-import summer.web.WebContext;
 import summer.web.annotation.Delete;
 import summer.web.annotation.Get;
 import summer.web.annotation.PathParam;
@@ -36,7 +37,7 @@ public class CommentController {
 	}
 
 	@Post("/articles/{slug}/comments")
-	public void addComment(WebContext ctx, @PathParam("slug") String slug) {
+	public void addComment(HttpContext ctx, @PathParam("slug") String slug) {
 		Long currentUserId = getCurrentUserId(ctx);
 		if (currentUserId == null) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
@@ -61,7 +62,7 @@ public class CommentController {
 	}
 
 	@Get("/articles/{slug}/comments")
-	public void getComments(WebContext ctx, @PathParam("slug") String slug) {
+	public void getComments(HttpContext ctx, @PathParam("slug") String slug) {
 		Optional<Article> articleOpt = articleService.findBySlug(slug);
 		if (articleOpt.isEmpty()) {
 			ctx.json(HttpStatus.NOT_FOUND, Errors.articleNotFound());
@@ -76,7 +77,7 @@ public class CommentController {
 	}
 
 	@Delete("/articles/{slug}/comments/{id}")
-	public void deleteComment(WebContext ctx, @PathParam("slug") String slug, @PathParam("id") String commentIdStr) {
+	public void deleteComment(HttpContext ctx, @PathParam("slug") String slug, @PathParam("id") String commentIdStr) {
 		Long currentUserId = getCurrentUserId(ctx);
 		if (currentUserId == null) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
@@ -138,7 +139,7 @@ public class CommentController {
 		return commentData;
 	}
 
-	private Long getCurrentUserId(WebContext ctx) {
+	private Long getCurrentUserId(HttpContext ctx) {
 		String authHeader = ctx.header("Authorization");
 		if (authHeader != null && authHeader.startsWith("Token ")) {
 			try {

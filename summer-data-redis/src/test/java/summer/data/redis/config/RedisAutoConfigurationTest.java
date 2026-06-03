@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import summer.core.ApplicationContext;
 import summer.data.redis.codec.JsonRedisCodec;
-import summer.scanner.runtime.RuntimeDiEngine;
+import summer.runtime.RuntimeDiEngine;
 
 public class RedisAutoConfigurationTest {
 

@@ -1,6 +1,6 @@
 package summer.tx;
 
-import summer.aop.InvocationContext;
+import summer.aop.InterceptorChain;
 import summer.aop.MethodInterceptor;
 import summer.core.Component;
 import summer.core.annotation.ConditionalOnBean;
@@ -29,14 +29,14 @@ public class TransactionInterceptor implements MethodInterceptor {
 	}
 
 	@Override
-	public Object intercept(InvocationContext context) throws Throwable {
+	public Object intercept(InterceptorChain chain) throws Throwable {
 		// Check if method is annotated with @Transactional
-		if (context.getMethod().isAnnotationPresent(Transactional.class)) {
+		if (chain.getMethod().isAnnotationPresent(Transactional.class)) {
 			boolean alreadyActive = interceptorActive.get();
 			try {
 				interceptorActive.set(true);
-				Transactional transactional = context.getMethod().getAnnotation(Transactional.class);
-				return handleTransactional(context, transactional.propagation());
+				Transactional transactional = chain.getMethod().getAnnotation(Transactional.class);
+				return handleTransactional(chain, transactional.propagation());
 			} finally {
 				if (!alreadyActive) {
 					interceptorActive.remove();
@@ -44,16 +44,16 @@ public class TransactionInterceptor implements MethodInterceptor {
 			}
 		}
 
-		return context.proceed();
+		return chain.proceed();
 	}
 
-	private Object handleTransactional(InvocationContext context, TransactionPropagation propagation) throws Throwable {
+	private Object handleTransactional(InterceptorChain chain, TransactionPropagation propagation) throws Throwable {
 		TransactionStatus transaction = null;
 
 		try {
 			transaction = transactionManager.begin();
 
-			Object result = context.proceed();
+			Object result = chain.proceed();
 
 			if (transaction != null && !transaction.isRollbackOnly()) {
 				transactionManager.commit(transaction);

@@ -1,7 +1,7 @@
 package summer.tck.web.router;
 
-import summer.web.MapRouter;
-import summer.web.Router;
+import summer.web.http.MapRouter;
+import summer.web.HttpRouter;
 
 /**
  * TCK tests for MapRouter implementation.
@@ -9,7 +9,7 @@ import summer.web.Router;
 public class MapRouterTCKTest extends AbstractRouterTCK {
 
 	@Override
-	protected Router createRouter() {
+	protected HttpRouter createRouter() {
 		return new MapRouter();
 	}
 }

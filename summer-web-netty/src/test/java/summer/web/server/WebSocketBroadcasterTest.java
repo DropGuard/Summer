@@ -14,9 +14,9 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import summer.web.RadixRouter;
-import summer.web.Router;
+import summer.web.http.RadixRouter;
 import summer.web.ServerConfig;
+import summer.web.websocket.RadixWsRouter;
 
 public class WebSocketBroadcasterTest {
 
@@ -26,11 +26,12 @@ public class WebSocketBroadcasterTest {
 
 	@BeforeAll
 	public static void setup() throws Exception {
-		Router router = new RadixRouter();
+		RadixRouter httpRouter = new RadixRouter();
+		RadixWsRouter wsRouter = new RadixWsRouter();
 		broadcaster = new NettyWebSocketBroadcaster();
 
 		// 1. Setup route
-		router.ws("/chat/{room}", ctx -> {
+		wsRouter.ws("/chat/{room}", ctx -> {
 			String room = ctx.pathParam("room");
 			broadcaster.join(room, ctx);
 
@@ -47,7 +48,7 @@ public class WebSocketBroadcasterTest {
 
 		// 2. Start server
 		ServerConfig config = new ServerConfig(0, 30000, 1024 * 1024, 10000, List.of("*"));
-		server = new NettyHttpServer(config, router, List.of(), null, null);
+		server = new NettyHttpServer(config, httpRouter, wsRouter, List.of(), null);
 
 		Thread serverThread = new Thread(() -> {
 			server.start();
@@ -55,7 +56,7 @@ public class WebSocketBroadcasterTest {
 		serverThread.start();
 
 		// Wait for server to bind
-		Thread.sleep(1500);
+		Thread.sleep(1500); // Integration test: wait for server startup
 		port = server.getPort();
 	}
 
@@ -82,7 +83,7 @@ public class WebSocketBroadcasterTest {
 		WebSocket ws3 = createClient(client, roomUrl, receivedMessages3, latch);
 
 		// Wait for connection to be fully established and added to ChannelGroup
-		Thread.sleep(500);
+		Thread.sleep(500); // Integration test: wait for WebSocket handshake
 
 		// Client 1 sends a broadcast message
 		ws1.sendText("BROADCAST:Hello World", true).join();

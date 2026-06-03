@@ -19,17 +19,24 @@ import org.junit.jupiter.api.Test;
  * <ul>
  * <li>Layered dependency direction</li>
  * <li>No circular dependencies</li>
+ * <li>No ClassGraph / CGLIB / ByteBuddy dependencies</li>
  * </ul>
+ *
  */
 class ArchitectureTest {
+
+	private static final String[] PACKAGES = {
+			"summer.core", "summer.web", "summer.aop", "summer.tx",
+			"summer.runtime", "summer.compiler", "summer.data", "summer.boot",
+			"summer.web.netty", "summer.grpc", "summer.validation", "summer.test",
+			"summer.tck", "summer.arch"
+	};
 
 	private static JavaClasses classes;
 
 	@BeforeAll
 	static void importClasses() {
-		classes = new ClassFileImporter().importPackages("summer.core", "summer.web", "summer.aop", "summer.tx",
-				"summer.runtime", "summer.compiler", "summer.data", "summer.webmvc", "summer.web.netty", "summer.grpc",
-				"summer.validation", "summer.test", "summer.tck", "summer.arch");
+		classes = new ClassFileImporter().importPackages(PACKAGES);
 	}
 
 	// --- Layered Architecture ---
@@ -37,21 +44,34 @@ class ArchitectureTest {
 	@Test
 	@DisplayName("Layered architecture: dependencies flow downward only")
 	void layeredArchitecture() {
-		ArchRule rule = Architectures.layeredArchitecture().consideringOnlyDependenciesInAnyPackage("..summer..")
-				.layer("Core").definedBy("..summer.core..").layer("Infrastructure")
-				.definedBy("..summer.runtime..", "..summer.compiler..").layer("Web")
-				.definedBy("..summer.web..", "..summer.webmvc..").layer("Data").definedBy("..summer.data..")
-				.layer("CrossCutting").definedBy("..summer.aop..", "..summer.tx..", "..summer.validation..")
-				.layer("Server").definedBy("..summer.web.netty..", "..summer.grpc..").layer("Test")
-				.definedBy("..summer.test..", "..summer.tck..", "..summer.arch..")
+		// @formatter:off
+		Architectures.LayeredArchitecture rule = Architectures.layeredArchitecture()
+				.consideringOnlyDependenciesInAnyPackage("..summer..")
+				.ignoreDependency("summer.example..", "..")
+				.ignoreDependency("summer.realworld..", "..")
+				.ignoreDependency("summer.benchmark..", "..")
+				.ignoreDependency("..", "summer.example..")
+				.ignoreDependency("..", "summer.realworld..")
+				.ignoreDependency("..", "summer.benchmark..")
 
-				.whereLayer("Core").mayNotAccessAnyLayer().whereLayer("Infrastructure")
-				.mayOnlyBeAccessedByLayers("Web", "Data", "CrossCutting", "Server", "Test").whereLayer("Web")
-				.mayOnlyBeAccessedByLayers("Infrastructure", "Server", "Test").whereLayer("Data")
-				.mayOnlyBeAccessedByLayers("Infrastructure", "Test").whereLayer("CrossCutting")
-				.mayOnlyBeAccessedByLayers("Web", "Data", "Infrastructure", "Server", "Test").whereLayer("Server")
-				.mayOnlyBeAccessedByLayers("Test").whereLayer("Test")
-				.mayOnlyAccessLayers("Core", "Infrastructure", "Web", "Data", "CrossCutting", "Server");
+				// layer definitions
+				.layer("Core")         .definedBy("..summer.core..")
+				.layer("Infrastructure").definedBy("..summer.runtime..", "..summer.compiler..")
+				.layer("Web")          .definedBy("..summer.web..", "..summer.boot..")
+				.layer("Data")         .definedBy("..summer.data..")
+				.layer("CrossCutting") .definedBy("..summer.aop..", "..summer.tx..", "..summer.validation..")
+				.layer("Server")       .definedBy("..summer.web.netty..", "..summer.grpc..")
+				.layer("Test")         .definedBy("..summer.test..", "..summer.tck..", "..summer.arch..")
+
+				// access constraints
+				.whereLayer("Core")         .mayNotAccessAnyLayer()
+				.whereLayer("Infrastructure").mayOnlyBeAccessedByLayers("Web", "Data", "CrossCutting", "Server", "Test")
+				.whereLayer("Web")          .mayOnlyBeAccessedByLayers("Infrastructure", "Server", "Test")
+				.whereLayer("Data")         .mayOnlyBeAccessedByLayers("Infrastructure", "Test")
+				.whereLayer("CrossCutting") .mayOnlyBeAccessedByLayers("Web", "Data", "Infrastructure", "Server", "Test")
+				.whereLayer("Server")       .mayOnlyBeAccessedByLayers("Test")
+				.whereLayer("Test")         .mayOnlyAccessLayers("Core", "Infrastructure", "Web", "Data", "CrossCutting", "Server");
+		// @formatter:on
 		rule.check(classes);
 	}
 
@@ -61,7 +81,13 @@ class ArchitectureTest {
 	@DisplayName("No circular dependencies between packages")
 	void noCircularDependencies() {
 		ArchRule rule = com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices().matching("summer.(*)")
-				.should().beFreeOfCycles();
+				.should().beFreeOfCycles()
+				.ignoreDependency("summer.example..", "..")
+				.ignoreDependency("summer.realworld..", "..")
+				.ignoreDependency("summer.benchmark..", "..")
+				.ignoreDependency("..", "summer.example..")
+				.ignoreDependency("..", "summer.realworld..")
+				.ignoreDependency("..", "summer.benchmark..");
 		rule.check(classes);
 	}
 
@@ -80,4 +106,13 @@ class ArchitectureTest {
 				.resideInAnyPackage("net.sf.cglib..", "org.springframework.cglib..").allowEmptyShould(true);
 		rule.check(classes);
 	}
+
+	@Test
+	@DisplayName("No ByteBuddy dependency")
+	void noByteBuddyDependency() {
+		ArchRule rule = noClasses().should().dependOnClassesThat()
+				.resideInAnyPackage("net.bytebuddy..").allowEmptyShould(true);
+		rule.check(classes);
+	}
+
 }

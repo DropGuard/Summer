@@ -37,6 +37,7 @@ public class SimpleJdbcTransactionManager implements TransactionManager {
 				try {
 					connection.close();
 				} catch (SQLException ignored) {
+					// Already in error path; closing failure is secondary
 				}
 			}
 			throw new SummerTransactionException(ErrorCode.TRANSACTION_ERROR, "Failed to begin transaction", e);

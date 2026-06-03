@@ -1,7 +1,7 @@
 package summer.tck.web.router;
 
-import summer.web.RadixRouter;
-import summer.web.Router;
+import summer.web.http.RadixRouter;
+import summer.web.HttpRouter;
 
 /**
  * TCK tests for RadixRouter implementation.
@@ -9,7 +9,7 @@ import summer.web.Router;
 public class RadixRouterTCKTest extends AbstractRouterTCK {
 
 	@Override
-	protected Router createRouter() {
+	protected HttpRouter createRouter() {
 		return new RadixRouter();
 	}
 }

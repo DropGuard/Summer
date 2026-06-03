@@ -1,7 +1,7 @@
 package summer.aop;
 
 import summer.core.ErrorCode;
-import summer.core.SummerException;
+import summer.core.exception.SummerException;
 
 /**
  * Exception class for AOP related errors in Summer framework.

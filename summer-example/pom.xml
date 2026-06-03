@@ -26,11 +26,15 @@
         </dependency>
         <dependency>
             <groupId>summer</groupId>
+            <artifactId>summer-web-http</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>summer</groupId>
             <artifactId>summer-web-middleware</artifactId>
         </dependency>
         <dependency>
             <groupId>summer</groupId>
-            <artifactId>summer-webmvc</artifactId>
+            <artifactId>summer-boot</artifactId>
         </dependency>
         <dependency>
             <groupId>summer</groupId>
@@ -42,11 +46,6 @@
         </dependency>
         <dependency>
             <groupId>summer</groupId>
-            <artifactId>summer-validation-hv</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>summer</groupId>
             <artifactId>summer-grpc</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -54,17 +53,6 @@
             <groupId>summer</groupId>
             <artifactId>summer-data-redis</artifactId>
             <version>${project.version}</version>
-        </dependency>
-
-        <!-- Validation Dependencies -->
-        <dependency>
-            <groupId>org.hibernate.validator</groupId>
-            <artifactId>hibernate-validator</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.glassfish.expressly</groupId>
-            <artifactId>expressly</artifactId>
-            <version>5.0.0</version>
         </dependency>
 
         <!-- gRPC Dependencies -->

@@ -21,17 +21,11 @@
             <artifactId>summer-core</artifactId>
         </dependency>
 
-        <!-- Summer Validation API -->
+        <!-- Avaje Validator -->
         <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-validation-api</artifactId>
-        </dependency>
-
-        <!-- Jakarta Validation API -->
-        <dependency>
-            <groupId>jakarta.validation</groupId>
-            <artifactId>jakarta.validation-api</artifactId>
-            <version>3.0.2</version>
+            <groupId>io.avaje</groupId>
+            <artifactId>avaje-validator</artifactId>
+            <version>2.17</version>
         </dependency>
 
         <!-- Jackson for JSON binding -->

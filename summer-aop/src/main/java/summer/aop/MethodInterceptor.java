@@ -12,5 +12,6 @@ package summer.aop;
  * @see InterceptorBinding
  */
 public interface MethodInterceptor {
-	Object intercept(InvocationContext context) throws Throwable;
+
+	Object intercept(InterceptorChain chain) throws Throwable;
 }

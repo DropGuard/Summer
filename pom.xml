@@ -14,22 +14,21 @@
     <url>https://github.com/your-username/summer</url>
 
     <properties>
-        <java.version>25</java.version>
+        <java.version>26</java.version>
         <maven.compiler.release>${java.version}</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 
     <modules>
         <module>summer-core</module>
-        <module>summer-validation-api</module>
         <module>summer-web</module>
+        <module>summer-web-http</module>
         <module>summer-web-netty</module>
         <module>summer-web-middleware</module>
         <module>summer-web-websocket</module>
-        <module>summer-webmvc</module>
+        <module>summer-boot</module>
         <module>summer-aop</module>
         <module>summer-tx</module>
-        <module>summer-validation-hv</module>
         <module>summer-compiler</module>
         <module>summer-runtime</module>
         <module>summer-example</module>
@@ -54,12 +53,12 @@
             </dependency>
             <dependency>
                 <groupId>summer</groupId>
-                <artifactId>summer-validation-api</artifactId>
+                <artifactId>summer-web</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
                 <groupId>summer</groupId>
-                <artifactId>summer-web</artifactId>
+                <artifactId>summer-web-http</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -79,7 +78,7 @@
             </dependency>
             <dependency>
                 <groupId>summer</groupId>
-                <artifactId>summer-webmvc</artifactId>
+                <artifactId>summer-boot</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -90,11 +89,6 @@
             <dependency>
                 <groupId>summer</groupId>
                 <artifactId>summer-tx</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>summer</groupId>
-                <artifactId>summer-validation-hv</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
@@ -232,11 +226,16 @@
                 <version>6.3.0</version>
             </dependency>
 
-            <!-- Hibernate Validator -->
+            <!-- Avaje Validator -->
             <dependency>
-                <groupId>org.hibernate.validator</groupId>
-                <artifactId>hibernate-validator</artifactId>
-                <version>8.0.2.Final</version>
+                <groupId>io.avaje</groupId>
+                <artifactId>avaje-validator</artifactId>
+                <version>2.17</version>
+            </dependency>
+            <dependency>
+                <groupId>io.avaje</groupId>
+                <artifactId>avaje-validator-constraints</artifactId>
+                <version>2.17</version>
             </dependency>
 
             <!-- Logging -->
@@ -300,6 +299,11 @@
         <pluginManagement>
             <plugins>
                 <plugin>
+                    <groupId>org.sonarsource.scanner.maven</groupId>
+                    <artifactId>sonar-maven-plugin</artifactId>
+                    <version>4.0.0.4121</version>
+                </plugin>
+                <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>3.15.0</version>
@@ -355,24 +359,6 @@
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
                     <argLine>--sun-misc-unsafe-memory-access=allow</argLine>
-                </configuration>
-            </plugin>
-            <!-- Add Spotless for static analysis and formatting -->
-            <plugin>
-                <groupId>com.diffplug.spotless</groupId>
-                <artifactId>spotless-maven-plugin</artifactId>
-                <version>2.44.5</version>
-                <configuration>
-                    <java>
-                        <!-- Eclipse JDT Formatter (independent of javac internals, works on JDK 25) -->
-                        <eclipse>
-                            <version>4.26</version>
-                        </eclipse>
-                        <!-- Automatically remove all unused imports -->
-                        <removeUnusedImports />
-                        <!-- Enforce consistent import ordering -->
-                        <importOrder />
-                    </java>
                 </configuration>
             </plugin>
         </plugins>

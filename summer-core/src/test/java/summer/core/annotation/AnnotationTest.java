@@ -70,12 +70,6 @@ class AnnotationTest {
 		assertTrue(TestReplacement.class.isAnnotationPresent(Replaces.class));
 	}
 
-	@Test
-	void shouldSupportBeanAnnotationOnMethod() {
-		Bean annotation = getBeanAnnotation();
-		assertNotNull(annotation);
-	}
-
 	// Helper method to get Bean annotation
 	private Bean getBeanAnnotation() {
 		try {

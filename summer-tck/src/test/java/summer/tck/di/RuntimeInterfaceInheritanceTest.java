@@ -1,7 +1,7 @@
 package summer.tck.di;
 
 import summer.core.ApplicationContext;
-import summer.scanner.runtime.RuntimeDiEngine;
+import summer.runtime.RuntimeDiEngine;
 import summer.tck.di.inheritance.ServiceImpl;
 
 /**

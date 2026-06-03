@@ -1,7 +1,7 @@
 package summer.web.exception;
 
 import summer.core.ErrorCode;
-import summer.core.SummerException;
+import summer.core.exception.SummerException;
 import summer.web.HttpStatus;
 
 /**

@@ -16,9 +16,11 @@ import summer.core.exception.DataAccessException;
 public class JdbcTemplate {
 
 	private final DataSource dataSource;
+	private final RowMapperRegistry rowMapperRegistry;
 
-	public JdbcTemplate(DataSource dataSource) {
+	public JdbcTemplate(DataSource dataSource, RowMapperRegistry rowMapperRegistry) {
 		this.dataSource = dataSource;
+		this.rowMapperRegistry = rowMapperRegistry;
 	}
 
 	public int update(String sql, Object... args) {
@@ -43,7 +45,7 @@ public class JdbcTemplate {
 	}
 
 	public <T> List<T> queryForList(String sql, Class<T> rowType, Object... args) {
-		RowMapper<T> mapper = RowMapperRegistry.getMapper(rowType);
+		RowMapper<T> mapper = rowMapperRegistry.getMapper(rowType);
 		List<T> results = new ArrayList<>();
 		try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 			setParameters(ps, args);

@@ -1,17 +1,20 @@
 package summer.realworld.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+
 import org.mindrot.jbcrypt.BCrypt;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import summer.realworld.dto.UserDtos;
 import summer.realworld.model.User;
 import summer.realworld.service.UserService;
 import summer.realworld.util.Errors;
 import summer.realworld.util.JwtUtil;
+import summer.web.HttpContext;
 import summer.web.HttpStatus;
-import summer.web.WebContext;
 import summer.web.annotation.Get;
 import summer.web.annotation.Post;
 import summer.web.annotation.Put;
@@ -26,7 +29,7 @@ public class UserController {
 	}
 
 	@Post("/users")
-	public void register(WebContext ctx) {
+	public void register(HttpContext ctx) {
 		UserDtos.RegisterRequest body = ctx.body(UserDtos.RegisterRequest.class);
 		var u = body.user();
 
@@ -41,7 +44,7 @@ public class UserController {
 	}
 
 	@Post("/users/login")
-	public void login(WebContext ctx) {
+	public void login(HttpContext ctx) {
 		UserDtos.LoginRequest body = ctx.body(UserDtos.LoginRequest.class);
 		var u = body.user();
 
@@ -64,7 +67,7 @@ public class UserController {
 	}
 
 	@Get("/user")
-	public void getCurrentUser(WebContext ctx) {
+	public void getCurrentUser(HttpContext ctx) {
 		String token = extractToken(ctx);
 		if (token == null) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
@@ -82,7 +85,7 @@ public class UserController {
 	}
 
 	@Put("/user")
-	public void updateUser(WebContext ctx) {
+	public void updateUser(HttpContext ctx) {
 		String token = extractToken(ctx);
 		if (token == null) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
@@ -147,7 +150,7 @@ public class UserController {
 		return Map.of("user", userResponse);
 	}
 
-	private String extractToken(WebContext ctx) {
+	private String extractToken(HttpContext ctx) {
 		String authHeader = ctx.header("Authorization");
 		if (authHeader != null && authHeader.startsWith("Token ")) {
 			return authHeader.substring(6);
@@ -156,7 +159,7 @@ public class UserController {
 	}
 
 	@SuppressWarnings("unchecked")
-	private Map<String, Object> parseRawUserBody(WebContext ctx) {
+	private Map<String, Object> parseRawUserBody(HttpContext ctx) {
 		try {
 			byte[] raw = ctx.request().getBody();
 			if (raw == null || raw.length == 0)

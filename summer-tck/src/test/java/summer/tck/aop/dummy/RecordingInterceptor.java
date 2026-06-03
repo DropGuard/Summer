@@ -3,7 +3,8 @@ package summer.tck.aop.dummy;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import summer.aop.InvocationContext;
+import summer.aop.InterceptorChain;
+
 import summer.aop.MethodInterceptor;
 import summer.core.Component;
 
@@ -22,10 +23,10 @@ public class RecordingInterceptor implements MethodInterceptor {
 	private final List<String> callLog = new ArrayList<>();
 
 	@Override
-	public Object intercept(InvocationContext context) throws Throwable {
-		String methodName = context.getMethod().getName();
+	public Object intercept(InterceptorChain chain) throws Throwable {
+		String methodName = chain.getMethod().getName();
 		callLog.add("before:" + methodName);
-		Object result = context.proceed();
+		Object result = chain.proceed();
 		callLog.add("after:" + methodName);
 		// Prefix the return value to prove interception ran
 		return "[intercepted] " + result;

@@ -88,12 +88,6 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-validation-hv</artifactId>
-            <version>${project.version}</version>
-            <scope>test</scope>
-        </dependency>
 
         <!-- ArchUnit -->
         <dependency>

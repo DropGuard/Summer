@@ -1,29 +1,32 @@
 package summer.tck.web.router;
 
-import static org.junit.jupiter.api.Assertions.*;
-
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import summer.web.*;
-import summer.web.websocket.WebSocketHandler;
+
+import summer.web.HttpContext;
+import summer.web.HttpRouter;
+import summer.web.Request;
 
 /**
- * Technology Compatibility Kit for Router implementations.
+ * Technology Compatibility Kit for HttpRouter implementations.
  *
  * <p>
- * Ensures all Router implementations (RadixRouter, MapRouter, etc.) behave
+ * Ensures all HttpRouter implementations (RadixRouter, MapRouter, etc.) behave
  * identically for common routing scenarios. Subclasses provide the concrete
- * Router instance.
+ * HttpRouter instance.
  * </p>
  */
 public abstract class AbstractRouterTCK {
 
-	protected Router router;
+	protected HttpRouter router;
 
 	/**
-	 * Subclasses return the Router implementation to test.
+	 * Subclasses return the HttpRouter implementation to test.
 	 */
-	protected abstract Router createRouter();
+	protected abstract HttpRouter createRouter();
 
 	@BeforeEach
 	void setUp() {
@@ -142,6 +145,33 @@ public abstract class AbstractRouterTCK {
 		assertEquals("home", router.route(ctx("GET", "")));
 	}
 
+	@Test
+	void testDoubleSlashNormalization() {
+		router.register("GET", "/users/{id}", ctx -> "user-" + ctx.request().pathParam("id"));
+
+		// //users//42 should normalize to /users/42
+		Object result = router.route(ctx("GET", "//users//42"));
+		assertEquals("user-42", result);
+	}
+
+	@Test
+	void testMultipleTrailingSlashes() {
+		router.register("GET", "/users", ctx -> "user-list");
+
+		// /users/// should normalize to /users
+		Object result = router.route(ctx("GET", "/users///"));
+		assertEquals("user-list", result);
+	}
+
+	@Test
+	void testLeadingDoubleSlash() {
+		router.register("GET", "/api/health", ctx -> "ok");
+
+		// //api/health should normalize to /api/health
+		Object result = router.route(ctx("GET", "//api/health"));
+		assertEquals("ok", result);
+	}
+
 	// --- Default method helpers ---
 
 	@Test
@@ -224,57 +254,10 @@ public abstract class AbstractRouterTCK {
 		assertNull(router.route(ctx("GET", "/api/users")));
 	}
 
-	// --- WebSocket routing ---
-
-	@Test
-	void testWsRouteExact() {
-		WebSocketHandler wsHandler = ctx -> {
-		};
-		router.ws("/chat", wsHandler);
-
-		Router.WsMatch match = router.routeWs("/chat");
-		assertNotNull(match);
-		assertSame(wsHandler, match.handler);
-		assertTrue(match.pathParams.isEmpty());
-	}
-
-	@Test
-	void testWsRouteWithParams() {
-		WebSocketHandler wsHandler = ctx -> {
-		};
-		router.ws("/ws/{channel}", wsHandler);
-
-		Router.WsMatch match = router.routeWs("/ws/general");
-		assertNotNull(match);
-		assertSame(wsHandler, match.handler);
-		assertEquals("general", match.pathParams.get("channel"));
-	}
-
-	@Test
-	void testWsRouteTrailingSlash() {
-		WebSocketHandler wsHandler = ctx -> {
-		};
-		router.ws("/chat", wsHandler);
-
-		Router.WsMatch match = router.routeWs("/chat/");
-		assertNotNull(match);
-		assertSame(wsHandler, match.handler);
-	}
-
-	@Test
-	void testWsRouteNoMatch() {
-		WebSocketHandler wsHandler = ctx -> {
-		};
-		router.ws("/chat", wsHandler);
-
-		Router.WsMatch match = router.routeWs("/other");
-		assertNull(match);
-	}
-
 	// --- Helper ---
 
-	private WebContext ctx(String method, String path) {
+	private HttpContext ctx(String method, String path) {
 		Request req = new Request(method, path, null, null, new byte[0]);
-		return new WebContext(req);
+		return new HttpContext(req);
 	}
 }
