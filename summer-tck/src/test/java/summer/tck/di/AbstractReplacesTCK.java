@@ -8,6 +8,7 @@ import summer.core.ApplicationContext;
 import summer.tck.AbstractContextTCK;
 import summer.tck.di.replaces.OriginalComponent;
 import summer.tck.di.replaces.ReplacableService;
+import summer.tck.di.replaces.ServiceBean;
 
 /**
  * TCK test for {@code @Replaces} and {@code @ConditionalOnBean} interaction.
@@ -80,5 +81,18 @@ public abstract class AbstractReplacesTCK extends AbstractContextTCK {
 				.getBean(summer.tck.di.replaces.conditional.OriginalComponent.class);
 		assertNotNull(original, "OriginalComponent should survive when conditional replacement's condition is unmet");
 		assertEquals("original", original.serve());
+	}
+
+	// --- @Configuration @Replaces cascade ---
+
+	@Test
+	void testConfigurationReplacesCascade() {
+		// ReplacementBeanConfig replaces OriginalBeanConfig.
+		// The @Bean serviceBean() on OriginalBeanConfig should also be removed.
+		// If not, we'd get AmbiguousBeanException (two ServiceBean beans).
+		ServiceBean bean = context().getBean(ServiceBean.class);
+		assertNotNull(bean);
+		assertEquals("replacement", bean.source(),
+				"ReplacementBeanConfig's @Bean should produce the ServiceBean");
 	}
 }
