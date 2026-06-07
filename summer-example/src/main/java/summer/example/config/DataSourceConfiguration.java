@@ -21,7 +21,7 @@ public class DataSourceConfiguration {
 	}
 
 	@Bean
-	public summer.data.jdbc.JdbcTemplate jdbcTemplate(DataSource dataSource) {
-		return new summer.data.jdbc.JdbcTemplate(dataSource);
+	public summer.data.jdbc.JdbcTemplate jdbcTemplate(DataSource dataSource, summer.data.jdbc.RowMapperRegistry rowMapperRegistry) {
+		return new summer.data.jdbc.JdbcTemplate(dataSource, rowMapperRegistry);
 	}
 }

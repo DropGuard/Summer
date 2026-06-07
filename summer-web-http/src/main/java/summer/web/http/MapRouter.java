@@ -1,24 +1,24 @@
 package summer.web.http;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import summer.core.Component;
-import summer.core.RuntimeDiMarker;
-import summer.core.annotation.ConditionalOnBean;
-import summer.core.annotation.Replaces;
-import summer.web.AbstractMapRouter;
 import summer.web.Handler;
-import summer.web.HttpRouter;
 import summer.web.HttpContext;
+import summer.web.HttpMethod;
+import summer.web.HttpRouter;
+import summer.web.PathMatcher;
+import summer.web.PathMatcher.RouteEntry;
+import summer.web.PathUtils;
 
 /**
- * Simple router implementation using a Map for route storage.
+ * Immutable router implementation using a Map for route storage.
  *
  * <p>
  * This implementation prioritizes simplicity and readability over raw
- * performance. It is activated only when the reflection-based DI engine
- * ({@link RuntimeDiMarker}) is present. Use it for learning, testing, or
- * applications where route matching performance is not critical.
+ * performance. Routes are provided at construction time via
+ * {@link HttpRouter.Builder.Route}s, making the router truly immutable and
+ * thread-safe.
  * </p>
  *
  * <p>
@@ -26,28 +26,33 @@ import summer.web.HttpContext;
  * {@code /users/{id}}).
  * </p>
  */
-@ConditionalOnBean(RuntimeDiMarker.class)
-@Replaces(RadixRouter.class)
-@Component
-public class MapRouter extends AbstractMapRouter implements HttpRouter {
+public class MapRouter implements HttpRouter {
 
-	private final Map<String, RouteEntryWithHandler> routes = new HashMap<>();
+	private final Map<String, RouteEntryWithHandler> routes;
 
-	@Override
-	public void register(String method, String path, Handler handler) {
-		String key = method.toUpperCase() + " " + normalizePath(path);
-		RouteEntryWithHandler entry = new RouteEntryWithHandler();
-		RouteEntry base = parsePath(path);
-		entry.pattern = base.pattern;
-		entry.paramNames = base.paramNames;
-		entry.handler = handler;
-		routes.put(key, entry);
+	/**
+	 * Creates an immutable MapRouter from the given routes.
+	 *
+	 * @param routes
+	 *            the routes to build the routing table from
+	 */
+	public MapRouter(List<HttpRouter.Builder.Route> routes) {
+		this.routes = new HashMap<>(routes.size());
+		for (HttpRouter.Builder.Route route : routes) {
+			String key = route.method() + " " + PathUtils.normalizePath(route.path());
+			RouteEntryWithHandler entry = new RouteEntryWithHandler();
+			RouteEntry base = PathMatcher.parsePath(route.path());
+			entry.pattern = base.pattern;
+			entry.paramNames = base.paramNames;
+			entry.handler = route.handler();
+			this.routes.put(key, entry);
+		}
 	}
 
 	@Override
 	public Object route(HttpContext ctx) {
-		String method = ctx.request().getMethod().toUpperCase();
-		String path = normalizePath(ctx.request().getPath());
+		HttpMethod method = ctx.request().getMethod();
+		String path = PathUtils.normalizePath(ctx.request().getPath());
 
 		String key = method + " " + path;
 		RouteEntryWithHandler entry = routes.get(key);
@@ -59,7 +64,7 @@ public class MapRouter extends AbstractMapRouter implements HttpRouter {
 			if (!route.getKey().startsWith(method + " "))
 				continue;
 
-			Map<String, String> params = matchPattern(route.getValue(), path);
+			Map<String, String> params = PathMatcher.matchPattern(route.getValue(), path);
 			if (params != null) {
 				params.forEach(ctx.request()::setAttribute);
 				return route.getValue().handler.handle(ctx);

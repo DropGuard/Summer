@@ -1,0 +1,4 @@
+app:
+  name: summer-tck
+  port: 8080
+  debug: true

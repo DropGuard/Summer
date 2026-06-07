@@ -2,39 +2,19 @@ package summer.tck.aop;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import summer.core.ApplicationContext;
+import summer.tck.AbstractContextTCK;
 import summer.tck.aop.dummy.Greeter;
 import summer.tck.aop.dummy.RecordingInterceptor;
 
 /**
  * Abstract AOP Test Compatibility Kit.
  *
- * Defines the behavioral contract that BOTH the Runtime and AOT engines must
+ * <p>Defines the behavioral contract that BOTH the Runtime and AOT engines must
  * satisfy for AOP interception. Any engine that passes all tests here is
  * considered AOP-compliant.
  */
-public abstract class AbstractAopTCK {
-
-	protected ApplicationContext context;
-
-	protected abstract ApplicationContext createContext();
-
-	protected ApplicationContext getContext() {
-		if (context == null) {
-			context = createContext();
-		}
-		return context;
-	}
-
-	@AfterEach
-	void tearDown() {
-		if (context != null) {
-			context.destroy();
-			context = null;
-		}
-	}
+public abstract class AbstractAopTCK extends AbstractContextTCK {
 
 	// -----------------------------------------------------------------------
 	// Intercepted method IS proxied
@@ -42,7 +22,7 @@ public abstract class AbstractAopTCK {
 
 	@Test
 	void testInterceptedMethodReturnsWrappedResult() {
-		Greeter greeter = getContext().getBean(Greeter.class);
+		Greeter greeter = context().getBean(Greeter.class);
 		String result = greeter.greet("Alice");
 		assertEquals("[intercepted] Hello, Alice", result,
 				"Intercepted method must return the mutated value from the interceptor");
@@ -54,7 +34,7 @@ public abstract class AbstractAopTCK {
 
 	@Test
 	void testNonInterceptedMethodIsUnaffected() {
-		Greeter greeter = getContext().getBean(Greeter.class);
+		Greeter greeter = context().getBean(Greeter.class);
 		String result = greeter.shout("hello");
 		assertEquals("HELLO", result, "Non-intercepted method must return the raw result, without any prefix");
 	}
@@ -65,7 +45,7 @@ public abstract class AbstractAopTCK {
 
 	@Test
 	void testBeanIsProxy() {
-		Greeter greeter = getContext().getBean(Greeter.class);
+		Greeter greeter = context().getBean(Greeter.class);
 		assertNotEquals(summer.tck.aop.dummy.GreeterService.class, greeter.getClass(),
 				"The bean returned from context must be a proxy, not the raw GreeterService");
 		assertInstanceOf(Greeter.class, greeter);
@@ -77,10 +57,10 @@ public abstract class AbstractAopTCK {
 
 	@Test
 	void testConcreteClassBypassesAop() {
-		RecordingInterceptor interceptor = getContext().getBean(RecordingInterceptor.class);
+		RecordingInterceptor interceptor = context().getBean(RecordingInterceptor.class);
 		interceptor.clearLog();
 
-		summer.tck.aop.dummy.GreeterService raw = getContext().getBean(summer.tck.aop.dummy.GreeterService.class);
+		summer.tck.aop.dummy.GreeterService raw = context().getBean(summer.tck.aop.dummy.GreeterService.class);
 		assertEquals(summer.tck.aop.dummy.GreeterService.class, raw.getClass(),
 				"getBean(ConcreteClass.class) must return the raw instance, not a JDK proxy");
 

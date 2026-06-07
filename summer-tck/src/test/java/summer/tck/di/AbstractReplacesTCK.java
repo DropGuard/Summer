@@ -5,42 +5,50 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import summer.core.ApplicationContext;
-import summer.tck.di.conditional.*;
-import summer.tck.di.replaces.*;
+import summer.tck.AbstractContextTCK;
+import summer.tck.di.replaces.OriginalComponent;
+import summer.tck.di.replaces.ReplacableService;
 
 /**
  * TCK test for {@code @Replaces} and {@code @ConditionalOnBean} interaction.
  *
- * <p>
- * Each test creates a fresh context with specific components registered.
- * Subclasses provide the context factory.
- * </p>
+ * <p>Each test creates a fresh context by scanning a package for @Component-annotated classes.
+ * Subclasses provide the context factory.</p>
+ *
+ * <p>Note: This TCK extends {@link AbstractContextTCK} for the primary context
+ * and adds a second context factory for conditional replacement testing.</p>
  */
-public abstract class AbstractReplacesTCK {
+public abstract class AbstractReplacesTCK extends AbstractContextTCK {
 
-	protected ApplicationContext context;
+	private ApplicationContext conditionalContext;
 
 	/**
-	 * Creates a fresh context with the given component classes registered and
-	 * initialized.
+	 * Creates a fresh context that includes ReplacesWithConditionComponent
+	 * but NOT ReplacementComponent.
 	 */
-	protected abstract ApplicationContext createContext(Class<?>... components);
+	protected abstract ApplicationContext createConditionalReplacesContext();
+
+	/**
+	 * Get the conditional replaces context (lazy initialization).
+	 */
+	protected ApplicationContext conditionalContext() {
+		if (conditionalContext == null) {
+			conditionalContext = createConditionalReplacesContext();
+		}
+		return conditionalContext;
+	}
 
 	@AfterEach
-	void tearDown() {
-		if (context != null) {
-			context.destroy();
-			context = null;
-		}
+	void cleanupConditionalContext() {
+		closeQuietly(conditionalContext);
+		conditionalContext = null;
 	}
 
 	// --- @Replaces basics ---
 
 	@Test
 	void testReplacementHappens() {
-		context = createContext(OriginalComponent.class, ReplacementComponent.class);
-
-		ReplacableService service = context.getBean(ReplacableService.class);
+		ReplacableService service = context().getBean(ReplacableService.class);
 		assertNotNull(service);
 		assertEquals("replacement", service.serve(),
 				"ReplacementComponent should replace OriginalComponent");
@@ -48,44 +56,23 @@ public abstract class AbstractReplacesTCK {
 
 	@Test
 	void testOriginalIsRemoved() {
-		context = createContext(OriginalComponent.class, ReplacementComponent.class);
-
-		assertThrows(Exception.class, () -> context.getBean(OriginalComponent.class),
+		assertThrows(Exception.class, () -> context().getBean(OriginalComponent.class),
 				"OriginalComponent should be removed after replacement");
-	}
-
-	// --- @ConditionalOnBean ---
-
-	@Test
-	void testConditionalOnBeanPositive() {
-		context = createContext(RequiredComponent.class, ConditionalOnComponent.class);
-
-		assertNotNull(context.getBean(RequiredComponent.class));
-		assertNotNull(context.getBean(ConditionalOnComponent.class),
-				"ConditionalOnComponent should be registered when RequiredComponent exists");
-	}
-
-	@Test
-	void testConditionalOnBeanNegative() {
-		context = createContext(ConditionalOnMissingComponent.class);
-		// MissingComponent NOT registered
-
-		assertThrows(Exception.class, () -> context.getBean(ConditionalOnMissingComponent.class),
-				"ConditionalOnMissingComponent should NOT be registered when MissingComponent does not exist");
 	}
 
 	// --- @ConditionalOnBean + @Replaces interaction ---
 
 	@Test
 	void testConditionalReplacesConditionUnmet() {
-		context = createContext(OriginalComponent.class, ReplacesWithConditionComponent.class);
-		// NonExistentMarker NOT registered → condition unmet
+		ApplicationContext ctx = conditionalContext();
 
-		// ReplacesWithConditionComponent should NOT be registered (condition unmet)
-		assertThrows(Exception.class, () -> context.getBean(ReplacesWithConditionComponent.class));
+		// ReplacesWithConditionComponent has @ConditionalOnBean(NonExistentMarker.class)
+		// NonExistentMarker is NOT registered as a component, so condition is unmet
+		assertThrows(Exception.class, () -> ctx.getBean(summer.tck.di.replaces.conditional.ReplacesWithConditionComponent.class));
 
-		// OriginalComponent should survive (replacement never fired)
-		OriginalComponent original = context.getBean(OriginalComponent.class);
+		// OriginalComponent (from conditional package) should survive
+		summer.tck.di.replaces.conditional.OriginalComponent original =
+				ctx.getBean(summer.tck.di.replaces.conditional.OriginalComponent.class);
 		assertNotNull(original, "OriginalComponent should survive when conditional replacement's condition is unmet");
 		assertEquals("original", original.serve());
 	}

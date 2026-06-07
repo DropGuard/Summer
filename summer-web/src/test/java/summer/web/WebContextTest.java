@@ -9,9 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.HashMap;
 import java.util.Map;
-
 import org.junit.jupiter.api.Test;
-
 import summer.web.exception.SummerWebException;
 
 /**
@@ -21,7 +19,7 @@ class WebContextTest {
 
 	@Test
 	void shouldCreateWebContext() {
-		Request request = createRequest("GET", "/test");
+		Request request = createRequest(HttpMethod.GET, "/test");
 		HttpContext ctx = new HttpContext(request);
 
 		assertSame(request, ctx.request());
@@ -30,7 +28,7 @@ class WebContextTest {
 
 	@Test
 	void shouldGetPathFromRequest() {
-		Request request = createRequest("GET", "/test/path");
+		Request request = createRequest(HttpMethod.GET, "/test/path");
 		HttpContext ctx = new HttpContext(request);
 
 		assertEquals("/test/path", ctx.path());
@@ -38,15 +36,15 @@ class WebContextTest {
 
 	@Test
 	void shouldGetMethodFromRequest() {
-		Request request = createRequest("GET", "/test");
+		Request request = createRequest(HttpMethod.GET, "/test");
 		HttpContext ctx = new HttpContext(request);
 
-		assertEquals("GET", ctx.method());
+		assertEquals(HttpMethod.GET, ctx.method());
 	}
 
 	@Test
 	void shouldGetPathParam() {
-		Request request = createRequest("GET", "/users/123");
+		Request request = createRequest(HttpMethod.GET, "/users/123");
 		request.setAttribute("id", "123");
 		HttpContext ctx = new HttpContext(request);
 
@@ -55,7 +53,7 @@ class WebContextTest {
 
 	@Test
 	void shouldGetQueryParam() {
-		Request request = createRequestWithQuery("GET", "/test", "name=test");
+		Request request = createRequestWithQuery(HttpMethod.GET, "/test", "name=test");
 		HttpContext ctx = new HttpContext(request);
 
 		assertEquals("test", ctx.queryParam("name"));
@@ -65,7 +63,7 @@ class WebContextTest {
 	void shouldGetHeader() {
 		Map<String, String> headers = new HashMap<>();
 		headers.put("content-type", "application/json");
-		Request request = createRequest("GET", "/test", headers);
+		Request request = createRequest(HttpMethod.GET, "/test", headers);
 		HttpContext ctx = new HttpContext(request);
 
 		assertEquals("application/json", ctx.header("Content-Type"));
@@ -73,7 +71,7 @@ class WebContextTest {
 
 	@Test
 	void shouldSetStatusCode() {
-		Request request = createRequest("GET", "/test");
+		Request request = createRequest(HttpMethod.GET, "/test");
 		HttpContext ctx = new HttpContext(request);
 
 		HttpContext result = ctx.status(HttpStatus.CREATED);
@@ -83,7 +81,7 @@ class WebContextTest {
 
 	@Test
 	void shouldSetHeader() {
-		Request request = createRequest("GET", "/test");
+		Request request = createRequest(HttpMethod.GET, "/test");
 		HttpContext ctx = new HttpContext(request);
 
 		HttpContext result = ctx.setHeader("X-Custom", "value");
@@ -93,7 +91,7 @@ class WebContextTest {
 
 	@Test
 	void shouldUseDefaultJsonConverterWhenNoneProvided() {
-		Request request = createRequest("GET", "/test");
+		Request request = createRequest(HttpMethod.GET, "/test");
 		HttpContext ctx = new HttpContext(request);
 
 		// Should use default JsonBodyConverter
@@ -104,7 +102,7 @@ class WebContextTest {
 
 	@Test
 	void shouldUseInjectedConverter() {
-		Request request = createRequest("GET", "/test");
+		Request request = createRequest(HttpMethod.GET, "/test");
 		BodyConverter customConverter = new BodyConverter() {
 			@Override
 			public boolean supports(String contentType) {
@@ -136,7 +134,7 @@ class WebContextTest {
 	void shouldThrowWhenBodyClassIsNotRecord() {
 		Map<String, String> headers = new HashMap<>();
 		headers.put("content-type", "application/json");
-		Request request = createRequest("POST", "/test", headers);
+		Request request = createRequest(HttpMethod.POST, "/test", headers);
 		HttpContext ctx = new HttpContext(request);
 
 		assertThrows(SummerWebException.class, () -> ctx.body(NotARecord.class));
@@ -144,7 +142,7 @@ class WebContextTest {
 
 	@Test
 	void shouldSendOkResponse() {
-		Request request = createRequest("GET", "/test");
+		Request request = createRequest(HttpMethod.GET, "/test");
 		HttpContext ctx = new HttpContext(request);
 
 		ctx.ok("test result");
@@ -154,7 +152,7 @@ class WebContextTest {
 
 	@Test
 	void shouldSendJsonResponse() {
-		Request request = createRequest("GET", "/test");
+		Request request = createRequest(HttpMethod.GET, "/test");
 		HttpContext ctx = new HttpContext(request);
 
 		ctx.json(HttpStatus.NOT_FOUND, "Not Found");
@@ -164,7 +162,7 @@ class WebContextTest {
 
 	@Test
 	void shouldSendErrorResponse() {
-		Request request = createRequest("GET", "/test");
+		Request request = createRequest(HttpMethod.GET, "/test");
 		HttpContext ctx = new HttpContext(request);
 
 		Exception error = new RuntimeException("Test error");
@@ -175,7 +173,7 @@ class WebContextTest {
 
 	@Test
 	void shouldSendWithCustomStatusCode() {
-		Request request = createRequest("POST", "/test");
+		Request request = createRequest(HttpMethod.POST, "/test");
 		HttpContext ctx = new HttpContext(request);
 
 		ctx.json(HttpStatus.CREATED, "created");
@@ -184,15 +182,15 @@ class WebContextTest {
 	}
 
 	// Helper methods to create Request objects
-	private Request createRequest(String method, String path) {
+	private Request createRequest(HttpMethod method, String path) {
 		return new Request(method, path, null, "application/json", new byte[0]);
 	}
 
-	private Request createRequest(String method, String path, Map<String, String> headers) {
+	private Request createRequest(HttpMethod method, String path, Map<String, String> headers) {
 		return new Request(method, path, null, "application/json", new byte[0], headers, path.getBytes());
 	}
 
-	private Request createRequestWithQuery(String method, String path, String query) {
+	private Request createRequestWithQuery(HttpMethod method, String path, String query) {
 		return new Request(method, path, query, "application/json", new byte[0]);
 	}
 

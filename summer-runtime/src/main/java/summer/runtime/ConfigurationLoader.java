@@ -1,43 +1,47 @@
 package summer.runtime;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import java.io.InputStream;
 import java.lang.reflect.RecordComponent;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
-import summer.core.Component;
 import summer.core.ErrorCode;
 import summer.core.config.ConfigurationBinder;
 import summer.core.config.DefaultValue;
 import summer.core.exception.ConfigurationException;
+import summer.core.json.SummerObjectMapper;
 
 /**
- * Loads YAML configuration and applies {@link DefaultValue} defaults via
- * reflection before delegating to {@link ConfigurationBinder#bind(Map, Class)}.
+ * Loads YAML configuration and delegates to
+ * {@link ConfigurationBinder#bind(Map, Class)}.
  *
  * <p>
- * This class owns the reflective record-component inspection that was previously
- * in {@code ConfigurationBinder}. The binder itself is reflection-free.
+ * If a prefix section is absent from the YAML file, binding proceeds with an
+ * empty map. Record components annotated with {@code @DefaultValue} get their
+ * declared values; components without cause a clear "missing required property"
+ * error from the binder.
+ * </p>
+ *
+ * <p>
+ * This is a framework infrastructure bean provided by
+ * {@link RuntimeInfrastructureConfiguration}.
  * </p>
  */
-@Component
 public class ConfigurationLoader {
 
-	private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory())
-			.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+	private static final ObjectMapper YAML_MAPPER = SummerObjectMapper.createYaml();
 
 	/**
-	 * Binds the entire YAML configuration file to the specified type, applying
-	 * {@link DefaultValue} defaults for record components.
+	 * Binds the entire YAML configuration file to the specified type.
 	 */
 	public <T> T bind(String classpathResource, Class<T> type) {
 		return bind(classpathResource, type, null, null);
 	}
 
 	/**
-	 * Binds a section of the YAML configuration file to the specified type,
-	 * applying {@link DefaultValue} defaults for record components.
+	 * Binds a section of the YAML configuration file to the specified type.
 	 */
 	public <T> T bind(String classpathResource, Class<T> type, String prefix) {
 		return bind(classpathResource, type, prefix, null);
@@ -61,27 +65,35 @@ public class ConfigurationLoader {
 	private <T> T bind(String classpathResource, Class<T> type, String prefix, T defaultValue) {
 		try (InputStream stream = Thread.currentThread().getContextClassLoader()
 				.getResourceAsStream(classpathResource)) {
+			Map<String, Object> root;
 			if (stream == null) {
 				if (defaultValue != null) {
 					return defaultValue;
 				}
-				throw new ConfigurationException(ErrorCode.CONFIG_PARSE_ERROR,
-						"Configuration file not found: " + classpathResource);
+				// File absent — start with an empty root so @DefaultValue
+				// can supply values for fields that declare it.
+				root = new java.util.LinkedHashMap<>();
+			} else {
+				root = YAML_MAPPER.readValue(stream, Map.class);
 			}
-
-			Map<String, Object> root = YAML_MAPPER.readValue(stream, Map.class);
 
 			Map<String, Object> section = root;
 			if (prefix != null && !prefix.isEmpty()) {
 				section = ConfigurationBinder.extractSection(root, prefix);
 			}
 
-			section = ConfigurationBinder.normalizeKeys(section);
-
-			if (type.isRecord()) {
-				applyDefaults(section, type);
+			if (section == null) {
+				if (defaultValue != null) {
+					return defaultValue;
+				}
+				// Section absent — proceed with an empty map.
+				section = new LinkedHashMap<>();
 			}
-
+			section = ConfigurationBinder.normalizeKeys(section);
+			applyDefaults(section, type);
+			if (type.isRecord()) {
+				validateAllFieldsPresent(section, type, classpathResource);
+			}
 			return ConfigurationBinder.bind(section, type);
 		} catch (ConfigurationException e) {
 			throw e;
@@ -91,7 +103,22 @@ public class ConfigurationLoader {
 		}
 	}
 
+	private static <T> void validateAllFieldsPresent(Map<String, Object> section, Class<T> type, String resource) {
+		List<String> missing = new ArrayList<>();
+		for (RecordComponent component : type.getRecordComponents()) {
+			if (!section.containsKey(component.getName()) && component.getType().isPrimitive()) {
+				missing.add(component.getName());
+			}
+		}
+		if (!missing.isEmpty()) {
+			throw new ConfigurationException(ErrorCode.CONFIG_PARSE_ERROR, "Missing required configuration properties "
+					+ missing + " for " + type.getSimpleName() + " in '" + resource + "'");
+		}
+	}
+
 	private static <T> void applyDefaults(Map<String, Object> section, Class<T> type) {
+		if (!type.isRecord())
+			return;
 		for (RecordComponent component : type.getRecordComponents()) {
 			DefaultValue ann = component.getAnnotation(DefaultValue.class);
 			if (ann != null && !section.containsKey(component.getName())) {
@@ -101,14 +128,22 @@ public class ConfigurationLoader {
 	}
 
 	private static Object parseDefaultValue(String value, Class<?> targetType) {
-		if (targetType == String.class) return value;
-		if (targetType == int.class || targetType == Integer.class) return Integer.parseInt(value);
-		if (targetType == long.class || targetType == Long.class) return Long.parseLong(value);
-		if (targetType == boolean.class || targetType == Boolean.class) return Boolean.parseBoolean(value);
-		if (targetType == double.class || targetType == Double.class) return Double.parseDouble(value);
-		if (targetType == float.class || targetType == Float.class) return Float.parseFloat(value);
-		if (targetType == short.class || targetType == Short.class) return Short.parseShort(value);
-		if (targetType == byte.class || targetType == Byte.class) return Byte.parseByte(value);
+		if (targetType == String.class)
+			return value;
+		if (targetType == int.class || targetType == Integer.class)
+			return Integer.parseInt(value);
+		if (targetType == long.class || targetType == Long.class)
+			return Long.parseLong(value);
+		if (targetType == boolean.class || targetType == Boolean.class)
+			return Boolean.parseBoolean(value);
+		if (targetType == double.class || targetType == Double.class)
+			return Double.parseDouble(value);
+		if (targetType == float.class || targetType == Float.class)
+			return Float.parseFloat(value);
+		if (targetType == short.class || targetType == Short.class)
+			return Short.parseShort(value);
+		if (targetType == byte.class || targetType == Byte.class)
+			return Byte.parseByte(value);
 		throw new ConfigurationException(ErrorCode.CONFIG_PARSE_ERROR,
 				"Unsupported type for @DefaultValue: " + targetType.getName());
 	}

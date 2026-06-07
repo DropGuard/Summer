@@ -9,7 +9,6 @@ import summer.web.annotation.PathParam;
 import summer.web.annotation.Post;
 import summer.web.annotation.Put;
 import summer.web.annotation.RestController;
-import summer.web.annotation.Use;
 
 @RestController("/users")
 public class UserController {
@@ -43,7 +42,6 @@ public class UserController {
 	}
 
 	@Delete("/{id}")
-	@Use(AuthMiddleware.class) // Protect sensitive action
 	public void deleteUser(HttpContext ctx, @PathParam("id") String id) {
 		userService.delete(id);
 		ctx.status(HttpStatus.NO_CONTENT);

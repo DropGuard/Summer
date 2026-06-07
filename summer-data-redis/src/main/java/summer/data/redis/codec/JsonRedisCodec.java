@@ -2,23 +2,22 @@ package summer.data.redis.codec;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.lettuce.core.codec.RedisCodec;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import summer.core.exception.DataSerializationException;
+import summer.core.json.SummerObjectMapper;
 
 public class JsonRedisCodec implements RedisCodec<String, Object> {
 
 	private final ObjectMapper mapper;
 
 	public JsonRedisCodec() {
-		this.mapper = new ObjectMapper();
-		// Register JavaTimeModule for LocalDate, LocalDateTime, etc.
-		this.mapper.registerModule(new JavaTimeModule());
-		// Configure mapping behavior for records/objects as needed
-		this.mapper.activateDefaultTyping(this.mapper.getPolymorphicTypeValidator(),
-				ObjectMapper.DefaultTyping.EVERYTHING, com.fasterxml.jackson.annotation.JsonTypeInfo.As.PROPERTY);
+		this(SummerObjectMapper.create());
+	}
+
+	public JsonRedisCodec(ObjectMapper mapper) {
+		this.mapper = mapper;
 	}
 
 	@Override

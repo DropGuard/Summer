@@ -1,7 +1,7 @@
 package summer.tck.di;
 
 import summer.core.ApplicationContext;
-import summer.runtime.RuntimeDiEngine;
+import summer.runtime.RuntimeApplicationContext;
 import summer.tck.di.inheritance.ServiceImpl;
 
 /**
@@ -10,7 +10,9 @@ import summer.tck.di.inheritance.ServiceImpl;
 public class RuntimeInterfaceInheritanceTest extends AbstractInterfaceInheritanceTCK {
 
 	@Override
-	protected ApplicationContext createAndInitializeContext() {
-		return new RuntimeDiEngine().create(ServiceImpl.class);
+	protected ApplicationContext createContext() {
+		return RuntimeApplicationContext.create(ServiceImpl.class);
 	}
 }
+
+

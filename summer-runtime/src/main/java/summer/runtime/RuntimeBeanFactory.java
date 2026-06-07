@@ -3,24 +3,18 @@ package summer.runtime;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-
 import summer.aop.MethodInterceptor;
 import summer.core.ApplicationContext;
 import summer.core.Provider;
 import summer.core.exception.BeanCreationException;
-import summer.core.exception.CircularDependencyException;
 import summer.core.exception.NoSuchBeanException;
 
 class RuntimeBeanFactory {
 
 	private final Map<Class<?>, Object> singletons;
 	private final List<AutoCloseable> closeables;
-	private final Set<Class<?>> currentlyInstantiating = java.util.concurrent.ConcurrentHashMap.newKeySet();
-	private final Map<Class<?>, Method> beanMethods = new java.util.concurrent.ConcurrentHashMap<>();
 	private final DependencyGraph dependencyGraph;
 	private final ApplicationContext context;
 
@@ -32,39 +26,10 @@ class RuntimeBeanFactory {
 		this.context = context;
 	}
 
-	Map<Class<?>, Method> beanMethods() {
-		return beanMethods;
-	}
-
-	boolean isInstantiating(Class<?> clazz) {
-		return currentlyInstantiating.contains(clazz);
-	}
-
-	void applyAopPass() {
-		List<MethodInterceptor> allInterceptors = context.getBeans(MethodInterceptor.class);
-		for (var entry : new java.util.LinkedHashMap<>(singletons).entrySet()) {
-			Class<?> clazz = entry.getKey();
-			if (clazz.isInterface())
-				continue;
-			Object instance = entry.getValue();
-			if (instance instanceof MethodInterceptor)
-				continue;
-			Object result = RuntimeAopProcessor.applyProxy(instance, clazz, allInterceptors, singletons);
-			if (result != instance) {
-				singletons.put(clazz, instance); // concrete key keeps raw instance
-			}
-		}
-	}
-
 	Object instantiateBean(Class<?> clazz) {
 		if (singletons.containsKey(clazz)) {
 			return singletons.get(clazz);
 		}
-		if (currentlyInstantiating.contains(clazz)) {
-			throw new CircularDependencyException("Reentrant bean instantiation detected for: " + clazz.getName());
-		}
-		currentlyInstantiating.add(clazz);
-
 		try {
 			Object instance = createInstance(clazz);
 			return registerBean(clazz, instance);
@@ -72,22 +37,16 @@ class RuntimeBeanFactory {
 			if (e instanceof NoSuchBeanException nse)
 				throw nse;
 			throw new BeanCreationException("Failed to instantiate bean: " + clazz.getName(), e);
-		} finally {
-			currentlyInstantiating.remove(clazz);
 		}
 	}
 
 	private Object createInstance(Class<?> clazz) throws ReflectiveOperationException {
 		Constructor<?> constructor = dependencyGraph.getConstructorForClass(clazz);
-		Object[] dependencies = resolveDependencies(constructor);
+		Object[] dependencies = resolveArgs(constructor.getParameterTypes(), constructor.getGenericParameterTypes());
 		return constructor.newInstance(dependencies);
 	}
-
-	private Object[] resolveDependencies(Constructor<?> constructor) {
-		java.lang.reflect.Type[] genericTypes = constructor.getGenericParameterTypes();
-		Class<?>[] paramTypes = constructor.getParameterTypes();
+	private Object[] resolveArgs(Class<?>[] paramTypes, java.lang.reflect.Type[] genericTypes) {
 		Object[] args = new Object[paramTypes.length];
-
 		for (int i = 0; i < paramTypes.length; i++) {
 			Class<?> paramType = paramTypes[i];
 			java.lang.reflect.Type genericType = genericTypes[i];
@@ -126,9 +85,15 @@ class RuntimeBeanFactory {
 
 	private Object registerRegularBean(Class<?> clazz, Object instance) {
 		trackCloseable(instance);
+
+		List<MethodInterceptor> allInterceptors = context.getBeans(MethodInterceptor.class);
+		Object proxy = RuntimeAopProcessor.applyProxy(instance, clazz, allInterceptors);
+
+		// The concrete class key keeps the raw instance
 		singletons.put(clazz, instance);
-		registerAllInterfaces(clazz, instance);
-		return instance;
+		// Interfaces get the proxy
+		registerAllInterfaces(clazz, proxy);
+		return proxy;
 	}
 
 	private void registerAllInterfaces(Class<?> clazz, Object instance) {
@@ -144,27 +109,33 @@ class RuntimeBeanFactory {
 		}
 	}
 
-	Object invokeBeanProducer(Method producer, Class<?> producedType) {
+	Object invokeBeanProducer(Method producer) {
 		try {
 			Class<?> configClass = producer.getDeclaringClass();
-			Object configBean = singletons.get(configClass);
-			if (configBean == null) {
-				configBean = context.getBean(configClass);
-			}
+			Object configBean = context.getBean(configClass);
 			if (configBean == null) {
 				throw new BeanCreationException("Configuration bean not instantiated: " + configClass.getName());
 			}
-			Object[] args = Arrays.stream(producer.getParameterTypes()).map(context::getBean).toArray();
+			Object[] args = resolveProducerArgs(producer);
 			Object result = producer.invoke(configBean, args);
+			Class<?> producedType = producer.getReturnType();
+
+			List<MethodInterceptor> allInterceptors = context.getBeans(MethodInterceptor.class);
+			Object proxy = RuntimeAopProcessor.applyProxy(result, producedType, allInterceptors);
+
 			singletons.put(producedType, result);
-			registerAllInterfaces(result.getClass(), result);
+			registerAllInterfaces(producedType, proxy);
 			if (result instanceof AutoCloseable closeable) {
 				closeables.add(closeable);
 			}
-			return result;
+			return proxy;
 		} catch (InvocationTargetException | IllegalAccessException e) {
 			throw new BeanCreationException("Failed to invoke @Bean method: " + producer.getName(), e);
 		}
+	}
+
+	private Object[] resolveProducerArgs(Method producer) {
+		return resolveArgs(producer.getParameterTypes(), producer.getGenericParameterTypes());
 	}
 
 	private static Class<?> getProvidedType(Class<?> providerClass) {

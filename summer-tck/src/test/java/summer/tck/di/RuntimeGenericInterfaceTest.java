@@ -1,7 +1,7 @@
 package summer.tck.di;
 
 import summer.core.ApplicationContext;
-import summer.runtime.RuntimeDiEngine;
+import summer.runtime.RuntimeApplicationContext;
 import summer.tck.di.generic.StringServiceImpl;
 
 /**
@@ -10,7 +10,9 @@ import summer.tck.di.generic.StringServiceImpl;
 public class RuntimeGenericInterfaceTest extends AbstractGenericInterfaceTCK {
 
 	@Override
-	protected ApplicationContext createAndInitializeContext() {
-		return new RuntimeDiEngine().create(StringServiceImpl.class);
+	protected ApplicationContext createContext() {
+		return RuntimeApplicationContext.create(StringServiceImpl.class);
 	}
 }
+
+

@@ -16,7 +16,7 @@ public class GreeterService implements Greeter {
 		return "Hello, " + name;
 	}
 
-	// NOT annotated with @Recorded — interception must NOT apply here
+	// NOT annotated with @Recorded --interception must NOT apply here
 	@Override
 	public String shout(String message) {
 		return message.toUpperCase();

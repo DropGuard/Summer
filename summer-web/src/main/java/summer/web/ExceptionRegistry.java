@@ -2,12 +2,12 @@ package summer.web;
 
 import java.util.HashMap;
 import java.util.Map;
-import summer.core.Component;
 
 /**
- * Registry for global exception handlers.
+ * Registry for global exception handlers. Built during startup by
+ * {@link ExceptionHandlerRegistrar} and used by the server to handle
+ * exceptions.
  */
-@Component
 public class ExceptionRegistry {
 	private final Map<Class<? extends Throwable>, Handler> handlers = new HashMap<>();
 

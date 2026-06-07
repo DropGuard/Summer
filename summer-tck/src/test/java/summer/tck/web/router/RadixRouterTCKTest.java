@@ -1,15 +1,18 @@
 package summer.tck.web.router;
 
-import summer.web.http.RadixRouter;
+import java.util.List;
+import java.util.function.Function;
+
 import summer.web.HttpRouter;
+import summer.web.http.RadixTreeHttpRouter;
 
 /**
- * TCK tests for RadixRouter implementation.
+ * TCK tests for RadixTreeHttpRouter implementation.
  */
 public class RadixRouterTCKTest extends AbstractRouterTCK {
 
 	@Override
-	protected HttpRouter createRouter() {
-		return new RadixRouter();
+	protected Function<List<HttpRouter.Builder.Route>, HttpRouter> routerFactory() {
+		return RadixTreeHttpRouter::new;
 	}
 }

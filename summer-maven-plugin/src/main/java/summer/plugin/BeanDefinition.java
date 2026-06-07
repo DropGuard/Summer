@@ -12,7 +12,7 @@ import java.util.Map;
 public final class BeanDefinition {
 
 	public enum Kind {
-		COMPONENT, CONFIGURATION, FACTORY_PRODUCT
+		COMPONENT, CONFIGURATION, FACTORY_PRODUCT, CONFIG_PROPERTIES
 	}
 
 	public final Kind kind;
@@ -43,6 +43,13 @@ public final class BeanDefinition {
 
 	// Lifecycle
 	public boolean isAutoCloseable;
+
+	// @Replaces (method-level)
+	public String replacesReturnType;  // The return type to replace (e.g., "javax.sql.DataSource")
+	public String replacesTargetClass; // Optional: explicit target class for method-level @Replaces
+
+	// @ConfigurationProperties
+	public String configPropertiesPrefix;
 
 	// Dependency resolution
 	public final List<BeanDefinition> resolvedDependencies = new ArrayList<>();

@@ -1,7 +1,7 @@
 package summer.tck.aop;
 
 import summer.core.ApplicationContext;
-import summer.runtime.RuntimeDiEngine;
+import summer.runtime.RuntimeApplicationContext;
 import summer.tck.aop.dummy.GreeterService;
 
 /**
@@ -13,6 +13,8 @@ public class RuntimeAopTest extends AbstractAopTCK {
 
 	@Override
 	protected ApplicationContext createContext() {
-		return new RuntimeDiEngine().create(GreeterService.class);
+		return RuntimeApplicationContext.create(GreeterService.class);
 	}
 }
+
+

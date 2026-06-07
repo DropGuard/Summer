@@ -5,7 +5,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.junit.jupiter.api.extension.ExtendWith;
-import summer.core.DiEngine;
+import summer.core.ApplicationContext;
 import summer.test.SummerExtension;
 
 /**
@@ -19,8 +19,9 @@ import summer.test.SummerExtension;
 public @interface SummerTest {
 
 	/**
-	 * The DI engine to use for the test context. The engine class must have a
-	 * public no-arg constructor.
+	 * The ApplicationContext implementation to use for the test. The class must
+	 * have a public no-arg constructor and a static {@code create(Class<?>)}
+	 * method.
 	 */
-	Class<? extends DiEngine> value();
+	Class<? extends ApplicationContext> value();
 }

@@ -15,6 +15,6 @@ public class GrpcTestConfig {
 
 	@summer.core.annotation.Bean
 	public EchoServiceGrpc.EchoServiceBlockingStub echoStub() {
-		return channelManager.getBlockingStub(EchoServiceGrpc.class, "localhost:9090");
+		return EchoServiceGrpc.newBlockingStub(channelManager.getChannel("localhost:9090"));
 	}
 }

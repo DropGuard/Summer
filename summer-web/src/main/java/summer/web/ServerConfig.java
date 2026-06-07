@@ -30,15 +30,19 @@ import summer.core.config.ConfigurationBinder;
  * @param allowedOrigins
  *            list of allowed WebSocket origins (empty = same-origin only, "*" =
  *            allow all)
+ * @param maxWebSocketFrameSize
+ *            max WebSocket frame size in bytes (default: 65536)
  */
 public record ServerConfig(@JsonProperty("port") int port, @JsonProperty("connectionTimeout") int connectionTimeout,
 		@JsonProperty("maxBodySize") int maxBodySize, @JsonProperty("readTimeout") int readTimeout,
-		@JsonProperty("allowed-origins") List<String> allowedOrigins) {
+		@JsonProperty("allowed-origins") List<String> allowedOrigins,
+		@JsonProperty("maxWebSocketFrameSize") int maxWebSocketFrameSize) {
 
 	/**
-	 * Sensible default configuration. (Default Max Body: 10MB, Read Timeout: 10s)
+	 * Sensible default configuration. (Default Max Body: 10MB, Read Timeout: 10s,
+	 * Max WebSocket Frame: 64KB)
 	 */
-	public static final ServerConfig DEFAULT = new ServerConfig(8080, 30000, 10485760, 10000, List.of());
+	public static final ServerConfig DEFAULT = new ServerConfig(8080, 30000, 10485760, 10000, List.of(), 65536);
 
 	public static ServerConfig fromYaml() {
 		return ConfigurationBinder.bindOrDefault("application.yml", ServerConfig.class, DEFAULT);
@@ -71,14 +75,28 @@ public record ServerConfig(@JsonProperty("port") int port, @JsonProperty("connec
 			return false;
 		}
 		try {
-			// Extract host from origin (e.g., "https://example.com" -> "example.com")
+			// Extract host and port from origin
 			java.net.URI uri = java.net.URI.create(origin);
 			String originHost = uri.getHost();
 			if (originHost == null) {
 				return false;
 			}
-			// Compare host (ignore port for simplicity, can be enhanced)
-			return requestHost.equals(originHost) || requestHost.startsWith(originHost + ":");
+			int originPort = uri.getPort() != -1 ? uri.getPort() : "https".equals(uri.getScheme()) ? 443 : 80;
+
+			// Parse requestHost to extract host and port
+			String reqHost;
+			int reqPort;
+			int colonIndex = requestHost.lastIndexOf(':');
+			if (colonIndex != -1) {
+				reqHost = requestHost.substring(0, colonIndex);
+				reqPort = Integer.parseInt(requestHost.substring(colonIndex + 1));
+			} else {
+				reqHost = requestHost;
+				reqPort = 80;
+			}
+
+			// Compare both host and port
+			return reqHost.equals(originHost) && reqPort == originPort;
 		} catch (Exception e) {
 			return false;
 		}

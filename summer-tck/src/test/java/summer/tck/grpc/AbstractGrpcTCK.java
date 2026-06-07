@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import summer.core.ApplicationContext;
 import summer.grpc.client.GrpcChannelManager;
 import summer.grpc.server.GrpcServerRunner;
+import summer.tck.AbstractTCK;
 
 /**
  * TCK test for gRPC component discovery and basic behavior.
@@ -15,15 +16,26 @@ import summer.grpc.server.GrpcServerRunner;
  * Verifies that both DI engines correctly discover and wire gRPC components
  * without requiring an actual gRPC server.
  * </p>
+ *
+ * <p>Note: This TCK uses a parameterized context factory ({@code createContext(Class<?>...)})
+ * because gRPC tests need to specify which configuration classes to register.</p>
  */
-public abstract class AbstractGrpcTCK {
+public abstract class AbstractGrpcTCK extends AbstractTCK {
 
 	protected ApplicationContext context;
 
-	protected abstract ApplicationContext createContext(Class<?>... components);
+	/**
+	 * Create context with specified configuration classes.
+	 *
+	 * <p>Implementations typically call:
+	 * <pre>
+	 * return RuntimeApplicationContext.create(components);
+	 * </pre>
+	 */
+	protected abstract ApplicationContext createContext(Class<?>... configClasses);
 
 	@AfterEach
-	void tearDown() {
+	void cleanupContext() {
 		if (context != null) {
 			GrpcChannelManager mgr = context.getBean(GrpcChannelManager.class);
 			try {
@@ -31,14 +43,14 @@ public abstract class AbstractGrpcTCK {
 			} catch (Exception ignored) {
 				// Cleanup failure is non-critical in tests
 			}
-			context.destroy();
+			closeQuietly(context);
 			context = null;
 		}
 	}
 
 	@Test
 	void testChannelManagerCachesPerTarget() {
-		context = createContext(GrpcChannelManager.class);
+		context = createContext();
 
 		GrpcChannelManager mgr = context.getBean(GrpcChannelManager.class);
 		var ch1 = mgr.getChannel("localhost:9999");
@@ -52,7 +64,7 @@ public abstract class AbstractGrpcTCK {
 
 	@Test
 	void testServerRunnerDoesNotStartWithoutServices() {
-		context = createContext(GrpcServerRunner.class, GrpcChannelManager.class);
+		context = createContext();
 
 		GrpcServerRunner runner = context.getBean(GrpcServerRunner.class);
 		assertNotNull(runner);

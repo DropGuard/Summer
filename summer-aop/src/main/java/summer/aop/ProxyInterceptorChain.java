@@ -3,8 +3,8 @@ package summer.aop;
 import java.util.List;
 
 /**
- * Default implementation of {@link InterceptorChain}.
- * Holds invocation data and executes the interceptor chain.
+ * Default implementation of {@link InterceptorChain}. Holds invocation data and
+ * executes the interceptor chain.
  */
 public class ProxyInterceptorChain implements InterceptorChain {
 
@@ -15,8 +15,8 @@ public class ProxyInterceptorChain implements InterceptorChain {
 	private final TargetInvoker targetInvoker;
 	private int currentIndex = -1;
 
-	public ProxyInterceptorChain(Object target, MethodMetadata targetMethod,
-			Object[] args, List<MethodInterceptor> interceptors, TargetInvoker targetInvoker) {
+	public ProxyInterceptorChain(Object target, MethodMetadata targetMethod, Object[] args,
+			List<MethodInterceptor> interceptors, TargetInvoker targetInvoker) {
 		this.target = target;
 		this.targetMethod = targetMethod;
 		this.args = args;

@@ -129,7 +129,7 @@ class CommentAsciiTest {
 			} else if (c == '\'') {
 				inChar = true;
 			} else if (c == '/' && next == '/') {
-				// line comment — rest of line is comment
+				// line comment --rest of line is comment
 				comment.append(line.substring(i + 2));
 				break;
 			} else if (c == '/' && next == '*') {

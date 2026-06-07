@@ -5,5 +5,5 @@ package summer.web;
  * between reflection-based runtime discovery and static AOT registration.
  */
 public interface RouteRegistrar {
-	void registerControllers();
+	void registerControllers(HttpRouter.Builder builder, summer.core.ApplicationContext context);
 }

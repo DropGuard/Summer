@@ -30,12 +30,6 @@
         </dependency>
         <dependency>
             <groupId>summer</groupId>
-            <artifactId>summer-compiler</artifactId>
-            <version>${project.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>summer</groupId>
             <artifactId>summer-maven-plugin</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
@@ -85,6 +79,12 @@
         <dependency>
             <groupId>summer</groupId>
             <artifactId>summer-tx</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-boot</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>

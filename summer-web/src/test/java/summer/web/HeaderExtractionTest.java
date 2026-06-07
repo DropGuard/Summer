@@ -1,6 +1,9 @@
 package summer.web;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
@@ -13,7 +16,7 @@ public class HeaderExtractionTest {
 
 	private Request requestWithHeaders(Map<String, String> headers) {
 		byte[] pathBytes = "/api/test".getBytes(StandardCharsets.UTF_8);
-		return new Request("GET", "/api/test", "", "application/json", new byte[0], headers, pathBytes);
+		return new Request(HttpMethod.GET, "/api/test", "", "application/json", new byte[0], headers, pathBytes);
 	}
 
 	@Test

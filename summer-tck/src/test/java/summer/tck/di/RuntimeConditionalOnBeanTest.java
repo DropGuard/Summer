@@ -1,7 +1,7 @@
 package summer.tck.di;
 
 import summer.core.ApplicationContext;
-import summer.runtime.RuntimeDiEngine;
+import summer.runtime.RuntimeApplicationContext;
 import summer.tck.di.conditional.RequiredComponent;
 
 /**
@@ -10,7 +10,9 @@ import summer.tck.di.conditional.RequiredComponent;
 public class RuntimeConditionalOnBeanTest extends AbstractConditionalOnBeanTCK {
 
 	@Override
-	protected ApplicationContext createAndInitializeContext() {
-		return new RuntimeDiEngine().create(RequiredComponent.class);
+	protected ApplicationContext createContext() {
+		return RuntimeApplicationContext.create(RequiredComponent.class);
 	}
 }
+
+

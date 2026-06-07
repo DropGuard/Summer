@@ -9,8 +9,8 @@ public final class PathUtils {
 	}
 
 	/**
-	 * Normalizes a path: ensures leading slash, collapses multiple slashes,
-	 * removes trailing slash (except root).
+	 * Normalizes a path: ensures leading slash, collapses multiple slashes, removes
+	 * trailing slash (except root).
 	 */
 	public static String normalizePath(String path) {
 		if (path == null || path.isEmpty()) {

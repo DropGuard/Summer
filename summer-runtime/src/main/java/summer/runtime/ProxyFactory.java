@@ -5,10 +5,9 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.List;
-
-import summer.aop.ProxyInterceptorChain;
 import summer.aop.InterceptorBinding;
 import summer.aop.MethodInterceptor;
+import summer.aop.ProxyInterceptorChain;
 import summer.aop.SummerAopException;
 import summer.core.ErrorCode;
 
@@ -56,8 +55,7 @@ public class ProxyFactory {
 			}
 
 			try {
-				return new ProxyInterceptorChain(
-						target, new RuntimeMethodMetadata(targetMethod), args, interceptors,
+				return new ProxyInterceptorChain(target, new RuntimeMethodMetadata(targetMethod), args, interceptors,
 						() -> method.invoke(target, args)).proceed();
 			} catch (java.lang.reflect.InvocationTargetException e) {
 				throw e.getCause();

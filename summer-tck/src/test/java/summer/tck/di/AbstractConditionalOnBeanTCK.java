@@ -2,48 +2,27 @@ package summer.tck.di;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import summer.core.ApplicationContext;
+import summer.tck.AbstractContextTCK;
 import summer.tck.di.conditional.*;
 
 /**
  * TCK test for @ConditionalOnBean behavior.
  *
- * <p>
- * Tests whether the DI container correctly registers or skips beans based on
- * 
- * @ConditionalOnBean conditions.
+ * <p>Tests whether the DI container correctly registers or skips beans based on
+ * @ConditionalOnBean conditions.</p>
  */
-public abstract class AbstractConditionalOnBeanTCK {
-
-	protected ApplicationContext context;
-
-	protected abstract ApplicationContext createAndInitializeContext();
-
-	protected ApplicationContext getContext() {
-		if (context == null) {
-			context = createAndInitializeContext();
-		}
-		return context;
-	}
-
-	@AfterEach
-	void tearDown() {
-		if (context != null) {
-			context.destroy();
-			context = null;
-		}
-	}
+public abstract class AbstractConditionalOnBeanTCK extends AbstractContextTCK {
 
 	@Test
 	void testContextStartsSuccessfully() {
-		assertNotNull(getContext(), "ApplicationContext should not be null");
+		assertNotNull(context(), "ApplicationContext should not be null");
 	}
 
 	@Test
 	void testConditionalOnConcreteClass() {
-		ApplicationContext ctx = getContext();
+		ApplicationContext ctx = context();
 		// RequiredComponent exists, so ConditionalOnComponent should be registered
 		RequiredComponent required = ctx.getBean(RequiredComponent.class);
 		assertNotNull(required, "RequiredComponent should be registered");
@@ -54,7 +33,7 @@ public abstract class AbstractConditionalOnBeanTCK {
 
 	@Test
 	void testConditionalOnMissingComponent() {
-		ApplicationContext ctx = getContext();
+		ApplicationContext ctx = context();
 		// MissingComponent does not exist, so ConditionalOnMissingComponent should NOT
 		// be registered
 		assertThrows(Exception.class, () -> ctx.getBean(ConditionalOnMissingComponent.class),
@@ -63,7 +42,7 @@ public abstract class AbstractConditionalOnBeanTCK {
 
 	@Test
 	void testConditionalOnInterface() {
-		ApplicationContext ctx = getContext();
+		ApplicationContext ctx = context();
 		// RequiredInterface exists (via RequiredInterfaceImpl), so
 		// ConditionalOnInterface should be registered
 		RequiredInterface required = ctx.getBean(RequiredInterface.class);

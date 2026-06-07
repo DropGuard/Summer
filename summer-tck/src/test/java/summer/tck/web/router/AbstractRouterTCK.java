@@ -3,59 +3,53 @@ package summer.tck.web.router;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import summer.web.HttpContext;
+import summer.web.HttpMethod;
 import summer.web.HttpRouter;
 import summer.web.Request;
+import summer.tck.AbstractComponentTCK;
 
 /**
  * Technology Compatibility Kit for HttpRouter implementations.
  *
  * <p>
- * Ensures all HttpRouter implementations (RadixRouter, MapRouter, etc.) behave
- * identically for common routing scenarios. Subclasses provide the concrete
- * HttpRouter instance.
+ * Ensures all HttpRouter implementations (RadixTreeHttpRouter, MapRouter, etc.)
+ * behave identically for common routing scenarios. Subclasses provide the
+ * router factory, and each test builds its own router via the Builder API.
  * </p>
  */
-public abstract class AbstractRouterTCK {
-
-	protected HttpRouter router;
+public abstract class AbstractRouterTCK extends AbstractComponentTCK {
 
 	/**
-	 * Subclasses return the HttpRouter implementation to test.
+	 * Subclasses return the router factory to test.
 	 */
-	protected abstract HttpRouter createRouter();
-
-	@BeforeEach
-	void setUp() {
-		router = createRouter();
-	}
+	protected abstract java.util.function.Function<java.util.List<HttpRouter.Builder.Route>, HttpRouter> routerFactory();
 
 	// --- Static route matching ---
 
 	@Test
 	void testExactStaticRoute() {
-		router.register("GET", "/users", ctx -> "user-list");
+		HttpRouter r = builder().get("/users", ctx -> "user-list").build();
 
-		Object result = router.route(ctx("GET", "/users"));
+		Object result = r.route(ctx(HttpMethod.GET, "/users"));
 		assertEquals("user-list", result);
 	}
 
 	@Test
 	void testMultiSegmentStaticRoute() {
-		router.register("GET", "/api/v1/users", ctx -> "v1-users");
+		HttpRouter r = builder().get("/api/v1/users", ctx -> "v1-users").build();
 
-		Object result = router.route(ctx("GET", "/api/v1/users"));
+		Object result = r.route(ctx(HttpMethod.GET, "/api/v1/users"));
 		assertEquals("v1-users", result);
 	}
 
 	@Test
 	void testUnmatchedRouteReturnsNull() {
-		router.register("GET", "/users", ctx -> "user-list");
+		HttpRouter r = builder().get("/users", ctx -> "user-list").build();
 
-		Object result = router.route(ctx("GET", "/posts"));
+		Object result = r.route(ctx(HttpMethod.GET, "/posts"));
 		assertNull(result);
 	}
 
@@ -63,34 +57,42 @@ public abstract class AbstractRouterTCK {
 
 	@Test
 	void testSinglePathParam() {
-		router.register("GET", "/users/{id}", ctx -> "user-" + ctx.request().pathParam("id"));
+		HttpRouter r = builder()
+				.get("/users/{id}", ctx -> "user-" + ctx.request().pathParam("id"))
+				.build();
 
-		Object result = router.route(ctx("GET", "/users/42"));
+		Object result = r.route(ctx(HttpMethod.GET, "/users/42"));
 		assertEquals("user-42", result);
 	}
 
 	@Test
 	void testMultiplePathParams() {
-		router.register("GET", "/users/{userId}/posts/{postId}",
-				ctx -> ctx.request().pathParam("userId") + ":" + ctx.request().pathParam("postId"));
+		HttpRouter r = builder()
+				.get("/users/{userId}/posts/{postId}",
+						ctx -> ctx.request().pathParam("userId") + ":" + ctx.request().pathParam("postId"))
+				.build();
 
-		Object result = router.route(ctx("GET", "/users/10/posts/20"));
+		Object result = r.route(ctx(HttpMethod.GET, "/users/10/posts/20"));
 		assertEquals("10:20", result);
 	}
 
 	@Test
 	void testPathParamAtEnd() {
-		router.register("GET", "/files/{name}", ctx -> "file-" + ctx.request().pathParam("name"));
+		HttpRouter r = builder()
+				.get("/files/{name}", ctx -> "file-" + ctx.request().pathParam("name"))
+				.build();
 
-		Object result = router.route(ctx("GET", "/files/report.pdf"));
+		Object result = r.route(ctx(HttpMethod.GET, "/files/report.pdf"));
 		assertEquals("file-report.pdf", result);
 	}
 
 	@Test
 	void testPathParamAtStart() {
-		router.register("GET", "{tenant}/users", ctx -> "tenant-" + ctx.request().pathParam("tenant"));
+		HttpRouter r = builder()
+				.get("{tenant}/users", ctx -> "tenant-" + ctx.request().pathParam("tenant"))
+				.build();
 
-		Object result = router.route(ctx("GET", "acme/users"));
+		Object result = r.route(ctx(HttpMethod.GET, "acme/users"));
 		assertEquals("tenant-acme", result);
 	}
 
@@ -98,22 +100,26 @@ public abstract class AbstractRouterTCK {
 
 	@Test
 	void testSamePathDifferentMethods() {
-		router.register("GET", "/users", ctx -> "get-users");
-		router.register("POST", "/users", ctx -> "post-users");
-		router.register("PUT", "/users", ctx -> "put-users");
-		router.register("DELETE", "/users", ctx -> "delete-users");
+		HttpRouter r = builder()
+				.get("/users", ctx -> "get-users")
+				.post("/users", ctx -> "post-users")
+				.put("/users", ctx -> "put-users")
+				.delete("/users", ctx -> "delete-users")
+				.build();
 
-		assertEquals("get-users", router.route(ctx("GET", "/users")));
-		assertEquals("post-users", router.route(ctx("POST", "/users")));
-		assertEquals("put-users", router.route(ctx("PUT", "/users")));
-		assertEquals("delete-users", router.route(ctx("DELETE", "/users")));
+		assertEquals("get-users", r.route(ctx(HttpMethod.GET, "/users")));
+		assertEquals("post-users", r.route(ctx(HttpMethod.POST, "/users")));
+		assertEquals("put-users", r.route(ctx(HttpMethod.PUT, "/users")));
+		assertEquals("delete-users", r.route(ctx(HttpMethod.DELETE, "/users")));
 	}
 
 	@Test
 	void testWrongMethodReturnsNull() {
-		router.register("GET", "/users", ctx -> "get-users");
+		HttpRouter r = builder()
+				.get("/users", ctx -> "get-users")
+				.build();
 
-		Object result = router.route(ctx("POST", "/users"));
+		Object result = r.route(ctx(HttpMethod.POST, "/users"));
 		assertNull(result);
 	}
 
@@ -121,104 +127,72 @@ public abstract class AbstractRouterTCK {
 
 	@Test
 	void testTrailingSlashMatches() {
-		router.register("GET", "/users", ctx -> "user-list");
+		HttpRouter r = builder().get("/users", ctx -> "user-list").build();
 
-		// /users/ should match /users
-		Object result = router.route(ctx("GET", "/users/"));
+		Object result = r.route(ctx(HttpMethod.GET, "/users/"));
 		assertEquals("user-list", result);
 	}
 
 	@Test
 	void testTrailingSlashOnRegistration() {
-		router.register("GET", "/users/", ctx -> "user-list");
+		HttpRouter r = builder().get("/users/", ctx -> "user-list").build();
 
-		// /users should match /users/
-		Object result = router.route(ctx("GET", "/users"));
+		Object result = r.route(ctx(HttpMethod.GET, "/users"));
 		assertEquals("user-list", result);
 	}
 
 	@Test
 	void testRootPath() {
-		router.register("GET", "/", ctx -> "home");
+		HttpRouter r = builder().get("/", ctx -> "home").build();
 
-		assertEquals("home", router.route(ctx("GET", "/")));
-		assertEquals("home", router.route(ctx("GET", "")));
+		assertEquals("home", r.route(ctx(HttpMethod.GET, "/")));
+		assertEquals("home", r.route(ctx(HttpMethod.GET, "")));
 	}
 
 	@Test
 	void testDoubleSlashNormalization() {
-		router.register("GET", "/users/{id}", ctx -> "user-" + ctx.request().pathParam("id"));
+		HttpRouter r = builder()
+				.get("/users/{id}", ctx -> "user-" + ctx.request().pathParam("id"))
+				.build();
 
-		// //users//42 should normalize to /users/42
-		Object result = router.route(ctx("GET", "//users//42"));
+		Object result = r.route(ctx(HttpMethod.GET, "//users//42"));
 		assertEquals("user-42", result);
 	}
 
 	@Test
 	void testMultipleTrailingSlashes() {
-		router.register("GET", "/users", ctx -> "user-list");
+		HttpRouter r = builder().get("/users", ctx -> "user-list").build();
 
-		// /users/// should normalize to /users
-		Object result = router.route(ctx("GET", "/users///"));
+		Object result = r.route(ctx(HttpMethod.GET, "/users///"));
 		assertEquals("user-list", result);
 	}
 
 	@Test
 	void testLeadingDoubleSlash() {
-		router.register("GET", "/api/health", ctx -> "ok");
+		HttpRouter r = builder().get("/api/health", ctx -> "ok").build();
 
-		// //api/health should normalize to /api/health
-		Object result = router.route(ctx("GET", "//api/health"));
+		Object result = r.route(ctx(HttpMethod.GET, "//api/health"));
 		assertEquals("ok", result);
-	}
-
-	// --- Default method helpers ---
-
-	@Test
-	void testGetHelper() {
-		router.get("/items", ctx -> "items");
-
-		assertEquals("items", router.route(ctx("GET", "/items")));
-	}
-
-	@Test
-	void testPostHelper() {
-		router.post("/items", ctx -> "create");
-
-		assertEquals("create", router.route(ctx("POST", "/items")));
-	}
-
-	@Test
-	void testPutHelper() {
-		router.put("/items/{id}", ctx -> "update");
-
-		assertEquals("update", router.route(ctx("PUT", "/items/1")));
-	}
-
-	@Test
-	void testDeleteHelper() {
-		router.delete("/items/{id}", ctx -> "delete");
-
-		assertEquals("delete", router.route(ctx("DELETE", "/items/1")));
 	}
 
 	// --- Edge cases ---
 
 	@Test
 	void testEmptyPathSegments() {
-		router.register("GET", "/api///users", ctx -> "users");
+		HttpRouter r = builder().get("/api///users", ctx -> "users").build();
 
-		Object result = router.route(ctx("GET", "/api/users"));
+		Object result = r.route(ctx(HttpMethod.GET, "/api/users"));
 		assertEquals("users", result);
 	}
 
 	@Test
 	void testPathParamWithSpecialChars() {
-		router.register("GET", "/files/{name}", ctx -> ctx.request().pathParam("name"));
+		HttpRouter r = builder()
+				.get("/files/{name}", ctx -> ctx.request().pathParam("name"))
+				.build();
 
-		Object result = router.route(ctx("GET", "/files/my%20file.txt"));
+		Object result = r.route(ctx(HttpMethod.GET, "/files/my%20file.txt"));
 		assertNotNull(result);
-		// URL decoding should be applied
 		assertEquals("my file.txt", result);
 	}
 
@@ -226,37 +200,44 @@ public abstract class AbstractRouterTCK {
 
 	@Test
 	void testSingleSegmentWildcard() {
-		router.register("GET", "/files/*", ctx -> "file-wildcard");
+		HttpRouter r = builder()
+				.get("/files/*", ctx -> "file-wildcard")
+				.build();
 
-		// Should match any single segment
-		assertEquals("file-wildcard", router.route(ctx("GET", "/files/a.txt")));
-		assertEquals("file-wildcard", router.route(ctx("GET", "/files/report.pdf")));
-		// Should not match multiple segments
-		assertNull(router.route(ctx("GET", "/files/sub/dir")));
+		assertEquals("file-wildcard", r.route(ctx(HttpMethod.GET, "/files/a.txt")));
+		assertEquals("file-wildcard", r.route(ctx(HttpMethod.GET, "/files/report.pdf")));
+		assertNull(r.route(ctx(HttpMethod.GET, "/files/sub/dir")));
 	}
 
 	@Test
 	void testMultiSegmentWildcard() {
-		router.register("GET", "/api/**", ctx -> "catch-all");
+		HttpRouter r = builder()
+				.get("/api/**", ctx -> "catch-all")
+				.build();
 
-		// Should match any path under /api/
-		assertEquals("catch-all", router.route(ctx("GET", "/api/users")));
-		assertEquals("catch-all", router.route(ctx("GET", "/api/users/123")));
-		assertEquals("catch-all", router.route(ctx("GET", "/api/v1/posts/456")));
+		assertEquals("catch-all", r.route(ctx(HttpMethod.GET, "/api/users")));
+		assertEquals("catch-all", r.route(ctx(HttpMethod.GET, "/api/users/123")));
+		assertEquals("catch-all", r.route(ctx(HttpMethod.GET, "/api/v1/posts/456")));
 	}
 
 	@Test
 	void testWildcardWithStaticPrefix() {
-		router.register("GET", "/static/**", ctx -> "static-files");
+		HttpRouter r = builder()
+				.get("/static/**", ctx -> "static-files")
+				.build();
 
-		assertEquals("static-files", router.route(ctx("GET", "/static/css/main.css")));
-		assertEquals("static-files", router.route(ctx("GET", "/static/js/app.js")));
-		assertNull(router.route(ctx("GET", "/api/users")));
+		assertEquals("static-files", r.route(ctx(HttpMethod.GET, "/static/css/main.css")));
+		assertEquals("static-files", r.route(ctx(HttpMethod.GET, "/static/js/app.js")));
+		assertNull(r.route(ctx(HttpMethod.GET, "/api/users")));
 	}
 
 	// --- Helper ---
 
-	private HttpContext ctx(String method, String path) {
+	private HttpRouter.Builder builder() {
+		return new HttpRouter.Builder(routerFactory());
+	}
+
+	private HttpContext ctx(HttpMethod method, String path) {
 		Request req = new Request(method, path, null, null, new byte[0]);
 		return new HttpContext(req);
 	}

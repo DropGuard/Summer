@@ -9,7 +9,7 @@ import summer.web.websocket.MapWsRouter;
 public class MapRouterWebSocketTCKTest extends AbstractWebSocketTCK {
 
 	@Override
-	protected WsRouter createRouter() {
-		return new MapWsRouter();
+	protected WsRouter.Builder createBuilder() {
+		return new WsRouter.Builder(MapWsRouter::new);
 	}
 }

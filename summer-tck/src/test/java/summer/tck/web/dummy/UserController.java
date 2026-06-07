@@ -6,7 +6,6 @@ import summer.web.annotation.PathParam;
 import summer.web.annotation.Post;
 import summer.web.annotation.Put;
 import summer.web.annotation.RestController;
-import summer.web.annotation.Use;
 
 @RestController("/api/users")
 public class UserController {
@@ -35,8 +34,12 @@ public class UserController {
 	}
 
 	@Get("/secured")
-	@Use(MyMiddleware.class)
 	public String getSecured() {
 		return "secret";
+	}
+
+	@Get("/multi")
+	public String multiMiddleware() {
+		return "multi";
 	}
 }

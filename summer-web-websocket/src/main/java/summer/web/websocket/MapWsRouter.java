@@ -1,12 +1,11 @@
 package summer.web.websocket;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import summer.core.Component;
-import summer.core.RuntimeDiMarker;
-import summer.core.annotation.ConditionalOnBean;
-import summer.core.annotation.Replaces;
-import summer.web.AbstractMapRouter;
+import summer.web.PathMatcher;
+import summer.web.PathMatcher.RouteEntry;
+import summer.web.PathUtils;
 import summer.web.WsRouter;
 
 /**
@@ -14,30 +13,35 @@ import summer.web.WsRouter;
  *
  * <p>
  * This implementation prioritizes simplicity and readability over raw
- * performance. It is activated only when the reflection-based DI engine
- * ({@link RuntimeDiMarker}) is present.
+ * performance. Routes are provided at construction time, making the router
+ * truly immutable and thread-safe.
  * </p>
  */
-@ConditionalOnBean(RuntimeDiMarker.class)
-@Replaces(RadixWsRouter.class)
-@Component
-public class MapWsRouter extends AbstractMapRouter implements WsRouter {
+public class MapWsRouter implements WsRouter {
 
-	private final Map<String, RouteEntryWithHandler> routes = new HashMap<>();
+	private final Map<String, RouteEntryWithHandler> routes;
 
-	@Override
-	public void ws(String path, WebSocketHandler handler) {
-		RouteEntryWithHandler entry = new RouteEntryWithHandler();
-		RouteEntry base = parsePath(path);
-		entry.pattern = base.pattern;
-		entry.paramNames = base.paramNames;
-		entry.handler = handler;
-		routes.put(normalizePath(path), entry);
+	/**
+	 * Creates an immutable MapWsRouter from the given routes.
+	 *
+	 * @param wsRoutes
+	 *            the routes to build the routing table from
+	 */
+	public MapWsRouter(List<WsRouter.WsRoute> wsRoutes) {
+		this.routes = new HashMap<>(wsRoutes.size());
+		for (WsRouter.WsRoute route : wsRoutes) {
+			RouteEntryWithHandler entry = new RouteEntryWithHandler();
+			RouteEntry base = PathMatcher.parsePath(route.path());
+			entry.pattern = base.pattern;
+			entry.paramNames = base.paramNames;
+			entry.handler = route.handler();
+			routes.put(PathUtils.normalizePath(route.path()), entry);
+		}
 	}
 
 	@Override
 	public WsMatch routeWs(String path) {
-		String normalized = normalizePath(path);
+		String normalized = PathUtils.normalizePath(path);
 
 		RouteEntryWithHandler entry = routes.get(normalized);
 		if (entry != null) {
@@ -45,7 +49,7 @@ public class MapWsRouter extends AbstractMapRouter implements WsRouter {
 		}
 
 		for (RouteEntryWithHandler route : routes.values()) {
-			Map<String, String> params = matchPattern(route, normalized);
+			Map<String, String> params = PathMatcher.matchPattern(route, normalized);
 			if (params != null) {
 				return new WsMatch(route.handler, params);
 			}

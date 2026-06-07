@@ -1,117 +1,170 @@
 package summer.plugin;
 
+import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
+import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import javax.lang.model.element.Modifier;
 import org.jboss.jandex.ClassInfo;
+import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
-import org.jboss.jandex.MethodInfo;
+import org.jboss.jandex.RecordComponentInfo;
 import org.jboss.jandex.Type;
 
 /**
- * Generates RowMapper implementations for @RowModel annotated records.
- * 
+ * Generates {@code RowMapper} classes for {@code @RowModel} annotated records.
+ *
  * <p>
- * This runs in summer-maven-plugin with full classpath access, complementing
- * summer-compiler's APT-based generation.
+ * For a record like:
+ * </p>
+ *
+ * <pre>{@code
+ * @RowModel
+ * public record User(long id, String name, String email) {}
+ * }</pre>
+ *
+ * <p>
+ * This generator creates:
+ * </p>
+ *
+ * <pre>{@code
+ * public class User_RowMapper implements RowMapper<User> {
+ *     @Override
+ *     public User mapRow(ResultSet rs, int rowNum) throws SQLException {
+ *         return new User(rs.getLong("id"), rs.getString("name"), rs.getString("email"));
+ *     }
+ * }
+ * }</pre>
+ *
+ * <p>
+ * It also generates a {@code RowMapperConfiguration} class that registers all
+ * mappers with {@code RowMapperRegistry}.
  * </p>
  */
-public final class RowMapperGenerator {
+final class RowMapperGenerator {
 
-	private static final String ROW_MODEL_ANNOTATION = "summer.data.jdbc.annotation.RowModel";
+    private static final DotName ROW_MODEL_DOT = DotName.createSimple("summer.data.jdbc.annotation.RowModel");
+    private static final ClassName ROW_MAPPER = ClassName.get("summer.data.jdbc", "RowMapper");
+    private static final ClassName ROW_MAPPER_REGISTRY = ClassName.get("summer.data.jdbc", "RowMapperRegistry");
+    private static final ClassName RESULT_SET = ClassName.get("java.sql", "ResultSet");
+    private static final ClassName SQL_EXCEPTION = ClassName.get("java.sql", "SQLException");
+    private static final ClassName CONFIGURATION = ClassName.get("summer.core.annotation", "Configuration");
+    private static final ClassName BEAN = ClassName.get("summer.core.annotation", "Bean");
 
-	RowMapperGenerator() {
-	}
+    void generate(IndexView index, File outputDir) throws IOException {
+        List<ClassInfo> rowModels = new ArrayList<>();
+        for (ClassInfo ci : index.getKnownClasses()) {
+            if (ci.isAnnotation() || ci.isInterface())
+                continue;
 
-	/**
-	 * Generate RowMapper classes for all @RowModel annotated records.
-	 * 
-	 * @param index
-	 *            the Jandex index
-	 * @param outputDir
-	 *            directory to write generated source files
-	 */
-	public void generate(IndexView index, java.io.File outputDir) throws IOException {
-		ClassInfo rowModelAnnotation = index
-				.getClassByName(org.jboss.jandex.DotName.createSimple(ROW_MODEL_ANNOTATION));
-		if (rowModelAnnotation == null) {
-			return;
-		}
+            if (!ci.hasAnnotation(ROW_MODEL_DOT))
+                continue;
 
-		int count = 0;
-		for (ClassInfo ci : index.getKnownClasses()) {
-			if (ci.isAnnotation() || ci.isInterface()) {
-				continue;
-			}
-			if (ci.hasAnnotation(org.jboss.jandex.DotName.createSimple(ROW_MODEL_ANNOTATION))) {
-				if (ci.isRecord()) {
-					generateMapper(ci, outputDir);
-					count++;
-				}
-			}
-		}
-	}
+            rowModels.add(ci);
+            generateMapper(ci, outputDir);
+        }
 
-	private void generateMapper(ClassInfo recordClass, java.io.File outputDir) throws IOException {
-		String packageName = recordClass.name().packagePrefix();
-		String simpleName = recordClass.name().withoutPackagePrefix();
-		String mapperName = simpleName + "_RowMapper";
+        if (!rowModels.isEmpty()) {
+            generateConfiguration(rowModels, outputDir);
+        }
+    }
 
-		ClassName rowModelClass = ClassName.get(packageName, simpleName);
-		ClassName rowMapperInterface = ClassName.get("summer.data.jdbc", "RowMapper");
-		TypeName genericRowMapper = ParameterizedTypeName.get(rowMapperInterface, rowModelClass);
+    private void generateMapper(ClassInfo ci, File outputDir) throws IOException {
+        String packageName = ci.name().packagePrefix();
+        String simpleName = ci.name().withoutPackagePrefix();
+        String mapperClassName = simpleName + "_RowMapper";
 
-		// Build mapRow method
-		MethodSpec.Builder mapRowMethod = MethodSpec.methodBuilder("mapRow").addAnnotation(Override.class)
-				.addModifiers(javax.lang.model.element.Modifier.PUBLIC).returns(rowModelClass)
-				.addParameter(ClassName.get("java.sql", "ResultSet"), "rs").addParameter(int.class, "rowNum")
-				.addException(ClassName.get("java.sql", "SQLException"));
+        ClassName modelClass = ClassName.get(packageName, simpleName);
+        TypeName genericMapper = ParameterizedTypeName.get(ROW_MAPPER, modelClass);
 
-		// Get record components from the record's constructor
-		MethodInfo ctor = null;
-		for (MethodInfo m : recordClass.methods()) {
-			if (m.name().equals("<init>")) {
-				ctor = m;
-				break;
-			}
-		}
-		if (ctor == null) {
-			return;
-		}
+        // Build mapRow method
+        MethodSpec.Builder mapRowMethod = MethodSpec.methodBuilder("mapRow")
+                .addAnnotation(Override.class)
+                .addModifiers(Modifier.PUBLIC)
+                .returns(modelClass)
+                .addParameter(RESULT_SET, "rs")
+                .addParameter(int.class, "rowNum")
+                .addException(SQL_EXCEPTION);
 
-		StringBuilder args = new StringBuilder();
-		for (int i = 0; i < ctor.parametersCount(); i++) {
-			if (args.length() > 0) {
-				args.append(", ");
-			}
-			String paramName = ctor.parameterName(i);
-			Type paramType = ctor.parameterType(i);
-			String typeName = paramType.name().toString();
+        List<RecordComponentInfo> components = ci.recordComponents();
+        if (components == null || components.isEmpty()) {
+            // Not a record — skip with warning
+            return;
+        }
 
-			if (typeName.equals("int") || typeName.equals("java.lang.Integer")) {
-				args.append("rs.getInt(\"").append(paramName).append("\")");
-			} else if (typeName.equals("long") || typeName.equals("java.lang.Long")) {
-				args.append("rs.getLong(\"").append(paramName).append("\")");
-			} else if (typeName.equals("double") || typeName.equals("java.lang.Double")) {
-				args.append("rs.getDouble(\"").append(paramName).append("\")");
-			} else if (typeName.equals("boolean") || typeName.equals("java.lang.Boolean")) {
-				args.append("rs.getBoolean(\"").append(paramName).append("\")");
-			} else if (typeName.equals("java.lang.String")) {
-				args.append("rs.getString(\"").append(paramName).append("\")");
-			} else {
-				args.append("(").append(typeName).append(") rs.getObject(\"").append(paramName).append("\")");
-			}
-		}
-		mapRowMethod.addStatement("return new $T(" + args.toString() + ")", rowModelClass);
+        StringBuilder args = new StringBuilder();
+        for (int i = 0; i < components.size(); i++) {
+            if (i > 0)
+                args.append(", ");
+            RecordComponentInfo comp = components.get(i);
+            args.append(mapColumnReader(comp.type(), comp.name()));
+        }
 
-		TypeSpec mapperClass = TypeSpec.classBuilder(mapperName)
-				.addModifiers(javax.lang.model.element.Modifier.PUBLIC, javax.lang.model.element.Modifier.FINAL)
-				.addSuperinterface(genericRowMapper).addMethod(mapRowMethod.build()).build();
+        mapRowMethod.addStatement("return new $T(" + args + ")", modelClass);
 
-		JavaFile.builder(packageName, mapperClass).build().writeTo(outputDir);
-	}
+        TypeSpec mapperClass = TypeSpec.classBuilder(mapperClassName)
+                .addModifiers(Modifier.PUBLIC)
+                .addSuperinterface(genericMapper)
+                .addMethod(mapRowMethod.build())
+                .build();
+
+        JavaFile javaFile = JavaFile.builder(packageName, mapperClass)
+                .indent("    ")
+                .build();
+
+        javaFile.writeTo(outputDir);
+    }
+
+    private void generateConfiguration(List<ClassInfo> rowModels, File outputDir) throws IOException {
+        // Use the package of the first RowModel for the configuration class
+        String packageName = rowModels.get(0).name().packagePrefix();
+
+        MethodSpec.Builder registerMethod = MethodSpec.methodBuilder("rowMapperRegistry")
+                .addAnnotation(BEAN)
+                .addModifiers(Modifier.PUBLIC)
+                .returns(ROW_MAPPER_REGISTRY);
+
+        registerMethod.addStatement("$T registry = new $T()", ROW_MAPPER_REGISTRY, ROW_MAPPER_REGISTRY);
+
+        for (ClassInfo ci : rowModels) {
+            String simpleName = ci.name().withoutPackagePrefix();
+            ClassName modelClass = ClassName.get(ci.name().packagePrefix(), simpleName);
+            ClassName mapperClass = ClassName.get(ci.name().packagePrefix(), simpleName + "_RowMapper");
+            registerMethod.addStatement("registry.register($T.class, new $T())", modelClass, mapperClass);
+        }
+
+        registerMethod.addStatement("return registry");
+
+        TypeSpec configClass = TypeSpec.classBuilder("RowMapperConfiguration")
+                .addAnnotation(CONFIGURATION)
+                .addModifiers(Modifier.PUBLIC)
+                .addMethod(registerMethod.build())
+                .build();
+
+        JavaFile javaFile = JavaFile.builder(packageName, configClass)
+                .addFileComment("Auto-generated by summer-maven-plugin. Do not edit!")
+                .indent("    ")
+                .build();
+
+        javaFile.writeTo(outputDir);
+    }
+
+    private static String mapColumnReader(Type type, String name) {
+        String typeName = type.name().toString();
+        return switch (typeName) {
+            case "int", "java.lang.Integer" -> "rs.getInt(\"" + name + "\")";
+            case "long", "java.lang.Long" -> "rs.getLong(\"" + name + "\")";
+            case "double", "java.lang.Double" -> "rs.getDouble(\"" + name + "\")";
+            case "boolean", "java.lang.Boolean" -> "rs.getBoolean(\"" + name + "\")";
+            case "java.lang.String" -> "rs.getString(\"" + name + "\")";
+            default -> "(" + typeName + ") rs.getObject(\"" + name + "\")";
+        };
+    }
 }

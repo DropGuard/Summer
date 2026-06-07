@@ -3,6 +3,7 @@ package summer.web.server;
 import io.netty.handler.codec.http.FullHttpRequest;
 import java.util.HashMap;
 import java.util.Map;
+import summer.web.HttpMethod;
 import summer.web.Request;
 
 public class NettyRequestAdapter {
@@ -37,7 +38,7 @@ public class NettyRequestAdapter {
 			nettyReq.content().readBytes(body);
 		}
 
-		return new Request(method, path, query, contentType, body, headers,
+		return new Request((HttpMethod.valueOf(method)), path, query, contentType, body, headers,
 				path.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 	}
 }

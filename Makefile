@@ -1,38 +1,41 @@
-.PHONY: all clean compile install test run benchmark fmt check pre-commit arch realworld
+.PHONY: all clean compile install test test-full run benchmark fmt check pre-commit arch realworld
 
-MVN ?= mvnd
+
 export MAVEN_OPTS := --sun-misc-unsafe-memory-access=allow
 
 all: compile
 
 clean:
-	$(MVN) clean
+	mvn clean
 
 compile:
-	$(MVN) clean compile
+	mvn clean compile
 
 install:
-	$(MVN) clean install -DskipTests
+	mvn clean install -DskipTests
 
 test:
-	$(MVN) clean test
+	mvn clean test
+
+test-full:
+	mvn clean test
 
 run:
-	$(MVN) compile exec:java -pl summer-example -am
+	mvn compile exec:java -pl summer-example -am
 
 realworld:
-	$(MVN) compile exec:java -f summer-realworld/pom.xml
+	mvn compile exec:java -f summer-realworld/pom.xml
 
 benchmark:
 	python summer-benchmark/run-benchmarks.py
 
 fmt:
-	$(MVN) spotless:apply
+	mvn spotless:apply
 
 check:
-	$(MVN) spotless:check
+	mvn spotless:check
 
 pre-commit: fmt check test
 
 arch:
-	$(MVN) test -pl summer-archunit
+	mvn test -pl summer-archunit

@@ -10,7 +10,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 import summer.core.ApplicationContext;
-import summer.runtime.RuntimeDiEngine;
+import summer.runtime.RuntimeApplicationContext;
 
 @Testcontainers
 public class RedisIntegrationIT {
@@ -28,7 +28,7 @@ public class RedisIntegrationIT {
 		String redisUri = "redis://" + redis.getHost() + ":" + redis.getFirstMappedPort();
 		System.setProperty("summer.redis.uri", redisUri);
 
-		ApplicationContext context = new RuntimeDiEngine().create(RedisAutoConfiguration.class);
+		ApplicationContext context = RuntimeApplicationContext.create(RedisAutoConfiguration.class);
 
 		try {
 
@@ -55,7 +55,9 @@ public class RedisIntegrationIT {
 			assertEquals(LocalDateTime.of(2023, 11, 20, 15, 0), retrievedUser.registeredAt());
 		} finally {
 			System.clearProperty("summer.redis.uri");
-			context.destroy();
+			try { context.close(); } catch (Exception e) { throw new RuntimeException(e); }
 		}
 	}
 }
+
+

@@ -6,37 +6,29 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Specifies a default value for a configuration property when the value is not
- * present in the YAML configuration file.
+ * Declares a default value for a {@link ConfigurationProperties} record
+ * component. The value is applied when the property is <em>unbound</em> —
+ * i.e.&nbsp;the key is absent from the configuration map.
  *
  * <p>
- * Example:
+ * The {@link #value()} is always a {@code String}; it is parsed to the
+ * component's type at bind time.
  * </p>
  *
  * <pre>{@code
- * @ConfigurationProperties(prefix = "jwt")
- * public record JwtProperties(String secret, @DefaultValue("3600000") long expiration,
- * 		@DefaultValue("3") int maxRetries) {
+ * @ConfigurationProperties(prefix = "server")
+ * public record ServerProperties(String host, @DefaultValue("8080") int port, @DefaultValue("false") boolean ssl) {
  * }
  * }</pre>
- *
- * <p>
- * The value is parsed according to the target type:
- * </p>
- * <ul>
- * <li>{@code String} — used as-is</li>
- * <li>{@code int/Integer} — parsed with {@code Integer.parseInt}</li>
- * <li>{@code long/Long} — parsed with {@code Long.parseLong}</li>
- * <li>{@code boolean/Boolean} — parsed with {@code Boolean.parseBoolean}</li>
- * <li>{@code double/Double} — parsed with {@code Double.parseDouble}</li>
- * </ul>
  */
 @Target(ElementType.RECORD_COMPONENT)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface DefaultValue {
-
 	/**
-	 * The default value as a string. Will be converted to the target type.
+	 * The default value, expressed as a string. Parsed to the record component's
+	 * declared type (supports {@code String}, {@code int}, {@code long},
+	 * {@code boolean}, {@code double}, {@code float}, {@code short}, {@code byte}
+	 * and their boxed counterparts).
 	 */
 	String value();
 }

@@ -96,15 +96,6 @@ class ExceptionTest {
 	}
 
 	@Test
-	void shouldCreateDuplicateReplacementException() {
-		DuplicateReplacementException ex = new DuplicateReplacementException(String.class, Integer.class, Number.class);
-		String message = ex.getMessage();
-		assertTrue(message.contains("String"));
-		assertTrue(message.contains("Integer"));
-		assertTrue(message.contains("Number"));
-	}
-
-	@Test
 	void shouldCreateAotContextNotFoundException() {
 		AotContextNotFoundException ex = new AotContextNotFoundException();
 		assertNotNull(ex.getMessage());

@@ -5,12 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.nio.charset.StandardCharsets;
-
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for POST body parsing via WebContext.body(RecordType.class). Note:
- * Summer enforces immutable Records for all request DTOs.
+ * Tests for POST body parsing via WebContext.body(RecordType.class). Summer
+ * supports both Records and Maps for request DTOs.
  */
 public class PostBodyParsingTest {
 
@@ -26,7 +25,7 @@ public class PostBodyParsingTest {
 
 	private HttpContext jsonPostContext(String jsonBody) {
 		byte[] bodyBytes = jsonBody.getBytes(StandardCharsets.UTF_8);
-		Request request = new Request("POST", "/", "", "application/json", bodyBytes);
+		Request request = new Request(HttpMethod.POST, "/", "", "application/json", bodyBytes);
 		return new HttpContext(request);
 	}
 
@@ -49,7 +48,7 @@ public class PostBodyParsingTest {
 
 	@Test
 	void testJsonBodyWithMissingFieldDefaultsToNull() {
-		// age is missing — Jackson should default it to 0 for primitives
+		// age is missing --Jackson should default it to 0 for primitives
 		String json = """
 				{"name": "Bob", "email": "bob@example.com"}
 				""";
@@ -73,21 +72,6 @@ public class PostBodyParsingTest {
 		assertNotNull(dto);
 		assertEquals("charlie", dto.username());
 		assertEquals("s3cr3t", dto.password());
-	}
-
-	@Test
-	void testBodyRequiresRecord() {
-		// Non-record class should be rejected by Summer's architecture constraint
-		class NotARecord {
-			String name;
-		}
-
-		String json = """
-				{"name": "Dave"}
-				""";
-		HttpContext ctx = jsonPostContext(json);
-
-		assertThrows(summer.core.exception.SummerException.class, () -> ctx.body(NotARecord.class));
 	}
 
 	@Test

@@ -12,7 +12,7 @@ import java.util.List;
 public final class RouteInfo {
 
 	public enum ParamBinding {
-		PATH, QUERY, BODY
+		PATH, QUERY, BODY, PAGEABLE
 	}
 
 	/**
@@ -47,7 +47,6 @@ public final class RouteInfo {
 	public final String methodName;
 	public final String returnType;
 	public final List<ParamInfo> params = new ArrayList<>();
-	public final List<String> middleware = new ArrayList<>();
 
 	public RouteInfo(String httpMethod, String path, String controllerClass, String methodName, String returnType) {
 		this.httpMethod = httpMethod;

@@ -1,12 +1,12 @@
 package summer.realworld.controller;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Optional;
 
+import summer.realworld.dto.UserDtos;
 import summer.realworld.model.User;
 import summer.realworld.repository.FollowRepository;
 import summer.realworld.service.UserService;
+import summer.realworld.util.AuthUtils;
 import summer.realworld.util.Errors;
 import summer.realworld.util.JwtUtil;
 import summer.web.HttpContext;
@@ -21,10 +21,12 @@ import summer.web.annotation.RestController;
 public class ProfileController {
 	private final UserService userService;
 	private final FollowRepository followRepository;
+	private final JwtUtil jwtUtil;
 
-	public ProfileController(UserService userService, FollowRepository followRepository) {
+	public ProfileController(UserService userService, FollowRepository followRepository, JwtUtil jwtUtil) {
 		this.userService = userService;
 		this.followRepository = followRepository;
+		this.jwtUtil = jwtUtil;
 	}
 
 	@Get("/profiles/{username}")
@@ -35,13 +37,13 @@ public class ProfileController {
 			return;
 		}
 
-		Long currentUserId = getCurrentUserId(ctx);
+		Long currentUserId = AuthUtils.getCurrentUserId(ctx, jwtUtil);
 		ctx.json(HttpStatus.OK, createProfileResponse(userOpt.get(), currentUserId));
 	}
 
 	@Post("/profiles/{username}/follow")
 	public void followUser(HttpContext ctx, @PathParam("username") String username) {
-		Long currentUserId = getCurrentUserId(ctx);
+		Long currentUserId = AuthUtils.getCurrentUserId(ctx, jwtUtil);
 		if (currentUserId == null) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
 			return;
@@ -59,7 +61,7 @@ public class ProfileController {
 
 	@Delete("/profiles/{username}/follow")
 	public void unfollowUser(HttpContext ctx, @PathParam("username") String username) {
-		Long currentUserId = getCurrentUserId(ctx);
+		Long currentUserId = AuthUtils.getCurrentUserId(ctx, jwtUtil);
 		if (currentUserId == null) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
 			return;
@@ -75,27 +77,9 @@ public class ProfileController {
 		ctx.json(HttpStatus.OK, createProfileResponse(userOpt.get(), currentUserId));
 	}
 
-	private Map<String, Object> createProfileResponse(User user, Long currentUserId) {
+	private UserDtos.UserResponse createProfileResponse(User user, Long currentUserId) {
 		boolean following = currentUserId != null && followRepository.isFollowing(currentUserId, user.getId());
-
-		Map<String, Object> profileResponse = new HashMap<>();
-		profileResponse.put("username", user.getUsername());
-		profileResponse.put("bio", user.getBio());
-		profileResponse.put("image", user.getImage());
-		profileResponse.put("following", following);
-
-		return Map.of("profile", profileResponse);
-	}
-
-	private Long getCurrentUserId(HttpContext ctx) {
-		String authHeader = ctx.header("Authorization");
-		if (authHeader != null && authHeader.startsWith("Token ")) {
-			try {
-				return JwtUtil.getUserIdFromToken(authHeader.substring(6));
-			} catch (Exception e) {
-				return null;
-			}
-		}
-		return null;
+		return new UserDtos.UserResponse(
+				new UserDtos.UserResponse.User(user.getEmail(), null, user.getUsername(), user.getBio(), user.getImage()));
 	}
 }

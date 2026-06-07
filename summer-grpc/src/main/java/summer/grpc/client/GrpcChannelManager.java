@@ -2,31 +2,40 @@ package summer.grpc.client;
 
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
-import io.grpc.stub.AbstractStub;
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext;
+import io.grpc.netty.shaded.io.netty.handler.ssl.SslContextBuilder;
+import java.io.File;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import summer.core.Component;
 import summer.core.ErrorCode;
-import summer.core.reflect.MethodInvoker;
+import summer.core.config.ConfigurationBinder;
+import summer.grpc.config.GrpcTlsConfig;
 import summer.grpc.exception.SummerGrpcException;
 
 /**
  * Manages HTTP/2 multi-plexed channels (connection pools) for outbound gRPC
  * requests. Maintains a single ManagedChannel per target address.
+ *
+ * <p>
+ * This is a framework infrastructure bean provided by
+ * {@code GrpcInfrastructureConfiguration}.
+ * </p>
  */
-@Component
 public class GrpcChannelManager implements AutoCloseable {
 
 	private static final Logger log = LoggerFactory.getLogger(GrpcChannelManager.class);
+	private static final GrpcTlsConfig DEFAULT_TLS_CONFIG = new GrpcTlsConfig(false, null, null, null);
 
 	private final Map<String, ManagedChannel> channels = new ConcurrentHashMap<>();
-	private final MethodInvoker methodInvoker;
+	private final GrpcTlsConfig tlsConfig;
 
-	public GrpcChannelManager(MethodInvoker methodInvoker) {
-		this.methodInvoker = methodInvoker;
+	public GrpcChannelManager() {
+		this.tlsConfig = ConfigurationBinder.bindOrDefault("application.yml", GrpcTlsConfig.class, "grpc.tls",
+				DEFAULT_TLS_CONFIG);
 	}
 
 	/**
@@ -36,30 +45,25 @@ public class GrpcChannelManager implements AutoCloseable {
 	 *            e.g. "localhost:9091"
 	 */
 	public ManagedChannel getChannel(String target) {
-		return channels.computeIfAbsent(target, t -> ManagedChannelBuilder.forTarget(t).usePlaintext() // For simplicity
-																										// in this
-																										// framework,
-																										// omit TLS for
-																										// now
-				.build());
-	}
-
-	/**
-	 * Helper method to instantiate a BlockingStub using reflection. Example usage
-	 * in a @Configuration class: {@code @Bean public UserServiceBlockingStub
-	 * userServiceStub() { return manager.getBlockingStub(UserServiceGrpc.class,
-	 * "localhost:9091"); } }
-	 */
-	@SuppressWarnings("unchecked")
-	public <T extends AbstractStub<T>> T getBlockingStub(Class<?> grpcClass, String target) {
-		ManagedChannel channel = getChannel(target);
-		try {
-			return (T) methodInvoker.invokeStatic(grpcClass, "newBlockingStub",
-					new Class<?>[] { io.grpc.Channel.class }, channel);
-		} catch (Exception e) {
-			throw new SummerGrpcException(ErrorCode.GRPC_ERROR,
-					"Failed to create blocking stub for " + grpcClass.getName(), e);
-		}
+		return channels.computeIfAbsent(target, t -> {
+			if (tlsConfig.enabled() && tlsConfig.trustCert() != null) {
+				// TLS enabled with CA certificate
+				try {
+					SslContext sslContext = SslContextBuilder.forClient()
+							.trustManager(new File(tlsConfig.trustCert()))
+							.build();
+					log.info("gRPC TLS enabled for client connection to {}", t);
+					return NettyChannelBuilder.forTarget(t).sslContext(sslContext).build();
+				} catch (Exception e) {
+					log.error("Failed to configure TLS for gRPC client", e);
+					throw new SummerGrpcException(ErrorCode.GRPC_ERROR, "Failed to configure TLS", e);
+				}
+			} else {
+				// Plaintext mode (development)
+				log.warn("gRPC TLS disabled for client - using plaintext (not recommended for production)");
+				return ManagedChannelBuilder.forTarget(t).usePlaintext().build();
+			}
+		});
 	}
 
 	@Override

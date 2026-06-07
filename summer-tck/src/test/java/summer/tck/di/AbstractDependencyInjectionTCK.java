@@ -2,42 +2,33 @@ package summer.tck.di;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import summer.core.ApplicationContext;
+import summer.tck.AbstractContextTCK;
 import summer.tck.dummy.ServiceA;
 import summer.tck.dummy.ServiceB;
 import summer.tck.dummy.ServiceC;
 
-public abstract class AbstractDependencyInjectionTCK {
-
-	protected ApplicationContext context;
-
-	protected abstract ApplicationContext createAndInitializeContext();
-
-	protected ApplicationContext getContext() {
-		if (context == null) {
-			context = createAndInitializeContext();
-		}
-		return context;
-	}
-
-	@AfterEach
-	void tearDown() {
-		if (context != null) {
-			context.destroy();
-			context = null;
-		}
-	}
+/**
+ * TCK for core dependency injection behavior.
+ *
+ * <p>Verifies:
+ * <ul>
+ *   <li>Context creation succeeds</li>
+ *   <li>Singleton uniqueness</li>
+ *   <li>Constructor injection resolution</li>
+ * </ul>
+ */
+public abstract class AbstractDependencyInjectionTCK extends AbstractContextTCK {
 
 	@Test
 	void testContextStartsSuccessfully() {
-		assertNotNull(getContext(), "ApplicationContext should not be null");
+		assertNotNull(context(), "ApplicationContext should not be null");
 	}
 
 	@Test
 	void testSingletonUniqueness() {
-		ApplicationContext ctx = getContext();
+		ApplicationContext ctx = context();
 		ServiceC c1 = ctx.getBean(ServiceC.class);
 		ServiceC c2 = ctx.getBean(ServiceC.class);
 		assertNotNull(c1);
@@ -46,7 +37,7 @@ public abstract class AbstractDependencyInjectionTCK {
 
 	@Test
 	void testDependencyResolution() {
-		ApplicationContext ctx = getContext();
+		ApplicationContext ctx = context();
 
 		ServiceA a = ctx.getBean(ServiceA.class);
 		ServiceB b = ctx.getBean(ServiceB.class);

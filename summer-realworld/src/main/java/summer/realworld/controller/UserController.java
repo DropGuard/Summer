@@ -6,11 +6,10 @@ import java.util.Optional;
 
 import org.mindrot.jbcrypt.BCrypt;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import summer.realworld.dto.UserDtos;
 import summer.realworld.model.User;
 import summer.realworld.service.UserService;
+import summer.realworld.util.AuthUtils;
 import summer.realworld.util.Errors;
 import summer.realworld.util.JwtUtil;
 import summer.web.HttpContext;
@@ -23,9 +22,11 @@ import summer.web.annotation.RestController;
 @RestController("/api")
 public class UserController {
 	private final UserService userService;
+	private final JwtUtil jwtUtil;
 
-	public UserController(UserService userService) {
+	public UserController(UserService userService, JwtUtil jwtUtil) {
 		this.userService = userService;
+		this.jwtUtil = jwtUtil;
 	}
 
 	@Post("/users")
@@ -69,12 +70,12 @@ public class UserController {
 	@Get("/user")
 	public void getCurrentUser(HttpContext ctx) {
 		String token = extractToken(ctx);
-		if (token == null) {
+		if (token == null || !jwtUtil.isAccessToken(token)) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
 			return;
 		}
 
-		Long userId = JwtUtil.getUserIdFromToken(token);
+		Long userId = jwtUtil.getUserIdFromToken(token);
 		Optional<User> userOpt = userService.findById(userId);
 		if (userOpt.isEmpty()) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
@@ -87,12 +88,12 @@ public class UserController {
 	@Put("/user")
 	public void updateUser(HttpContext ctx) {
 		String token = extractToken(ctx);
-		if (token == null) {
+		if (token == null || !jwtUtil.isAccessToken(token)) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
 			return;
 		}
 
-		Long userId = JwtUtil.getUserIdFromToken(token);
+		Long userId = jwtUtil.getUserIdFromToken(token);
 		Optional<User> userOpt = userService.findById(userId);
 		if (userOpt.isEmpty()) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
@@ -104,7 +105,9 @@ public class UserController {
 		var u = body.user();
 
 		// Parse raw JSON to detect which fields are explicitly provided
-		Map<String, Object> rawUser = parseRawUserBody(ctx);
+		@SuppressWarnings("unchecked")
+		Map<String, Object> rawBody = ctx.body(Map.class);
+		Map<String, Object> rawUser = (Map<String, Object>) rawBody.get("user");
 
 		// Reject null email/username (must be non-null if provided)
 		if (rawUser != null && rawUser.containsKey("email") && rawUser.get("email") == null) {
@@ -137,37 +140,13 @@ public class UserController {
 		}
 	}
 
-	private Map<String, Object> createUserResponse(User user) {
-		String accessToken = JwtUtil.generateAccessToken(user.getId(), user.getUsername(), user.getEmail());
-
-		Map<String, Object> userResponse = new HashMap<>();
-		userResponse.put("email", user.getEmail());
-		userResponse.put("token", accessToken);
-		userResponse.put("username", user.getUsername());
-		userResponse.put("bio", user.getBio());
-		userResponse.put("image", user.getImage());
-
-		return Map.of("user", userResponse);
+	private UserDtos.UserResponse createUserResponse(User user) {
+		String accessToken = jwtUtil.generateAccessToken(user.getId(), user.getUsername(), user.getEmail());
+		return new UserDtos.UserResponse(
+				new UserDtos.UserResponse.User(user.getEmail(), accessToken, user.getUsername(), user.getBio(), user.getImage()));
 	}
 
 	private String extractToken(HttpContext ctx) {
-		String authHeader = ctx.header("Authorization");
-		if (authHeader != null && authHeader.startsWith("Token ")) {
-			return authHeader.substring(6);
-		}
-		return null;
-	}
-
-	@SuppressWarnings("unchecked")
-	private Map<String, Object> parseRawUserBody(HttpContext ctx) {
-		try {
-			byte[] raw = ctx.request().getBody();
-			if (raw == null || raw.length == 0)
-				return null;
-			Map<String, Object> root = new ObjectMapper().readValue(raw, Map.class);
-			return (Map<String, Object>) root.get("user");
-		} catch (Exception e) {
-			return null;
-		}
+		return AuthUtils.extractToken(ctx);
 	}
 }

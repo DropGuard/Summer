@@ -1,19 +1,21 @@
 package summer.realworld.controller;
 
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import summer.realworld.dto.CommentDtos;
+import summer.realworld.dto.CommentDtos.Author;
+import summer.realworld.dto.CommentDtos.CommentData;
+import summer.realworld.dto.CommentDtos.CommentResponse;
+import summer.realworld.dto.CommentDtos.CommentsResponse;
 import summer.realworld.model.Article;
 import summer.realworld.model.Comment;
 import summer.realworld.model.User;
 import summer.realworld.service.ArticleService;
 import summer.realworld.service.CommentService;
 import summer.realworld.service.UserService;
+import summer.realworld.util.AuthUtils;
 import summer.realworld.util.Errors;
 import summer.realworld.util.JwtUtil;
 import summer.web.HttpContext;
@@ -29,11 +31,13 @@ public class CommentController {
 	private final CommentService commentService;
 	private final ArticleService articleService;
 	private final UserService userService;
+	private final JwtUtil jwtUtil;
 
-	public CommentController(CommentService commentService, ArticleService articleService, UserService userService) {
+	public CommentController(CommentService commentService, ArticleService articleService, UserService userService, JwtUtil jwtUtil) {
 		this.commentService = commentService;
 		this.articleService = articleService;
 		this.userService = userService;
+		this.jwtUtil = jwtUtil;
 	}
 
 	@Post("/articles/{slug}/comments")
@@ -55,7 +59,7 @@ public class CommentController {
 
 		try {
 			Comment comment = commentService.create(commentBody, articleOpt.get().getId(), currentUserId);
-			ctx.json(HttpStatus.CREATED, createCommentResponse(comment));
+			ctx.json(HttpStatus.CREATED, new CommentResponse(createCommentData(comment)));
 		} catch (CommentService.ValidationException e) {
 			ctx.json(HttpStatus.UNPROCESSABLE_ENTITY, Errors.of(e.getField(), e.getMessage()));
 		}
@@ -70,10 +74,10 @@ public class CommentController {
 		}
 
 		List<Comment> comments = commentService.findByArticleId(articleOpt.get().getId());
-		List<Map<String, Object>> commentResponses = comments.stream().map(this::createCommentData)
+		List<CommentData> commentResponses = comments.stream().map(this::createCommentData)
 				.collect(Collectors.toList());
 
-		ctx.json(HttpStatus.OK, Map.of("comments", commentResponses));
+		ctx.json(HttpStatus.OK, new CommentsResponse(commentResponses));
 	}
 
 	@Delete("/articles/{slug}/comments/{id}")
@@ -114,40 +118,20 @@ public class CommentController {
 		ctx.json(HttpStatus.NO_CONTENT, "");
 	}
 
-	private Map<String, Object> createCommentResponse(Comment comment) {
-		return Map.of("comment", createCommentData(comment));
-	}
-
-	private Map<String, Object> createCommentData(Comment comment) {
+	private CommentData createCommentData(Comment comment) {
 		Optional<User> authorOpt = userService.findById(comment.getAuthorId());
-		Map<String, Object> authorResponse = new HashMap<>();
-		if (authorOpt.isPresent()) {
-			User author = authorOpt.get();
-			authorResponse.put("username", author.getUsername());
-			authorResponse.put("bio", author.getBio());
-			authorResponse.put("image", author.getImage());
-			authorResponse.put("following", false);
-		}
+		Author author = authorOpt.map(u -> new Author(u.getUsername(), u.getBio(), u.getImage(), false))
+				.orElse(new Author(null, null, null, false));
 
-		Map<String, Object> commentData = new LinkedHashMap<>();
-		commentData.put("id", comment.getId());
-		commentData.put("createdAt", comment.getCreatedAt().toString());
-		commentData.put("updatedAt", comment.getUpdatedAt().toString());
-		commentData.put("body", comment.getBody());
-		commentData.put("author", authorResponse);
-
-		return commentData;
+		return new CommentData(
+				comment.getId(),
+				comment.getCreatedAt().toString(),
+				comment.getUpdatedAt().toString(),
+				comment.getBody(),
+				author);
 	}
 
 	private Long getCurrentUserId(HttpContext ctx) {
-		String authHeader = ctx.header("Authorization");
-		if (authHeader != null && authHeader.startsWith("Token ")) {
-			try {
-				return JwtUtil.getUserIdFromToken(authHeader.substring(6));
-			} catch (Exception e) {
-				return null;
-			}
-		}
-		return null;
+		return AuthUtils.getCurrentUserId(ctx, jwtUtil);
 	}
 }

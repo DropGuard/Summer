@@ -48,5 +48,8 @@ bin/
 .omo/
 *.log
 
+### Protobuf generated code ###
+**/src/**/summer/grpc/test/echo/
+
 ### Documentation ###
 .doc/

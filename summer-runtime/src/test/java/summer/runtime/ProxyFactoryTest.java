@@ -4,10 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 import org.junit.jupiter.api.Test;
-import summer.aop.InterceptorBinding;
 import summer.aop.InterceptorChain;
 import summer.aop.MethodInterceptor;
-
 import summer.aop.SummerAopException;
 
 /**

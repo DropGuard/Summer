@@ -51,6 +51,10 @@ public class SummerMojo extends AbstractMojo {
 		try {
 			// 1. Load all Jandex indexes from dependencies
 			CompositeIndex index = loadIndexes();
+			if (index.getKnownClasses().isEmpty()) {
+				getLog().info("[Summer] No Jandex index found, skipping AOT generation");
+				return;
+			}
 			getLog().info("[Summer] Loaded Jandex index with " + index.getKnownClasses().size() + " classes");
 
 			// 2. Discover beans from the index
@@ -58,7 +62,7 @@ public class SummerMojo extends AbstractMojo {
 			getLog().info("[Summer] Discovered " + beans.size() + BEANS_SUFFIX);
 
 			// 3. Evaluate @ConditionalOnBean conditions
-			ConditionalEvaluator.evaluate(beans, index);
+			new ConditionalEvaluator(index).evaluate(beans);
 			getLog().info("[Summer] After conditional evaluation: " + beans.size() + BEANS_SUFFIX);
 
 			// 4. Resolve dependencies
@@ -71,7 +75,7 @@ public class SummerMojo extends AbstractMojo {
 			generatedDir.mkdirs();
 
 			new AotContextGenerator().generate(sorted, generatedDir);
-			new AotProxyGenerator().generate(sorted, generatedDir);
+			new AotProxyGenerator().generate(sorted, index, generatedDir);
 			new RouteAdapterGenerator().generate(sorted, generatedDir);
 			new RowMapperGenerator().generate(index, generatedDir);
 

@@ -3,6 +3,7 @@ package summer.web.middleware;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import summer.web.Handler;
+import summer.web.Middleware;
 import summer.web.annotation.GlobalMiddleware;
 
 /**

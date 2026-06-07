@@ -5,6 +5,7 @@ import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
 import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
+import summer.data.redis.SummerRedisTemplate;
 import summer.data.redis.codec.JsonRedisCodec;
 
 @Configuration
@@ -36,5 +37,10 @@ public class RedisAutoConfiguration {
 	@Bean
 	public RedisCommands<String, Object> redisCommands(StatefulRedisConnection<String, Object> connection) {
 		return connection.sync();
+	}
+
+	@Bean
+	public SummerRedisTemplate summerRedisTemplate(RedisCommands<String, Object> commands) {
+		return new SummerRedisTemplate(commands);
 	}
 }

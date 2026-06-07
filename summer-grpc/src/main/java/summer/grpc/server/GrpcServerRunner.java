@@ -3,21 +3,39 @@ package summer.grpc.server;
 import io.grpc.BindableService;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
+import io.grpc.ServerInterceptor;
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import summer.core.ApplicationContext;
 import summer.core.ApplicationRunner;
-import summer.core.Component;
 import summer.core.ErrorCode;
+import summer.core.config.ConfigurationBinder;
+import summer.grpc.config.GrpcTlsConfig;
 import summer.grpc.exception.SummerGrpcException;
 
-@Component
+/**
+ * gRPC server runner that starts the gRPC server.
+ *
+ * <p>
+ * This is a framework infrastructure bean provided by
+ * {@code GrpcInfrastructureConfiguration}.
+ * </p>
+ */
 public class GrpcServerRunner implements ApplicationRunner, AutoCloseable {
 
 	private static final Logger log = LoggerFactory.getLogger(GrpcServerRunner.class);
+	private static final GrpcTlsConfig DEFAULT_TLS_CONFIG = new GrpcTlsConfig(false, null, null, null);
+
+	private final GrpcTlsConfig tlsConfig;
 	private Server server;
+
+	public GrpcServerRunner() {
+		this.tlsConfig = ConfigurationBinder.bindOrDefault("application.yml", GrpcTlsConfig.class, "grpc.tls",
+				DEFAULT_TLS_CONFIG);
+	}
 
 	public int getPort() {
 		return server != null ? server.getPort() : -1;
@@ -33,6 +51,24 @@ public class GrpcServerRunner implements ApplicationRunner, AutoCloseable {
 
 		int port = resolvePort();
 		ServerBuilder<?> serverBuilder = ServerBuilder.forPort(port);
+
+		List<ServerInterceptor> interceptors = context.getBeans(ServerInterceptor.class);
+		for (ServerInterceptor interceptor : interceptors) {
+			serverBuilder.intercept(interceptor);
+			log.info("gRPC Interceptor registered: {}", interceptor.getClass().getSimpleName());
+		}
+		// Add GrpcExceptionInterceptor last so it acts as the outermost boundary
+		serverBuilder.intercept(new GrpcExceptionInterceptor());
+
+		// Configure TLS if enabled and certificates are provided
+		if (tlsConfig.enabled() && tlsConfig.certChain() != null && tlsConfig.privateKey() != null) {
+			File certChainFile = new File(tlsConfig.certChain());
+			File privateKeyFile = new File(tlsConfig.privateKey());
+			serverBuilder.useTransportSecurity(certChainFile, privateKeyFile);
+			log.info("gRPC TLS enabled with cert: {}", tlsConfig.certChain());
+		} else {
+			log.warn("gRPC TLS disabled - using plaintext (not recommended for production)");
+		}
 
 		for (BindableService service : services) {
 			serverBuilder.addService(service);

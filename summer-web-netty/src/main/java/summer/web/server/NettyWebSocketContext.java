@@ -2,20 +2,26 @@ package summer.web.server;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import summer.web.websocket.WebSocketContext;
+import summer.web.websocket.WsFilterChain;
+import summer.web.websocket.WsInterceptor;
 
 public class NettyWebSocketContext implements WebSocketContext {
 
 	private final ChannelHandlerContext ctx;
 	private final Map<String, String> pathParams;
+	private final List<WsInterceptor> wsInterceptors;
 	private Consumer<String> messageConsumer;
 	private Runnable closeHandler;
 
-	public NettyWebSocketContext(ChannelHandlerContext ctx, Map<String, String> pathParams) {
+	public NettyWebSocketContext(ChannelHandlerContext ctx, Map<String, String> pathParams,
+			List<WsInterceptor> wsInterceptors) {
 		this.ctx = ctx;
 		this.pathParams = pathParams;
+		this.wsInterceptors = wsInterceptors;
 	}
 
 	public ChannelHandlerContext getChannelHandlerContext() {
@@ -48,7 +54,20 @@ public class NettyWebSocketContext implements WebSocketContext {
 
 	void invokeMessageConsumer(String message) {
 		if (messageConsumer != null) {
-			messageConsumer.accept(message);
+			WsFilterChain chain = new WsFilterChain() {
+				private int index = 0;
+
+				@Override
+				public void doFilter(WebSocketContext ctx, String msg) {
+					if (wsInterceptors != null && index < wsInterceptors.size()) {
+						WsInterceptor interceptor = wsInterceptors.get(index++);
+						interceptor.intercept(ctx, msg, this);
+					} else {
+						messageConsumer.accept(msg);
+					}
+				}
+			};
+			chain.doFilter(this, message);
 		}
 	}
 

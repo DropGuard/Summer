@@ -2,41 +2,47 @@ package summer.data.jdbc;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import summer.core.Component;
 import summer.core.exception.DataAccessException;
-import summer.core.reflect.ClassInstantiator;
 
 /**
  * Registry for pre-compiled RowMapper instances.
+ *
+ * <p>
+ * This is a framework infrastructure bean provided by
+ * {@code JdbcInfrastructureConfiguration}. RowMapper implementations are
+ * registered explicitly by AOT-generated configuration classes.
+ * </p>
  */
-@Component
 public class RowMapperRegistry {
 
-	private final ClassInstantiator instantiator;
 	private final Map<Class<?>, RowMapper<?>> mappers = new ConcurrentHashMap<>();
 
-	public RowMapperRegistry(ClassInstantiator instantiator) {
-		this.instantiator = instantiator;
+	/**
+	 * Registers a RowMapper for the given row type.
+	 *
+	 * @param rowType
+	 *            the entity/row class
+	 * @param mapper
+	 *            the RowMapper implementation
+	 */
+	public void register(Class<?> rowType, RowMapper<?> mapper) {
+		mappers.put(rowType, mapper);
 	}
 
 	/**
-	 * Gets a cached RowMapper or attempts to instantiate the generated one.
+	 * Gets the registered RowMapper for the given row type.
+	 *
+	 * @throws DataAccessException
+	 *             if no mapper is registered for the type
 	 */
 	@SuppressWarnings("unchecked")
 	public <T> RowMapper<T> getMapper(Class<T> rowType) {
-		return (RowMapper<T>) mappers.computeIfAbsent(rowType, type -> {
-			try {
-				// By convention, summer-compiler generates the RowMapper in the same package
-				// with the name <EntityName>_RowMapper
-				String mapperClassName = type.getName() + "_RowMapper";
-				return (RowMapper<?>) instantiator.instantiate(mapperClassName);
-			} catch (Exception e) {
-				throw new DataAccessException(
-						"Could not find or instantiate generated RowMapper for " + type.getName()
-								+ ". Ensure the class is annotated with @RowModel and compiled with summer-compiler.",
-						e);
-			}
-		});
+		RowMapper<?> mapper = mappers.get(rowType);
+		if (mapper == null) {
+			throw new DataAccessException(
+					"No RowMapper registered for " + rowType.getName()
+							+ ". Ensure the class is annotated with @RowModel and summer-maven-plugin is configured.");
+		}
+		return (RowMapper<T>) mapper;
 	}
-
 }

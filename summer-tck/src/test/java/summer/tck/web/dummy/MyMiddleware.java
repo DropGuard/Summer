@@ -2,7 +2,7 @@ package summer.tck.web.dummy;
 
 import summer.core.Component;
 import summer.web.Handler;
-import summer.web.middleware.Middleware;
+import summer.web.Middleware;
 
 @Component
 public class MyMiddleware implements Middleware {

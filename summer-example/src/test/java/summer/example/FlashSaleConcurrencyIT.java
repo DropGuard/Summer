@@ -5,10 +5,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
-import summer.runtime.RuntimeDiEngine;
+import summer.runtime.RuntimeApplicationContext;
 import summer.test.annotation.SummerTest;
 
-@SummerTest(RuntimeDiEngine.class)
+@SummerTest(RuntimeApplicationContext.class)
 public class FlashSaleConcurrencyIT {
 
 	@Test
@@ -70,3 +70,6 @@ public class FlashSaleConcurrencyIT {
 				"Failure count should match requests minus stock!");
 	}
 }
+
+
+

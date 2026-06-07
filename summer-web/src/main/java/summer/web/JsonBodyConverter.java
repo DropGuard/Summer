@@ -1,40 +1,43 @@
 package summer.web;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateSerializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.ZonedDateTimeSerializer;
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
-import summer.core.Component;
+import summer.core.json.SummerObjectMapper;
 
 /**
  * Standard JSON implementation of BodyConverter using Jackson.
+ *
+ * <p>
+ * This is a framework infrastructure bean provided by
+ * {@code WebInfrastructureConfiguration}.
+ * </p>
  */
-@Component
 public class JsonBodyConverter implements BodyConverter {
 	private static final ObjectMapper objectMapper;
 
 	static {
-		objectMapper = new ObjectMapper();
-		objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
-		objectMapper.configure(SerializationFeature.INDENT_OUTPUT, true);
-		objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+		objectMapper = SummerObjectMapper.create(m -> {
+			m.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+			m.configure(SerializationFeature.INDENT_OUTPUT, true);
 
-		JavaTimeModule javaTimeModule = new JavaTimeModule();
-		javaTimeModule.addSerializer(java.time.LocalDate.class, new LocalDateSerializer(DateTimeFormatter.ISO_DATE));
-		javaTimeModule.addSerializer(java.time.LocalDateTime.class,
-				new LocalDateTimeSerializer(DateTimeFormatter.ISO_DATE_TIME));
-		javaTimeModule.addSerializer(java.time.ZonedDateTime.class,
-				new ZonedDateTimeSerializer(DateTimeFormatter.ISO_ZONED_DATE_TIME));
-		objectMapper.registerModule(javaTimeModule);
-		objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+			var javaTimeModule = new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule();
+			javaTimeModule.addSerializer(java.time.LocalDate.class,
+					new LocalDateSerializer(DateTimeFormatter.ISO_DATE));
+			javaTimeModule.addSerializer(java.time.LocalDateTime.class,
+					new LocalDateTimeSerializer(DateTimeFormatter.ISO_DATE_TIME));
+			javaTimeModule.addSerializer(java.time.ZonedDateTime.class,
+					new ZonedDateTimeSerializer(DateTimeFormatter.ISO_ZONED_DATE_TIME));
+			m.registerModule(javaTimeModule);
+			m.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-		objectMapper.setSerializationInclusion(JsonInclude.Include.ALWAYS);
+			m.setSerializationInclusion(JsonInclude.Include.ALWAYS);
+		});
 	}
 
 	@Override

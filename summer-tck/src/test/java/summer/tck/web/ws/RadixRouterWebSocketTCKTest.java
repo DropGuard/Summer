@@ -9,7 +9,7 @@ import summer.web.websocket.RadixWsRouter;
 public class RadixRouterWebSocketTCKTest extends AbstractWebSocketTCK {
 
 	@Override
-	protected WsRouter createRouter() {
-		return new RadixWsRouter();
+	protected WsRouter.Builder createBuilder() {
+		return new WsRouter.Builder(RadixWsRouter::new);
 	}
 }

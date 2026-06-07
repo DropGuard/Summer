@@ -2,9 +2,9 @@ package summer.tck.aop.metadata;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.lang.annotation.Annotation;
 import org.junit.jupiter.api.Test;
 import summer.aop.MethodMetadata;
+import summer.tck.AbstractComponentTCK;
 
 /**
  * Abstract TCK for {@link MethodMetadata} implementations.
@@ -15,7 +15,7 @@ import summer.aop.MethodMetadata;
  * instance for a given method; the tests verify the metadata is correct.
  * </p>
  */
-public abstract class AbstractMethodMetadataTCK {
+public abstract class AbstractMethodMetadataTCK extends AbstractComponentTCK {
 
 	protected abstract MethodMetadata getMetadataFor(String methodName);
 

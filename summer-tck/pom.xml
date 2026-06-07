@@ -41,12 +41,6 @@
         </dependency>
         <dependency>
             <groupId>summer</groupId>
-            <artifactId>summer-compiler</artifactId>
-            <version>${project.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>summer</groupId>
             <artifactId>summer-aop</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
@@ -54,6 +48,12 @@
         <dependency>
             <groupId>summer</groupId>
             <artifactId>summer-web</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-web-http</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
@@ -110,6 +110,7 @@
         <dependency>
             <groupId>io.grpc</groupId>
             <artifactId>grpc-stub</artifactId>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>com.google.protobuf</groupId>
@@ -128,19 +129,6 @@
         </extensions>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-compiler-plugin</artifactId>
-                <configuration>
-                    <annotationProcessorPaths>
-                        <path>
-                            <groupId>summer</groupId>
-                            <artifactId>summer-compiler</artifactId>
-                            <version>${project.version}</version>
-                        </path>
-                    </annotationProcessorPaths>
-                </configuration>
-            </plugin>
-            <plugin>
                 <groupId>org.xolstice.maven.plugins</groupId>
                 <artifactId>protobuf-maven-plugin</artifactId>
                 <version>0.6.1</version>
@@ -149,6 +137,8 @@
                     <pluginId>grpc-java</pluginId>
                     <pluginArtifact>io.grpc:protoc-gen-grpc-java:1.73.0:exe:${os.detected.classifier}</pluginArtifact>
                     <protoSourceRoot>${project.basedir}/src/test/proto</protoSourceRoot>
+                    <outputDirectory>src/test/java</outputDirectory>
+                    <clearOutputDirectory>false</clearOutputDirectory>
                 </configuration>
                 <executions>
                     <execution>

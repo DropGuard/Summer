@@ -2,7 +2,6 @@ package summer.runtime;
 
 import java.lang.annotation.Annotation;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import summer.aop.InterceptorBinding;
 import summer.aop.MethodInterceptor;
@@ -13,8 +12,7 @@ final class RuntimeAopProcessor {
 	private RuntimeAopProcessor() {
 	}
 
-	static Object applyProxy(Object instance, Class<?> clazz, List<MethodInterceptor> allInterceptors,
-			Map<Class<?>, Object> singletons) {
+	static Object applyProxy(Object instance, Class<?> clazz, List<MethodInterceptor> allInterceptors) {
 		if (clazz.getInterfaces().length == 0 || instance instanceof MethodInterceptor) {
 			return instance;
 		}
@@ -26,11 +24,7 @@ final class RuntimeAopProcessor {
 			return instance;
 		}
 
-		Object proxy = ProxyFactory.createProxy(instance, matching);
-		for (Class<?> iface : clazz.getInterfaces()) {
-			singletons.put(iface, proxy);
-		}
-		return proxy;
+		return ProxyFactory.createProxy(instance, matching);
 	}
 
 	/**

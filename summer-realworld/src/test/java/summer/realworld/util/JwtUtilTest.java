@@ -2,71 +2,80 @@ package summer.realworld.util;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class JwtUtilTest {
 
+	private JwtUtil jwtUtil;
+
+	@BeforeEach
+	void setUp() {
+		JwtProperties properties = new JwtProperties("test-secret-key-for-unit-tests-32bytes!");
+		jwtUtil = new JwtUtil(properties);
+	}
+
 	@Test
 	void shouldGenerateAccessToken() {
-		String token = JwtUtil.generateAccessToken(1L, "testuser", "test@example.com");
+		String token = jwtUtil.generateAccessToken(1L, "testuser", "test@example.com");
 
 		assertNotNull(token);
 		assertFalse(token.isEmpty());
-		assertTrue(JwtUtil.isAccessToken(token));
+		assertTrue(jwtUtil.isAccessToken(token));
 	}
 
 	@Test
 	void shouldGenerateRefreshToken() {
-		String token = JwtUtil.generateRefreshToken(1L);
+		String token = jwtUtil.generateRefreshToken(1L);
 
 		assertNotNull(token);
 		assertFalse(token.isEmpty());
-		assertTrue(JwtUtil.isRefreshToken(token));
+		assertTrue(jwtUtil.isRefreshToken(token));
 	}
 
 	@Test
 	void shouldGetUserIdFromToken() {
-		String token = JwtUtil.generateAccessToken(42L, "testuser", "test@example.com");
+		String token = jwtUtil.generateAccessToken(42L, "testuser", "test@example.com");
 
-		Long userId = JwtUtil.getUserIdFromToken(token);
+		Long userId = jwtUtil.getUserIdFromToken(token);
 
 		assertEquals(42L, userId);
 	}
 
 	@Test
 	void shouldGetUsernameFromToken() {
-		String token = JwtUtil.generateAccessToken(1L, "testuser", "test@example.com");
+		String token = jwtUtil.generateAccessToken(1L, "testuser", "test@example.com");
 
-		String username = JwtUtil.getUsernameFromToken(token);
+		String username = jwtUtil.getUsernameFromToken(token);
 
 		assertEquals("testuser", username);
 	}
 
 	@Test
 	void shouldGetEmailFromToken() {
-		String token = JwtUtil.generateAccessToken(1L, "testuser", "test@example.com");
+		String token = jwtUtil.generateAccessToken(1L, "testuser", "test@example.com");
 
-		String email = JwtUtil.getEmailFromToken(token);
+		String email = jwtUtil.getEmailFromToken(token);
 
 		assertEquals("test@example.com", email);
 	}
 
 	@Test
 	void shouldIdentifyTokenType() {
-		String accessToken = JwtUtil.generateAccessToken(1L, "user", "user@test.com");
-		String refreshToken = JwtUtil.generateRefreshToken(1L);
+		String accessToken = jwtUtil.generateAccessToken(1L, "user", "user@test.com");
+		String refreshToken = jwtUtil.generateRefreshToken(1L);
 
-		assertTrue(JwtUtil.isAccessToken(accessToken));
-		assertFalse(JwtUtil.isRefreshToken(accessToken));
+		assertTrue(jwtUtil.isAccessToken(accessToken));
+		assertFalse(jwtUtil.isRefreshToken(accessToken));
 
-		assertTrue(JwtUtil.isRefreshToken(refreshToken));
-		assertFalse(JwtUtil.isAccessToken(refreshToken));
+		assertTrue(jwtUtil.isRefreshToken(refreshToken));
+		assertFalse(jwtUtil.isAccessToken(refreshToken));
 	}
 
 	@Test
 	void shouldDetectNonExpiredToken() {
-		String token = JwtUtil.generateAccessToken(1L, "user", "user@test.com");
+		String token = jwtUtil.generateAccessToken(1L, "user", "user@test.com");
 
-		assertFalse(JwtUtil.isTokenExpired(token));
+		assertFalse(jwtUtil.isTokenExpired(token));
 	}
 }

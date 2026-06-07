@@ -14,8 +14,9 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import summer.web.http.RadixRouter;
 import summer.web.ServerConfig;
+import summer.web.WsRouter;
+import summer.web.http.RadixTreeHttpRouter;
 import summer.web.websocket.RadixWsRouter;
 
 public class WebSocketBroadcasterTest {
@@ -26,12 +27,11 @@ public class WebSocketBroadcasterTest {
 
 	@BeforeAll
 	public static void setup() throws Exception {
-		RadixRouter httpRouter = new RadixRouter();
-		RadixWsRouter wsRouter = new RadixWsRouter();
+		RadixTreeHttpRouter httpRouter = new RadixTreeHttpRouter();
 		broadcaster = new NettyWebSocketBroadcaster();
 
 		// 1. Setup route
-		wsRouter.ws("/chat/{room}", ctx -> {
+		WsRouter wsRouter = new WsRouter.Builder(RadixWsRouter::new).ws("/chat/{room}", ctx -> {
 			String room = ctx.pathParam("room");
 			broadcaster.join(room, ctx);
 
@@ -44,11 +44,11 @@ public class WebSocketBroadcasterTest {
 			ctx.onClose(() -> {
 				broadcaster.leave(room, ctx);
 			});
-		});
+		}).build();
 
 		// 2. Start server
-		ServerConfig config = new ServerConfig(0, 30000, 1024 * 1024, 10000, List.of("*"));
-		server = new NettyHttpServer(config, httpRouter, wsRouter, List.of(), null);
+		ServerConfig config = new ServerConfig(0, 30000, 1024 * 1024, 10000, List.of("*"), 65536);
+		server = new NettyHttpServer(config, httpRouter, wsRouter, List.of(), null, null, List.of());
 
 		Thread serverThread = new Thread(() -> {
 			server.start();

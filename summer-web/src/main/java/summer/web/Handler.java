@@ -5,7 +5,7 @@ package summer.web;
  *
  * <p>
  * Handlers are invoked by the router during request processing. The return
- * value of {@link #handle(HttpContext)} is <b>not</b> used by the framework —
+ * value of {@link #handle(HttpContext)} is <b>not</b> used by the framework --
  * controllers must write responses explicitly via {@link HttpContext} methods
  * (e.g., {@code ctx.ok(data)}, {@code ctx.json(status, data)}).
  * </p>

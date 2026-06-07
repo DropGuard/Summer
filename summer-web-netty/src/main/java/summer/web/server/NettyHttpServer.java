@@ -1,11 +1,5 @@
 package summer.web.server;
 
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -16,14 +10,18 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import summer.core.ApplicationContext;
 import summer.web.BodyConverter;
 import summer.web.HttpRouter;
 import summer.web.JsonBodyConverter;
+import summer.web.Middleware;
 import summer.web.ServerConfig;
 import summer.web.WsRouter;
 import summer.web.annotation.GlobalMiddleware;
-import summer.web.middleware.Middleware;
 
 public class NettyHttpServer {
 	private static final Logger log = LoggerFactory.getLogger(NettyHttpServer.class);
@@ -37,33 +35,50 @@ public class NettyHttpServer {
 	private EventLoopGroup bossGroup;
 	private EventLoopGroup workerGroup;
 	private ChannelFuture serverChannelFuture;
+	private final summer.web.ExceptionRegistry exceptionRegistry;
+	private final List<summer.web.websocket.WsInterceptor> wsInterceptors;
 
 	private final AtomicInteger activeConnections = new AtomicInteger(0);
 
-	public NettyHttpServer(ServerConfig config, HttpRouter httpRouter, WsRouter wsRouter,
-			List<Middleware> middlewares, BodyConverter jsonConverter) {
+	public NettyHttpServer(ServerConfig config, HttpRouter httpRouter, WsRouter wsRouter, List<Middleware> middlewares,
+			BodyConverter jsonConverter, summer.web.ExceptionRegistry exceptionRegistry,
+			List<summer.web.websocket.WsInterceptor> wsInterceptors) {
 		this.config = config;
 		this.httpRouter = httpRouter;
 		this.wsRouter = wsRouter;
 		this.middlewares = middlewares;
 		this.jsonConverter = jsonConverter;
+		this.exceptionRegistry = exceptionRegistry;
+		this.wsInterceptors = wsInterceptors;
 	}
 
 	/**
 	 * Creates a NettyHttpServer by assembling components from the application
 	 * context.
 	 */
-	public static NettyHttpServer create(ApplicationContext context, ServerConfig config) {
-		List<Middleware> middlewares = context.getBeans(Middleware.class).stream()
-				.filter(m -> m.getClass().isAnnotationPresent(GlobalMiddleware.class)).toList();
+	public static NettyHttpServer create(ApplicationContext context, ServerConfig config, HttpRouter httpRouter,
+			WsRouter wsRouter, summer.web.ExceptionRegistry exceptionRegistry) {
+		List<Middleware> globalMiddlewares = getGlobalMiddlewares(context);
+		List<Middleware> middlewares = new java.util.ArrayList<>(globalMiddlewares);
+
 		BodyConverter jsonConverter = findOptionalBean(context, BodyConverter.class);
 		if (jsonConverter == null) {
 			jsonConverter = new JsonBodyConverter();
 		}
 
-		HttpRouter httpRouter = context.getBean(HttpRouter.class);
-		WsRouter wsRouter = context.getBean(WsRouter.class);
-		return new NettyHttpServer(config, httpRouter, wsRouter, middlewares, jsonConverter);
+		List<summer.web.websocket.WsInterceptor> wsInterceptors = context
+				.getBeans(summer.web.websocket.WsInterceptor.class);
+		return new NettyHttpServer(config, httpRouter, wsRouter, middlewares, jsonConverter, exceptionRegistry,
+				wsInterceptors);
+	}
+
+	/**
+	 * Discovers all global middlewares from the application context. A middleware
+	 * is global if its class is annotated with {@link GlobalMiddleware}.
+	 */
+	private static List<Middleware> getGlobalMiddlewares(ApplicationContext context) {
+		return context.getBeans(Middleware.class).stream()
+				.filter(m -> m.getClass().isAnnotationPresent(GlobalMiddleware.class)).toList();
 	}
 
 	private static <T> T findOptionalBean(ApplicationContext context, Class<T> type) {
@@ -101,7 +116,7 @@ public class NettyHttpServer {
 																								// FullHttpRequest
 									.addLast(
 											new NettyHttpServerHandler(httpRouter, wsRouter, middlewares, jsonConverter,
-													NettyHttpServer.this, config));
+													NettyHttpServer.this, config, exceptionRegistry, wsInterceptors));
 						}
 					}).option(ChannelOption.SO_BACKLOG, 1024).childOption(ChannelOption.TCP_NODELAY, true)
 					.childOption(ChannelOption.SO_KEEPALIVE, true);

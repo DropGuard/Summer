@@ -1,21 +1,17 @@
 package summer.tck.di;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import org.junit.jupiter.api.Test;
+import summer.tck.AbstractFailureTCK;
 
-public abstract class AbstractCircularDependencyTCK {
-
-	protected abstract void triggerCircularDependency();
+/**
+ * TCK for circular dependency detection.
+ *
+ * <p>Verifies that the DI container fails fast when circular dependencies are detected.</p>
+ */
+public abstract class AbstractCircularDependencyTCK extends AbstractFailureTCK {
 
 	@Test
 	void testCircularDependencyFailsFast() {
-		Exception exception = assertThrows(Exception.class, () -> {
-			triggerCircularDependency();
-		});
-
-		assertTrue(exception.getMessage().contains("Circular") || exception.getMessage().contains("Compilation failed"),
-				"Should fail fast with circular dependency error: " + exception.getMessage());
+		assertFailureContains("Circular", "Compilation failed");
 	}
 }

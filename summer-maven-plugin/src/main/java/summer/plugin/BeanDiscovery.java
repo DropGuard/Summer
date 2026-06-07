@@ -16,11 +16,15 @@ public final class BeanDiscovery {
 	private static final DotName COMPONENT_DOT = DotName.createSimple("summer.core.Component");
 	private static final DotName CONFIG_DOT = DotName.createSimple("summer.core.annotation.Configuration");
 	private static final DotName BEAN_DOT = DotName.createSimple("summer.core.annotation.Bean");
+	private static final DotName CONFIG_PROPERTIES_DOT = DotName.createSimple("summer.core.config.ConfigurationProperties");
 	private static final DotName REST_CONTROLLER_DOT = DotName.createSimple("summer.web.annotation.RestController");
-	private static final DotName USE_DOT = DotName.createSimple("summer.web.annotation.Use");
+	private static final DotName GLOBAL_MIDDLEWARE_DOT = DotName.createSimple("summer.web.annotation.GlobalMiddleware");
+	private static final DotName INTERCEPTOR_BINDING_DOT = DotName.createSimple("summer.aop.InterceptorBinding");
 	private static final DotName PATH_PARAM_DOT = DotName.createSimple("summer.web.annotation.PathParam");
 	private static final DotName QUERY_PARAM_DOT = DotName.createSimple("summer.web.annotation.QueryParam");
 	private static final DotName VALID_DOT = DotName.createSimple("jakarta.validation.Valid");
+	private static final DotName PAGEABLE_DOT = DotName.createSimple("summer.web.Pageable");
+	private static final DotName REPLACES_DOT = DotName.createSimple("summer.core.annotation.Replaces");
 
 	private static final java.util.Map<DotName, String> HTTP_ANNOTATIONS = java.util.Map.of(
 			DotName.createSimple("summer.web.annotation.Get"), "GET",
@@ -38,7 +42,10 @@ public final class BeanDiscovery {
 		scanDirectComponents(index, packagePrefix, beans, collected);
 		scanMetaAnnotatedComponents(index, packagePrefix, beans, collected);
 		scanBeanFactoryMethods(index, beans, collected);
+		scanConfigurationProperties(index, packagePrefix, beans, collected);
+		scanMethodLevelReplaces(index, beans);
 		collectRouteMetadata(beans, index);
+		detectAopBindings(beans, index);
 
 		return beans;
 	}
@@ -95,7 +102,19 @@ public final class BeanDiscovery {
 					continue;
 
 				String returnTypeName = returnType.name().toString();
+				boolean hasReplaces = method.hasAnnotation(REPLACES_DOT);
+
+				// Manual @Bean wins over auto-bound @ConfigurationProperties
+				if (!hasReplaces) {
+					BeanDefinition existing = findConfigProperties(beans, returnTypeName);
+					if (existing != null) {
+						beans.remove(existing);
+						collected.remove(returnTypeName);
+					}
+				}
+
 				if (collected.add(returnTypeName)) {
+					// First @Bean with this return type - add normally
 					BeanDefinition factoryBean = new BeanDefinition(BeanDefinition.Kind.FACTORY_PRODUCT,
 							returnTypeName, returnType.name().withoutPackagePrefix());
 					factoryBean.configClassName = configBean.qualifiedName;
@@ -105,13 +124,120 @@ public final class BeanDiscovery {
 						factoryBean.producerParamTypes.add(method.parameterType(i).name().toString());
 					}
 					beans.add(factoryBean);
+				} else if (hasReplaces) {
+				} else if (hasReplaces) {
+					// Duplicate return type with @Replaces - replace the existing FACTORY_PRODUCT in-place
+					// No need to set replacesReturnType: the replacement IS the new provider of this type
+					BeanDefinition existing = findFactoryProduct(beans, returnTypeName);
+					if (existing != null) {
+						existing.configClassName = configBean.qualifiedName;
+						existing.producerMethodName = method.name();
+						existing.producerParamTypes.clear();
+						for (int i = 0; i < method.parametersCount(); i++) {
+							existing.producerParamTypes.add(method.parameterType(i).name().toString());
+						}
+					}
 				}
 			}
 		}
 	}
 
+	private static BeanDefinition findFactoryProduct(List<BeanDefinition> beans, String returnTypeName) {
+		for (BeanDefinition bean : beans) {
+			if (bean.kind == BeanDefinition.Kind.FACTORY_PRODUCT && bean.qualifiedName.equals(returnTypeName)) {
+				return bean;
+			}
+		}
+		return null;
+	}
+
+	private static BeanDefinition findConfigProperties(List<BeanDefinition> beans, String returnTypeName) {
+		for (BeanDefinition bean : beans) {
+			if (bean.kind == BeanDefinition.Kind.CONFIG_PROPERTIES && bean.qualifiedName.equals(returnTypeName)) {
+				return bean;
+			}
+		}
+		return null;
+	}
+
+
+	/**
+	 * Scans for {@code @ConfigurationProperties}-annotated records and registers
+	 * them as {@code CONFIG_PROPERTIES} beans.
+	 */
+	private static void scanConfigurationProperties(IndexView index, String packagePrefix,
+			List<BeanDefinition> beans, Set<String> collected) {
+		for (org.jboss.jandex.AnnotationInstance ann : index.getAnnotations(CONFIG_PROPERTIES_DOT)) {
+			ClassInfo ci = ann.target().asClass();
+			if (ci.isInterface() || ci.isAbstract() || !matchesPackage(ci, packagePrefix))
+				continue;
+
+			String className = ci.name().toString();
+			if (!collected.add(className))
+				continue;
+
+			String prefix = "";
+			if (ann.value() != null) {
+				prefix = ann.value().asString();
+			}
+
+			BeanDefinition bean = new BeanDefinition(BeanDefinition.Kind.CONFIG_PROPERTIES,
+					className, ci.name().withoutPackagePrefix());
+			bean.configPropertiesPrefix = prefix;
+			beans.add(bean);
+		}
+	}
+
+
 	private static boolean matchesPackage(ClassInfo ci, String packagePrefix) {
 		return packagePrefix == null || ci.name().toString().startsWith(packagePrefix);
+	}
+
+	/**
+	 * Scans @Bean methods for @Replaces annotations and populates the
+	 * replacesReturnType and replacesTargetClass fields on BeanDefinition.
+	 */
+	private static void scanMethodLevelReplaces(IndexView index, List<BeanDefinition> beans) {
+		for (BeanDefinition bean : beans) {
+			if (bean.kind != BeanDefinition.Kind.FACTORY_PRODUCT)
+				continue;
+			if (bean.configClassName == null)
+				continue;
+
+			ClassInfo configCi = index.getClassByName(DotName.createSimple(bean.configClassName));
+			if (configCi == null)
+				continue;
+
+			for (org.jboss.jandex.MethodInfo method : configCi.methods()) {
+				if (!method.name().equals(bean.producerMethodName))
+					continue;
+				if (!method.hasAnnotation(REPLACES_DOT))
+					continue;
+
+				org.jboss.jandex.AnnotationInstance replacesAnn = method.annotation(REPLACES_DOT);
+				if (replacesAnn == null)
+					continue;
+
+				org.jboss.jandex.Type valueType = replacesAnn.value().asClass();
+				if (valueType == null)
+					continue;
+
+				String targetTypeName = valueType.name().toString();
+
+				// Skip if the bean IS the target (already replaced in-place by scanBeanFactoryMethods)
+				if (bean.qualifiedName.equals(targetTypeName))
+					continue;
+
+				bean.replacesReturnType = targetTypeName;
+
+				// Check if the target type is a class (not an interface)
+				ClassInfo targetCi = index.getClassByName(DotName.createSimple(targetTypeName));
+				if (targetCi != null && !targetCi.isInterface()) {
+					// If target is a concrete class, it's an explicit target class
+					bean.replacesTargetClass = targetTypeName;
+				}
+			}
+		}
 	}
 
 	private static void addBean(ClassInfo ci, BeanDefinition.Kind kind,
@@ -128,7 +254,7 @@ public final class BeanDiscovery {
 	/**
 	 * Collect route metadata from @RestController beans.
 	 * Scans for @Get, @Post, @Put, @Delete annotations and extracts
-	 * path patterns, parameter bindings, and middleware.
+	 * path patterns and parameter bindings.
 	 */
 	private static void collectRouteMetadata(List<BeanDefinition> beans, IndexView index) {
 		for (BeanDefinition bean : beans) {
@@ -137,7 +263,6 @@ public final class BeanDiscovery {
 				continue;
 
 			String basePath = extractBasePath(ci);
-			List<String> classMiddleware = extractMiddleware(ci, USE_DOT);
 
 			for (org.jboss.jandex.MethodInfo method : ci.methods()) {
 				String httpMethod = resolveHttpMethod(method);
@@ -149,8 +274,6 @@ public final class BeanDiscovery {
 				String returnType = method.returnType().name().toString();
 
 				RouteInfo route = new RouteInfo(httpMethod, fullPath, bean.qualifiedName, method.name(), returnType);
-				route.middleware.addAll(classMiddleware);
-				route.middleware.addAll(extractMiddleware(method, USE_DOT));
 				collectParameters(method, route);
 				bean.routes.add(route);
 			}
@@ -184,26 +307,6 @@ public final class BeanDiscovery {
 		return "";
 	}
 
-	private static List<String> extractMiddleware(org.jboss.jandex.AnnotationTarget target, DotName useDot) {
-		List<String> middleware = new ArrayList<>();
-		if (target instanceof org.jboss.jandex.ClassInfo ci) {
-			org.jboss.jandex.AnnotationInstance ann = ci.annotation(useDot);
-			if (ann != null) {
-				for (org.jboss.jandex.Type type : ann.value().asClassArray()) {
-					middleware.add(type.name().toString());
-				}
-			}
-		} else if (target instanceof org.jboss.jandex.MethodInfo mi) {
-			org.jboss.jandex.AnnotationInstance ann = mi.annotation(useDot);
-			if (ann != null) {
-				for (org.jboss.jandex.Type type : ann.value().asClassArray()) {
-					middleware.add(type.name().toString());
-				}
-			}
-		}
-		return middleware;
-	}
-
 	private static void collectParameters(org.jboss.jandex.MethodInfo method, RouteInfo route) {
 		for (org.jboss.jandex.MethodParameterInfo param : method.parameters()) {
 			String paramName = param.name();
@@ -211,12 +314,14 @@ public final class BeanDiscovery {
 			boolean hasValid = param.hasAnnotation(VALID_DOT);
 
 			if (param.hasAnnotation(PATH_PARAM_DOT)) {
-				String bindingName = extractBindingName(param, PATH_PARAM_DOT, paramName);
+				String bindingName = extractBindingName(param, PAGEABLE_DOT, paramName);
 				route.params.add(new RouteInfo.ParamInfo(bindingName, paramType, RouteInfo.ParamBinding.PATH, hasValid));
 			} else if (param.hasAnnotation(QUERY_PARAM_DOT)) {
 				String bindingName = extractBindingName(param, QUERY_PARAM_DOT, paramName);
 				route.params.add(new RouteInfo.ParamInfo(bindingName, paramType, RouteInfo.ParamBinding.QUERY, hasValid));
-			} else if (!paramType.equals("summer.web.WebContext")) {
+			} else if (paramType.equals("summer.web.Pageable") || param.type().name().equals(PAGEABLE_DOT)) {
+				route.params.add(new RouteInfo.ParamInfo(paramName, paramType, RouteInfo.ParamBinding.PAGEABLE, false));
+			} else if (!paramType.equals("summer.web.WebContext") && !paramType.equals("summer.web.HttpContext")) {
 				route.params.add(new RouteInfo.ParamInfo(paramName, paramType, RouteInfo.ParamBinding.BODY, hasValid));
 			}
 		}
@@ -237,6 +342,54 @@ public final class BeanDiscovery {
 		String normalizedMethod = method.startsWith("/") ? method : "/" + method;
 
 		return normalizedBase + normalizedMethod;
+	}
+
+	/**
+	 * Detects beans that need AOP proxies based on @InterceptorBinding annotations.
+	 * 
+	 * <p>
+	 * A bean needs a proxy if it has any annotation that is itself annotated with
+	 * {@code @InterceptorBinding}. This enables compile-time proxy generation for
+	 * AOT mode.
+	 * </p>
+	 */
+	private static void detectAopBindings(List<BeanDefinition> beans, IndexView index) {
+		// First, collect all annotations that are @InterceptorBinding meta-annotations
+		Set<DotName> bindingAnnotations = new HashSet<>();
+		for (ClassInfo ci : index.getKnownClasses()) {
+			if (ci.isAnnotation() && ci.hasAnnotation(INTERCEPTOR_BINDING_DOT)) {
+				bindingAnnotations.add(ci.name());
+			}
+		}
+
+		// Then, check each bean for those annotations
+		for (BeanDefinition bean : beans) {
+			ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
+			if (ci == null)
+				continue;
+
+			// Check class-level annotations
+			for (org.jboss.jandex.AnnotationInstance ann : ci.classAnnotations()) {
+				if (bindingAnnotations.contains(ann.name())) {
+					bean.needsProxy = true;
+					break;
+				}
+			}
+
+			// Check method-level annotations if class-level not found
+			if (!bean.needsProxy) {
+				for (org.jboss.jandex.MethodInfo method : ci.methods()) {
+					for (org.jboss.jandex.AnnotationInstance ann : method.annotations()) {
+						if (bindingAnnotations.contains(ann.name())) {
+							bean.needsProxy = true;
+							break;
+						}
+					}
+					if (bean.needsProxy)
+						break;
+				}
+			}
+		}
 	}
 
 	private static void collectConstructorParams(BeanDefinition bean, ClassInfo ci) {

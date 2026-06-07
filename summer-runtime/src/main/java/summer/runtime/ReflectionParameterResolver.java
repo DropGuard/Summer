@@ -1,25 +1,20 @@
 package summer.runtime;
 
 import java.lang.reflect.Parameter;
-
-import summer.core.Component;
 import summer.web.HttpContext;
 import summer.web.Request;
 import summer.web.annotation.PathParam;
 import summer.web.annotation.QueryParam;
-// ParameterResolver is now in the same package
 
 /**
  * Reflection-based parameter resolver for HTTP handler methods.
  *
  * <p>
  * Resolves method parameters by inspecting annotations and types using
- * reflection. This is the default implementation used for runtime web request
- * handling.
+ * reflection. This is a built-in infrastructure component.
  * </p>
  */
-@Component
-public class ReflectionParameterResolver implements ParameterResolver {
+public class ReflectionParameterResolver implements HttpParameterResolver {
 
 	@Override
 	public boolean supports(Parameter parameter) {

@@ -16,22 +16,21 @@ import summer.boot.SummerApplication;
 
 public class WebSocketIT {
 
+	private static summer.core.ApplicationContext context;
+
 	@BeforeAll
-	public static void startServer() throws InterruptedException {
+	public static void startServer() throws Exception {
 		System.setProperty("summer.engine", "runtime");
-		new Thread(() -> {
-			try {
-				SummerApplication.run(Application.class, new String[0]);
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-		}).start();
-		Thread.sleep(2000);
+		context = SummerApplication.run(Application.class, new String[0]);
+		// Give it a tiny bit of time for Netty to bind
+		Thread.sleep(1000);
 	}
 
 	@AfterAll
-	public static void stopServer() {
-		SummerApplication.stop();
+	public static void stopServer() throws Exception {
+		if (context != null) {
+			context.close();
+		}
 	}
 
 	@Test

@@ -2,6 +2,8 @@ package summer.tck.di;
 
 import summer.core.ApplicationContext;
 import summer.runtime.RuntimeApplicationContext;
+import summer.tck.di.replaces.ReplacesTestConfig;
+import summer.tck.di.replaces.conditional.ConditionalReplacesTestConfig;
 
 /**
  * Runtime test for {@code @Replaces} and {@code @ConditionalOnBean} behavior.
@@ -9,12 +11,14 @@ import summer.runtime.RuntimeApplicationContext;
 public class RuntimeReplacesTest extends AbstractReplacesTCK {
 
 	@Override
-	protected ApplicationContext createContext(Class<?>... components) {
-		RuntimeApplicationContext ctx = new RuntimeApplicationContext();
-		for (Class<?> c : components) {
-			ctx.registerComponent(c);
-		}
-		ctx.initializeBeans();
-		return ctx;
+	protected ApplicationContext createContext() {
+		return RuntimeApplicationContext.create(ReplacesTestConfig.class);
+	}
+
+	@Override
+	protected ApplicationContext createConditionalReplacesContext() {
+		return RuntimeApplicationContext.create(ConditionalReplacesTestConfig.class);
 	}
 }
+
+

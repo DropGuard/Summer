@@ -2,8 +2,6 @@ package summer.tck.web.ws;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -11,84 +9,86 @@ import org.junit.jupiter.api.Test;
 import summer.web.WsRouter;
 import summer.web.websocket.WebSocketContext;
 import summer.web.websocket.WebSocketHandler;
+import summer.tck.AbstractComponentTCK;
 
 /**
  * Abstract TCK for WebSocket routing behavior.
  *
- * <p>Tests that both WsRouter implementations (RadixWsRouter, MapRouter) handle
+ * <p>Tests that both WsRouter implementations (RadixWsRouter, MapWsRouter) handle
  * WebSocket route registration, matching, and path parameter extraction
  * consistently.</p>
  */
-public abstract class AbstractWebSocketTCK {
+public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
 
-	protected abstract WsRouter createRouter();
+	/**
+	 * Subclasses return a builder pre-configured with the specific router implementation.
+	 */
+	protected abstract WsRouter.Builder createBuilder();
 
 	@Test
 	void testWsRouteExactMatch() {
-		WsRouter router = createRouter();
 		AtomicReference<String> received = new AtomicReference<>();
 
-		router.ws("/chat", ctx -> {
-			received.set("connected");
-		});
+		WsRouter router = createBuilder()
+				.ws("/chat", ctx -> received.set("connected"))
+				.build();
 
 		WsRouter.WsMatch match = router.routeWs("/chat");
 		assertNotNull(match, "Should match exact WebSocket route");
-		assertTrue(match.pathParams == null || match.pathParams.isEmpty(),
+		assertTrue(match.pathParams() == null || match.pathParams().isEmpty(),
 				"Exact match should have no path params");
 
 		// Simulate handler invocation
-		match.handler.handle(createMockContext(match.pathParams != null ? match.pathParams : Map.of()));
+		match.handler().handle(createMockContext(match.pathParams() != null ? match.pathParams() : Map.of()));
 		assertEquals("connected", received.get());
 	}
 
 	@Test
 	void testWsRouteWithPathParam() {
-		WsRouter router = createRouter();
 		AtomicReference<String> roomRef = new AtomicReference<>();
 
-		router.ws("/chat/{room}", ctx -> {
-			roomRef.set(ctx.pathParam("room"));
-		});
+		WsRouter router = createBuilder()
+				.ws("/chat/{room}", ctx -> roomRef.set(ctx.pathParam("room")))
+				.build();
 
 		WsRouter.WsMatch match = router.routeWs("/chat/general");
 		assertNotNull(match, "Should match WebSocket route with path param");
-		assertEquals("general", match.pathParams.get("room"));
+		assertEquals("general", match.pathParams().get("room"));
 
 		// Simulate handler invocation
-		match.handler.handle(createMockContext(match.pathParams));
+		match.handler().handle(createMockContext(match.pathParams()));
 		assertEquals("general", roomRef.get());
 	}
 
 	@Test
 	void testWsRouteWithMultiplePathParams() {
-		WsRouter router = createRouter();
 		AtomicReference<String> resultRef = new AtomicReference<>();
 
-		router.ws("/ws/{tenant}/{channel}", ctx -> {
-			String tenant = ctx.pathParam("tenant");
-			String channel = ctx.pathParam("channel");
-			resultRef.set(tenant + ":" + channel);
-		});
+		WsRouter router = createBuilder()
+				.ws("/ws/{tenant}/{channel}", ctx -> {
+					String tenant = ctx.pathParam("tenant");
+					String channel = ctx.pathParam("channel");
+					resultRef.set(tenant + ":" + channel);
+				})
+				.build();
 
 		WsRouter.WsMatch match = router.routeWs("/ws/acme/general");
 		assertNotNull(match, "Should match WebSocket route with multiple params");
-		assertEquals("acme", match.pathParams.get("tenant"));
-		assertEquals("general", match.pathParams.get("channel"));
+		assertEquals("acme", match.pathParams().get("tenant"));
+		assertEquals("general", match.pathParams().get("channel"));
 
 		// Simulate handler invocation
-		match.handler.handle(createMockContext(match.pathParams));
+		match.handler().handle(createMockContext(match.pathParams()));
 		assertEquals("acme:general", resultRef.get());
 	}
 
 	@Test
 	void testWsRouteTrailingSlash() {
-		WsRouter router = createRouter();
 		AtomicReference<String> received = new AtomicReference<>();
 
-		router.ws("/chat", ctx -> {
-			received.set("connected");
-		});
+		WsRouter router = createBuilder()
+				.ws("/chat", ctx -> received.set("connected"))
+				.build();
 
 		WsRouter.WsMatch match = router.routeWs("/chat/");
 		assertNotNull(match, "Should match WebSocket route with trailing slash");
@@ -96,9 +96,9 @@ public abstract class AbstractWebSocketTCK {
 
 	@Test
 	void testWsRouteNoMatch() {
-		WsRouter router = createRouter();
-
-		router.ws("/chat", ctx -> {});
+		WsRouter router = createBuilder()
+				.ws("/chat", ctx -> {})
+				.build();
 
 		WsRouter.WsMatch match = router.routeWs("/other");
 		assertNull(match, "Should not match unregistered WebSocket route");
@@ -106,38 +106,38 @@ public abstract class AbstractWebSocketTCK {
 
 	@Test
 	void testWsRouteMultipleHandlers() {
-		WsRouter router = createRouter();
 		AtomicReference<String> chatRef = new AtomicReference<>();
 		AtomicReference<String> notifyRef = new AtomicReference<>();
 
-		router.ws("/chat", ctx -> chatRef.set("chat"));
-		router.ws("/notify", ctx -> notifyRef.set("notify"));
+		WsRouter router = createBuilder()
+				.ws("/chat", ctx -> chatRef.set("chat"))
+				.ws("/notify", ctx -> notifyRef.set("notify"))
+				.build();
 
 		WsRouter.WsMatch chatMatch = router.routeWs("/chat");
 		assertNotNull(chatMatch);
-		chatMatch.handler.handle(createMockContext(Map.of()));
+		chatMatch.handler().handle(createMockContext(Map.of()));
 		assertEquals("chat", chatRef.get());
 
 		WsRouter.WsMatch notifyMatch = router.routeWs("/notify");
 		assertNotNull(notifyMatch);
-		notifyMatch.handler.handle(createMockContext(Map.of()));
+		notifyMatch.handler().handle(createMockContext(Map.of()));
 		assertEquals("notify", notifyRef.get());
 	}
 
 	@Test
 	void testWsRouteWithWildcard() {
-		WsRouter router = createRouter();
 		AtomicReference<String> received = new AtomicReference<>();
 
-		router.ws("/ws/**", ctx -> {
-			received.set("wildcard");
-		});
+		WsRouter router = createBuilder()
+				.ws("/ws/**", ctx -> received.set("wildcard"))
+				.build();
 
 		WsRouter.WsMatch match = router.routeWs("/ws/any/path");
 		assertNotNull(match, "Should match wildcard WebSocket route");
 
 		// Simulate handler invocation
-		match.handler.handle(createMockContext(Map.of()));
+		match.handler().handle(createMockContext(Map.of()));
 		assertEquals("wildcard", received.get());
 	}
 

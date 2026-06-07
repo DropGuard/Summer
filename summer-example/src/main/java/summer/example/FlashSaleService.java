@@ -2,24 +2,18 @@ package summer.example;
 
 import io.lettuce.core.ScriptOutputType;
 import io.lettuce.core.api.sync.RedisCommands;
-import summer.core.ApplicationContext;
 import summer.core.Component;
 
 @Component
 public class FlashSaleService {
 
-	private final ApplicationContext context;
-	private RedisCommands<String, Object> redisCommands;
+	private final RedisCommands<String, Object> redisCommands;
 
-	public FlashSaleService(ApplicationContext context) {
-		this.context = context;
+	public FlashSaleService(RedisCommands<String, Object> redisCommands) {
+		this.redisCommands = redisCommands;
 	}
 
 	private RedisCommands<String, Object> getRedisCommands() {
-		if (redisCommands == null) {
-			// Unchecked cast to workaround generic type erasure on getBean
-			this.redisCommands = (RedisCommands<String, Object>) context.getBean(RedisCommands.class);
-		}
 		return redisCommands;
 	}
 

@@ -8,7 +8,7 @@ import java.util.Objects;
  * Represents an HTTP request.
  */
 public class Request {
-	private final String method;
+	private final HttpMethod method;
 	private final String path;
 	private final byte[] rawPathBytes;
 	private final String query;
@@ -17,12 +17,12 @@ public class Request {
 	private final Map<String, String> headers;
 	private final Map<String, Object> attributes = new HashMap<>();
 
-	public Request(String method, String path, String query, String contentType, byte[] body) {
+	public Request(HttpMethod method, String path, String query, String contentType, byte[] body) {
 		this(method, path, query, contentType, body, new HashMap<>(),
 				path.getBytes(java.nio.charset.StandardCharsets.UTF_8));
 	}
 
-	public Request(String method, String path, String query, String contentType, byte[] body,
+	public Request(HttpMethod method, String path, String query, String contentType, byte[] body,
 			Map<String, String> headers, byte[] rawPathBytes) {
 		this.method = method;
 		this.path = path;
@@ -33,7 +33,7 @@ public class Request {
 		this.headers = headers != null ? headers : new HashMap<>();
 	}
 
-	public String getMethod() {
+	public HttpMethod getMethod() {
 		return method;
 	}
 
@@ -66,19 +66,19 @@ public class Request {
 	}
 
 	public boolean isGet() {
-		return "GET".equals(method);
+		return HttpMethod.GET == method;
 	}
 
 	public boolean isPost() {
-		return "POST".equals(method);
+		return HttpMethod.POST == method;
 	}
 
 	public boolean isPut() {
-		return "PUT".equals(method);
+		return HttpMethod.PUT == method;
 	}
 
 	public boolean isDelete() {
-		return "DELETE".equals(method);
+		return HttpMethod.DELETE == method;
 	}
 
 	@Override

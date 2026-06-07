@@ -34,6 +34,7 @@ final class WireMethodGenerator {
 			switch (bean.kind) {
 				case COMPONENT, CONFIGURATION -> emitComponentInstantiation(wire, bean, beanClass, varName);
 				case FACTORY_PRODUCT -> emitFactoryProductInstantiation(wire, bean, varName);
+				case CONFIG_PROPERTIES -> emitConfigPropertiesInstantiation(wire, bean, beanClass, varName);
 			}
 
 			if (bean.needsProxy) {
@@ -146,6 +147,18 @@ final class WireMethodGenerator {
 			wire.addStatement("$T $N = $N.$N($L)", producedClass, varName, configVar, methodName, args);
 		}
 	}
+
+	private void emitConfigPropertiesInstantiation(MethodSpec.Builder wire, BeanDefinition bean,
+			ClassName beanClass, String varName) {
+		ClassName binder = ClassName.get("summer.core.config", "ConfigurationBinder");
+		String prefix = bean.configPropertiesPrefix;
+		if (prefix == null || prefix.isEmpty()) {
+			wire.addStatement("$T $N = $T.bind($S, $T.class)", beanClass, varName, binder, "application.yml", beanClass);
+		} else {
+			wire.addStatement("$T $N = $T.bind($S, $T.class, $S)", beanClass, varName, binder, "application.yml", beanClass, prefix);
+		}
+	}
+
 
 	private CodeBlock buildArgs(List<BeanDefinition> deps) {
 		CodeBlock.Builder args = CodeBlock.builder();

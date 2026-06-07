@@ -1,12 +1,14 @@
 package summer.tck.di;
 
-import summer.runtime.RuntimeDiEngine;
+import summer.runtime.RuntimeApplicationContext;
 import summer.tck.di.circular.CircularA;
 
 public class RuntimeCircularDependencyTest extends AbstractCircularDependencyTCK {
 
 	@Override
-	protected void triggerCircularDependency() {
-		new RuntimeDiEngine().create(CircularA.class);
+	protected void triggerFailure() {
+		RuntimeApplicationContext.create(CircularA.class);
 	}
 }
+
+

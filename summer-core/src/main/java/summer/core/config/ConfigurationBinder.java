@@ -1,13 +1,12 @@
 package summer.core.config;
 
-import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import summer.core.ErrorCode;
 import summer.core.exception.ConfigurationException;
+import summer.core.json.SummerObjectMapper;
 
 /**
  * Binds YAML configuration to Java records using Jackson.
@@ -32,8 +31,7 @@ import summer.core.exception.ConfigurationException;
  */
 public final class ConfigurationBinder {
 
-	private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory())
-			.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+	private static final ObjectMapper YAML_MAPPER = SummerObjectMapper.createYaml();
 
 	private ConfigurationBinder() {
 	}
@@ -126,7 +124,8 @@ public final class ConfigurationBinder {
 	/**
 	 * Loads a YAML resource, extracts an optional prefix section, and normalizes
 	 * keys. Does not apply {@link DefaultValue} defaults &mdash; callers that need
-	 * defaults should enrich the map before passing it to {@link #bind(Map, Class)}.
+	 * defaults should enrich the map before passing it to
+	 * {@link #bind(Map, Class)}.
 	 */
 	@SuppressWarnings("unchecked")
 	private static <T> T bind(String classpathResource, Class<T> type, String prefix, T defaultValue) {
@@ -147,6 +146,14 @@ public final class ConfigurationBinder {
 				section = extractSection(root, prefix);
 			}
 
+			if (section == null) {
+				if (defaultValue != null) {
+					return defaultValue;
+				}
+				throw new ConfigurationException(ErrorCode.CONFIG_PARSE_ERROR,
+						"Configuration prefix '" + prefix + "' not found in '" + classpathResource + "'");
+			}
+
 			section = normalizeKeys(section);
 			return YAML_MAPPER.convertValue(section, type);
 		} catch (ConfigurationException e) {
@@ -158,7 +165,8 @@ public final class ConfigurationBinder {
 	}
 
 	/**
-	 * Extracts a nested section from the root map by prefix.
+	 * Extracts a nested section from the root map by prefix. Returns {@code null}
+	 * if the prefix does not exist.
 	 */
 	@SuppressWarnings("unchecked")
 	public static Map<String, Object> extractSection(Map<String, Object> root, String prefix) {
@@ -168,12 +176,10 @@ public final class ConfigurationBinder {
 		for (String part : parts) {
 			Object value = current.get(part);
 			if (value == null) {
-				throw new ConfigurationException(ErrorCode.CONFIG_PARSE_ERROR,
-						"Configuration prefix '" + prefix + "' not found. Missing section: " + part);
+				return null;
 			}
 			if (!(value instanceof Map)) {
-				throw new ConfigurationException(ErrorCode.CONFIG_PARSE_ERROR, "Configuration prefix '" + prefix
-						+ "' is not a map. Found: " + value.getClass().getSimpleName());
+				return null;
 			}
 			current = (Map<String, Object>) value;
 		}

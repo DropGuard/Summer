@@ -1,5 +1,6 @@
 package summer.test;
 
+import java.lang.reflect.Method;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
@@ -7,7 +8,6 @@ import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
 import summer.core.ApplicationContext;
-import summer.core.DiEngine;
 import summer.test.annotation.SummerTest;
 
 /**
@@ -26,8 +26,10 @@ public class SummerExtension implements BeforeAllCallback, AfterAllCallback, Par
 		SummerTest summerTest = testClass.getAnnotation(SummerTest.class);
 
 		if (summerTest != null) {
-			DiEngine engine = summerTest.value().getConstructor().newInstance();
-			ApplicationContext context = engine.create(testClass);
+			Class<? extends ApplicationContext> contextClass = summerTest.value();
+			// Call static create(Class<?>) method
+			Method createMethod = contextClass.getMethod("create", Class.class);
+			ApplicationContext context = (ApplicationContext) createMethod.invoke(null, testClass);
 			extensionContext.getStore(NAMESPACE).put(CONTEXT_KEY, context);
 		}
 	}
@@ -46,6 +48,10 @@ public class SummerExtension implements BeforeAllCallback, AfterAllCallback, Par
 			throw new ParameterResolutionException("No Summer ApplicationContext found in test hierarchy");
 		}
 		Class<?> paramType = parameterContext.getParameter().getType();
+
+		if (paramType == ApplicationContext.class) {
+			return context;
+		}
 
 		try {
 			return context.getBean(paramType);
@@ -70,7 +76,11 @@ public class SummerExtension implements BeforeAllCallback, AfterAllCallback, Par
 	public void afterAll(ExtensionContext extensionContext) throws Exception {
 		ApplicationContext context = extensionContext.getStore(NAMESPACE).get(CONTEXT_KEY, ApplicationContext.class);
 		if (context != null) {
-			context.destroy();
+			try {
+				context.close();
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
 			extensionContext.getStore(NAMESPACE).remove(CONTEXT_KEY);
 		}
 	}

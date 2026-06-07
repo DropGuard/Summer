@@ -1,9 +1,7 @@
 package summer.runtime;
 
-import java.lang.reflect.Parameter;
-
 import jakarta.validation.Valid;
-import summer.core.Component;
+import java.lang.reflect.Parameter;
 import summer.web.HttpContext;
 
 /**
@@ -17,12 +15,12 @@ import summer.web.HttpContext;
  * </p>
  *
  * <p>
- * This resolver is part of the {@link ParameterResolver} chain and is consulted
- * before the fallback body binding in {@link AnnotationRouterAdapter}.
+ * This resolver is part of the {@link HttpParameterResolver} chain and is
+ * consulted before the fallback body binding in
+ * {@link AnnotationRouterAdapter}.
  * </p>
  */
-@Component
-public class ValidatingParameterResolver implements ParameterResolver {
+public class ValidatingParameterResolver implements HttpParameterResolver {
 
 	@Override
 	public boolean supports(Parameter parameter) {

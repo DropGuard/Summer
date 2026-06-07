@@ -5,40 +5,39 @@ import static org.mockito.Mockito.*;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import summer.core.ApplicationContext;
+import summer.tck.AbstractContextTCK;
 import summer.tck.tx.dummy.TransactionalService;
 import summer.tck.tx.dummy.TxTestConfiguration;
 
-public abstract class AbstractTransactionTCK {
+/**
+ * TCK for transaction commit/rollback behavior.
+ *
+ * <p>Verifies:
+ * <ul>
+ *   <li>Transaction commits on successful execution</li>
+ *   <li>Transaction rolls back on exception</li>
+ * </ul>
+ */
+public abstract class AbstractTransactionTCK extends AbstractContextTCK {
 
 	static {
 		System.setProperty("net.bytebuddy.experimental", "true");
 	}
 
-	protected ApplicationContext context;
 	protected TransactionalService service;
 	protected Connection connection;
 
-	protected abstract ApplicationContext createAndInitializeContext();
-
 	@BeforeEach
-	void setUp() {
+	void setUpTransaction() {
 		TxTestConfiguration.initMocks();
 		connection = TxTestConfiguration.getMockConnection();
 
-		context = createAndInitializeContext();
-		service = context.getBean(TransactionalService.class);
-	}
-
-	@AfterEach
-	void tearDown() {
-		if (context != null) {
-			context.destroy();
-			context = null;
-		}
+		// Force context initialization
+		ApplicationContext ctx = context();
+		service = ctx.getBean(TransactionalService.class);
 	}
 
 	@Test

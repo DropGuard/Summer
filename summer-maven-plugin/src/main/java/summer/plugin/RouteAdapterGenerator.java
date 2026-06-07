@@ -55,39 +55,44 @@ public final class RouteAdapterGenerator {
 
 			for (RouteInfo route : controller.routes) {
 				CodeBlock handlerBody = generateHandlerBody(route, varName);
-				registerBody.addStatement("router.$L($S, $L)",
-						route.httpMethod.toLowerCase(),
-						route.path,
-						handlerBody);
+
+				registerBody.add("builder.$L($S, ", route.httpMethod.toLowerCase(), route.path);
+				registerBody.add(handlerBody);
+				registerBody.add(");\n");
 			}
 		}
 
 		TypeSpec routeRegistrar = TypeSpec.classBuilder("GeneratedAnnotationRouterAdapter")
 				.addModifiers(javax.lang.model.element.Modifier.PUBLIC, javax.lang.model.element.Modifier.FINAL)
 				.addSuperinterface(ClassName.get(WEB_PACKAGE, "RouteRegistrar"))
-				.addField(ClassName.get(WEB_PACKAGE, "Router"), "router",
-						javax.lang.model.element.Modifier.PRIVATE, javax.lang.model.element.Modifier.FINAL)
-				.addField(ClassName.get(CORE_PACKAGE, "ApplicationContext"), "context",
-						javax.lang.model.element.Modifier.PRIVATE, javax.lang.model.element.Modifier.FINAL)
-				.addField(ClassName.get(WEB_PACKAGE, "ExceptionRegistry"), "exceptionRegistry",
-						javax.lang.model.element.Modifier.PRIVATE, javax.lang.model.element.Modifier.FINAL)
-				.addMethod(MethodSpec.constructorBuilder()
-						.addModifiers(javax.lang.model.element.Modifier.PUBLIC)
-						.addParameter(ClassName.get(WEB_PACKAGE, "Router"), "router")
-						.addParameter(ClassName.get(CORE_PACKAGE, "ApplicationContext"), "context")
-						.addParameter(ClassName.get(WEB_PACKAGE, "ExceptionRegistry"), "exceptionRegistry")
-						.addStatement("this.router = router")
-						.addStatement("this.context = context")
-						.addStatement("this.exceptionRegistry = exceptionRegistry")
-						.build())
 				.addMethod(MethodSpec.methodBuilder("registerControllers")
 						.addAnnotation(Override.class)
 						.addModifiers(javax.lang.model.element.Modifier.PUBLIC)
+						.addParameter(ClassName.get(WEB_PACKAGE, "HttpRouter", "Builder"), "builder")
+						.addParameter(ClassName.get(CORE_PACKAGE, "ApplicationContext"), "context")
 						.addCode(registerBody.build())
 						.build())
+				.addMethod(buildParseIntOrDefault())
 				.build();
 
 		JavaFile.builder("summer.core.aot", routeRegistrar).build().writeTo(outputDir);
+	}
+
+	private MethodSpec buildParseIntOrDefault() {
+		return MethodSpec.methodBuilder("parseIntOrDefault")
+				.addModifiers(javax.lang.model.element.Modifier.PRIVATE, javax.lang.model.element.Modifier.STATIC)
+				.returns(int.class)
+				.addParameter(String.class, "value")
+				.addParameter(int.class, "defaultValue")
+				.beginControlFlow("if (value == null || value.isBlank())")
+				.addStatement("return defaultValue")
+				.endControlFlow()
+				.beginControlFlow("try")
+				.addStatement("return Math.max(0, Integer.parseInt(value.trim()))")
+				.nextControlFlow("catch ($T e)", NumberFormatException.class)
+				.addStatement("return defaultValue")
+				.endControlFlow()
+				.build();
 	}
 
 	/**
@@ -96,46 +101,61 @@ public final class RouteAdapterGenerator {
 	private CodeBlock generateHandlerBody(RouteInfo route, String controllerVar) {
 		CodeBlock.Builder body = CodeBlock.builder();
 
+		body.add("ctx -> {\n");
+		body.indent();
+
 		// Extract parameters
 		for (RouteInfo.ParamInfo param : route.params) {
 			if (param.binding == RouteInfo.ParamBinding.PATH) {
-				body.addStatement("$T $N = ctx.request().pathParam($S)",
+				body.add("$T $N = ctx.request().pathParam($S);\n",
 						resolveParamType(param.type),
 						param.name,
 						param.name);
 			} else if (param.binding == RouteInfo.ParamBinding.QUERY) {
-				body.addStatement("$T $N = ctx.request().queryParam($S)",
+				body.add("$T $N = ctx.request().queryParam($S);\n",
 						resolveParamType(param.type),
 						param.name,
 						param.name);
 			} else if (param.binding == RouteInfo.ParamBinding.BODY) {
 				String method = param.validated ? "validatedBody" : "body";
-				body.addStatement("$T $N = ctx.$L($T.class)",
+				body.add("$T $N = ctx.$L($T.class);\n",
 						resolveParamType(param.type),
 						param.name,
 						method,
 						ClassName.bestGuess(param.type));
+			} else if (param.binding == RouteInfo.ParamBinding.PAGEABLE) {
+				body.add("$T $N = $T.of(\n", ClassName.bestGuess("summer.web.Pageable"),
+						param.name, ClassName.bestGuess("summer.web.PageRequest"));
+				body.indent();
+				body.add("parseIntOrDefault(ctx.queryParam(\"page\"), 0),\n");
+				body.add("parseIntOrDefault(ctx.queryParam(\"size\"), 20),\n");
+				body.add("$T.parse(ctx.queryParam(\"sort\"))\n", ClassName.bestGuess("summer.web.Sort"));
+				body.unindent();
+				body.add(");\n");
 			}
 		}
 
-		// Call controller method
-		StringBuilder args = new StringBuilder();
+		// Call controller method — always pass ctx as first arg (HttpContext)
+		StringBuilder args = new StringBuilder("ctx");
 		for (int i = 0; i < route.params.size(); i++) {
-			if (i > 0)
-				args.append(", ");
+			args.append(", ");
 			args.append(route.params.get(i).name);
 		}
 
 		if (route.returnType.equals("void")) {
-			body.addStatement("$N.$L($N)", controllerVar, route.methodName, args.toString());
+			body.add("$N.$L($N);\n", controllerVar, route.methodName, args.toString());
+			body.add("return null;\n");
 		} else {
-			body.addStatement("$T result = $N.$L($N)",
+			body.add("$T result = $N.$L($N);\n",
 					ClassName.bestGuess(route.returnType),
 					controllerVar,
 					route.methodName,
 					args.toString());
-			body.addStatement("ctx.ok(result)");
+			body.add("ctx.ok(result);\n");
 		}
+
+		body.unindent();
+		body.add("}");
 
 		return body.build();
 	}

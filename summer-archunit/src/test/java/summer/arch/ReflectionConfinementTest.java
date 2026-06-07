@@ -25,7 +25,7 @@ import com.tngtech.archunit.lang.ArchRule;
  * <ul>
  * <li>{@code java.lang.reflect..} and {@code java.lang.invoke..} packages are
  * entirely off-limits outside the runtime module</li>
- * <li>{@code java.lang.Class} methods are filtered by a whitelist — only
+ * <li>{@code java.lang.Class} methods are filtered by a whitelist --only
  * metadata-inspection methods are allowed; loading / instantiating
  * ({@code forName}, {@code newInstance}) is blocked</li>
  * </ul>

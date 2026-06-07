@@ -19,7 +19,7 @@ import summer.core.Component;
 @Recorded
 public class RecordingInterceptor implements MethodInterceptor {
 
-	/** Shared call log — tests can inspect this to verify interception happened. */
+	/** Shared call log --tests can inspect this to verify interception happened. */
 	private final List<String> callLog = new ArrayList<>();
 
 	@Override

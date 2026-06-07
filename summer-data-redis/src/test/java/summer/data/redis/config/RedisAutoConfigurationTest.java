@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 import summer.core.ApplicationContext;
 import summer.data.redis.codec.JsonRedisCodec;
-import summer.runtime.RuntimeDiEngine;
+import summer.runtime.RuntimeApplicationContext;
 
 public class RedisAutoConfigurationTest {
 
@@ -26,7 +26,7 @@ public class RedisAutoConfigurationTest {
 		try (MockedStatic<RedisClient> mocked = mockStatic(RedisClient.class)) {
 			mocked.when(() -> RedisClient.create(anyString())).thenReturn(mockClient);
 
-			ApplicationContext context = new RuntimeDiEngine().create(RedisAutoConfiguration.class);
+			ApplicationContext context = RuntimeApplicationContext.create(RedisAutoConfiguration.class);
 
 			// Then all beans should be created
 			RedisProperties props = context.getBean(RedisProperties.class);
@@ -43,7 +43,9 @@ public class RedisAutoConfigurationTest {
 			assertNotNull(commands);
 
 			// Cleanup resources cleanly via context
-			context.destroy();
+			try { context.close(); } catch (Exception e) { throw new RuntimeException(e); }
 		}
 	}
 }
+
+

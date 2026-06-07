@@ -11,14 +11,26 @@ public class SummerWebSocketFrameHandler extends SimpleChannelInboundHandler<Tex
 	private static final Logger log = LoggerFactory.getLogger(SummerWebSocketFrameHandler.class);
 
 	private final NettyWebSocketContext wsContext;
+	private final int maxFrameSize;
 
-	public SummerWebSocketFrameHandler(NettyWebSocketContext wsContext) {
+	public SummerWebSocketFrameHandler(NettyWebSocketContext wsContext, int maxFrameSize) {
 		this.wsContext = wsContext;
+		this.maxFrameSize = maxFrameSize;
 	}
 
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, TextWebSocketFrame frame) {
-		wsContext.invokeMessageConsumer(frame.text());
+		String text = frame.text();
+		if (text.length() > maxFrameSize) {
+			log.warn("WebSocket frame too large: {} bytes (max: {})", text.length(), maxFrameSize);
+			try {
+				ctx.close();
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+			return;
+		}
+		wsContext.invokeMessageConsumer(text);
 	}
 
 	@Override
@@ -30,6 +42,10 @@ public class SummerWebSocketFrameHandler extends SimpleChannelInboundHandler<Tex
 	@Override
 	public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
 		log.error("WebSocket error", cause);
-		ctx.close();
+		try {
+			ctx.close();
+		} catch (Exception e) {
+			throw new RuntimeException(e);
+		}
 	}
 }

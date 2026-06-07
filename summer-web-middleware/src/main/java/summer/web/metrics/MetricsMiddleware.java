@@ -2,8 +2,8 @@ package summer.web.metrics;
 
 import summer.web.Handler;
 import summer.web.HttpStatus;
+import summer.web.Middleware;
 import summer.web.annotation.GlobalMiddleware;
-import summer.web.middleware.Middleware;
 
 /**
  * Middleware that tracks request counts, errors, and active connections. This

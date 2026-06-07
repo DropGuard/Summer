@@ -3,14 +3,17 @@ package summer.tx;
 import java.sql.Connection;
 import java.sql.SQLException;
 import javax.sql.DataSource;
-import summer.core.Component;
 import summer.core.ErrorCode;
 import summer.core.annotation.ConditionalOnBean;
 
 /**
  * Simple JDBC transaction manager that manages transactions using a DataSource.
+ *
+ * <p>
+ * This is a framework infrastructure bean provided by
+ * {@link TxInfrastructureConfiguration}.
+ * </p>
  */
-@Component
 @ConditionalOnBean(DataSource.class)
 public class SimpleJdbcTransactionManager implements TransactionManager {
 	private final DataSource dataSource;

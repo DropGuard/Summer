@@ -35,6 +35,11 @@
             <artifactId>summer-tx</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-data-jdbc</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -42,6 +47,20 @@
             <plugin>
                 <groupId>io.smallrye</groupId>
                 <artifactId>jandex-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>summer</groupId>
+                <artifactId>summer-maven-plugin</artifactId>
+                <version>${project.version}</version>
+                <executions>
+                    <execution>
+                        <id>generate-aot</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>generate-aot</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

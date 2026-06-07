@@ -22,7 +22,7 @@
             <version>${project.version}</version>
         </dependency>
 
-        <!-- Summer Web (for ParameterResolver, annotations, web types) -->
+            <!-- Summer Web (for HttpParameterResolver, annotations, web types) -->
         <dependency>
             <groupId>summer</groupId>
             <artifactId>summer-web</artifactId>

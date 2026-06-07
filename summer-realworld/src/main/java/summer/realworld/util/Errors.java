@@ -3,40 +3,42 @@ package summer.realworld.util;
 import java.util.List;
 import java.util.Map;
 
+import summer.realworld.dto.UserDtos.ErrorResponse;
+
 public final class Errors {
 
 	private Errors() {
 	}
 
-	public static Map<String, Object> of(String field, String message) {
-		return Map.of("errors", Map.of(field, List.of(message)));
+	public static ErrorResponse of(String field, String message) {
+		return ErrorResponse.of(field, message);
 	}
 
-	public static Map<String, Object> tokenMissing() {
+	public static ErrorResponse tokenMissing() {
 		return of("token", "is missing");
 	}
 
-	public static Map<String, Object> credentials() {
+	public static ErrorResponse credentials() {
 		return of("credentials", "invalid");
 	}
 
-	public static Map<String, Object> articleNotFound() {
+	public static ErrorResponse articleNotFound() {
 		return of("article", "not found");
 	}
 
-	public static Map<String, Object> articleForbidden() {
+	public static ErrorResponse articleForbidden() {
 		return of("article", "forbidden");
 	}
 
-	public static Map<String, Object> commentNotFound() {
+	public static ErrorResponse commentNotFound() {
 		return of("comment", "not found");
 	}
 
-	public static Map<String, Object> commentForbidden() {
+	public static ErrorResponse commentForbidden() {
 		return of("comment", "forbidden");
 	}
 
-	public static Map<String, Object> profileNotFound() {
+	public static ErrorResponse profileNotFound() {
 		return of("profile", "not found");
 	}
 }

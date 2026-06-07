@@ -59,7 +59,7 @@ public class AotRunner {
 
 		// 4. Generate AOT code
 		new AotContextGenerator().generate(sorted, outputDir);
-		new AotProxyGenerator().generate(sorted, outputDir);
+		new AotProxyGenerator().generate(sorted, index, outputDir);
 		new RouteAdapterGenerator().generate(sorted, outputDir);
 
 		log.info("[Summer] AOT code generation complete");

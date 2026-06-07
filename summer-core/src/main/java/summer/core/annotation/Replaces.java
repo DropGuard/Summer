@@ -6,32 +6,42 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks a class as a replacement for another {@link Component} or
- * {@link Configuration} class. When present, the target class is excluded
- * from the application context, and this class takes over.
+ * Marks a class or method as a replacement for another bean.
  *
  * <p>
- * Multiple {@code @Replaces} targeting the same configuration class is a
- * compile-time (AOT) or startup (runtime) error.
+ * <strong>Class-level usage:</strong> Replaces the entire configuration class.
+ * The replacement class must provide all {@code @Bean} methods of the target.
+ * </p>
+ *
+ * <p>
+ * <strong>Method-level usage:</strong> Replaces a {@code @Bean} method by
+ * return type. If multiple {@code @Bean} methods return the same type, an error
+ * is thrown.
+ * </p>
  *
  * <pre>
- * // Main application
- * &#64;Configuration
- * public class DataSourceConfig {
- *     &#64;Bean
- *     public DataSource dataSource() { return new HikariDataSource(...); }
- * }
- *
- * // Test replacement
+ * // Class-level: replaces entire config
  * &#64;Configuration
  * &#64;Replaces(DataSourceConfig.class)
  * public class TestDataSourceConfig {
- *     &#64;Bean
- *     public DataSource dataSource() { return new MockDataSource(); }
+ * 	&#64;Bean
+ * 	public DataSource dataSource() {
+ * 		return new MockDataSource();
+ * 	}
+ * }
+ *
+ * // Method-level: replaces by return type
+ * &#64;Configuration
+ * public class TestConfig {
+ * 	&#64;Bean
+ * 	&#64;Replaces(DataSource.class)
+ * 	public DataSource dataSource() {
+ * 		return new MockDataSource();
+ * 	}
  * }
  * </pre>
  */
-@Target(ElementType.TYPE)
+@Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Replaces {
 	Class<?> value();

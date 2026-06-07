@@ -3,7 +3,7 @@ package summer.example;
 import summer.core.Component;
 import summer.web.Handler;
 import summer.web.HttpStatus;
-import summer.web.middleware.Middleware;
+import summer.web.Middleware;
 
 @Component
 public class AuthMiddleware implements Middleware {

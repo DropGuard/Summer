@@ -1,7 +1,6 @@
 package summer.realworld.controller;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -26,6 +25,9 @@ public class TagController {
 		Set<String> tags = articles.stream().filter(article -> article.getTagList() != null)
 				.flatMap(article -> article.getTagList().stream()).collect(Collectors.toSet());
 
-		ctx.json(HttpStatus.OK, Map.of("tags", tags));
+		ctx.json(HttpStatus.OK, new TagsResponse(tags));
+	}
+
+	private record TagsResponse(Set<String> tags) {
 	}
 }

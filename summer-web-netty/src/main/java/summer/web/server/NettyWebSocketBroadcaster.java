@@ -5,11 +5,17 @@ import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.util.concurrent.GlobalEventExecutor;
 import java.util.concurrent.ConcurrentHashMap;
-import summer.core.Component;
 import summer.web.websocket.WebSocketBroadcaster;
 import summer.web.websocket.WebSocketContext;
 
-@Component
+/**
+ * Netty-based WebSocket broadcaster.
+ *
+ * <p>
+ * This is a framework infrastructure bean provided by
+ * {@link RuntimeWebConfiguration}.
+ * </p>
+ */
 public class NettyWebSocketBroadcaster implements WebSocketBroadcaster {
 
 	private final ChannelGroup globalGroup = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);

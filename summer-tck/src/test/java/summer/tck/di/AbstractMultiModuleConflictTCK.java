@@ -1,24 +1,17 @@
 package summer.tck.di;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import org.junit.jupiter.api.Test;
+import summer.tck.AbstractFailureTCK;
 
-public abstract class AbstractMultiModuleConflictTCK {
-
-	protected abstract void triggerConflict();
+/**
+ * TCK for ambiguous dependency detection.
+ *
+ * <p>Verifies that the DI container fails fast when multiple beans implement the same interface.</p>
+ */
+public abstract class AbstractMultiModuleConflictTCK extends AbstractFailureTCK {
 
 	@Test
 	void testAmbiguousDependencyFailsFast() {
-		Exception exception = assertThrows(Exception.class, () -> {
-			triggerConflict();
-		});
-
-		assertTrue(
-				exception.getMessage().contains("Ambiguous dependency")
-						|| exception.getMessage().contains("Multiple beans found")
-						|| exception.getMessage().contains("Compilation failed"),
-				"Should fail fast with ambiguous dependency error: " + exception.getMessage());
+		assertFailureContains("Ambiguous dependency", "Multiple beans found", "Compilation failed");
 	}
 }

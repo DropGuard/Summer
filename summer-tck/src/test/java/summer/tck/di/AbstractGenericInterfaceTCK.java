@@ -2,9 +2,9 @@ package summer.tck.di;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import summer.core.ApplicationContext;
+import summer.tck.AbstractContextTCK;
 import summer.tck.di.generic.GenericService;
 import summer.tck.di.generic.GenericServiceClient;
 import summer.tck.di.generic.StringServiceImpl;
@@ -21,35 +21,16 @@ import summer.tck.di.generic.StringServiceImpl;
  * This is a key test for verifying that AOT and Runtime have consistent
  * behavior with generic interfaces.
  */
-public abstract class AbstractGenericInterfaceTCK {
-
-	protected ApplicationContext context;
-
-	protected abstract ApplicationContext createAndInitializeContext();
-
-	protected ApplicationContext getContext() {
-		if (context == null) {
-			context = createAndInitializeContext();
-		}
-		return context;
-	}
-
-	@AfterEach
-	void tearDown() {
-		if (context != null) {
-			context.destroy();
-			context = null;
-		}
-	}
+public abstract class AbstractGenericInterfaceTCK extends AbstractContextTCK {
 
 	@Test
 	void testContextStartsSuccessfully() {
-		assertNotNull(getContext(), "ApplicationContext should not be null");
+		assertNotNull(context(), "ApplicationContext should not be null");
 	}
 
 	@Test
 	void testCanResolveGenericService() {
-		ApplicationContext ctx = getContext();
+		ApplicationContext ctx = context();
 		// Try to resolve by raw type
 		GenericService<?> service = ctx.getBean(GenericService.class);
 		assertNotNull(service, "Should be able to resolve GenericService (raw type)");
@@ -58,14 +39,14 @@ public abstract class AbstractGenericInterfaceTCK {
 
 	@Test
 	void testCanResolveStringServiceImpl() {
-		ApplicationContext ctx = getContext();
+		ApplicationContext ctx = context();
 		StringServiceImpl service = ctx.getBean(StringServiceImpl.class);
 		assertNotNull(service, "Should be able to resolve StringServiceImpl");
 	}
 
 	@Test
 	void testSingletonConsistency() {
-		ApplicationContext ctx = getContext();
+		ApplicationContext ctx = context();
 		GenericService<?> genericService = ctx.getBean(GenericService.class);
 		StringServiceImpl stringService = ctx.getBean(StringServiceImpl.class);
 		assertSame(genericService, stringService,
@@ -74,7 +55,7 @@ public abstract class AbstractGenericInterfaceTCK {
 
 	@Test
 	void testDependencyInjectionWithGenericInterface() {
-		ApplicationContext ctx = getContext();
+		ApplicationContext ctx = context();
 		GenericServiceClient client = ctx.getBean(GenericServiceClient.class);
 		assertNotNull(client, "GenericServiceClient should be instantiated");
 		assertNotNull(client.getService(), "GenericServiceClient should have GenericService injected");

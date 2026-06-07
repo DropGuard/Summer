@@ -1,7 +1,10 @@
 package summer.tck.web.router;
 
-import summer.web.http.MapRouter;
+import java.util.List;
+import java.util.function.Function;
+
 import summer.web.HttpRouter;
+import summer.web.http.MapRouter;
 
 /**
  * TCK tests for MapRouter implementation.
@@ -9,7 +12,7 @@ import summer.web.HttpRouter;
 public class MapRouterTCKTest extends AbstractRouterTCK {
 
 	@Override
-	protected HttpRouter createRouter() {
-		return new MapRouter();
+	protected Function<List<HttpRouter.Builder.Route>, HttpRouter> routerFactory() {
+		return MapRouter::new;
 	}
 }

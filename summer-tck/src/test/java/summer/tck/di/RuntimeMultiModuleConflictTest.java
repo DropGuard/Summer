@@ -1,12 +1,14 @@
 package summer.tck.di;
 
-import summer.runtime.RuntimeDiEngine;
+import summer.runtime.RuntimeApplicationContext;
 import summer.tck.di.conflict.ConflictClient;
 
 public class RuntimeMultiModuleConflictTest extends AbstractMultiModuleConflictTCK {
 
 	@Override
-	protected void triggerConflict() {
-		new RuntimeDiEngine().create(ConflictClient.class);
+	protected void triggerFailure() {
+		RuntimeApplicationContext.create(ConflictClient.class);
 	}
 }
+
+

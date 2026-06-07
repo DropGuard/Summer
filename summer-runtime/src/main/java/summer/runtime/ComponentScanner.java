@@ -17,8 +17,9 @@ import org.slf4j.LoggerFactory;
 import summer.core.Component;
 import summer.core.ErrorCode;
 import summer.core.annotation.Replaces;
+import summer.core.config.ConfigurationProperties;
+import summer.core.exception.AmbiguousBeanException;
 import summer.core.exception.BeanCreationException;
-import summer.core.exception.DuplicateReplacementException;
 
 /**
  * Component scanner that discovers Summer components using Jandex indexes. All
@@ -31,8 +32,10 @@ public class ComponentScanner {
 	private static final Logger log = LoggerFactory.getLogger(ComponentScanner.class);
 
 	private static final DotName COMPONENT = DotName.createSimple(Component.class);
+	private static final DotName CONFIG_PROPERTIES = DotName.createSimple(ConfigurationProperties.class);
 
 	private final Set<Class<?>> componentClasses = new HashSet<>();
+	private IndexView lastIndex;
 
 	/**
 	 * Discovers @Component-annotated classes (including meta-annotations
@@ -42,7 +45,32 @@ public class ComponentScanner {
 	 */
 	public void scan(String... packageNames) {
 		IndexView index = buildIndex(packageNames);
+		this.lastIndex = index;
 		registerDiscoveredBeans(index);
+	}
+
+	/**
+	 * Discovers {@code @ConfigurationProperties}-annotated records from the Jandex
+	 * index built during {@link #scan(String...)}.
+	 *
+	 * @return list of classes annotated with {@code @ConfigurationProperties}
+	 */
+	public List<Class<?>> discoverConfigurationProperties() {
+		if (lastIndex == null) {
+			return List.of();
+		}
+		List<Class<?>> result = new ArrayList<>();
+		for (AnnotationInstance ann : lastIndex.getAnnotations(CONFIG_PROPERTIES)) {
+			ClassInfo ci = ann.target().asClass();
+			if (ci.isInterface() || ci.isAbstract())
+				continue;
+			try {
+				result.add(Class.forName(ci.name().toString()));
+			} catch (ClassNotFoundException e) {
+				log.debug("[Summer] Could not load @ConfigurationProperties class: {}", ci.name());
+			}
+		}
+		return result;
 	}
 
 	private IndexView buildIndex(String... packageNames) {
@@ -278,12 +306,12 @@ public class ComponentScanner {
 			Class<?> target = replaces.value();
 
 			if (replacementMap.containsKey(target)) {
-				throw new DuplicateReplacementException(replacementMap.get(target), clazz, target);
+				throw new AmbiguousBeanException("Duplicate @Replaces: both " + replacementMap.get(target).getName()
+						+ " and " + clazz.getName() + " replace " + target.getName());
 			}
 
 			if (!componentClasses.contains(target)) {
-				throw new BeanCreationException("@Replaces target " + target.getName()
-						+ " (on " + clazz.getName()
+				throw new BeanCreationException("@Replaces target " + target.getName() + " (on " + clazz.getName()
 						+ ") is not a registered component. Ensure the target is annotated with @Component or @Configuration and in a scanned package.");
 			}
 

@@ -1,20 +1,17 @@
 package summer.web;
 
-import java.util.List;
-import java.util.Map;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import io.avaje.validation.ConstraintViolationException;
 import io.avaje.validation.Validator;
-import summer.web.exception.ArchitectureViolationException;
+import java.util.List;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import summer.web.exception.BodyParseException;
 import summer.web.exception.ValidationException;
 
 /**
  * Facade for HTTP request processing. Controllers and framework handlers
- * interact with this — Response is fully encapsulated.
+ * interact with this --Response is fully encapsulated.
  *
  * <h2>Deferred Write Pattern</h2>
  * <p>
@@ -31,7 +28,7 @@ import summer.web.exception.ValidationException;
  * </ul>
  *
  * <p>
- * This separation is intentional — the response is <em>deferred</em> until the
+ * This separation is intentional --the response is <em>deferred</em> until the
  * IO thread is ready. Controllers must explicitly set response data via the
  * write facade methods; return values from handler methods are ignored.
  * </p>
@@ -48,6 +45,7 @@ public class HttpContext {
 	private final Request request;
 	private final Response response = new Response();
 	private final BodyConverter jsonConverter;
+	private boolean handled = false;
 
 	public HttpContext(Request request) {
 		this(request, new JsonBodyConverter());
@@ -144,13 +142,21 @@ public class HttpContext {
 		text(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error");
 	}
 
+	public boolean isHandled() {
+		return handled;
+	}
+
+	public void setHandled(boolean handled) {
+		this.handled = handled;
+	}
+
 	// --- Request helpers ---
 
 	public String path() {
 		return request.getPath();
 	}
 
-	public String method() {
+	public HttpMethod method() {
 		return request.getMethod();
 	}
 
@@ -177,9 +183,6 @@ public class HttpContext {
 	}
 
 	private <T> T parseBody(Class<T> type) {
-		if (!type.isRecord()) {
-			throw new ArchitectureViolationException(type.getName());
-		}
 		try {
 			return jsonConverter.read(request.getBody(), type);
 		} catch (java.io.IOException e) {
@@ -192,9 +195,7 @@ public class HttpContext {
 			try {
 				validator.validate(body);
 			} catch (ConstraintViolationException e) {
-				List<String> errors = e.violations().stream()
-						.map(Object::toString)
-						.toList();
+				List<String> errors = e.violations().stream().map(Object::toString).toList();
 				throw new ValidationException(errors);
 			}
 		}
