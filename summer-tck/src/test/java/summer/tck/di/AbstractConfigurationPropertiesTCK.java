@@ -10,13 +10,15 @@ import summer.tck.di.configprops.*;
 /**
  * TCK contract for {@code @ConfigurationProperties} auto-binding.
  *
- * <p>Verifies that the DI engine:
+ * <p>
+ * Verifies that the DI engine:
  * <ul>
- *   <li>Discovers {@code @ConfigurationProperties} records via Jandex</li>
- *   <li>Binds YAML values to record components</li>
- *   <li>Leaves unconfigured fields as {@code null}</li>
- *   <li>Registers the bound record as a singleton bean</li>
- *   <li>Makes it injectable into {@code @Component} and {@code @Bean} dependencies</li>
+ * <li>Discovers {@code @ConfigurationProperties} records via Jandex</li>
+ * <li>Binds YAML values to record components</li>
+ * <li>Leaves unconfigured fields as {@code null}</li>
+ * <li>Registers the bound record as a singleton bean</li>
+ * <li>Makes it injectable into {@code @Component} and {@code @Bean}
+ * dependencies</li>
  * </ul>
  */
 public abstract class AbstractConfigurationPropertiesTCK extends AbstractContextTCK {

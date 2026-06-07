@@ -55,9 +55,11 @@ public class RedisIntegrationIT {
 			assertEquals(LocalDateTime.of(2023, 11, 20, 15, 0), retrievedUser.registeredAt());
 		} finally {
 			System.clearProperty("summer.redis.uri");
-			try { context.close(); } catch (Exception e) { throw new RuntimeException(e); }
+			try {
+				context.close();
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
 		}
 	}
 }
-
-

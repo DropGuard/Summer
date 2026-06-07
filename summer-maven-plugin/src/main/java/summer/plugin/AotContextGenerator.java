@@ -26,6 +26,8 @@ public final class AotContextGenerator {
 	public static final String PACKAGE = "summer.core.aot";
 	public static final String CLASS_NAME = "GeneratedAotContext";
 
+	org.jboss.jandex.IndexView index;
+
 	private static final String CORE_PACKAGE = "summer.core";
 	private static final ClassName APPLICATION_CONTEXT = ClassName.get(CORE_PACKAGE, "ApplicationContext");
 	private static final ClassName ENGINE = ClassName.get(CORE_PACKAGE, "Engine");
@@ -40,8 +42,9 @@ public final class AotContextGenerator {
 		String rawType = typeName.substring(0, genericStart);
 		return ClassName.bestGuess(rawType);
 	}
-
-	public void generate(List<BeanDefinition> sortedBeans, java.io.File outputDir) throws java.io.IOException {
+	public void generate(List<BeanDefinition> sortedBeans, java.io.File outputDir, org.jboss.jandex.IndexView index)
+			throws java.io.IOException {
+		this.index = index;
 		JavaFile javaFile = buildJavaFile(sortedBeans);
 		javaFile.writeTo(outputDir);
 	}
@@ -122,10 +125,12 @@ public final class AotContextGenerator {
 
 	private MethodSpec buildContainsBean() {
 		return MethodSpec.methodBuilder("containsBean").addAnnotation(Override.class)
-				.addModifiers(javax.lang.model.element.Modifier.PUBLIC)
-				.returns(boolean.class)
-				.addParameter(ParameterizedTypeName.get(ClassName.get(Class.class), WildcardTypeName.subtypeOf(Object.class)), "type")
-				.addStatement("return singletons.containsKey(type) || singletons.values().stream().anyMatch(type::isInstance)")
+				.addModifiers(javax.lang.model.element.Modifier.PUBLIC).returns(boolean.class)
+				.addParameter(
+						ParameterizedTypeName.get(ClassName.get(Class.class), WildcardTypeName.subtypeOf(Object.class)),
+						"type")
+				.addStatement(
+						"return singletons.containsKey(type) || singletons.values().stream().anyMatch(type::isInstance)")
 				.build();
 	}
 

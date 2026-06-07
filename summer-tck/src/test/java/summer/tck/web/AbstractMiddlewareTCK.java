@@ -4,19 +4,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
 import summer.core.ApplicationContext;
-import summer.web.HttpRouter;
-import summer.web.Request;
+import summer.tck.AbstractContextTCK;
 import summer.web.HttpContext;
 import summer.web.HttpMethod;
+import summer.web.HttpRouter;
 import summer.web.Middleware;
-import summer.web.RouterType;
+import summer.web.Request;
 import summer.web.annotation.GlobalMiddleware;
-import summer.tck.AbstractContextTCK;
 
 /**
  * TCK for middleware behavior via the DI engine.
@@ -25,17 +22,18 @@ import summer.tck.AbstractContextTCK;
  * Verifies that the DI engine correctly wires middleware chains:
  * </p>
  * <ul>
- * <li>Route-level middleware via {@link summer.web.RouteProvider} applies correctly</li>
+ * <li>Route-level middleware via {@link summer.web.RouteProvider} applies
+ * correctly</li>
  * <li>Multiple middlewares are applied in correct order</li>
  * <li>Global middlewares are applied to all routes</li>
  * <li>Global middlewares wrap route-level middlewares</li>
  * </ul>
  *
  * <p>
- * Routes with middleware are registered by
- * {@code TestMiddlewareRouteProvider} --a {@code @Component} that implements
- * {@code RouteProvider}. The DI engine discovers it and invokes
- * {@code provide()} during router assembly, verifying the Pull Model end-to-end.
+ * Routes with middleware are registered by {@code TestMiddlewareRouteProvider}
+ * --a {@code @Component} that implements {@code RouteProvider}. The DI engine
+ * discovers it and invokes {@code provide()} during router assembly, verifying
+ * the Pull Model end-to-end.
  * </p>
  */
 public abstract class AbstractMiddlewareTCK extends AbstractContextTCK {
@@ -48,7 +46,8 @@ public abstract class AbstractMiddlewareTCK extends AbstractContextTCK {
 		// Force context initialization (not lazy)
 		ApplicationContext ctx = context();
 
-		summer.web.HttpRouter.Builder builder = new summer.web.HttpRouter.Builder(summer.web.http.RadixTreeHttpRouter::new);
+		summer.web.HttpRouter.Builder builder = new summer.web.HttpRouter.Builder(
+				summer.web.http.RadixTreeHttpRouter::new);
 
 		// Get registrars from context (they are @Component beans)
 		for (summer.web.RouteRegistrar registrar : ctx.getBeans(summer.web.RouteRegistrar.class)) {
@@ -56,7 +55,8 @@ public abstract class AbstractMiddlewareTCK extends AbstractContextTCK {
 		}
 
 		summer.tck.web.dummy.MyMiddleware myMiddleware = ctx.getBean(summer.tck.web.dummy.MyMiddleware.class);
-		summer.tck.web.dummy.LoggingMiddleware loggingMiddleware = ctx.getBean(summer.tck.web.dummy.LoggingMiddleware.class);
+		summer.tck.web.dummy.LoggingMiddleware loggingMiddleware = ctx
+				.getBean(summer.tck.web.dummy.LoggingMiddleware.class);
 
 		builder.group("/api/users", group -> {
 			group.use(myMiddleware);
@@ -74,8 +74,7 @@ public abstract class AbstractMiddlewareTCK extends AbstractContextTCK {
 
 		// Collect global middlewares
 		globalMiddlewares = ctx.getBeans(Middleware.class).stream()
-				.filter(m -> m.getClass().isAnnotationPresent(GlobalMiddleware.class))
-				.toList();
+				.filter(m -> m.getClass().isAnnotationPresent(GlobalMiddleware.class)).toList();
 	}
 
 	/**
@@ -129,7 +128,8 @@ public abstract class AbstractMiddlewareTCK extends AbstractContextTCK {
 
 		Object result = routeWithMiddlewares(req);
 		assertNotNull(result);
-		// MyMiddleware first, then LoggingMiddleware, wrapped by GlobalLoggingMiddleware
+		// MyMiddleware first, then LoggingMiddleware, wrapped by
+		// GlobalLoggingMiddleware
 		assertEquals("[global-logged] [secured] [class-logged] multi", result);
 	}
 

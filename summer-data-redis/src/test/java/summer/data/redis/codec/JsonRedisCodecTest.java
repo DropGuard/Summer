@@ -15,9 +15,9 @@ public class JsonRedisCodecTest {
 
 	@Test
 	public void testEncodeAndDecodeJavaRecordWithTime() {
-		
-		ObjectMapper mapper = SummerObjectMapper.create(m ->
-				m.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule()));
+
+		ObjectMapper mapper = SummerObjectMapper
+				.create(m -> m.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule()));
 
 		JsonRedisCodec codec = new JsonRedisCodec(mapper);
 
@@ -27,11 +27,9 @@ public class JsonRedisCodecTest {
 		assertNotNull(encodedBytes);
 		assertTrue(encodedBytes.remaining() > 0);
 
-		
 		Object decoded = codec.decodeValue(encodedBytes);
 		assertNotNull(decoded);
 
-		
 		TestUserRecord decodedUser = mapper.convertValue(decoded, TestUserRecord.class);
 
 		assertEquals("Alice", decodedUser.name());

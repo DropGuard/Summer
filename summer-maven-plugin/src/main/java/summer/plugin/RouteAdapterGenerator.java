@@ -35,9 +35,7 @@ public final class RouteAdapterGenerator {
 	 */
 	public void generate(List<BeanDefinition> beans, java.io.File outputDir) throws IOException {
 		// Find all @RestController beans with routes
-		List<BeanDefinition> controllers = beans.stream()
-				.filter(b -> !b.routes.isEmpty())
-				.toList();
+		List<BeanDefinition> controllers = beans.stream().filter(b -> !b.routes.isEmpty()).toList();
 
 		if (controllers.isEmpty()) {
 			return;
@@ -49,8 +47,7 @@ public final class RouteAdapterGenerator {
 		for (BeanDefinition controller : controllers) {
 			String varName = controller.variableName;
 			registerBody.addStatement("$T $N = context.getBean($T.class)",
-					ClassName.bestGuess(controller.qualifiedName),
-					varName,
+					ClassName.bestGuess(controller.qualifiedName), varName,
 					ClassName.bestGuess(controller.qualifiedName));
 
 			for (RouteInfo route : controller.routes) {
@@ -65,15 +62,12 @@ public final class RouteAdapterGenerator {
 		TypeSpec routeRegistrar = TypeSpec.classBuilder("GeneratedAnnotationRouterAdapter")
 				.addModifiers(javax.lang.model.element.Modifier.PUBLIC, javax.lang.model.element.Modifier.FINAL)
 				.addSuperinterface(ClassName.get(WEB_PACKAGE, "RouteRegistrar"))
-				.addMethod(MethodSpec.methodBuilder("registerControllers")
-						.addAnnotation(Override.class)
+				.addMethod(MethodSpec.methodBuilder("registerControllers").addAnnotation(Override.class)
 						.addModifiers(javax.lang.model.element.Modifier.PUBLIC)
 						.addParameter(ClassName.get(WEB_PACKAGE, "HttpRouter", "Builder"), "builder")
 						.addParameter(ClassName.get(CORE_PACKAGE, "ApplicationContext"), "context")
-						.addCode(registerBody.build())
-						.build())
-				.addMethod(buildParseIntOrDefault())
-				.build();
+						.addCode(registerBody.build()).build())
+				.addMethod(buildParseIntOrDefault()).build();
 
 		JavaFile.builder("summer.core.aot", routeRegistrar).build().writeTo(outputDir);
 	}
@@ -81,18 +75,12 @@ public final class RouteAdapterGenerator {
 	private MethodSpec buildParseIntOrDefault() {
 		return MethodSpec.methodBuilder("parseIntOrDefault")
 				.addModifiers(javax.lang.model.element.Modifier.PRIVATE, javax.lang.model.element.Modifier.STATIC)
-				.returns(int.class)
-				.addParameter(String.class, "value")
-				.addParameter(int.class, "defaultValue")
-				.beginControlFlow("if (value == null || value.isBlank())")
-				.addStatement("return defaultValue")
-				.endControlFlow()
-				.beginControlFlow("try")
+				.returns(int.class).addParameter(String.class, "value").addParameter(int.class, "defaultValue")
+				.beginControlFlow("if (value == null || value.isBlank())").addStatement("return defaultValue")
+				.endControlFlow().beginControlFlow("try")
 				.addStatement("return Math.max(0, Integer.parseInt(value.trim()))")
-				.nextControlFlow("catch ($T e)", NumberFormatException.class)
-				.addStatement("return defaultValue")
-				.endControlFlow()
-				.build();
+				.nextControlFlow("catch ($T e)", NumberFormatException.class).addStatement("return defaultValue")
+				.endControlFlow().build();
 	}
 
 	/**
@@ -107,25 +95,18 @@ public final class RouteAdapterGenerator {
 		// Extract parameters
 		for (RouteInfo.ParamInfo param : route.params) {
 			if (param.binding == RouteInfo.ParamBinding.PATH) {
-				body.add("$T $N = ctx.request().pathParam($S);\n",
-						resolveParamType(param.type),
-						param.name,
+				body.add("$T $N = ctx.request().pathParam($S);\n", resolveParamType(param.type), param.name,
 						param.name);
 			} else if (param.binding == RouteInfo.ParamBinding.QUERY) {
-				body.add("$T $N = ctx.request().queryParam($S);\n",
-						resolveParamType(param.type),
-						param.name,
+				body.add("$T $N = ctx.request().queryParam($S);\n", resolveParamType(param.type), param.name,
 						param.name);
 			} else if (param.binding == RouteInfo.ParamBinding.BODY) {
 				String method = param.validated ? "validatedBody" : "body";
-				body.add("$T $N = ctx.$L($T.class);\n",
-						resolveParamType(param.type),
-						param.name,
-						method,
+				body.add("$T $N = ctx.$L($T.class);\n", resolveParamType(param.type), param.name, method,
 						ClassName.bestGuess(param.type));
 			} else if (param.binding == RouteInfo.ParamBinding.PAGEABLE) {
-				body.add("$T $N = $T.of(\n", ClassName.bestGuess("summer.web.Pageable"),
-						param.name, ClassName.bestGuess("summer.web.PageRequest"));
+				body.add("$T $N = $T.of(\n", ClassName.bestGuess("summer.web.Pageable"), param.name,
+						ClassName.bestGuess("summer.web.PageRequest"));
 				body.indent();
 				body.add("parseIntOrDefault(ctx.queryParam(\"page\"), 0),\n");
 				body.add("parseIntOrDefault(ctx.queryParam(\"size\"), 20),\n");
@@ -146,10 +127,7 @@ public final class RouteAdapterGenerator {
 			body.add("$N.$L($N);\n", controllerVar, route.methodName, args.toString());
 			body.add("return null;\n");
 		} else {
-			body.add("$T result = $N.$L($N);\n",
-					ClassName.bestGuess(route.returnType),
-					controllerVar,
-					route.methodName,
+			body.add("$T result = $N.$L($N);\n", ClassName.bestGuess(route.returnType), controllerVar, route.methodName,
 					args.toString());
 			body.add("ctx.ok(result);\n");
 		}

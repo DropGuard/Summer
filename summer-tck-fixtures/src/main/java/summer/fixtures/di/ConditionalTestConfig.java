@@ -5,8 +5,8 @@ import summer.core.annotation.ConditionalOnBean;
 import summer.core.annotation.Configuration;
 
 /**
- * Configuration that conditionally registers {@link ConditionalBean}
- * based on the presence of {@link TestMarker}.
+ * Configuration that conditionally registers {@link ConditionalBean} based on
+ * the presence of {@link TestMarker}.
  */
 @Configuration
 public class ConditionalTestConfig {

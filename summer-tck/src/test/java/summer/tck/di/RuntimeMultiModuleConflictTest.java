@@ -10,5 +10,3 @@ public class RuntimeMultiModuleConflictTest extends AbstractMultiModuleConflictT
 		RuntimeApplicationContext.create(ConflictClient.class);
 	}
 }
-
-

@@ -3,10 +3,11 @@ package summer.tck;
 /**
  * TCK root base class - provides common lifecycle utilities.
  *
- * <p>All TCK tests inherit from this class to get:
+ * <p>
+ * All TCK tests inherit from this class to get:
  * <ul>
- *   <li>Safe resource cleanup utilities</li>
- *   <li>Consistent error handling patterns</li>
+ * <li>Safe resource cleanup utilities</li>
+ * <li>Consistent error handling patterns</li>
  * </ul>
  */
 public abstract class AbstractTCK {

@@ -2,8 +2,8 @@ package summer.tck.web.dummy;
 
 import summer.core.Component;
 import summer.web.Handler;
-import summer.web.annotation.GlobalMiddleware;
 import summer.web.Middleware;
+import summer.web.annotation.GlobalMiddleware;
 
 @Component
 @GlobalMiddleware

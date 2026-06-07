@@ -11,5 +11,3 @@ public class RuntimeTransactionTest extends AbstractTransactionTCK {
 		return RuntimeApplicationContext.create(TxTestConfiguration.class);
 	}
 }
-
-

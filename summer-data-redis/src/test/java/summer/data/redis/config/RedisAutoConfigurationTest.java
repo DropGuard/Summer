@@ -43,9 +43,11 @@ public class RedisAutoConfigurationTest {
 			assertNotNull(commands);
 
 			// Cleanup resources cleanly via context
-			try { context.close(); } catch (Exception e) { throw new RuntimeException(e); }
+			try {
+				context.close();
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
 		}
 	}
 }
-
-

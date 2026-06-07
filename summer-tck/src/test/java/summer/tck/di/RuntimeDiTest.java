@@ -11,5 +11,3 @@ public class RuntimeDiTest extends AbstractDependencyInjectionTCK {
 		return RuntimeApplicationContext.create(ServiceA.class);
 	}
 }
-
-

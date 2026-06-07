@@ -14,5 +14,3 @@ public class RuntimeConditionalOnBeanTest extends AbstractConditionalOnBeanTCK {
 		return RuntimeApplicationContext.create(RequiredComponent.class);
 	}
 }
-
-

@@ -11,5 +11,3 @@ public class RuntimeWebRouteTest extends AbstractWebRouteTCK {
 		return RuntimeApplicationContext.create(UserController.class);
 	}
 }
-
-

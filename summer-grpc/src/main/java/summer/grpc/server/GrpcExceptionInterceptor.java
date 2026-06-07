@@ -14,22 +14,22 @@ import summer.core.exception.SummerException;
 import summer.grpc.exception.SummerGrpcException;
 
 /**
- * Global gRPC exception interceptor that translates unhandled exceptions
- * into gRPC Status responses.
+ * Global gRPC exception interceptor that translates unhandled exceptions into
+ * gRPC Status responses.
  *
  * <p>
- * Exception handler for gRPC services. Service implementations can
- * throw exceptions freely; this interceptor catches them at the boundary
- * and maps them to appropriate gRPC status codes.
+ * Exception handler for gRPC services. Service implementations can throw
+ * exceptions freely; this interceptor catches them at the boundary and maps
+ * them to appropriate gRPC status codes.
  * </p>
  *
  * <pre>{@code
  * // In a service --no try-catch needed:
  * @Override
  * public void getUser(GetUserRequest req, StreamObserver<UserResponse> obs) {
- *     User user = userService.findById(req.getId());  // may throw
- *     obs.onNext(toResponse(user));
- *     obs.onCompleted();
+ * 	User user = userService.findById(req.getId()); // may throw
+ * 	obs.onNext(toResponse(user));
+ * 	obs.onCompleted();
  * }
  * }</pre>
  */
@@ -38,9 +38,7 @@ public class GrpcExceptionInterceptor implements ServerInterceptor {
 	private static final Logger log = LoggerFactory.getLogger(GrpcExceptionInterceptor.class);
 
 	@Override
-	public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
-			ServerCall<ReqT, RespT> call,
-			Metadata headers,
+	public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call, Metadata headers,
 			ServerCallHandler<ReqT, RespT> next) {
 
 		ServerCall.Listener<ReqT> delegate = next.startCall(call, headers);
@@ -100,4 +98,3 @@ public class GrpcExceptionInterceptor implements ServerInterceptor {
 		};
 	}
 }
-

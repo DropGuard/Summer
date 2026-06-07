@@ -49,8 +49,7 @@ public class GrpcChannelManager implements AutoCloseable {
 			if (tlsConfig.enabled() && tlsConfig.trustCert() != null) {
 				// TLS enabled with CA certificate
 				try {
-					SslContext sslContext = SslContextBuilder.forClient()
-							.trustManager(new File(tlsConfig.trustCert()))
+					SslContext sslContext = SslContextBuilder.forClient().trustManager(new File(tlsConfig.trustCert()))
 							.build();
 					log.info("gRPC TLS enabled for client connection to {}", t);
 					return NettyChannelBuilder.forTarget(t).sslContext(sslContext).build();

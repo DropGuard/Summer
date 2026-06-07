@@ -16,7 +16,6 @@ import io.grpc.ServerServiceDefinition;
 import io.grpc.stub.ClientCalls;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import summer.core.annotation.Bean;
@@ -49,11 +48,8 @@ public class GrpcInterceptorIntegrationTest {
 	};
 
 	private static final MethodDescriptor<String, String> TEST_METHOD = MethodDescriptor.<String, String>newBuilder()
-			.setType(MethodDescriptor.MethodType.UNARY)
-			.setFullMethodName("TestService/TestCall")
-			.setRequestMarshaller(STRING_MARSHALLER)
-			.setResponseMarshaller(STRING_MARSHALLER)
-			.build();
+			.setType(MethodDescriptor.MethodType.UNARY).setFullMethodName("TestService/TestCall")
+			.setRequestMarshaller(STRING_MARSHALLER).setResponseMarshaller(STRING_MARSHALLER).build();
 
 	@BeforeAll
 	public static void setupProperty() {
@@ -62,7 +58,7 @@ public class GrpcInterceptorIntegrationTest {
 
 	@Configuration
 	public static class TestGrpcConfiguration {
-		
+
 		@Bean
 		public BindableService dummyService() {
 			return new BindableService() {
@@ -71,16 +67,18 @@ public class GrpcInterceptorIntegrationTest {
 					return ServerServiceDefinition.builder("TestService")
 							.addMethod(TEST_METHOD, new ServerCallHandler<String, String>() {
 								@Override
-								public ServerCall.Listener<String> startCall(ServerCall<String, String> call, Metadata headers) {
+								public ServerCall.Listener<String> startCall(ServerCall<String, String> call,
+										Metadata headers) {
 									String headerValue = headers.get(TEST_HEADER_KEY);
 									call.sendHeaders(new Metadata());
 									call.sendMessage("Hello " + headerValue);
-									
+
 									Metadata trailers = new Metadata();
 									trailers.put(RESPONSE_TRAILER_KEY, "InterceptedResponse");
 									call.close(io.grpc.Status.OK, trailers);
-									
-									return new ServerCall.Listener<String>() {};
+
+									return new ServerCall.Listener<String>() {
+									};
 								}
 							}).build();
 				}
@@ -91,8 +89,8 @@ public class GrpcInterceptorIntegrationTest {
 		public ServerInterceptor customInterceptor() {
 			return new ServerInterceptor() {
 				@Override
-				public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(
-						ServerCall<ReqT, RespT> call, Metadata headers, ServerCallHandler<ReqT, RespT> next) {
+				public <ReqT, RespT> ServerCall.Listener<ReqT> interceptCall(ServerCall<ReqT, RespT> call,
+						Metadata headers, ServerCallHandler<ReqT, RespT> next) {
 					headers.put(TEST_HEADER_KEY, "Intercepted!");
 					return next.startCall(call, headers);
 				}
@@ -101,14 +99,13 @@ public class GrpcInterceptorIntegrationTest {
 	}
 
 	@Test
-	public void testGrpcServerInterceptorDiscovery(GrpcServerRunner serverRunner, summer.core.ApplicationContext context) throws Exception {
+	public void testGrpcServerInterceptorDiscovery(GrpcServerRunner serverRunner,
+			summer.core.ApplicationContext context) throws Exception {
 		serverRunner.run(context);
 		int port = serverRunner.getPort();
 		assertTrue(port > 0, "Server should be bound to a valid port");
 
-		ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", port)
-				.usePlaintext()
-				.build();
+		ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", port).usePlaintext().build();
 
 		try {
 			String response = ClientCalls.blockingUnaryCall(channel, TEST_METHOD, CallOptions.DEFAULT, "RequestData");
@@ -119,6 +116,3 @@ public class GrpcInterceptorIntegrationTest {
 		}
 	}
 }
-
-
-

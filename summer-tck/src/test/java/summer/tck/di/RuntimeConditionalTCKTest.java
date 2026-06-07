@@ -11,8 +11,7 @@ public class RuntimeConditionalTCKTest extends AbstractConditionalTCK {
 
 	@BeforeEach
 	void setUp() {
-		context = new RuntimeApplicationContext()
-				.scan("summer.fixtures.di");
+		context = new RuntimeApplicationContext().scan("summer.fixtures.di");
 	}
 
 	@AfterEach

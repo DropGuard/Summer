@@ -10,8 +10,11 @@ import summer.tck.di.conditional.*;
 /**
  * TCK test for @ConditionalOnBean behavior.
  *
- * <p>Tests whether the DI container correctly registers or skips beans based on
- * @ConditionalOnBean conditions.</p>
+ * <p>
+ * Tests whether the DI container correctly registers or skips beans based on
+ * 
+ * @ConditionalOnBean conditions.
+ *                    </p>
  */
 public abstract class AbstractConditionalOnBeanTCK extends AbstractContextTCK {
 

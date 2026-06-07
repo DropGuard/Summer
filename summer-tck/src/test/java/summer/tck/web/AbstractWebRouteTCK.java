@@ -7,22 +7,19 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.nio.charset.StandardCharsets;
 import java.util.stream.Stream;
-
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-
 import summer.core.ApplicationContext;
+import summer.tck.AbstractContextTCK;
 import summer.web.ExceptionRegistry;
 import summer.web.Handler;
 import summer.web.HttpContext;
 import summer.web.HttpMethod;
 import summer.web.HttpRouter;
 import summer.web.Request;
-import summer.web.RouterType;
-import summer.tck.AbstractContextTCK;
 
 /**
  * TCK for web routing via the DI engine.
@@ -43,14 +40,16 @@ public abstract class AbstractWebRouteTCK extends AbstractContextTCK {
 		// Force context initialization (not lazy)
 		ApplicationContext ctx = context();
 
-		summer.web.HttpRouter.Builder builder = new summer.web.HttpRouter.Builder(summer.web.http.RadixTreeHttpRouter::new);
+		summer.web.HttpRouter.Builder builder = new summer.web.HttpRouter.Builder(
+				summer.web.http.RadixTreeHttpRouter::new);
 		exceptionRegistry = new ExceptionRegistry();
 
 		// Get registrars from context (they are @Component beans)
 		for (summer.web.RouteRegistrar registrar : ctx.getBeans(summer.web.RouteRegistrar.class)) {
 			registrar.registerControllers(builder, ctx);
 		}
-		for (summer.web.ExceptionHandlerRegistrar ehRegistrar : ctx.getBeans(summer.web.ExceptionHandlerRegistrar.class)) {
+		for (summer.web.ExceptionHandlerRegistrar ehRegistrar : ctx
+				.getBeans(summer.web.ExceptionHandlerRegistrar.class)) {
 			ehRegistrar.registerHandlers(exceptionRegistry, ctx);
 		}
 
@@ -70,8 +69,7 @@ public abstract class AbstractWebRouteTCK extends AbstractContextTCK {
 	}
 
 	static Stream<Arguments> routeTestCases() {
-		return Stream.of(
-				Arguments.of(HttpMethod.GET, "/api/users/456", null, "user:456"),
+		return Stream.of(Arguments.of(HttpMethod.GET, "/api/users/456", null, "user:456"),
 				Arguments.of(HttpMethod.POST, "/api/users", "{\"name\":\"Alice\"}", "created:Alice"),
 				Arguments.of(HttpMethod.PUT, "/api/users/123", "{\"name\":\"Bob\"}", "updated:123:Bob"),
 				Arguments.of(HttpMethod.DELETE, "/api/users/123", null, "deleted:123"),

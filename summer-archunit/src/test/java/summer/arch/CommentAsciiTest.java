@@ -23,9 +23,10 @@ import org.junit.jupiter.api.Test;
  */
 class CommentAsciiTest {
 
-	// CJK Unified Ideographs, Extension A, Compatibility, Hiragana, Katakana, Hangul
-	private static final Pattern CJK = Pattern.compile("[\\u4E00-\\u9FFF\\u3400-\\u4DBF\\uF900-\\uFAFF"
-			+ "\\u3040-\\u309F\\u30A0-\\u30FF\\uAC00-\\uD7AF]");
+	// CJK Unified Ideographs, Extension A, Compatibility, Hiragana, Katakana,
+	// Hangul
+	private static final Pattern CJK = Pattern.compile(
+			"[\\u4E00-\\u9FFF\\u3400-\\u4DBF\\uF900-\\uFAFF" + "\\u3040-\\u309F\\u30A0-\\u30FF\\uAC00-\\uD7AF]");
 
 	@Test
 	@DisplayName("Comments should not contain CJK characters")
@@ -36,13 +37,11 @@ class CommentAsciiTest {
 		try (var stream = Files.walk(root)) {
 			stream.filter(p -> p.toString().endsWith(".java"))
 					// skip generated and external sources
-					.filter(p -> !p.toString().contains("target"))
-					.filter(p -> !p.toString().contains("generated"))
+					.filter(p -> !p.toString().contains("target")).filter(p -> !p.toString().contains("generated"))
 					.forEach(file -> checkFile(file, violations));
 		}
 
-		assertTrue(violations.isEmpty(),
-				"CJK characters found in comments:\n" + String.join("\n", violations));
+		assertTrue(violations.isEmpty(), "CJK characters found in comments:\n" + String.join("\n", violations));
 	}
 
 	private void checkFile(Path file, List<String> violations) {
@@ -124,7 +123,7 @@ class CommentAsciiTest {
 			}
 
 			// not in any special context
-			if (c == '"' ) {
+			if (c == '"') {
 				inString = true;
 			} else if (c == '\'') {
 				inChar = true;
@@ -139,9 +138,7 @@ class CommentAsciiTest {
 			}
 		}
 
-		return new CommentResult(
-				comment.length() > 0 ? comment.toString() : null,
-				inBlockComment || newBlockStart,
+		return new CommentResult(comment.length() > 0 ? comment.toString() : null, inBlockComment || newBlockStart,
 				endOfBlock);
 	}
 

@@ -58,7 +58,7 @@ public class AotRunner {
 		log.info("[Summer] Resolved dependencies for {} beans", sorted.size());
 
 		// 4. Generate AOT code
-		new AotContextGenerator().generate(sorted, outputDir);
+		new AotContextGenerator().generate(sorted, outputDir, index);
 		new AotProxyGenerator().generate(sorted, index, outputDir);
 		new RouteAdapterGenerator().generate(sorted, outputDir);
 

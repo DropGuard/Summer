@@ -22,7 +22,8 @@ import summer.core.json.SummerObjectMapper;
  * UserCacheDTO user = redisTemplate.get("user:1", UserCacheDTO.class);
  *
  * // 2. Generic type with TypeReference
- * List<String> roles = redisTemplate.get("user:1:roles", new TypeReference<List<String>>() {});
+ * List<String> roles = redisTemplate.get("user:1:roles", new TypeReference<List<String>>() {
+ * });
  *
  * // 3. Store value
  * redisTemplate.set("user:1", new UserCacheDTO(1L, "gemini", List.of("admin")));
@@ -42,7 +43,8 @@ public class SummerRedisTemplate {
 	 * Creates a new SummerRedisTemplate with the given Redis commands and default
 	 * ObjectMapper.
 	 *
-	 * @param commands the Redis commands
+	 * @param commands
+	 *            the Redis commands
 	 */
 	public SummerRedisTemplate(RedisCommands<String, Object> commands) {
 		this(commands, SummerObjectMapper.create());
@@ -52,8 +54,10 @@ public class SummerRedisTemplate {
 	 * Creates a new SummerRedisTemplate with the given Redis commands and custom
 	 * ObjectMapper.
 	 *
-	 * @param commands     the Redis commands
-	 * @param objectMapper the ObjectMapper to use for serialization/deserialization
+	 * @param commands
+	 *            the Redis commands
+	 * @param objectMapper
+	 *            the ObjectMapper to use for serialization/deserialization
 	 */
 	public SummerRedisTemplate(RedisCommands<String, Object> commands, ObjectMapper objectMapper) {
 		this.commands = commands;
@@ -63,9 +67,12 @@ public class SummerRedisTemplate {
 	/**
 	 * Gets a value from Redis and deserializes it to the specified type.
 	 *
-	 * @param <T>  the target type
-	 * @param key  the Redis key
-	 * @param type the target class
+	 * @param <T>
+	 *            the target type
+	 * @param key
+	 *            the Redis key
+	 * @param type
+	 *            the target class
 	 * @return the deserialized value, or null if the key does not exist
 	 */
 	public <T> T get(String key, Class<T> type) {
@@ -79,9 +86,12 @@ public class SummerRedisTemplate {
 	/**
 	 * Gets a value from Redis and deserializes it to the specified generic type.
 	 *
-	 * @param <T>       the target type
-	 * @param key       the Redis key
-	 * @param typeRef   the TypeReference describing the target generic type
+	 * @param <T>
+	 *            the target type
+	 * @param key
+	 *            the Redis key
+	 * @param typeRef
+	 *            the TypeReference describing the target generic type
 	 * @return the deserialized value, or null if the key does not exist
 	 */
 	public <T> T get(String key, TypeReference<T> typeRef) {
@@ -95,7 +105,8 @@ public class SummerRedisTemplate {
 	/**
 	 * Gets a raw value from Redis without deserialization.
 	 *
-	 * @param key the Redis key
+	 * @param key
+	 *            the Redis key
 	 * @return the raw value, or null if the key does not exist
 	 */
 	public Object getRaw(String key) {
@@ -105,8 +116,10 @@ public class SummerRedisTemplate {
 	/**
 	 * Sets a value in Redis.
 	 *
-	 * @param key   the Redis key
-	 * @param value the value to store
+	 * @param key
+	 *            the Redis key
+	 * @param value
+	 *            the value to store
 	 */
 	public void set(String key, Object value) {
 		commands.set(key, value);
@@ -115,9 +128,12 @@ public class SummerRedisTemplate {
 	/**
 	 * Sets a value in Redis with expiration.
 	 *
-	 * @param key   the Redis key
-	 * @param value the value to store
-	 * @param ttl   the time-to-live duration
+	 * @param key
+	 *            the Redis key
+	 * @param value
+	 *            the value to store
+	 * @param ttl
+	 *            the time-to-live duration
 	 */
 	public void set(String key, Object value, java.time.Duration ttl) {
 		commands.set(key, value);
@@ -127,7 +143,8 @@ public class SummerRedisTemplate {
 	/**
 	 * Deletes a key from Redis.
 	 *
-	 * @param key the Redis key
+	 * @param key
+	 *            the Redis key
 	 * @return true if the key was deleted, false if it did not exist
 	 */
 	public boolean delete(String key) {
@@ -137,7 +154,8 @@ public class SummerRedisTemplate {
 	/**
 	 * Checks if a key exists in Redis.
 	 *
-	 * @param key the Redis key
+	 * @param key
+	 *            the Redis key
 	 * @return true if the key exists, false otherwise
 	 */
 	public boolean exists(String key) {
@@ -147,8 +165,10 @@ public class SummerRedisTemplate {
 	/**
 	 * Sets the expiration time for a key.
 	 *
-	 * @param key the Redis key
-	 * @param ttl the time-to-live duration
+	 * @param key
+	 *            the Redis key
+	 * @param ttl
+	 *            the time-to-live duration
 	 * @return true if the timeout was set, false if the key does not exist
 	 */
 	public boolean expire(String key, java.time.Duration ttl) {

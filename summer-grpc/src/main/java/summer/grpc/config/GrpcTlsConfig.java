@@ -28,9 +28,5 @@ import summer.core.config.ConfigurationProperties;
  *            path to the CA certificate for client trust (PEM format)
  */
 @ConfigurationProperties(prefix = "grpc.tls")
-public record GrpcTlsConfig(
-		Boolean enabled,
-		String certChain,
-		String privateKey,
-		String trustCert) {
+public record GrpcTlsConfig(Boolean enabled, String certChain, String privateKey, String trustCert) {
 }

@@ -12,5 +12,3 @@ public class RuntimeMiddlewareTest extends AbstractMiddlewareTCK {
 		return RuntimeApplicationContext.create(UserController.class);
 	}
 }
-
-

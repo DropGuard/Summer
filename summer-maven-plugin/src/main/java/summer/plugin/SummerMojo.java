@@ -18,9 +18,7 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
-import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.CompositeIndex;
-import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexReader;
 import org.jboss.jandex.IndexView;
 
@@ -74,7 +72,7 @@ public class SummerMojo extends AbstractMojo {
 			File generatedDir = new File(project.getBasedir(), "target/generated-sources/aot");
 			generatedDir.mkdirs();
 
-			new AotContextGenerator().generate(sorted, generatedDir);
+			new AotContextGenerator().generate(sorted, generatedDir, index);
 			new AotProxyGenerator().generate(sorted, index, generatedDir);
 			new RouteAdapterGenerator().generate(sorted, generatedDir);
 			new RowMapperGenerator().generate(index, generatedDir);

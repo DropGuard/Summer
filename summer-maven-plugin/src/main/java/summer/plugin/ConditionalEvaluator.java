@@ -39,7 +39,7 @@ public final class ConditionalEvaluator {
 	 * Evaluate @ConditionalOnBean conditions and remove unsatisfied beans.
 	 * 
 	 * @param beans
-	 *              list of bean definitions (will be modified)
+	 *            list of bean definitions (will be modified)
 	 */
 	public void evaluate(List<BeanDefinition> beans) {
 		resolveConditionalOnBean(beans);
@@ -48,9 +48,10 @@ public final class ConditionalEvaluator {
 	}
 
 	/**
-	 * Removes FACTORY_PRODUCT beans whose parent @Configuration was removed
-	 * by conditional evaluation or @Replaces. Without this, orphans survive
-	 * and cause {@code DependencyResolver} to fail with "Could not find
+	 * Removes FACTORY_PRODUCT beans whose parent @Configuration was removed by
+	 * conditional evaluation or @Replaces. Without this, orphans survive and cause
+	 * {@code DependencyResolver} to fail with "Could not find
+	 * 
 	 * @Configuration bean for factory product".
 	 */
 	private void removeOrphanedFactoryProducts(List<BeanDefinition> beans) {
@@ -60,11 +61,9 @@ public final class ConditionalEvaluator {
 				survivingConfigs.add(bean.qualifiedName);
 			}
 		}
-		beans.removeIf(b -> b.kind == BeanDefinition.Kind.FACTORY_PRODUCT
-				&& b.configClassName != null
+		beans.removeIf(b -> b.kind == BeanDefinition.Kind.FACTORY_PRODUCT && b.configClassName != null
 				&& !survivingConfigs.contains(b.configClassName));
 	}
-
 
 	private void resolveConditionalOnBean(List<BeanDefinition> beans) {
 		// 1. Build dependency map: bean qualifiedName -> required type
@@ -185,17 +184,17 @@ public final class ConditionalEvaluator {
 		return null;
 	}
 
-	private BeanDefinition findBeanByReturnType(List<BeanDefinition> beans, String returnType, BeanDefinition replacement) {
+	private BeanDefinition findBeanByReturnType(List<BeanDefinition> beans, String returnType,
+			BeanDefinition replacement) {
 		BeanDefinition found = null;
 		for (BeanDefinition bean : beans) {
 			if (bean == replacement)
 				continue;
 			if (bean.kind == BeanDefinition.Kind.FACTORY_PRODUCT && bean.qualifiedName.equals(returnType)) {
 				if (found != null) {
-					throw new AmbiguousBeanException(
-							"Ambiguous @Replaces: multiple @Bean methods return " + returnType
-									+ ": " + found.configClassName + "." + found.producerMethodName
-									+ " and " + bean.configClassName + "." + bean.producerMethodName);
+					throw new AmbiguousBeanException("Ambiguous @Replaces: multiple @Bean methods return " + returnType
+							+ ": " + found.configClassName + "." + found.producerMethodName + " and "
+							+ bean.configClassName + "." + bean.producerMethodName);
 				}
 				found = bean;
 			}

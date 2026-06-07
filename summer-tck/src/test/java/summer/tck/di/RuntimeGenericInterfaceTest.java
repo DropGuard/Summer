@@ -14,5 +14,3 @@ public class RuntimeGenericInterfaceTest extends AbstractGenericInterfaceTCK {
 		return RuntimeApplicationContext.create(StringServiceImpl.class);
 	}
 }
-
-

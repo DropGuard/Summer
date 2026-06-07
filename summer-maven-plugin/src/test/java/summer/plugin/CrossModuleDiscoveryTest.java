@@ -119,7 +119,7 @@ class CrossModuleDiscoveryTest {
 
 		AotContextGenerator generator = new AotContextGenerator();
 		File outputDir = tempDir.toFile();
-		generator.generate(List.of(serviceC), outputDir);
+		generator.generate(List.of(serviceC), outputDir, null);
 
 		// Verify file exists
 		File generatedFile = new File(outputDir, "summer/core/aot/GeneratedAotContext.java");

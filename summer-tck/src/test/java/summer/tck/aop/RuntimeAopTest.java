@@ -16,5 +16,3 @@ public class RuntimeAopTest extends AbstractAopTCK {
 		return RuntimeApplicationContext.create(GreeterService.class);
 	}
 }
-
-

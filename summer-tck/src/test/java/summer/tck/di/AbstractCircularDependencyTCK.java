@@ -6,7 +6,10 @@ import summer.tck.AbstractFailureTCK;
 /**
  * TCK for circular dependency detection.
  *
- * <p>Verifies that the DI container fails fast when circular dependencies are detected.</p>
+ * <p>
+ * Verifies that the DI container fails fast when circular dependencies are
+ * detected.
+ * </p>
  */
 public abstract class AbstractCircularDependencyTCK extends AbstractFailureTCK {
 

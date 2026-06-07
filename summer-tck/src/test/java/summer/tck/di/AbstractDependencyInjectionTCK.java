@@ -12,11 +12,12 @@ import summer.tck.dummy.ServiceC;
 /**
  * TCK for core dependency injection behavior.
  *
- * <p>Verifies:
+ * <p>
+ * Verifies:
  * <ul>
- *   <li>Context creation succeeds</li>
- *   <li>Singleton uniqueness</li>
- *   <li>Constructor injection resolution</li>
+ * <li>Context creation succeeds</li>
+ * <li>Singleton uniqueness</li>
+ * <li>Constructor injection resolution</li>
  * </ul>
  */
 public abstract class AbstractDependencyInjectionTCK extends AbstractContextTCK {

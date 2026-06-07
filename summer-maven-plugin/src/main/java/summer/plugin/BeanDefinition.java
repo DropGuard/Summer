@@ -45,7 +45,7 @@ public final class BeanDefinition {
 	public boolean isAutoCloseable;
 
 	// @Replaces (method-level)
-	public String replacesReturnType;  // The return type to replace (e.g., "javax.sql.DataSource")
+	public String replacesReturnType; // The return type to replace (e.g., "javax.sql.DataSource")
 	public String replacesTargetClass; // Optional: explicit target class for method-level @Replaces
 
 	// @ConfigurationProperties

@@ -5,9 +5,9 @@ import summer.core.annotation.ConditionalOnBean;
 import summer.core.annotation.Replaces;
 
 /**
- * Has both {@code @Replaces} and {@code @ConditionalOnBean}.
- * When the condition is NOT met, the replacement should NOT happen --
- * the original component should survive.
+ * Has both {@code @Replaces} and {@code @ConditionalOnBean}. When the condition
+ * is NOT met, the replacement should NOT happen -- the original component
+ * should survive.
  */
 @ConditionalOnBean(NonExistentMarker.class)
 @Replaces(OriginalComponent.class)

@@ -159,9 +159,8 @@ public final class DependencyResolver {
 		}
 
 		if (sorted.size() != beans.size()) {
-			throw new CircularDependencyException(
-					"Could not resolve all dependencies. Possible cycle among: "
-							+ beans.stream().filter(b -> !sorted.contains(b)).map(b -> b.qualifiedName).toList());
+			throw new CircularDependencyException("Could not resolve all dependencies. Possible cycle among: "
+					+ beans.stream().filter(b -> !sorted.contains(b)).map(b -> b.qualifiedName).toList());
 		}
 		return sorted;
 	}

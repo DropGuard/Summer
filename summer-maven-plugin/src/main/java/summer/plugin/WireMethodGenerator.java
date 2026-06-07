@@ -148,17 +148,47 @@ final class WireMethodGenerator {
 		}
 	}
 
-	private void emitConfigPropertiesInstantiation(MethodSpec.Builder wire, BeanDefinition bean,
-			ClassName beanClass, String varName) {
+	private void emitConfigPropertiesInstantiation(MethodSpec.Builder wire, BeanDefinition bean, ClassName beanClass,
+			String varName) {
 		ClassName binder = ClassName.get("summer.core.config", "ConfigurationBinder");
 		String prefix = bean.configPropertiesPrefix;
-		if (prefix == null || prefix.isEmpty()) {
-			wire.addStatement("$T $N = $T.bind($S, $T.class)", beanClass, varName, binder, "application.yml", beanClass);
+
+		// Read @DefaultValue annotations from the Jandex index
+		List<CodeBlock> defaultEntries = new ArrayList<>();
+		if (context.index != null) {
+			org.jboss.jandex.ClassInfo ci = context.index
+					.getClassByName(org.jboss.jandex.DotName.createSimple(bean.qualifiedName));
+			if (ci != null) {
+				for (org.jboss.jandex.FieldInfo fi : ci.fields()) {
+					org.jboss.jandex.AnnotationInstance dv = fi
+							.annotation(org.jboss.jandex.DotName.createSimple("summer.core.config.DefaultValue"));
+					if (dv != null) {
+						defaultEntries.add(CodeBlock.of("$S, $S", fi.name(), dv.value().asString()));
+					}
+				}
+			}
+		}
+
+		if (!defaultEntries.isEmpty()) {
+			CodeBlock defaultsMap = CodeBlock.builder().add("$T.of(", java.util.Map.class)
+					.add(CodeBlock.join(defaultEntries, ", ")).add(")").build();
+			if (prefix == null || prefix.isEmpty()) {
+				wire.addStatement("$T $N = $T.bindWithDefaults($S, $T.class, $S, $L)", beanClass, varName, binder,
+						"application.yml", beanClass, "", defaultsMap);
+			} else {
+				wire.addStatement("$T $N = $T.bindWithDefaults($S, $T.class, $S, $L)", beanClass, varName, binder,
+						"application.yml", beanClass, prefix, defaultsMap);
+			}
 		} else {
-			wire.addStatement("$T $N = $T.bind($S, $T.class, $S)", beanClass, varName, binder, "application.yml", beanClass, prefix);
+			if (prefix == null || prefix.isEmpty()) {
+				wire.addStatement("$T $N = $T.bind($S, $T.class)", beanClass, varName, binder, "application.yml",
+						beanClass);
+			} else {
+				wire.addStatement("$T $N = $T.bind($S, $T.class, $S)", beanClass, varName, binder, "application.yml",
+						beanClass, prefix);
+			}
 		}
 	}
-
 
 	private CodeBlock buildArgs(List<BeanDefinition> deps) {
 		CodeBlock.Builder args = CodeBlock.builder();

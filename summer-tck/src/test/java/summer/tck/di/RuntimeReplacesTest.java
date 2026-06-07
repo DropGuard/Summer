@@ -20,5 +20,3 @@ public class RuntimeReplacesTest extends AbstractReplacesTCK {
 		return RuntimeApplicationContext.create(ConditionalReplacesTestConfig.class);
 	}
 }
-
-

@@ -15,9 +15,11 @@ import summer.tck.AbstractComponentTCK;
 /**
  * TCK for JdbcTemplate CRUD operations.
  *
- * <p>Subclasses provide a {@link RowMapperRegistry} via
- * {@link #createRegistry()} — Runtime runners register mappers manually,
- * AOT runners use generated {@code RowMapperConfiguration}.</p>
+ * <p>
+ * Subclasses provide a {@link RowMapperRegistry} via {@link #createRegistry()}
+ * — Runtime runners register mappers manually, AOT runners use generated
+ * {@code RowMapperConfiguration}.
+ * </p>
  */
 public abstract class AbstractJdbcTemplateTCK extends AbstractComponentTCK {
 
@@ -75,8 +77,8 @@ public abstract class AbstractJdbcTemplateTCK extends AbstractComponentTCK {
 		jdbcTemplate.update("INSERT INTO users (id, name) VALUES (?, ?)", 2, "Bob");
 		jdbcTemplate.update("INSERT INTO users (id, name) VALUES (?, ?)", 3, "Alicia");
 
-		List<User> results = jdbcTemplate
-				.queryForList("SELECT id, name FROM users WHERE name LIKE ? ORDER BY id", User.class, "Ali%");
+		List<User> results = jdbcTemplate.queryForList("SELECT id, name FROM users WHERE name LIKE ? ORDER BY id",
+				User.class, "Ali%");
 		assertEquals(2, results.size());
 		assertEquals("Alice", results.get(0).name());
 		assertEquals("Alicia", results.get(1).name());
@@ -153,9 +155,7 @@ public abstract class AbstractJdbcTemplateTCK extends AbstractComponentTCK {
 
 	@Test
 	void testBatchUpdate() {
-		List<Object[]> batchArgs = List.of(
-				new Object[]{1, "Alice"},
-				new Object[]{2, "Bob"},
+		List<Object[]> batchArgs = List.of(new Object[]{1, "Alice"}, new Object[]{2, "Bob"},
 				new Object[]{3, "Charlie"});
 
 		int[] results = jdbcTemplate.batchUpdate("INSERT INTO users (id, name) VALUES (?, ?)", batchArgs);

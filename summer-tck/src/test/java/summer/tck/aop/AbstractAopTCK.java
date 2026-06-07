@@ -10,7 +10,8 @@ import summer.tck.aop.dummy.RecordingInterceptor;
 /**
  * Abstract AOP Test Compatibility Kit.
  *
- * <p>Defines the behavioral contract that BOTH the Runtime and AOT engines must
+ * <p>
+ * Defines the behavioral contract that BOTH the Runtime and AOT engines must
  * satisfy for AOP interception. Any engine that passes all tests here is
  * considered AOP-compliant.
  */

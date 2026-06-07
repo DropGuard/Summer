@@ -17,8 +17,11 @@ import summer.tck.AbstractTCK;
  * without requiring an actual gRPC server.
  * </p>
  *
- * <p>Note: This TCK uses a parameterized context factory ({@code createContext(Class<?>...)})
- * because gRPC tests need to specify which configuration classes to register.</p>
+ * <p>
+ * Note: This TCK uses a parameterized context factory
+ * ({@code createContext(Class<?>...)}) because gRPC tests need to specify which
+ * configuration classes to register.
+ * </p>
  */
 public abstract class AbstractGrpcTCK extends AbstractTCK {
 
@@ -27,7 +30,9 @@ public abstract class AbstractGrpcTCK extends AbstractTCK {
 	/**
 	 * Create context with specified configuration classes.
 	 *
-	 * <p>Implementations typically call:
+	 * <p>
+	 * Implementations typically call:
+	 * 
 	 * <pre>
 	 * return RuntimeApplicationContext.create(components);
 	 * </pre>

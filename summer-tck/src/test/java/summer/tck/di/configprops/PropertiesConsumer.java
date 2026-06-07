@@ -3,7 +3,8 @@ package summer.tck.di.configprops;
 import summer.core.Component;
 
 /**
- * Test fixture: a @Component that directly depends on auto-bound config properties.
+ * Test fixture: a @Component that directly depends on auto-bound config
+ * properties.
  */
 @Component
 public class PropertiesConsumer {

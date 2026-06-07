@@ -71,7 +71,8 @@ public class SummerRedisTemplateIT {
 
 		// When
 		template.set("test:roles", roles);
-		List<String> result = template.get("test:roles", new TypeReference<List<String>>() {});
+		List<String> result = template.get("test:roles", new TypeReference<List<String>>() {
+		});
 
 		// Then
 		assertNotNull(result);
@@ -174,10 +175,7 @@ public class SummerRedisTemplateIT {
 	@Test
 	void testComplexObjectWithNestedTypes() {
 		// Given
-		UserWithMetadata user = new UserWithMetadata(
-				1L,
-				"gemini",
-				List.of("admin", "user"),
+		UserWithMetadata user = new UserWithMetadata(1L, "gemini", List.of("admin", "user"),
 				LocalDateTime.of(2024, 1, 15, 10, 30));
 
 		// When
@@ -195,10 +193,7 @@ public class SummerRedisTemplateIT {
 	@Test
 	void testMapType() {
 		// Given
-		var userData = java.util.Map.of(
-				"id", 1,
-				"name", "gemini",
-				"active", true);
+		var userData = java.util.Map.of("id", 1, "name", "gemini", "active", true);
 
 		// When
 		template.set("test:map", userData);
@@ -213,16 +208,9 @@ public class SummerRedisTemplateIT {
 	}
 
 	// Test DTOs
-	public record UserCacheDTO(
-			Long id,
-			String username,
-			List<String> roles) {
+	public record UserCacheDTO(Long id, String username, List<String> roles) {
 	}
 
-	public record UserWithMetadata(
-			Long id,
-			String username,
-			List<String> roles,
-			LocalDateTime createdAt) {
+	public record UserWithMetadata(Long id, String username, List<String> roles, LocalDateTime createdAt) {
 	}
 }

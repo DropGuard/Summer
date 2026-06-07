@@ -5,7 +5,6 @@ import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.MethodSpec;
-import com.palantir.javapoet.ParameterSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
 import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
@@ -32,7 +31,8 @@ public final class AotProxyGenerator {
 
 	private static final ClassName PROXY_CHAIN = ClassName.get("summer.aop", "ProxyInterceptorChain");
 	private static final ClassName RUNTIME_METADATA = ClassName.get("summer.runtime", "RuntimeMethodMetadata");
-	private static final ClassName INVOCATION_TARGET_EX = ClassName.get("java.lang.reflect", "InvocationTargetException");
+	private static final ClassName INVOCATION_TARGET_EX = ClassName.get("java.lang.reflect",
+			"InvocationTargetException");
 
 	AotProxyGenerator() {
 	}
@@ -108,8 +108,7 @@ public final class AotProxyGenerator {
 	 * Builds a proxy method that delegates through the interceptor chain.
 	 */
 	private MethodSpec buildProxyMethod(MethodInfo method) {
-		MethodSpec.Builder builder = MethodSpec.methodBuilder(method.name())
-				.addAnnotation(Override.class)
+		MethodSpec.Builder builder = MethodSpec.methodBuilder(method.name()).addAnnotation(Override.class)
 				.addModifiers(Modifier.PUBLIC);
 
 		// Return type
@@ -134,18 +133,18 @@ public final class AotProxyGenerator {
 			builder.addException(toTypeName(exception));
 		}
 
-		// Build the getMethod arguments: "methodName", ParamType1.class, ParamType2.class
+		// Build the getMethod arguments: "methodName", ParamType1.class,
+		// ParamType2.class
 		CodeBlock getMethodArgs = buildGetMethodArgs(method);
 
 		// Build the args array: new Object[]{p1, p2}
 		CodeBlock argsArray = buildArgsArray(method, paramNames);
 
-		// Build the lambda body: try { return m.invoke(target, args); } catch (InvocationTargetException e) { throw e.getCause(); }
+		// Build the lambda body: try { return m.invoke(target, args); } catch
+		// (InvocationTargetException e) { throw e.getCause(); }
 		CodeBlock lambda = CodeBlock.of(
-				"() -> {\n"
-				+ "                    try { return m.invoke(target, args); }\n"
-				+ "                    catch ($T e) { throw e.getCause(); }\n"
-				+ "                }",
+				"() -> {\n" + "                    try { return m.invoke(target, args); }\n"
+						+ "                    catch ($T e) { throw e.getCause(); }\n" + "                }",
 				INVOCATION_TARGET_EX);
 
 		// Build the full method body
@@ -153,8 +152,8 @@ public final class AotProxyGenerator {
 		body.beginControlFlow("try");
 		body.addStatement("var m = target.getClass().getMethod($L)", getMethodArgs);
 		body.addStatement("var args = $L", argsArray);
-		body.addStatement("var chain = new $T(target, new $T(m), args, interceptors, $L)",
-				PROXY_CHAIN, RUNTIME_METADATA, lambda);
+		body.addStatement("var chain = new $T(target, new $T(m), args, interceptors, $L)", PROXY_CHAIN,
+				RUNTIME_METADATA, lambda);
 
 		if (returnType.equals(TypeName.VOID)) {
 			body.addStatement("chain.proceed()");
@@ -179,7 +178,8 @@ public final class AotProxyGenerator {
 	}
 
 	/**
-	 * Builds the argument list for Class.getMethod("name", Type1.class, Type2.class).
+	 * Builds the argument list for Class.getMethod("name", Type1.class,
+	 * Type2.class).
 	 */
 	private CodeBlock buildGetMethodArgs(MethodInfo method) {
 		CodeBlock.Builder args = CodeBlock.builder();
@@ -244,8 +244,7 @@ public final class AotProxyGenerator {
 
 	private MethodSpec buildSneakyThrow() {
 		TypeVariableName t = TypeVariableName.get("T", Throwable.class);
-		return MethodSpec.methodBuilder("sneakyThrow")
-				.addModifiers(Modifier.PRIVATE, Modifier.STATIC)
+		return MethodSpec.methodBuilder("sneakyThrow").addModifiers(Modifier.PRIVATE, Modifier.STATIC)
 				.addTypeVariable(t).addException(t).addParameter(Throwable.class, "e").addStatement("throw (T) e")
 				.build();
 	}

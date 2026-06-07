@@ -10,5 +10,3 @@ public class RuntimeCircularDependencyTest extends AbstractCircularDependencyTCK
 		RuntimeApplicationContext.create(CircularA.class);
 	}
 }
-
-

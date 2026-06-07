@@ -14,5 +14,3 @@ public class RuntimeInterfaceInheritanceTest extends AbstractInterfaceInheritanc
 		return RuntimeApplicationContext.create(ServiceImpl.class);
 	}
 }
-
-

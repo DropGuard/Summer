@@ -34,10 +34,7 @@ public class SummerRedisTemplateTest {
 	@Test
 	void testGetWithClassType() {
 		// Given
-		Map<String, Object> userData = Map.of(
-				"id", 1,
-				"username", "gemini",
-				"roles", List.of("admin", "user"));
+		Map<String, Object> userData = Map.of("id", 1, "username", "gemini", "roles", List.of("admin", "user"));
 		when(commands.get("user:1")).thenReturn(userData);
 
 		// When
@@ -57,7 +54,8 @@ public class SummerRedisTemplateTest {
 		when(commands.get("user:1:roles")).thenReturn(roles);
 
 		// When
-		List<String> result = template.get("user:1:roles", new TypeReference<List<String>>() {});
+		List<String> result = template.get("user:1:roles", new TypeReference<List<String>>() {
+		});
 
 		// Then
 		assertNotNull(result);
@@ -181,9 +179,6 @@ public class SummerRedisTemplateTest {
 	}
 
 	// Test DTO
-	public record UserCacheDTO(
-			Long id,
-			String username,
-			List<String> roles) {
+	public record UserCacheDTO(Long id, String username, List<String> roles) {
 	}
 }

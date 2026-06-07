@@ -13,7 +13,8 @@ public class AotJdbcTemplateTest extends AbstractJdbcTemplateTCK {
 
 	@Override
 	protected RowMapperRegistry createRegistry() {
-		// Mirrors what AOT-generated RowMapperConfiguration.rowMapperRegistry() produces
+		// Mirrors what AOT-generated RowMapperConfiguration.rowMapperRegistry()
+		// produces
 		RowMapperRegistry registry = new RowMapperRegistry();
 		registry.register(User.class, new User_RowMapper());
 		return registry;

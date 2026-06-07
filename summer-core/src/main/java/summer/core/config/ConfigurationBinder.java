@@ -122,6 +122,47 @@ public final class ConfigurationBinder {
 	}
 
 	/**
+	 * Loads a YAML resource, extracts a prefix section, normalizes keys, fills
+	 * missing keys from {@code defaults}, and binds to the target type.
+	 *
+	 * <p>
+	 * Used by AOT-generated code to supply {@code @DefaultValue} values without
+	 * runtime reflection.
+	 * </p>
+	 */
+	@SuppressWarnings("unchecked")
+	public static <T> T bindWithDefaults(String classpathResource, Class<T> type, String prefix,
+			java.util.Map<String, Object> defaults) {
+		try (InputStream stream = Thread.currentThread().getContextClassLoader()
+				.getResourceAsStream(classpathResource)) {
+			Map<String, Object> section;
+			if (stream != null) {
+				Map<String, Object> root = YAML_MAPPER.readValue(stream, Map.class);
+				section = root;
+				if (prefix != null && !prefix.isEmpty()) {
+					section = extractSection(root, prefix);
+				}
+				if (section == null) {
+					section = new LinkedHashMap<>();
+				}
+				section = normalizeKeys(section);
+			} else {
+				section = new LinkedHashMap<>();
+			}
+			// Fill missing keys from defaults
+			for (java.util.Map.Entry<String, Object> entry : defaults.entrySet()) {
+				section.putIfAbsent(entry.getKey(), entry.getValue());
+			}
+			return YAML_MAPPER.convertValue(section, type);
+		} catch (ConfigurationException e) {
+			throw e;
+		} catch (Exception e) {
+			throw new ConfigurationException(ErrorCode.CONFIG_PARSE_ERROR,
+					"Failed to bind configuration from '" + classpathResource + "': " + e.getMessage(), e);
+		}
+	}
+
+	/**
 	 * Loads a YAML resource, extracts an optional prefix section, and normalizes
 	 * keys. Does not apply {@link DefaultValue} defaults &mdash; callers that need
 	 * defaults should enrich the map before passing it to

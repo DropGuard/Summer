@@ -15,10 +15,11 @@ import summer.tck.tx.dummy.TxTestConfiguration;
 /**
  * TCK for transaction commit/rollback behavior.
  *
- * <p>Verifies:
+ * <p>
+ * Verifies:
  * <ul>
- *   <li>Transaction commits on successful execution</li>
- *   <li>Transaction rolls back on exception</li>
+ * <li>Transaction commits on successful execution</li>
+ * <li>Transaction rolls back on exception</li>
  * </ul>
  */
 public abstract class AbstractTransactionTCK extends AbstractContextTCK {

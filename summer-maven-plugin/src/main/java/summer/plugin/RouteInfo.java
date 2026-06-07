@@ -6,8 +6,10 @@ import java.util.List;
 /**
  * Route metadata collected at compile time for AOT code generation.
  *
- * <p>Contains all information needed to generate static route registration
- * code without runtime reflection.</p>
+ * <p>
+ * Contains all information needed to generate static route registration code
+ * without runtime reflection.
+ * </p>
  */
 public final class RouteInfo {
 

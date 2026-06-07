@@ -6,22 +6,24 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
+import summer.tck.AbstractComponentTCK;
 import summer.web.WsRouter;
 import summer.web.websocket.WebSocketContext;
-import summer.web.websocket.WebSocketHandler;
-import summer.tck.AbstractComponentTCK;
 
 /**
  * Abstract TCK for WebSocket routing behavior.
  *
- * <p>Tests that both WsRouter implementations (RadixWsRouter, MapWsRouter) handle
+ * <p>
+ * Tests that both WsRouter implementations (RadixWsRouter, MapWsRouter) handle
  * WebSocket route registration, matching, and path parameter extraction
- * consistently.</p>
+ * consistently.
+ * </p>
  */
 public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
 
 	/**
-	 * Subclasses return a builder pre-configured with the specific router implementation.
+	 * Subclasses return a builder pre-configured with the specific router
+	 * implementation.
 	 */
 	protected abstract WsRouter.Builder createBuilder();
 
@@ -29,9 +31,7 @@ public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
 	void testWsRouteExactMatch() {
 		AtomicReference<String> received = new AtomicReference<>();
 
-		WsRouter router = createBuilder()
-				.ws("/chat", ctx -> received.set("connected"))
-				.build();
+		WsRouter router = createBuilder().ws("/chat", ctx -> received.set("connected")).build();
 
 		WsRouter.WsMatch match = router.routeWs("/chat");
 		assertNotNull(match, "Should match exact WebSocket route");
@@ -47,9 +47,7 @@ public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
 	void testWsRouteWithPathParam() {
 		AtomicReference<String> roomRef = new AtomicReference<>();
 
-		WsRouter router = createBuilder()
-				.ws("/chat/{room}", ctx -> roomRef.set(ctx.pathParam("room")))
-				.build();
+		WsRouter router = createBuilder().ws("/chat/{room}", ctx -> roomRef.set(ctx.pathParam("room"))).build();
 
 		WsRouter.WsMatch match = router.routeWs("/chat/general");
 		assertNotNull(match, "Should match WebSocket route with path param");
@@ -64,13 +62,11 @@ public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
 	void testWsRouteWithMultiplePathParams() {
 		AtomicReference<String> resultRef = new AtomicReference<>();
 
-		WsRouter router = createBuilder()
-				.ws("/ws/{tenant}/{channel}", ctx -> {
-					String tenant = ctx.pathParam("tenant");
-					String channel = ctx.pathParam("channel");
-					resultRef.set(tenant + ":" + channel);
-				})
-				.build();
+		WsRouter router = createBuilder().ws("/ws/{tenant}/{channel}", ctx -> {
+			String tenant = ctx.pathParam("tenant");
+			String channel = ctx.pathParam("channel");
+			resultRef.set(tenant + ":" + channel);
+		}).build();
 
 		WsRouter.WsMatch match = router.routeWs("/ws/acme/general");
 		assertNotNull(match, "Should match WebSocket route with multiple params");
@@ -86,9 +82,7 @@ public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
 	void testWsRouteTrailingSlash() {
 		AtomicReference<String> received = new AtomicReference<>();
 
-		WsRouter router = createBuilder()
-				.ws("/chat", ctx -> received.set("connected"))
-				.build();
+		WsRouter router = createBuilder().ws("/chat", ctx -> received.set("connected")).build();
 
 		WsRouter.WsMatch match = router.routeWs("/chat/");
 		assertNotNull(match, "Should match WebSocket route with trailing slash");
@@ -96,9 +90,8 @@ public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
 
 	@Test
 	void testWsRouteNoMatch() {
-		WsRouter router = createBuilder()
-				.ws("/chat", ctx -> {})
-				.build();
+		WsRouter router = createBuilder().ws("/chat", ctx -> {
+		}).build();
 
 		WsRouter.WsMatch match = router.routeWs("/other");
 		assertNull(match, "Should not match unregistered WebSocket route");
@@ -109,10 +102,8 @@ public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
 		AtomicReference<String> chatRef = new AtomicReference<>();
 		AtomicReference<String> notifyRef = new AtomicReference<>();
 
-		WsRouter router = createBuilder()
-				.ws("/chat", ctx -> chatRef.set("chat"))
-				.ws("/notify", ctx -> notifyRef.set("notify"))
-				.build();
+		WsRouter router = createBuilder().ws("/chat", ctx -> chatRef.set("chat"))
+				.ws("/notify", ctx -> notifyRef.set("notify")).build();
 
 		WsRouter.WsMatch chatMatch = router.routeWs("/chat");
 		assertNotNull(chatMatch);
@@ -129,9 +120,7 @@ public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
 	void testWsRouteWithWildcard() {
 		AtomicReference<String> received = new AtomicReference<>();
 
-		WsRouter router = createBuilder()
-				.ws("/ws/**", ctx -> received.set("wildcard"))
-				.build();
+		WsRouter router = createBuilder().ws("/ws/**", ctx -> received.set("wildcard")).build();
 
 		WsRouter.WsMatch match = router.routeWs("/ws/any/path");
 		assertNotNull(match, "Should match wildcard WebSocket route");

@@ -39,9 +39,8 @@ public class RowMapperRegistry {
 	public <T> RowMapper<T> getMapper(Class<T> rowType) {
 		RowMapper<?> mapper = mappers.get(rowType);
 		if (mapper == null) {
-			throw new DataAccessException(
-					"No RowMapper registered for " + rowType.getName()
-							+ ". Ensure the class is annotated with @RowModel and summer-maven-plugin is configured.");
+			throw new DataAccessException("No RowMapper registered for " + rowType.getName()
+					+ ". Ensure the class is annotated with @RowModel and summer-maven-plugin is configured.");
 		}
 		return (RowMapper<T>) mapper;
 	}

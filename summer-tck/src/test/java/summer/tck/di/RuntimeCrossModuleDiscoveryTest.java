@@ -14,5 +14,3 @@ public class RuntimeCrossModuleDiscoveryTest extends AbstractCrossModuleDiscover
 		return RuntimeApplicationContext.create(ServiceA.class);
 	}
 }
-
-

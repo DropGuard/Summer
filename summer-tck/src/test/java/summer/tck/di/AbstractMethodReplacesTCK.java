@@ -25,7 +25,6 @@ public abstract class AbstractMethodReplacesTCK extends AbstractContextTCK {
 		ApplicationContext ctx = context();
 		MethodReplacesBean bean = ctx.getBean(MethodReplacesBean.class);
 		assertNotNull(bean, "MethodReplacesBean should be registered");
-		assertEquals("replaced", bean.getValue(),
-				"MethodReplacesReplacementConfig should replace the bean");
+		assertEquals("replaced", bean.getValue(), "MethodReplacesReplacementConfig should replace the bean");
 	}
 }
