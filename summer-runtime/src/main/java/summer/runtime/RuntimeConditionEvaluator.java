@@ -83,6 +83,12 @@ final class RuntimeConditionEvaluator {
 				throw new NoSuchBeanException("@Replaces target not found: " + targetType.getName());
 			}
 			replaced.add(target);
+			// Also remove @Bean methods declared on the replaced class
+			for (Object n : nodes) {
+				if (n instanceof Method m && m.getDeclaringClass() == targetType) {
+					replaced.add(m);
+				}
+			}
 		}
 
 		// 2. Method-level @Replaces (on @Bean methods)

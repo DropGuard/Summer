@@ -1,6 +1,7 @@
 package summer.plugin;
 
 import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.ParameterizedTypeName;
@@ -95,18 +96,28 @@ final class RowMapperGenerator {
 			return;
 		}
 
-		StringBuilder args = new StringBuilder();
-		for (int i = 0; i < components.size(); i++) {
-			if (i > 0)
-				args.append(", ");
-			RecordComponentInfo comp = components.get(i);
-			args.append(mapColumnReader(comp.type(), comp.name()));
+		// Read each column into a named variable
+		for (RecordComponentInfo comp : components) {
+			com.palantir.javapoet.TypeName compType = toTypeName(comp.type());
+			mapRowMethod.addStatement("$T $N = $L", compType, comp.name(),
+					CodeBlock.of(mapColumnReader(comp.type(), comp.name())));
 		}
 
-		mapRowMethod.addStatement("return new $T(" + args + ")", modelClass);
+		// Construct record via Jackson to decouple from Jandex component order
+		mapRowMethod.addStatement("$T values = new $T<>()", java.util.Map.class, java.util.HashMap.class);
+		for (RecordComponentInfo comp : components) {
+			mapRowMethod.addStatement("values.put($S, $N)", comp.name(), comp.name());
+		}
+		mapRowMethod.addStatement("return MAPPER.convertValue(values, $T.class)", modelClass);
+
+		com.palantir.javapoet.FieldSpec mapperField = com.palantir.javapoet.FieldSpec
+				.builder(com.fasterxml.jackson.databind.ObjectMapper.class, "MAPPER",
+						javax.lang.model.element.Modifier.PRIVATE, javax.lang.model.element.Modifier.STATIC,
+						javax.lang.model.element.Modifier.FINAL)
+				.initializer("new $T()", com.fasterxml.jackson.databind.ObjectMapper.class).build();
 
 		TypeSpec mapperClass = TypeSpec.classBuilder(mapperClassName).addModifiers(Modifier.PUBLIC)
-				.addSuperinterface(genericMapper).addMethod(mapRowMethod.build()).build();
+				.addField(mapperField).addSuperinterface(genericMapper).addMethod(mapRowMethod.build()).build();
 
 		JavaFile javaFile = JavaFile.builder(packageName, mapperClass).indent("    ").build();
 
@@ -132,6 +143,11 @@ final class RowMapperGenerator {
 		registerMethod.addStatement("return registry");
 
 		TypeSpec configClass = TypeSpec.classBuilder("RowMapperConfiguration").addAnnotation(CONFIGURATION)
+				.addAnnotation(com.palantir.javapoet.AnnotationSpec
+						.builder(ClassName.get("summer.core.annotation", "Replaces"))
+						.addMember("value", "$T.class",
+								ClassName.get("summer.data.jdbc", "JdbcInfrastructureConfiguration"))
+						.build())
 				.addModifiers(Modifier.PUBLIC).addMethod(registerMethod.build()).build();
 
 		JavaFile javaFile = JavaFile.builder(packageName, configClass)
@@ -149,6 +165,20 @@ final class RowMapperGenerator {
 			case "boolean", "java.lang.Boolean" -> "rs.getBoolean(\"" + name + "\")";
 			case "java.lang.String" -> "rs.getString(\"" + name + "\")";
 			default -> "(" + typeName + ") rs.getObject(\"" + name + "\")";
+		};
+	}
+
+	private static com.palantir.javapoet.TypeName toTypeName(Type type) {
+		return switch (type.name().toString()) {
+			case "int" -> com.palantir.javapoet.TypeName.INT;
+			case "long" -> com.palantir.javapoet.TypeName.LONG;
+			case "double" -> com.palantir.javapoet.TypeName.DOUBLE;
+			case "boolean" -> com.palantir.javapoet.TypeName.BOOLEAN;
+			case "float" -> com.palantir.javapoet.TypeName.FLOAT;
+			case "short" -> com.palantir.javapoet.TypeName.SHORT;
+			case "byte" -> com.palantir.javapoet.TypeName.BYTE;
+			case "char" -> com.palantir.javapoet.TypeName.CHAR;
+			default -> ClassName.bestGuess(type.name().toString());
 		};
 	}
 }

@@ -14,7 +14,7 @@ public interface RowMapper<T> {
 
 	/**
 	 * Map a single row of the ResultSet to a Java object.
-	 * 
+	 *
 	 * @param rs
 	 *            the ResultSet to map (pre-initialized for the current row)
 	 * @param rowNum
