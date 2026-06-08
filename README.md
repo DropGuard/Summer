@@ -47,7 +47,12 @@ Instead of relying on deep container magic, there is no hidden execution layer b
           ↓
 +-------------------+
 |   Persistence     |
-|   Datasource      |
+|  JDBC / Redis     |
++-------------------+
+          ↓
++-------------------+
+|   RPC             |
+|  gRPC / WebSocket |
 +-------------------+
 ```
 
@@ -88,12 +93,18 @@ Summer intentionally enforces strict architectural constraints. If something req
 
 *   Singleton IoC container
 *   Constructor injection (records seamlessly supported)
+*   `@Configuration` + `@Bean` (framework-standard bean registration)
+*   `@ConfigurationProperties` + `@DefaultValue` (type-safe config binding to Java Records)
 *   Interface-based AOP
 *   `@Transactional` (single datasource, REQUIRED only)
 *   Middleware-based HTTP handling (with explicit Annotation Routing)
 *   Basic annotation routing (`@RestController`, `@Get`, `@Post`, `@Put`, `@Delete`)
 *   JSON request/response binding
 *   YAML configuration mapped to Java Records (`application.yml`)
+*   JDBC template with `@RowModel` (record-based row mapping)
+*   Redis client (`@EnableRedis`)
+*   gRPC client & server
+*   WebSocket support
 *   Virtual thread-based HTTP request handling (Project Loom)
 *   Global exception middleware
 *   Optional validation system (`summer-validation-hv`)
