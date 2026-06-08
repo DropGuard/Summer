@@ -126,7 +126,6 @@ public final class BeanDiscovery {
 					}
 					beans.add(factoryBean);
 				} else if (hasReplaces) {
-				} else if (hasReplaces) {
 					// Duplicate return type with @Replaces - replace the existing FACTORY_PRODUCT
 					// in-place
 					// No need to set replacesReturnType: the replacement IS the new provider of
