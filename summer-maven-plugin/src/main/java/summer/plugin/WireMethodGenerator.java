@@ -5,6 +5,8 @@ import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import java.util.ArrayList;
 import java.util.List;
+import org.jboss.jandex.ClassInfo;
+import org.jboss.jandex.DotName;
 
 /**
  * Generates the {@code wire()} method body for {@code GeneratedAotContext}.
@@ -85,6 +87,18 @@ final class WireMethodGenerator {
 			} else {
 				wire.addStatement("$T $N = new $T($L)", beanClass, varName, beanClass, args);
 			}
+
+			// Hardcode: register RowMapper instances into RowMapperRegistry
+			if ("summer.data.jdbc.RowMapperRegistry".equals(bean.qualifiedName)) {
+				DotName rowModelDot = DotName.createSimple("summer.data.jdbc.annotation.RowModel");
+				for (ClassInfo ci : context.index.getKnownClasses()) {
+					if (ci.hasAnnotation(rowModelDot)) {
+						ClassName modelClass = ClassName.bestGuess(ci.name().toString());
+						ClassName mapperClass = ClassName.bestGuess(ci.name().toString() + "_RowMapper");
+						wire.addStatement("$N.register($T.class, new $T())", varName, modelClass, mapperClass);
+					}
+				}
+			}
 		}
 	}
 
@@ -150,10 +164,11 @@ final class WireMethodGenerator {
 
 	private void emitConfigPropertiesInstantiation(MethodSpec.Builder wire, BeanDefinition bean, ClassName beanClass,
 			String varName) {
+
+		// @ConfigurationProperties — bind from YAML
 		ClassName binder = ClassName.get("summer.core.config", "ConfigurationBinder");
 		String prefix = bean.configPropertiesPrefix;
 
-		// Read @DefaultValue annotations from the Jandex index
 		List<CodeBlock> defaultEntries = new ArrayList<>();
 		if (context.index != null) {
 			org.jboss.jandex.ClassInfo ci = context.index

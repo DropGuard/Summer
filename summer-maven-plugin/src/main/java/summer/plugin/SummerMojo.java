@@ -55,29 +55,35 @@ public class SummerMojo extends AbstractMojo {
 			}
 			getLog().info("[Summer] Loaded Jandex index with " + index.getKnownClasses().size() + " classes");
 
-			// 2. Discover beans from the index
+			// 2. Generate RowMapper classes (must happen before BeanDiscovery
+			// so the generated RowMapperConfiguration is in the index)
+			File generatedDir = new File(project.getBasedir(), "target/generated-sources/aot");
+			generatedDir.mkdirs();
+			new RowMapperGenerator().generate(index, generatedDir);
+
+			// 3. Compile generated sources and re-index
+			compileGeneratedSources(generatedDir);
+			index = reloadIndex(index, generatedDir);
+
+			// 4. Discover beans from the index (now includes RowMapperConfiguration)
 			List<BeanDefinition> beans = BeanDiscovery.discoverBeans(index, null);
 			getLog().info("[Summer] Discovered " + beans.size() + BEANS_SUFFIX);
 
-			// 3. Evaluate @ConditionalOnBean conditions
+			// 5. Evaluate @ConditionalOnBean conditions
 			new ConditionalEvaluator(index).evaluate(beans);
 			getLog().info("[Summer] After conditional evaluation: " + beans.size() + BEANS_SUFFIX);
 
-			// 4. Resolve dependencies
+			// 6. Resolve dependencies
 			DependencyResolver resolver = new DependencyResolver();
 			List<BeanDefinition> sorted = resolver.resolve(beans);
 			getLog().info("[Summer] Resolved dependencies for " + sorted.size() + BEANS_SUFFIX);
 
-			// 5. Generate AOT code
-			File generatedDir = new File(project.getBasedir(), "target/generated-sources/aot");
-			generatedDir.mkdirs();
-
+			// 7. Generate AOT context and proxies
 			new AotContextGenerator().generate(sorted, generatedDir, index);
 			new AotProxyGenerator().generate(sorted, index, generatedDir);
 			new RouteAdapterGenerator().generate(sorted, generatedDir);
-			new RowMapperGenerator().generate(index, generatedDir);
 
-			// 6. Compile generated sources
+			// 8. Compile all generated sources
 			compileGeneratedSources(generatedDir);
 
 			getLog().info("[Summer] AOT code generation complete");
@@ -148,6 +154,48 @@ public class SummerMojo extends AbstractMojo {
 				result.add(f);
 			}
 		}
+	}
+
+	/**
+	 * Re-indexes compiled classes from the generated sources directory and merges
+	 * with the existing index so that newly generated classes (e.g.
+	 * RowMapperConfiguration) are visible to BeanDiscovery.
+	 */
+	private CompositeIndex reloadIndex(CompositeIndex existing, File generatedDir) throws IOException {
+		File compileOutputDir = new File(project.getBuild().getDirectory(), "classes");
+		org.jboss.jandex.Indexer indexer = new org.jboss.jandex.Indexer();
+		int count = 0;
+		if (compileOutputDir.isDirectory()) {
+			for (File classFile : collectClassFiles(compileOutputDir)) {
+				try (java.io.InputStream is = new java.io.FileInputStream(classFile)) {
+					indexer.index(is);
+					count++;
+				}
+			}
+		}
+		if (count == 0) {
+			return existing;
+		}
+		getLog().info("[Summer] Re-indexed " + count + " compiled class(es)");
+		List<IndexView> all = new ArrayList<>();
+		all.add(existing);
+		all.add(indexer.complete());
+		return CompositeIndex.create(all);
+	}
+
+	private java.util.List<File> collectClassFiles(File dir) {
+		java.util.List<File> result = new java.util.ArrayList<>();
+		File[] files = dir.listFiles();
+		if (files == null)
+			return result;
+		for (File f : files) {
+			if (f.isDirectory()) {
+				result.addAll(collectClassFiles(f));
+			} else if (f.getName().endsWith(".class")) {
+				result.add(f);
+			}
+		}
+		return result;
 	}
 
 	/**

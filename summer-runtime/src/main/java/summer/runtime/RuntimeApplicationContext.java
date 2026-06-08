@@ -76,7 +76,6 @@ public class RuntimeApplicationContext implements ApplicationContext {
 	public void initializeBeans() {
 		beanFactory = new RuntimeBeanFactory(singletons, closeables, dependencyGraph, this);
 
-		// 0. Bind @ConfigurationProperties records from YAML
 		bindConfigurationProperties();
 
 		Set<Object> allNodes = new HashSet<>(componentScanner.getComponentClasses());
@@ -152,8 +151,6 @@ public class RuntimeApplicationContext implements ApplicationContext {
 			log.debug("[Summer] Bound @ConfigurationProperties: {} (prefix='{}')", configClass.getSimpleName(), prefix);
 		}
 	}
-
-	@Override
 	@SuppressWarnings("unchecked")
 	public <T> T getBean(Class<T> type) {
 		Object instance = singletons.get(type);

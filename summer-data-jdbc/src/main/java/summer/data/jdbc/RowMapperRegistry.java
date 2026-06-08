@@ -5,13 +5,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import summer.core.exception.DataAccessException;
 
 /**
- * Registry for pre-compiled RowMapper instances.
- *
- * <p>
- * This is a framework infrastructure bean provided by
- * {@code JdbcInfrastructureConfiguration}. RowMapper implementations are
- * registered explicitly by AOT-generated configuration classes.
- * </p>
+ * Registry for RowMapper instances. Provided by a {@code @Configuration} class
+ * in each DI engine: Runtime registers {@code ReflectionRowMapper} instances;
+ * AOT registers generated {@code _RowMapper} instances.
  */
 public class RowMapperRegistry {
 

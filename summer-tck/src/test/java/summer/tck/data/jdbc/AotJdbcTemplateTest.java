@@ -5,9 +5,9 @@ import summer.fixtures.data.jdbc.User;
 import summer.fixtures.data.jdbc.User_RowMapper;
 
 /**
- * AOT JdbcTemplate TCK test. Simulates the RowMapperRegistry produced by
- * AOT-generated {@code RowMapperConfiguration}: mappers registered at
- * construction time, no reflection fallback.
+ * AOT engine JdbcTemplate TCK. Simulates the RowMapperRegistry produced by
+ * AOT-generated {@code RowMapperConfiguration}: mappers registered via
+ * compile-time generated code.
  */
 public class AotJdbcTemplateTest extends AbstractJdbcTemplateTCK {
 

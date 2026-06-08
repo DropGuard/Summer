@@ -92,7 +92,6 @@ public abstract class AbstractReplacesTCK extends AbstractContextTCK {
 		// If not, we'd get AmbiguousBeanException (two ServiceBean beans).
 		ServiceBean bean = context().getBean(ServiceBean.class);
 		assertNotNull(bean);
-		assertEquals("replacement", bean.source(),
-				"ReplacementBeanConfig's @Bean should produce the ServiceBean");
+		assertEquals("replacement", bean.source(), "ReplacementBeanConfig's @Bean should produce the ServiceBean");
 	}
 }

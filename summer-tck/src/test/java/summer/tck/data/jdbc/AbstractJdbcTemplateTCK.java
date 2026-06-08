@@ -16,9 +16,9 @@ import summer.tck.AbstractComponentTCK;
  * TCK for JdbcTemplate CRUD operations.
  *
  * <p>
- * Subclasses provide a {@link RowMapperRegistry} via {@link #createRegistry()}
- * — Runtime runners register mappers manually, AOT runners use generated
- * {@code RowMapperConfiguration}.
+ * Both DI engines use the same generated {@code RowMapperConfiguration} to
+ * provide {@link RowMapperRegistry}. Subclasses simulate each engine's
+ * instantiation path: Runtime via reflection, AOT via generated code.
  * </p>
  */
 public abstract class AbstractJdbcTemplateTCK extends AbstractComponentTCK {
