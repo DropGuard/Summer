@@ -20,9 +20,7 @@ Duplicate else-if branch makes `@Replaces` replacement for duplicate `@Bean` ret
 
 **File:** `summer-tx/src/main/java/summer/tx/TransactionInterceptor.java`
 
-`handleTransactional()` accepts a `propagation` parameter but never uses it. Both REQUIRED and REQUIRES_NEW always call `begin()`. Nested `@Transactional(REQUIRES_NEW)` will not suspend the outer transaction — it either throws (if begin() rejects nesting) or silently misbehaves.
-
-**Status:** TODO
+**Status:** BY DESIGN — complex propagation (REQUIRES_NEW, nested REQUIRED) intentionally unsupported. JDK dynamic proxy does not intercept `this.inner()` calls, so same-bean nesting does not trigger the interceptor. Cross-bean nesting is an unsupported use case per design principle "REQUIRED only".
 
 ---
 
@@ -30,9 +28,10 @@ Duplicate else-if branch makes `@Replaces` replacement for duplicate `@Bean` ret
 
 **File:** `summer-tx/src/main/java/summer/tx/SimpleJdbcTransactionManager.java`
 
-`begin()` always throws on nested calls. REQUIRED propagation on a method that calls another `@Transactional` method will fail. No suspend/resume mechanism exists to support REQUIRES_NEW.
+`begin()` always throws on nested calls. No suspend/resume mechanism exists to support REQUIRES_NEW.
 
-**Status:** TODO
+**Status:** BY DESIGN — see C2. REQUIRES_NEW is defined in `TransactionPropagation` enum but intentionally unsupported.
+
 
 ---
 
