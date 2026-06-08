@@ -123,16 +123,6 @@ public final class AotContextGenerator {
 				.build();
 	}
 
-	private MethodSpec buildContainsBean() {
-		return MethodSpec.methodBuilder("containsBean").addAnnotation(Override.class)
-				.addModifiers(javax.lang.model.element.Modifier.PUBLIC).returns(boolean.class)
-				.addParameter(
-						ParameterizedTypeName.get(ClassName.get(Class.class), WildcardTypeName.subtypeOf(Object.class)),
-						"type")
-				.addStatement(
-						"return singletons.containsKey(type) || singletons.values().stream().anyMatch(type::isInstance)")
-				.build();
-	}
 
 	private MethodSpec buildGetRegisteredTypes() {
 		ParameterizedTypeName returnType = ParameterizedTypeName.get(ClassName.get(Set.class),
