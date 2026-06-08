@@ -136,8 +136,7 @@ public class SummerRedisTemplate {
 	 *            the time-to-live duration
 	 */
 	public void set(String key, Object value, java.time.Duration ttl) {
-		commands.set(key, value);
-		commands.expire(key, ttl.getSeconds());
+		commands.setex(key, ttl.getSeconds(), value);
 	}
 
 	/**
