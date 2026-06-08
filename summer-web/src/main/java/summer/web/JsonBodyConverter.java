@@ -34,7 +34,6 @@ public class JsonBodyConverter implements BodyConverter {
 			javaTimeModule.addSerializer(java.time.ZonedDateTime.class,
 					new ZonedDateTimeSerializer(DateTimeFormatter.ISO_ZONED_DATE_TIME));
 			m.registerModule(javaTimeModule);
-			m.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
 			m.setSerializationInclusion(JsonInclude.Include.ALWAYS);
 		});

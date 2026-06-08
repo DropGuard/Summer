@@ -210,13 +210,6 @@ public class DependencyGraph {
 	}
 
 	/**
-	 * Gets the dependency graph.
-	 */
-	public Map<Object, Set<Object>> getGraph() {
-		return graph;
-	}
-
-	/**
 	 * Gets the constructor for a given class.
 	 */
 	public Constructor<?> getConstructorForClass(Class<?> clazz) {

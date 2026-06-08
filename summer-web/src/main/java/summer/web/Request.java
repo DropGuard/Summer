@@ -145,7 +145,6 @@ public class Request {
 		}
 		return params;
 	}
-
 	public String getQueryParameter(String name) {
 		return getQueryParameters().get(name);
 	}

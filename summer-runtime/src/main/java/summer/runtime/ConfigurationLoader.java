@@ -128,17 +128,6 @@ public class ConfigurationLoader {
 	}
 
 	private static Object parseDefaultValue(String value, Class<?> targetType) {
-		if (targetType == String.class)
-			return value;
-		if (targetType == Integer.class)
-			return Integer.parseInt(value);
-		if (targetType == Long.class)
-			return Long.parseLong(value);
-		if (targetType == Boolean.class)
-			return Boolean.parseBoolean(value);
-		if (targetType == Double.class)
-			return Double.parseDouble(value);
-		throw new ConfigurationException(ErrorCode.CONFIG_PARSE_ERROR,
-				"Unsupported type for @DefaultValue: " + targetType.getName());
+		return TypeConverter.convert(value, targetType);
 	}
 }

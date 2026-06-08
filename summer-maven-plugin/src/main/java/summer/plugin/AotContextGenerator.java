@@ -123,7 +123,6 @@ public final class AotContextGenerator {
 				.build();
 	}
 
-
 	private MethodSpec buildGetRegisteredTypes() {
 		ParameterizedTypeName returnType = ParameterizedTypeName.get(ClassName.get(Set.class),
 				ParameterizedTypeName.get(ClassName.get(Class.class), WildcardTypeName.subtypeOf(Object.class)));

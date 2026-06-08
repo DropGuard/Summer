@@ -45,7 +45,7 @@ public class ReflectionParameterResolver implements HttpParameterResolver {
 		// @QueryParam binding
 		if (parameter.isAnnotationPresent(QueryParam.class)) {
 			String value = ctx.request().queryParam(parameter.getAnnotation(QueryParam.class).value());
-			return convertValue(value, type);
+			return TypeConverter.convert(value, type);
 		}
 
 		// Exception injection (for @ExceptionHandler)
@@ -56,45 +56,4 @@ public class ReflectionParameterResolver implements HttpParameterResolver {
 		return null;
 	}
 
-	/**
-	 * Converts a string value to the target type.
-	 */
-	private Object convertValue(String value, Class<?> targetType) {
-		if (value == null) {
-			return defaultValue(targetType);
-		}
-
-		if (targetType == String.class) {
-			return value;
-		} else if (targetType == int.class || targetType == Integer.class) {
-			return Integer.parseInt(value);
-		} else if (targetType == long.class || targetType == Long.class) {
-			return Long.parseLong(value);
-		} else if (targetType == boolean.class || targetType == Boolean.class) {
-			return Boolean.parseBoolean(value);
-		} else if (targetType == double.class || targetType == Double.class) {
-			return Double.parseDouble(value);
-		} else if (targetType == float.class || targetType == Float.class) {
-			return Float.parseFloat(value);
-		}
-
-		return value;
-	}
-
-	/**
-	 * Returns the default value for primitive types.
-	 */
-	private Object defaultValue(Class<?> targetType) {
-		if (targetType == int.class)
-			return 0;
-		if (targetType == long.class)
-			return 0L;
-		if (targetType == boolean.class)
-			return false;
-		if (targetType == double.class)
-			return 0.0;
-		if (targetType == float.class)
-			return 0.0f;
-		return null;
-	}
 }

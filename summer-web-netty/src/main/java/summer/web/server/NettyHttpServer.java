@@ -15,6 +15,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import summer.core.ApplicationContext;
+import summer.core.exception.NoSuchBeanException;
 import summer.web.BodyConverter;
 import summer.web.HttpRouter;
 import summer.web.JsonBodyConverter;
@@ -84,7 +85,7 @@ public class NettyHttpServer {
 	private static <T> T findOptionalBean(ApplicationContext context, Class<T> type) {
 		try {
 			return context.getBean(type);
-		} catch (Exception e) {
+		} catch (NoSuchBeanException e) {
 			return null;
 		}
 	}
