@@ -3,9 +3,10 @@ package summer.tck.aop;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
+import summer.fixtures.aop.ClassLevelGreeter;
+import summer.fixtures.aop.Greeter;
+import summer.fixtures.aop.RecordingInterceptor;
 import summer.tck.AbstractContextTCK;
-import summer.tck.aop.dummy.Greeter;
-import summer.tck.aop.dummy.RecordingInterceptor;
 
 /**
  * Abstract AOP Test Compatibility Kit.
@@ -47,7 +48,7 @@ public abstract class AbstractAopTCK extends AbstractContextTCK {
 	@Test
 	void testBeanIsProxy() {
 		Greeter greeter = context().getBean(Greeter.class);
-		assertNotEquals(summer.tck.aop.dummy.GreeterService.class, greeter.getClass(),
+		assertNotEquals(summer.fixtures.aop.GreeterService.class, greeter.getClass(),
 				"The bean returned from context must be a proxy, not the raw GreeterService");
 		assertInstanceOf(Greeter.class, greeter);
 	}
@@ -61,13 +62,28 @@ public abstract class AbstractAopTCK extends AbstractContextTCK {
 		RecordingInterceptor interceptor = context().getBean(RecordingInterceptor.class);
 		interceptor.clearLog();
 
-		summer.tck.aop.dummy.GreeterService raw = context().getBean(summer.tck.aop.dummy.GreeterService.class);
-		assertEquals(summer.tck.aop.dummy.GreeterService.class, raw.getClass(),
+		summer.fixtures.aop.GreeterService raw = context().getBean(summer.fixtures.aop.GreeterService.class);
+		assertEquals(summer.fixtures.aop.GreeterService.class, raw.getClass(),
 				"getBean(ConcreteClass.class) must return the raw instance, not a JDK proxy");
 
 		String result = raw.greet("Charlie");
 		assertEquals("Hello, Charlie", result, "greet() on raw instance must NOT be intercepted");
 		assertTrue(interceptor.getCallLog().isEmpty(),
 				"Interceptor must not fire when method is called on the raw instance");
+	}
+
+	// -----------------------------------------------------------------------
+	// Class-level @Logged binding: ALL methods should be intercepted
+	// -----------------------------------------------------------------------
+
+	@Test
+	void testClassLevelBindingInterceptsAllMethods() {
+		ClassLevelGreeter greeter = context().getBean(ClassLevelGreeter.class);
+		// Both greet() and shout() should be intercepted because @Logged is on the
+		// class
+		assertEquals("[intercepted] Hello, Alice", greeter.greet("Alice"),
+				"Class-level @Logged must intercept greet()");
+		assertEquals("[intercepted] HELLO", greeter.shout("hello"),
+				"Class-level @Logged must intercept shout() even without method-level annotation");
 	}
 }

@@ -1,5 +1,6 @@
 package summer.tx;
 
+import summer.aop.Interceptor;
 import summer.aop.InterceptorChain;
 import summer.aop.MethodInterceptor;
 import summer.core.annotation.ConditionalOnBean;
@@ -17,6 +18,7 @@ import summer.core.annotation.ConditionalOnBean;
  * {@link TxInfrastructureConfiguration}.
  * </p>
  */
+@Interceptor
 @ConditionalOnBean(TransactionManager.class)
 @Transactional
 public class TransactionInterceptor implements MethodInterceptor {

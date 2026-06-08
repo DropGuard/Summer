@@ -5,8 +5,6 @@ import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import java.util.ArrayList;
 import java.util.List;
-import org.jboss.jandex.ClassInfo;
-import org.jboss.jandex.DotName;
 
 /**
  * Generates the {@code wire()} method body for {@code GeneratedAotContext}.
@@ -33,76 +31,73 @@ final class WireMethodGenerator {
 				wire.addCode("\n");
 			}
 
-			switch (bean.kind) {
-				case COMPONENT, CONFIGURATION -> emitComponentInstantiation(wire, bean, beanClass, varName);
-				case FACTORY_PRODUCT -> emitFactoryProductInstantiation(wire, bean, varName);
-				case CONFIG_PROPERTIES -> emitConfigPropertiesInstantiation(wire, bean, beanClass, varName);
+			if (bean instanceof ComponentBean cb) {
+				emitComponentInstantiation(wire, cb, beanClass, varName);
+			} else if (bean instanceof FactoryBean fb) {
+				emitFactoryProductInstantiation(wire, fb, varName);
+			} else if (bean instanceof ConfigPropertiesBean cpb) {
+				emitConfigPropertiesInstantiation(wire, cpb, beanClass, varName);
 			}
 
-			if (bean.needsProxy) {
-				wire.addStatement("singletons.put($T.class, $N)", beanClass, varName + "_impl");
+			if (bean instanceof ComponentBean cb) {
+				if (cb.needsProxy) {
+					wire.addStatement("singletons.put($T.class, $N)", beanClass, varName + "_impl");
+				} else {
+					wire.addStatement("singletons.put($T.class, $N)", beanClass, varName);
+				}
+				for (String iface : cb.interfaceNames) {
+					wire.addStatement("singletons.putIfAbsent($T.class, $N)", context.parseTypeName(iface), varName);
+				}
+				if (cb.isAutoCloseable) {
+					wire.addStatement("closeables.add($N)", varName);
+				}
 			} else {
 				wire.addStatement("singletons.put($T.class, $N)", beanClass, varName);
-			}
-			for (String iface : bean.interfaceNames) {
-				wire.addStatement("singletons.putIfAbsent($T.class, $N)", context.parseTypeName(iface), varName);
-			}
-
-			if (bean.isAutoCloseable) {
-				wire.addStatement("closeables.add($N)", varName);
 			}
 		}
 	}
 
 	private void emitComponentInstantiation(MethodSpec.Builder wire, BeanDefinition bean, ClassName beanClass,
 			String varName) {
-		CodeBlock args = buildConstructorArgs(bean);
+		if (bean instanceof ComponentBean cb) {
+			CodeBlock args = buildConstructorArgs(cb);
+			if (cb.needsProxy) {
+				String implVar = varName + "_impl";
+				if (cb.constructorParamTypes.isEmpty()) {
+					wire.addStatement("$T $N = new $T()", beanClass, implVar, beanClass);
+				} else {
+					wire.addStatement("$T $N = new $T($L)", beanClass, implVar, beanClass, args);
+				}
 
-		if (bean.needsProxy) {
-			String implVar = varName + "_impl";
-			if (bean.constructorParamTypes.isEmpty()) {
-				wire.addStatement("$T $N = new $T()", beanClass, implVar, beanClass);
+				String interceptorsListVar = varName + "_interceptors";
+				wire.addStatement("$T<$T> $N = new $T<>()", ClassName.get(List.class),
+						ClassName.get("summer.aop", "MethodInterceptor"), interceptorsListVar,
+						ClassName.get(ArrayList.class));
+
+				for (BeanDefinition interceptor : cb.interceptors) {
+					wire.addStatement("$N.add($N)", interceptorsListVar, interceptor.variableName);
+				}
+
+				com.palantir.javapoet.TypeName proxyType = cb.interfaceNames.isEmpty()
+						? beanClass
+						: ClassName.bestGuess(cb.interfaceNames.get(0));
+				ClassName proxyClass = ClassName.get(beanClass.packageName(), beanClass.simpleName() + "$$AotProxy");
+				wire.addStatement("$T $N = new $T($N, $N)", proxyType, varName, proxyClass, implVar,
+						interceptorsListVar);
 			} else {
-				wire.addStatement("$T $N = new $T($L)", beanClass, implVar, beanClass, args);
-			}
-
-			String interceptorsListVar = varName + "_interceptors";
-			wire.addStatement("$T<$T> $N = new $T<>()", ClassName.get(List.class),
-					ClassName.get("summer.aop", "MethodInterceptor"), interceptorsListVar,
-					ClassName.get(ArrayList.class));
-
-			for (BeanDefinition interceptor : bean.interceptors) {
-				wire.beginControlFlow("if ($N.supports($T.class))", interceptor.variableName, beanClass)
-						.addStatement("$N.add($N)", interceptorsListVar, interceptor.variableName).endControlFlow();
-			}
-
-			com.palantir.javapoet.TypeName proxyType = bean.interfaceNames.isEmpty()
-					? beanClass
-					: ClassName.bestGuess(bean.interfaceNames.get(0));
-			ClassName proxyClass = ClassName.get(beanClass.packageName(), beanClass.simpleName() + "$$AotProxy");
-			wire.addStatement("$T $N = new $T($N, $N)", proxyType, varName, proxyClass, implVar, interceptorsListVar);
-		} else {
-			if (bean.constructorParamTypes.isEmpty()) {
-				wire.addStatement("$T $N = new $T()", beanClass, varName, beanClass);
-			} else {
-				wire.addStatement("$T $N = new $T($L)", beanClass, varName, beanClass, args);
-			}
-
-			// Hardcode: register RowMapper instances into RowMapperRegistry
-			if ("summer.data.jdbc.RowMapperRegistry".equals(bean.qualifiedName)) {
-				DotName rowModelDot = DotName.createSimple("summer.data.jdbc.annotation.RowModel");
-				for (ClassInfo ci : context.index.getKnownClasses()) {
-					if (ci.hasAnnotation(rowModelDot)) {
-						ClassName modelClass = ClassName.bestGuess(ci.name().toString());
-						ClassName mapperClass = ClassName.bestGuess(ci.name().toString() + "_RowMapper");
-						wire.addStatement("$N.register($T.class, new $T())", varName, modelClass, mapperClass);
-					}
+				if (cb.constructorParamTypes.isEmpty()) {
+					wire.addStatement("$T $N = new $T()", beanClass, varName, beanClass);
+				} else {
+					wire.addStatement("$T $N = new $T($L)", beanClass, varName, beanClass, args);
 				}
 			}
+		} else {
+			// No constructor params — no-arg constructor
+			wire.addStatement("$T $N = new $T()", beanClass, varName, beanClass);
 		}
 	}
 
-	private CodeBlock buildConstructorArgs(BeanDefinition bean) {
+	private CodeBlock buildConstructorArgs(ComponentBean bean) {
 		CodeBlock.Builder args = CodeBlock.builder();
 		int depIdx = 0;
 		List<String> paramTypes = bean.constructorParamTypes;
@@ -117,7 +112,8 @@ final class WireMethodGenerator {
 				CodeBlock listExpr = buildListExpression(bean, elementType);
 				args.add(listExpr);
 				long consumed = bean.resolvedDependencies.stream().skip(depIdx)
-						.filter(d -> d.qualifiedName.equals(elementType) || d.interfaceNames.contains(elementType))
+						.filter(d -> d.qualifiedName.equals(elementType)
+								|| (d instanceof ComponentBean cb && cb.interfaceNames.contains(elementType)))
 						.count();
 				depIdx += (int) consumed;
 			} else {
@@ -132,9 +128,11 @@ final class WireMethodGenerator {
 		return args.build();
 	}
 
-	private CodeBlock buildListExpression(BeanDefinition bean, String elementType) {
+	private CodeBlock buildListExpression(ComponentBean bean, String elementType) {
 		List<BeanDefinition> listDeps = bean.resolvedDependencies.stream()
-				.filter(d -> d.qualifiedName.equals(elementType) || d.interfaceNames.contains(elementType)).toList();
+				.filter(d -> d.qualifiedName.equals(elementType)
+						|| (d instanceof ComponentBean cb && cb.interfaceNames.contains(elementType)))
+				.toList();
 		if (listDeps.isEmpty()) {
 			return CodeBlock.of("java.util.List.of()");
 		}
@@ -149,7 +147,7 @@ final class WireMethodGenerator {
 		return cb.build();
 	}
 
-	private void emitFactoryProductInstantiation(MethodSpec.Builder wire, BeanDefinition bean, String varName) {
+	private void emitFactoryProductInstantiation(MethodSpec.Builder wire, FactoryBean bean, String varName) {
 		ClassName producedClass = ClassName.bestGuess(bean.qualifiedName);
 		String configVar = bean.configBeanDefinition.variableName;
 		String methodName = bean.producerMethodName;
@@ -162,8 +160,8 @@ final class WireMethodGenerator {
 		}
 	}
 
-	private void emitConfigPropertiesInstantiation(MethodSpec.Builder wire, BeanDefinition bean, ClassName beanClass,
-			String varName) {
+	private void emitConfigPropertiesInstantiation(MethodSpec.Builder wire, ConfigPropertiesBean bean,
+			ClassName beanClass, String varName) {
 
 		// @ConfigurationProperties — bind from YAML
 		ClassName binder = ClassName.get("summer.core.config", "ConfigurationBinder");

@@ -1,4 +1,9 @@
 app:
   name: summer-tck
   port: 8080
-  debug: true
+  verbose: true
+
+server:
+  tls:
+    enabled: true
+    cert-chain: /path/to/cert.pem

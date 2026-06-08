@@ -9,6 +9,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import summer.core.exception.AmbiguousBeanException;
 import summer.core.exception.CircularDependencyException;
 import summer.core.exception.NoSuchBeanException;
 
@@ -24,8 +25,8 @@ public final class DependencyResolver {
 		}
 
 		for (BeanDefinition bean : beans) {
-			if (bean.kind == BeanDefinition.Kind.FACTORY_PRODUCT) {
-				linkConfigBean(bean, beans);
+			if (bean instanceof FactoryBean fb) {
+				linkConfigBean(fb, beans);
 			}
 		}
 
@@ -37,9 +38,17 @@ public final class DependencyResolver {
 	}
 
 	private void resolveDependencies(BeanDefinition bean, List<BeanDefinition> allBeans) {
-		List<String> paramTypes = bean.kind == BeanDefinition.Kind.FACTORY_PRODUCT
-				? bean.producerParamTypes
-				: bean.constructorParamTypes;
+		List<String> paramTypes;
+		Map<Integer, String> listElementTypes;
+		if (bean instanceof FactoryBean fb) {
+			paramTypes = fb.producerParamTypes;
+			listElementTypes = Map.of();
+		} else if (bean instanceof ComponentBean cb) {
+			paramTypes = cb.constructorParamTypes;
+			listElementTypes = cb.listElementTypes;
+		} else {
+			return;
+		}
 
 		bean.resolvedDependencies.clear();
 		for (int i = 0; i < paramTypes.size(); i++) {
@@ -48,8 +57,8 @@ public final class DependencyResolver {
 				continue;
 
 			// Handle List<T> parameters - collect all beans of type T
-			if (paramType.equals("java.util.List") && bean.listElementTypes.containsKey(i)) {
-				String elementType = bean.listElementTypes.get(i);
+			if (paramType.equals("java.util.List") && listElementTypes.containsKey(i)) {
+				String elementType = listElementTypes.get(i);
 				List<BeanDefinition> matches = findAllBeans(elementType, allBeans);
 				// Add all matches as resolved dependencies (they'll be used to generate a List)
 				bean.resolvedDependencies.addAll(matches);
@@ -68,17 +77,18 @@ public final class DependencyResolver {
 	private List<BeanDefinition> findAllBeans(String paramType, List<BeanDefinition> allBeans) {
 		List<BeanDefinition> matches = new ArrayList<>();
 		for (BeanDefinition candidate : allBeans) {
-			if (candidate.qualifiedName.equals(paramType) || candidate.interfaceNames.contains(paramType)) {
+			if (candidate.qualifiedName.equals(paramType)) {
+				matches.add(candidate);
+			} else if (candidate instanceof ComponentBean cb && cb.interfaceNames.contains(paramType)) {
 				matches.add(candidate);
 			}
 		}
 		return matches;
 	}
 
-	private void linkConfigBean(BeanDefinition factoryProduct, List<BeanDefinition> allBeans) {
+	private void linkConfigBean(FactoryBean factoryProduct, List<BeanDefinition> allBeans) {
 		for (BeanDefinition candidate : allBeans) {
-			if (candidate.kind == BeanDefinition.Kind.CONFIGURATION
-					&& candidate.qualifiedName.equals(factoryProduct.configClassName)) {
+			if (candidate.qualifiedName.equals(factoryProduct.configClassName)) {
 				factoryProduct.configBeanDefinition = candidate;
 				return;
 			}
@@ -95,10 +105,16 @@ public final class DependencyResolver {
 
 		List<BeanDefinition> matches = new ArrayList<>();
 		for (BeanDefinition candidate : allBeans) {
-			if (candidate.interfaceNames.contains(paramType))
+			if (candidate instanceof ComponentBean cb && cb.interfaceNames.contains(paramType))
 				matches.add(candidate);
 		}
-		return matches.size() == 1 ? matches.get(0) : null;
+		if (matches.size() == 1)
+			return matches.get(0);
+		if (matches.size() > 1) {
+			throw new AmbiguousBeanException("Multiple beans found for type: " + paramType + " -> "
+					+ matches.stream().map(b -> b.qualifiedName).toList());
+		}
+		return null;
 	}
 
 	private boolean hasCycle(List<BeanDefinition> beans) {
@@ -128,13 +144,12 @@ public final class DependencyResolver {
 			if (hasCycleDfs(bean.configBeanDefinition, visited, stack))
 				return true;
 		}
-		if (bean.needsProxy) {
-			for (BeanDefinition interceptor : bean.interceptors) {
+		if (bean instanceof ComponentBean cb && cb.needsProxy) {
+			for (BeanDefinition interceptor : cb.interceptors) {
 				if (hasCycleDfs(interceptor, visited, stack))
 					return true;
 			}
 		}
-
 		stack.remove(bean);
 		return false;
 	}
@@ -177,8 +192,8 @@ public final class DependencyResolver {
 			}
 			if (b.configBeanDefinition != null)
 				incoming.get(b).add(b.configBeanDefinition);
-			if (b.needsProxy) {
-				for (BeanDefinition interceptor : b.interceptors)
+			if (b instanceof ComponentBean cb && cb.needsProxy) {
+				for (BeanDefinition interceptor : cb.interceptors)
 					incoming.get(b).add(interceptor);
 			}
 		}

@@ -1,8 +1,8 @@
 package summer.tck.aop;
 
 import summer.core.ApplicationContext;
+import summer.fixtures.aop.GreeterService;
 import summer.runtime.RuntimeApplicationContext;
-import summer.tck.aop.dummy.GreeterService;
 
 /**
  * Runs the full AOP TCK against the Runtime (reflection + JDK proxy) engine.

@@ -10,8 +10,11 @@ import com.palantir.javapoet.TypeName;
 import com.palantir.javapoet.TypeSpec;
 import com.palantir.javapoet.TypeVariableName;
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import javax.lang.model.element.Modifier;
+import org.jboss.jandex.AnnotationInstance;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
@@ -30,7 +33,7 @@ import org.jboss.jandex.MethodParameterInfo;
 public final class AotProxyGenerator {
 
 	private static final ClassName PROXY_CHAIN = ClassName.get("summer.aop", "ProxyInterceptorChain");
-	private static final ClassName RUNTIME_METADATA = ClassName.get("summer.runtime", "RuntimeMethodMetadata");
+	private static final ClassName RUNTIME_METADATA = ClassName.get("summer.aop", "RuntimeMethodMetadata");
 	private static final ClassName INVOCATION_TARGET_EX = ClassName.get("java.lang.reflect",
 			"InvocationTargetException");
 
@@ -48,14 +51,22 @@ public final class AotProxyGenerator {
 	 *            directory to write generated source files
 	 */
 	public void generate(List<BeanDefinition> beans, IndexView index, java.io.File outputDir) throws IOException {
+		// Collect all binding annotations from interceptor beans
+		Set<DotName> allBindingAnnotations = new HashSet<>();
+		for (ClassInfo ci : index.getKnownClasses()) {
+			if (ci.isAnnotation() && ci.hasAnnotation(DotName.createSimple("summer.aop.InterceptorBinding"))) {
+				allBindingAnnotations.add(ci.name());
+			}
+		}
+
 		for (BeanDefinition bean : beans) {
-			if (bean.needsProxy && !bean.interfaceNames.isEmpty()) {
-				generateProxy(bean, index, outputDir);
+			if (bean instanceof ComponentBean cb && cb.needsProxy && !cb.interfaceNames.isEmpty()) {
+				generateProxy(cb, index, outputDir, allBindingAnnotations);
 			}
 		}
 	}
-
-	private void generateProxy(BeanDefinition bean, IndexView index, java.io.File outputDir) throws IOException {
+	private void generateProxy(ComponentBean bean, IndexView index, java.io.File outputDir,
+			Set<DotName> bindingAnnotations) throws IOException {
 		String packageName = getPackageName(bean.qualifiedName);
 		String proxyClassName = bean.simpleName + "$$AotProxy";
 
@@ -84,6 +95,31 @@ public final class AotProxyGenerator {
 				.addStatement("this.target = target").addStatement("this.interceptors = interceptors").build();
 		proxyBuilder.addMethod(constructor);
 
+		// Determine if class-level binding applies (all methods intercepted)
+		ClassInfo targetCi = index.getClassByName(DotName.createSimple(bean.qualifiedName));
+		boolean classLevelBinding = false;
+		if (targetCi != null) {
+			for (AnnotationInstance ann : targetCi.declaredAnnotations()) {
+				if (bindingAnnotations.contains(ann.name())) {
+					classLevelBinding = true;
+					break;
+				}
+			}
+		}
+
+		// Collect method-level binding annotations (for per-method filtering)
+		Set<String> methodLevelBindingMethods = new HashSet<>();
+		if (!classLevelBinding && targetCi != null) {
+			for (MethodInfo method : targetCi.methods()) {
+				for (AnnotationInstance ann : method.annotations()) {
+					if (bindingAnnotations.contains(ann.name())) {
+						methodLevelBindingMethods.add(method.name());
+						break;
+					}
+				}
+			}
+		}
+
 		// Generate proxy methods for each interface
 		for (String ifaceName : bean.interfaceNames) {
 			ClassInfo ifaceCi = index.getClassByName(DotName.createSimple(ifaceName));
@@ -93,7 +129,13 @@ public final class AotProxyGenerator {
 			for (MethodInfo method : ifaceCi.methods()) {
 				if (!method.isAbstract())
 					continue;
-				proxyBuilder.addMethod(buildProxyMethod(method));
+
+				boolean shouldIntercept = classLevelBinding || methodLevelBindingMethods.contains(method.name());
+				if (shouldIntercept) {
+					proxyBuilder.addMethod(buildProxyMethod(method));
+				} else {
+					proxyBuilder.addMethod(buildDirectDelegate(method));
+				}
 			}
 		}
 
@@ -174,6 +216,53 @@ public final class AotProxyGenerator {
 		body.endControlFlow();
 
 		builder.addCode(body.build());
+		return builder.build();
+	}
+
+	/**
+	 * Builds a direct delegate method that bypasses the interceptor chain. Used for
+	 * methods that have no binding annotations.
+	 */
+	private MethodSpec buildDirectDelegate(MethodInfo method) {
+		MethodSpec.Builder builder = MethodSpec.methodBuilder(method.name()).addAnnotation(Override.class)
+				.addModifiers(Modifier.PUBLIC);
+
+		TypeName returnType = toTypeName(method.returnType());
+		builder.returns(returnType);
+
+		// Parameters
+		List<String> paramNames = new java.util.ArrayList<>();
+		int paramIdx = 0;
+		for (MethodParameterInfo param : method.parameters()) {
+			String name = param.name();
+			if (name == null) {
+				name = "arg" + paramIdx;
+			}
+			paramNames.add(name);
+			builder.addParameter(toTypeName(param.type()), name);
+			paramIdx++;
+		}
+
+		// Exceptions
+		for (org.jboss.jandex.Type exception : method.exceptions()) {
+			builder.addException(toTypeName(exception));
+		}
+
+		// Direct delegation: target.method(args)
+		StringBuilder call = new StringBuilder("target.").append(method.name()).append("(");
+		for (int i = 0; i < paramNames.size(); i++) {
+			if (i > 0)
+				call.append(", ");
+			call.append(paramNames.get(i));
+		}
+		call.append(")");
+
+		if (returnType.equals(TypeName.VOID)) {
+			builder.addStatement(call.toString());
+		} else {
+			builder.addStatement("return ($T) " + call.toString(), returnType);
+		}
+
 		return builder.build();
 	}
 

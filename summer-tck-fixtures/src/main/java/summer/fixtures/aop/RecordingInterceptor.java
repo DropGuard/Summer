@@ -1,8 +1,9 @@
-package summer.tck.aop.dummy;
+package summer.fixtures.aop;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import summer.aop.Interceptor;
 import summer.aop.InterceptorChain;
 import summer.aop.MethodInterceptor;
 import summer.core.Component;
@@ -12,10 +13,11 @@ import summer.core.Component;
  * into a log (for order verification). 2. Wraps the return value with
  * "[intercepted] " prefix (for result mutation verification).
  *
- * Bound to methods annotated with {@code @Recorded}.
+ * Bound to methods annotated with {@code @Logged}.
  */
 @Component
-@Recorded
+@Interceptor
+@Logged
 public class RecordingInterceptor implements MethodInterceptor {
 
 	/** Shared call log --tests can inspect this to verify interception happened. */

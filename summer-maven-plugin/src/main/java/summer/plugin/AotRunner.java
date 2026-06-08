@@ -49,7 +49,7 @@ public class AotRunner {
 		log.info("[Summer] Loaded Jandex index with {} classes", index.getKnownClasses().size());
 
 		// 2. Discover beans
-		List<BeanDefinition> beans = BeanDiscovery.discoverBeans(index, null);
+		List<BeanDefinition> beans = new BeanDiscovery(index).discover(null);
 		log.info("[Summer] Discovered {} beans", beans.size());
 
 		// 3. Resolve dependencies

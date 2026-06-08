@@ -20,8 +20,10 @@ import summer.web.HttpContext;
  * <ol>
  * <li>{@link ValidatingParameterResolver} — @Valid annotated parameters</li>
  * <li>{@link PageableResolver} — Pageable parameters</li>
- * <li>{@link ReflectionParameterResolver} — @PathParam, @QueryParam,
- * HttpContext, Request, Throwable</li>
+ * <li>{@link TypeParameterResolver} — HttpContext, Request</li>
+ * <li>{@link PathParamResolver} — @PathParam</li>
+ * <li>{@link QueryParamResolver} — @QueryParam</li>
+ * <li>{@link ThrowableResolver} — Throwable (for @ExceptionHandler)</li>
  * </ol>
  *
  * <p>

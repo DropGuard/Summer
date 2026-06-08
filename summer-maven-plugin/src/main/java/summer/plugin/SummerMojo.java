@@ -65,13 +65,9 @@ public class SummerMojo extends AbstractMojo {
 			compileGeneratedSources(generatedDir);
 			index = reloadIndex(index, generatedDir);
 
-			// 4. Discover beans from the index (now includes RowMapperConfiguration)
-			List<BeanDefinition> beans = BeanDiscovery.discoverBeans(index, null);
+			// 4. Discover beans from the index (includes condition evaluation)
+			List<BeanDefinition> beans = new BeanDiscovery(index).discover(null);
 			getLog().info("[Summer] Discovered " + beans.size() + BEANS_SUFFIX);
-
-			// 5. Evaluate @ConditionalOnBean conditions
-			new ConditionalEvaluator(index).evaluate(beans);
-			getLog().info("[Summer] After conditional evaluation: " + beans.size() + BEANS_SUFFIX);
 
 			// 6. Resolve dependencies
 			DependencyResolver resolver = new DependencyResolver();
@@ -105,6 +101,11 @@ public class SummerMojo extends AbstractMojo {
 
 		getLog().info("[Summer] Compiling " + sourceFiles.size() + " generated source(s)");
 
+		javax.tools.JavaCompiler compiler = javax.tools.ToolProvider.getSystemJavaCompiler();
+		if (compiler == null) {
+			throw new MojoExecutionException("[Summer] No Java compiler available. Ensure a JDK is installed.");
+		}
+
 		// Build classpath from project dependencies
 		java.util.List<String> classpathEntries = new java.util.ArrayList<>();
 		classpathEntries.add(outputDirectory.getAbsolutePath());
@@ -120,27 +121,22 @@ public class SummerMojo extends AbstractMojo {
 		File compileOutputDir = new File(project.getBuild().getDirectory(), "classes");
 		compileOutputDir.mkdirs();
 
-		// Build javac command
-		java.util.List<String> command = new java.util.ArrayList<>();
-		command.add("javac");
-		command.add("-cp");
-		command.add(classpath);
-		command.add("-d");
-		command.add(compileOutputDir.getAbsolutePath());
-		command.add("--release");
-		command.add("25");
-		for (File f : sourceFiles) {
-			command.add(f.getAbsolutePath());
-		}
+		// Collect source file paths
+		java.util.List<String> sourcePaths = sourceFiles.stream().map(File::getAbsolutePath).toList();
 
-		ProcessBuilder pb = new ProcessBuilder(command);
-		pb.inheritIO();
-		Process process = pb.start();
-		int exitCode = process.waitFor();
-		if (exitCode != 0) {
-			throw new MojoExecutionException(
-					"[Summer] Compilation of generated sources failed with exit code " + exitCode);
+		javax.tools.StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
+		Iterable<? extends javax.tools.JavaFileObject> compilationUnits = fileManager
+				.getJavaFileObjectsFromStrings(sourcePaths);
+
+		java.util.List<String> options = java.util.List.of("-cp", classpath, "-d", compileOutputDir.getAbsolutePath());
+
+		javax.tools.JavaCompiler.CompilationTask task = compiler.getTask(null, fileManager, null, options, null,
+				compilationUnits);
+
+		if (!task.call()) {
+			throw new MojoExecutionException("[Summer] Compilation of generated sources failed");
 		}
+		fileManager.close();
 	}
 
 	private void collectJavaFiles(File dir, java.util.List<File> result) {

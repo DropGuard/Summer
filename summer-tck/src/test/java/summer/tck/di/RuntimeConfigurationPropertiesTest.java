@@ -13,4 +13,9 @@ public class RuntimeConfigurationPropertiesTest extends AbstractConfigurationPro
 	protected ApplicationContext createContext() {
 		return RuntimeApplicationContext.create(AppConfig.class);
 	}
+
+	@Override
+	protected ApplicationContext createContext(Class<?> entryPoint) {
+		return RuntimeApplicationContext.create(entryPoint);
+	}
 }

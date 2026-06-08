@@ -1,8 +1,7 @@
-package summer.runtime;
+package summer.aop;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
-import summer.aop.MethodMetadata;
 
 /**
  * A runtime implementation of MethodMetadata that wraps a

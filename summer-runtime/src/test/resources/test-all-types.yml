@@ -1,0 +1,7 @@
+all-types:
+  name: from-yaml
+  defaultedString: overridden
+  intVal: 100
+  longVal: 1234567890123
+  doubleVal: 2.718
+  boolVal: false

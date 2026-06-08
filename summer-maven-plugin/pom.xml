@@ -68,6 +68,14 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- Summer Web (test - for annotation fixtures) -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-web</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Test dependencies -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

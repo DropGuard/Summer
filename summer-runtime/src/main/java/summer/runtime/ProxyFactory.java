@@ -8,6 +8,7 @@ import java.util.List;
 import summer.aop.InterceptorBinding;
 import summer.aop.MethodInterceptor;
 import summer.aop.ProxyInterceptorChain;
+import summer.aop.RuntimeMethodMetadata;
 import summer.aop.SummerAopException;
 import summer.core.ErrorCode;
 
@@ -72,9 +73,15 @@ public class ProxyFactory {
 				Class<?> clazz = interceptor.getClass();
 				while (clazz != null && clazz != Object.class) {
 					for (Annotation ann : clazz.getAnnotations()) {
-						if (ann.annotationType().isAnnotationPresent(InterceptorBinding.class)
-								&& targetMethod.isAnnotationPresent(ann.annotationType())) {
-							return true;
+						if (ann.annotationType().isAnnotationPresent(InterceptorBinding.class)) {
+							// Check class-level binding on the target
+							if (targetMethod.getDeclaringClass().isAnnotationPresent(ann.annotationType())) {
+								return true;
+							}
+							// Check method-level binding
+							if (targetMethod.isAnnotationPresent(ann.annotationType())) {
+								return true;
+							}
 						}
 					}
 					clazz = clazz.getSuperclass();

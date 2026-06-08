@@ -1,4 +1,4 @@
-.PHONY: all clean compile install test test-full run benchmark fmt check pre-commit arch realworld
+.PHONY: all clean compile install test test-module test-full run benchmark fmt check pre-commit arch realworld
 
 
 export MAVEN_OPTS := --sun-misc-unsafe-memory-access=allow
@@ -16,6 +16,16 @@ install:
 
 test:
 	mvn clean test
+
+test-module:
+ifndef MODULE
+	$(error Usage: make test-module MODULE=summer-example [TEST=ClassName])
+endif
+ifdef TEST
+	mvn test -pl $(MODULE) -am -Dtest="$(TEST)" -Dsurefire.useFile=false -Dsurefire.failIfNoSpecifiedTests=false
+else
+	mvn test -pl $(MODULE) -am -Dsurefire.useFile=false
+endif
 
 test-full:
 	mvn clean test

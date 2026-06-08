@@ -3,7 +3,6 @@ package summer.runtime;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -78,7 +77,7 @@ public class RuntimeApplicationContext implements ApplicationContext {
 
 		bindConfigurationProperties();
 
-		Set<Object> allNodes = new HashSet<>(componentScanner.getComponentClasses());
+		Set<Object> allNodes = new java.util.LinkedHashSet<>(componentScanner.getComponentClasses());
 
 		// Include programmatically registered singletons in conditional evaluation
 		allNodes.addAll(singletons.keySet());

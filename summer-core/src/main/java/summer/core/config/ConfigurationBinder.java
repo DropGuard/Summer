@@ -2,7 +2,9 @@ package summer.core.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import summer.core.ErrorCode;
 import summer.core.exception.ConfigurationException;
@@ -21,16 +23,11 @@ import summer.core.json.SummerObjectMapper;
  * <li>Default values when configuration file is not found</li>
  * <li>Relaxed binding (kebab-case, snake_case, SCREAMING_SNAKE_CASE to
  * camelCase)</li>
+ * <li>{@link DefaultValue} processing via
+ * {@link #bindWithDefaults(Map, Class, String)}</li>
  * </ul>
- *
- * <p>
- * {@link DefaultValue} processing is handled by the runtime or AOT engine, not
- * by this class. Use {@link #bind(Map, Class)} when the map has already been
- * enriched with defaults.
- * </p>
  */
 public final class ConfigurationBinder {
-
 	private static final ObjectMapper YAML_MAPPER = SummerObjectMapper.createYaml();
 
 	private ConfigurationBinder() {
@@ -118,6 +115,53 @@ public final class ConfigurationBinder {
 	 * @return the bound configuration object
 	 */
 	public static <T> T bind(Map<String, Object> section, Class<T> type) {
+		return YAML_MAPPER.convertValue(section, type);
+	}
+
+	/**
+	 * Binds a pre-processed map to the specified type, applying
+	 * {@link DefaultValue} defaults and validating required fields in a single
+	 * pass.
+	 *
+	 * <p>
+	 * For record types, this method:
+	 * </p>
+	 * <ol>
+	 * <li>Fills missing keys from {@code @DefaultValue} annotations</li>
+	 * <li>Validates that all remaining record components are present</li>
+	 * <li>Binds the map to the target type</li>
+	 * </ol>
+	 *
+	 * @param section
+	 *            the configuration map (keys should already be normalized to
+	 *            camelCase)
+	 * @param type
+	 *            the target type to bind to
+	 * @param resource
+	 *            the classpath resource name (for error messages)
+	 * @return the bound configuration object
+	 * @throws MissingFieldException
+	 *             if a required field is missing and has no @DefaultValue
+	 */
+	public static <T> T bindWithDefaults(Map<String, Object> section, Class<T> type, String resource) {
+		if (type.isRecord()) {
+			List<String> missing = new ArrayList<>();
+			for (java.lang.reflect.RecordComponent component : type.getRecordComponents()) {
+				DefaultValue ann = component.getAnnotation(DefaultValue.class);
+				if (!section.containsKey(component.getName())) {
+					if (ann != null) {
+						section.put(component.getName(), TypeConverter.convert(ann.value(), component.getType()));
+					} else {
+						missing.add(component.getName());
+					}
+				}
+			}
+			if (!missing.isEmpty()) {
+				throw new summer.core.exception.MissingFieldException(missing.getFirst(), type.getSimpleName(),
+						"Missing required configuration properties " + missing + " for " + type.getSimpleName()
+								+ " in '" + resource + "'");
+			}
+		}
 		return YAML_MAPPER.convertValue(section, type);
 	}
 

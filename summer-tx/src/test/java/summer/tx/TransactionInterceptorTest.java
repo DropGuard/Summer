@@ -6,7 +6,7 @@ import java.lang.reflect.Method;
 import org.junit.jupiter.api.Test;
 import summer.aop.InterceptorChain;
 import summer.aop.MethodMetadata;
-import summer.runtime.RuntimeMethodMetadata;
+import summer.aop.RuntimeMethodMetadata;
 
 /**
  * Tests for {@link TransactionInterceptor}.

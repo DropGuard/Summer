@@ -32,8 +32,10 @@ import summer.core.annotation.Configuration;
  * <ol>
  * <li>{@link ValidatingParameterResolver} — @Valid annotated parameters</li>
  * <li>{@link PageableResolver} — Pageable parameters</li>
- * <li>{@link ReflectionParameterResolver} — @PathParam, @QueryParam,
- * HttpContext, Request, Throwable</li>
+ * <li>{@link TypeParameterResolver} — HttpContext, Request</li>
+ * <li>{@link PathParamResolver} — @PathParam</li>
+ * <li>{@link QueryParamResolver} — @QueryParam</li>
+ * <li>{@link ThrowableResolver} — Throwable (for @ExceptionHandler)</li>
  * </ol>
  */
 @Configuration
@@ -46,13 +48,30 @@ public class HttpParameterResolverConfiguration {
 	}
 
 	@Bean
-	public ReflectionParameterResolver reflectionResolver() {
-		return new ReflectionParameterResolver();
+	public TypeParameterResolver typeResolver() {
+		return new TypeParameterResolver();
+	}
+
+	@Bean
+	public PathParamResolver pathParamResolver() {
+		return new PathParamResolver();
+	}
+
+	@Bean
+	public QueryParamResolver queryParamResolver() {
+		return new QueryParamResolver();
+	}
+
+	@Bean
+	public ThrowableResolver throwableResolver() {
+		return new ThrowableResolver();
 	}
 
 	@Bean
 	public HttpParameterResolverChain resolverChain(ValidatingParameterResolver validatingResolver,
-			PageableResolver pageableResolver, ReflectionParameterResolver reflectionResolver) {
-		return new HttpParameterResolverChain(List.of(validatingResolver, pageableResolver, reflectionResolver));
+			PageableResolver pageableResolver, TypeParameterResolver typeResolver, PathParamResolver pathParamResolver,
+			QueryParamResolver queryParamResolver, ThrowableResolver throwableResolver) {
+		return new HttpParameterResolverChain(List.of(validatingResolver, pageableResolver, typeResolver,
+				pathParamResolver, queryParamResolver, throwableResolver));
 	}
 }

@@ -1,4 +1,4 @@
-package summer.tck.aop.dummy;
+package summer.fixtures.aop;
 
 /**
  * The interface that the proxy will implement. JDK dynamic proxy requires an

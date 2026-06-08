@@ -1,62 +1,34 @@
 package summer.plugin;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
- * Unified bean definition for Maven plugin. Uses strings for type information
- * to avoid dependencies on TypeElement or ClassInfo.
+ * Sealed bean definition hierarchy. Each {@link Kind} maps to a concrete
+ * subclass with only the fields it needs.
+ *
+ * <p>
+ * Shared fields live here; kind-specific fields live in subclasses.
+ * </p>
  */
-public final class BeanDefinition {
+public sealed class BeanDefinition permits ComponentBean, FactoryBean, ConfigPropertiesBean {
 
-	public enum Kind {
-		COMPONENT, CONFIGURATION, FACTORY_PRODUCT, CONFIG_PROPERTIES
-	}
-
-	public final Kind kind;
 	public final String qualifiedName;
 	public final String simpleName;
-
 	public String variableName;
-
-	// Constructor info
-	public final List<String> constructorParamTypes = new ArrayList<>();
-	// Generic type info for List<T> parameters: maps index to element type
-	public final Map<Integer, String> listElementTypes = new HashMap<>();
-
-	// Factory info (only for FACTORY_PRODUCT)
-	public String configClassName;
-	public String producerMethodName;
-	public final List<String> producerParamTypes = new ArrayList<>();
-
-	// Interfaces (for dependency resolution and AOP)
-	public final List<String> interfaceNames = new ArrayList<>();
-
-	// AOP
-	boolean needsProxy;
-	final List<BeanDefinition> interceptors = new ArrayList<>();
 
 	// Routes (for @RestController beans)
 	public final List<RouteInfo> routes = new ArrayList<>();
 
-	// Lifecycle
-	public boolean isAutoCloseable;
-
-	// @Replaces (method-level)
-	public String replacesReturnType; // The return type to replace (e.g., "javax.sql.DataSource")
-	public String replacesTargetClass; // Optional: explicit target class for method-level @Replaces
-
-	// @ConfigurationProperties
-	public String configPropertiesPrefix;
+	// @Replaces
+	public String replacesReturnType;
+	public String replacesTargetClass;
 
 	// Dependency resolution
 	public final List<BeanDefinition> resolvedDependencies = new ArrayList<>();
 	public BeanDefinition configBeanDefinition;
 
-	public BeanDefinition(Kind kind, String qualifiedName, String simpleName) {
-		this.kind = kind;
+	protected BeanDefinition(String qualifiedName, String simpleName) {
 		this.qualifiedName = qualifiedName;
 		this.simpleName = simpleName;
 		this.variableName = toVariableName(simpleName);
@@ -71,6 +43,6 @@ public final class BeanDefinition {
 
 	@Override
 	public String toString() {
-		return kind + ":" + qualifiedName;
+		return getClass().getSimpleName() + ":" + qualifiedName;
 	}
 }

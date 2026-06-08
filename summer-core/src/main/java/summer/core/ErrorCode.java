@@ -13,7 +13,8 @@ public enum ErrorCode {
 							"Failed to create bean instance"),
 
 	// Configuration (2xxx)
-	CONFIG_PARSE_ERROR(2002, "Failed to parse configuration"),
+	CONFIG_PARSE_ERROR(2002, "Failed to parse configuration"), CONFIG_MISSING_FIELD(2003,
+			"Required configuration field is missing"),
 
 	// Web (3xxx)
 	VALIDATION_FAILED(3001, "Request validation failed"), BODY_PARSE_ERROR(3002,

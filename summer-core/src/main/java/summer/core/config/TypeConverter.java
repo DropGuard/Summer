@@ -1,4 +1,4 @@
-package summer.runtime;
+package summer.core.config;
 
 import summer.core.ErrorCode;
 import summer.core.exception.ConfigurationException;
@@ -8,7 +8,7 @@ import summer.core.exception.ConfigurationException;
  * resolution. Supports boxed types only (Integer, Long, Boolean, Double,
  * String).
  */
-final class TypeConverter {
+public final class TypeConverter {
 
 	private TypeConverter() {
 	}
@@ -24,7 +24,7 @@ final class TypeConverter {
 	 * @throws ConfigurationException
 	 *             if the type is unsupported
 	 */
-	static Object convert(String value, Class<?> targetType) {
+	public static Object convert(String value, Class<?> targetType) {
 		if (value == null) {
 			return null;
 		}

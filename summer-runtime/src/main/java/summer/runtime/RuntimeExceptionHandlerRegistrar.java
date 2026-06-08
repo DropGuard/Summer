@@ -1,7 +1,6 @@
 package summer.runtime;
 
 import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
 import summer.core.ApplicationContext;
 import summer.web.ExceptionHandlerRegistrar;
 import summer.web.ExceptionRegistry;
@@ -32,32 +31,10 @@ public class RuntimeExceptionHandlerRegistrar implements ExceptionHandlerRegistr
 			for (Method method : clazz.getMethods()) {
 				ExceptionHandler ann = method.getAnnotation(ExceptionHandler.class);
 				if (ann != null) {
-					Handler handler = createHandler(context, clazz, method);
+					Handler handler = HandlerFactory.create(context.getBean(clazz), method, resolverChain);
 					registry.register(ann.value(), handler);
 				}
 			}
 		}
-	}
-
-	private Handler createHandler(ApplicationContext context, Class<?> clazz, Method method) {
-		method.setAccessible(true);
-		Parameter[] params = method.getParameters();
-		Object instance = context.getBean(clazz);
-		return ctx -> {
-			Object[] args = new Object[params.length];
-			for (int i = 0; i < params.length; i++) {
-				args[i] = resolverChain.resolve(ctx, params[i]);
-			}
-			try {
-				return method.invoke(instance, args);
-			} catch (java.lang.reflect.InvocationTargetException e) {
-				Throwable cause = e.getTargetException();
-				throw (cause instanceof RuntimeException re)
-						? re
-						: new summer.aop.SummerAopException("Handler invocation failed", cause);
-			} catch (IllegalAccessException e) {
-				throw new summer.aop.SummerAopException("Cannot access handler method", e);
-			}
-		};
 	}
 }

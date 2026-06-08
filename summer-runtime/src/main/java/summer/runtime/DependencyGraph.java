@@ -15,7 +15,7 @@ import summer.core.exception.BeanCreationException;
  */
 public class DependencyGraph {
 
-	private final Map<Object, Set<Object>> graph = new HashMap<>();
+	private final Map<Object, Set<Object>> graph = new java.util.LinkedHashMap<>();
 	private final Map<Class<?>, Constructor<?>> beanConstructors = new HashMap<>();
 
 	/**
@@ -23,6 +23,11 @@ public class DependencyGraph {
 	 */
 	public void buildGraph(Set<Object> nodes) {
 		for (Object node : nodes) {
+			// @ConfigurationProperties records are bound from YAML, not injected as beans.
+			// Their constructor params (Boolean, String, etc.) are not bean dependencies.
+			if (node instanceof Class<?> c && c.isAnnotationPresent(summer.core.config.ConfigurationProperties.class)) {
+				continue;
+			}
 			Set<Object> dependencies = getDependencies(node, nodes);
 			graph.put(node, dependencies);
 		}
@@ -30,7 +35,7 @@ public class DependencyGraph {
 
 	private Set<Object> getDependencies(Object node, Set<Object> allNodes) {
 		Type[] paramTypes;
-		Set<Object> deps = new HashSet<>();
+		Set<Object> deps = new java.util.LinkedHashSet<>();
 
 		if (node instanceof Class<?> clazz) {
 			Constructor<?> constructor = getConstructor(clazz);
@@ -56,19 +61,16 @@ public class DependencyGraph {
 				deps.addAll(findAllProviders(elementClass, allNodes));
 			} else {
 				Class<?> paramClass = getRawClass(paramType);
-				Object dep = resolveDependency(paramClass, allNodes);
-				if (dep != null) {
-					deps.add(dep);
-				}
+				deps.add(resolveDependency(paramClass, allNodes));
 			}
 		}
 
 		// Implicit AOP dependencies: a bean depends on its matching interceptors
 		Class<?> providedType = getProvidedType(node);
-		if (!summer.aop.MethodInterceptor.class.isAssignableFrom(providedType)) {
+		if (!providedType.isAnnotationPresent(summer.aop.Interceptor.class)) {
 			for (Object interceptorNode : allNodes) {
 				Class<?> interceptorType = getProvidedType(interceptorNode);
-				if (summer.aop.MethodInterceptor.class.isAssignableFrom(interceptorType)) {
+				if (interceptorType.isAnnotationPresent(summer.aop.Interceptor.class)) {
 					if (hasMatchingBinding(interceptorType, providedType)) {
 						deps.add(interceptorNode);
 					}
@@ -82,6 +84,11 @@ public class DependencyGraph {
 	private boolean hasMatchingBinding(Class<?> interceptorClass, Class<?> targetClass) {
 		for (java.lang.annotation.Annotation ann : interceptorClass.getAnnotations()) {
 			if (ann.annotationType().isAnnotationPresent(summer.aop.InterceptorBinding.class)) {
+				// Check class-level annotations on the target
+				if (targetClass.isAnnotationPresent(ann.annotationType())) {
+					return true;
+				}
+				// Check method-level annotations on the target
 				for (Method method : targetClass.getMethods()) {
 					if (method.isAnnotationPresent(ann.annotationType())) {
 						return true;
@@ -109,7 +116,8 @@ public class DependencyGraph {
 		List<Object> matches = findAllProviders(paramType, allNodes);
 
 		if (matches.isEmpty()) {
-			return null;
+			throw new summer.core.exception.NoSuchBeanException(
+					"No bean found for dependency type: " + paramType.getName());
 		}
 		if (matches.size() == 1) {
 			return matches.getFirst();

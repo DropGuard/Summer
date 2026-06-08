@@ -70,38 +70,28 @@ class CrossModuleDiscoveryTest {
 
 	@Test
 	void dependencyResolverFindsBeanByQualifiedName() {
-		// Test that DependencyResolver can find beans by qualified name
-		BeanDefinition serviceA = new BeanDefinition(BeanDefinition.Kind.COMPONENT, "summer.fixtures.dummy.ServiceA",
-				"ServiceA");
+		ComponentBean serviceA = new ComponentBean("summer.fixtures.dummy.ServiceA", "ServiceA");
 		serviceA.constructorParamTypes.add("summer.fixtures.dummy.ServiceB");
 
-		BeanDefinition serviceB = new BeanDefinition(BeanDefinition.Kind.COMPONENT, "summer.fixtures.dummy.ServiceB",
-				"ServiceB");
+		ComponentBean serviceB = new ComponentBean("summer.fixtures.dummy.ServiceB", "ServiceB");
 		serviceB.constructorParamTypes.add("summer.fixtures.dummy.ServiceC");
 
-		BeanDefinition serviceC = new BeanDefinition(BeanDefinition.Kind.COMPONENT, "summer.fixtures.dummy.ServiceC",
-				"ServiceC");
+		ComponentBean serviceC = new ComponentBean("summer.fixtures.dummy.ServiceC", "ServiceC");
 
 		List<BeanDefinition> beans = List.of(serviceA, serviceB, serviceC);
 		DependencyResolver resolver = new DependencyResolver();
 
-		// Should resolve without errors
 		List<BeanDefinition> sorted = resolver.resolve(beans);
 		assertEquals(3, sorted.size(), "Should resolve all 3 beans");
-
-		// ServiceC should be first (no dependencies)
 		assertEquals("summer.fixtures.dummy.ServiceC", sorted.get(0).qualifiedName);
 	}
 
 	@Test
 	void dependencyResolverFindsBeanByInterface() {
-		// Test interface-based dependency resolution
-		BeanDefinition impl = new BeanDefinition(BeanDefinition.Kind.COMPONENT, "summer.fixtures.dummy.ServiceBImpl",
-				"ServiceBImpl");
+		ComponentBean impl = new ComponentBean("summer.fixtures.dummy.ServiceBImpl", "ServiceBImpl");
 		impl.interfaceNames.add("summer.fixtures.dummy.ServiceB");
 
-		BeanDefinition consumer = new BeanDefinition(BeanDefinition.Kind.COMPONENT, "summer.fixtures.dummy.ServiceA",
-				"ServiceA");
+		ComponentBean consumer = new ComponentBean("summer.fixtures.dummy.ServiceA", "ServiceA");
 		consumer.constructorParamTypes.add("summer.fixtures.dummy.ServiceB");
 
 		List<BeanDefinition> beans = List.of(impl, consumer);
@@ -113,21 +103,51 @@ class CrossModuleDiscoveryTest {
 
 	@Test
 	void aotContextGeneratorProducesValidCode() throws IOException {
-		// Test that AOT code generation produces valid Java source
-		BeanDefinition serviceC = new BeanDefinition(BeanDefinition.Kind.COMPONENT, "summer.fixtures.dummy.ServiceC",
-				"ServiceC");
+		ComponentBean serviceC = new ComponentBean("summer.fixtures.dummy.ServiceC", "ServiceC");
 
 		AotContextGenerator generator = new AotContextGenerator();
 		File outputDir = tempDir.toFile();
 		generator.generate(List.of(serviceC), outputDir, null);
 
-		// Verify file exists
 		File generatedFile = new File(outputDir, "summer/core/aot/GeneratedAotContext.java");
 		assertTrue(generatedFile.exists(), "Generated AOT context should exist");
-
-		// Verify content references the bean
 		String content = Files.readString(generatedFile.toPath());
 		assertTrue(content.contains("summer.fixtures.dummy.ServiceC"), "Generated code should reference the bean");
+	}
+
+	/**
+	 * Verifies that BeanDiscovery correctly extracts @PathParam binding names from
+	 * controller method parameters. This catches the bug where PAGEABLE_DOT was
+	 * used instead of PATH_PARAM_DOT when extracting the annotation value
+	 * for @PathParam parameters.
+	 */
+	@Test
+	void collectsPathParamBindingNames() throws Exception {
+		// Build index with the fixture controller and its annotation dependencies
+		Index index = buildIndex("summer.fixtures.dummy.DummyController", "summer.web.annotation.RestController",
+				"summer.core.Component", "summer.web.annotation.Get", "summer.web.annotation.Put",
+				"summer.web.annotation.Delete", "summer.web.annotation.PathParam");
+		List<BeanDefinition> beans = new BeanDiscovery(index).discover("summer.fixtures.dummy");
+
+		// Find the DummyController bean
+		BeanDefinition controller = beans.stream()
+				.filter(b -> b.qualifiedName.equals("summer.fixtures.dummy.DummyController")).findFirst().orElse(null);
+		assertNotNull(controller, "Should discover DummyController");
+		assertFalse(controller.routes.isEmpty(), "Should have routes");
+
+		// Find the GET /{id} route (getById method)
+		RouteInfo getByIdRoute = controller.routes.stream()
+				.filter(r -> r.httpMethod.equals("GET") && r.path.equals("/dummy/{id}")).findFirst().orElse(null);
+		assertNotNull(getByIdRoute, "Should discover GET /dummy/{id} route");
+
+		// Verify the @PathParam("id") parameter has the correct binding name
+		// Before the fix, this would return the default parameter name because
+		// BeanDiscovery used PAGEABLE_DOT instead of PATH_PARAM_DOT
+		RouteInfo.ParamInfo idParam = getByIdRoute.params.stream().filter(p -> p.binding == RouteInfo.ParamBinding.PATH)
+				.findFirst().orElse(null);
+		assertNotNull(idParam, "Should have a PATH parameter");
+		assertEquals("id", idParam.name,
+				"@PathParam(\"id\") binding name should be 'id', not the default parameter name");
 	}
 
 	/**
@@ -145,5 +165,71 @@ class CrossModuleDiscoveryTest {
 			}
 		}
 		return indexer.complete();
+	}
+	/**
+	 * Verifies that BeanDiscovery finds @ConfigurationProperties records.
+	 */
+	@Test
+	void discoversConfigurationProperties() throws Exception {
+		Index index = buildIndex("summer.fixtures.dummy.DummyConfigProperties",
+				"summer.core.config.ConfigurationProperties");
+
+		List<BeanDefinition> beans = new BeanDiscovery(index).discover(null);
+
+		assertTrue(
+				beans.stream()
+						.anyMatch(b -> b instanceof ConfigPropertiesBean
+								&& b.qualifiedName.equals("summer.fixtures.dummy.DummyConfigProperties")),
+				"Should discover DummyConfigProperties as ConfigPropertiesBean, found: " + beans);
+	}
+
+	/**
+	 * Verifies that BeanDiscovery discovers beans across packages (no package
+	 * filtering when prefix is null).
+	 */
+	@Test
+	void discoversBeansAcrossPackages() throws Exception {
+		Index index = buildIndex("summer.fixtures.dummy.ServiceA", "summer.fixtures.dummy.MultiBeanConfiguration",
+				"summer.fixtures.dummy.PlainServiceA", "summer.fixtures.dummy.PlainServiceB", "summer.core.Component",
+				"summer.core.annotation.Configuration", "summer.core.annotation.Bean");
+
+		List<BeanDefinition> beans = new BeanDiscovery(index).discover(null);
+
+		// With null prefix, should discover ALL beans regardless of package
+		// @Configuration classes are now ComponentBeans (ConfigBean merged into
+		// ComponentBean)
+		long componentCount = beans.stream().filter(b -> b instanceof ComponentBean).count();
+		long factoryCount = beans.stream().filter(b -> b instanceof FactoryBean).count();
+
+		assertTrue(componentCount >= 2,
+				"Should find ComponentBeans (ServiceA + MultiBeanConfiguration), found: " + componentCount);
+		assertTrue(factoryCount >= 2, "Should find FactoryBeans, found: " + factoryCount);
+	}
+
+	/**
+	 * Verifies that BeanDiscovery finds ALL @Bean methods in a @Configuration
+	 * class, not just the first one. This catches bugs where factory method
+	 * scanning misses methods.
+	 */
+	@Test
+	void discoversAllBeanFactoryMethods() throws Exception {
+		Index index = buildIndex("summer.fixtures.dummy.MultiBeanConfiguration", "summer.core.annotation.Configuration",
+				"summer.core.annotation.Bean", "summer.fixtures.dummy.PlainServiceA",
+				"summer.fixtures.dummy.PlainServiceB");
+
+		List<BeanDefinition> beans = new BeanDiscovery(index).discover("summer.fixtures.dummy");
+
+		long factoryCount = beans.stream().filter(b -> b instanceof FactoryBean).count();
+		assertEquals(2, factoryCount, "Should discover 2 @Bean factory products, found " + factoryCount + ": "
+				+ beans.stream().filter(b -> b instanceof FactoryBean).map(b -> b.qualifiedName).toList());
+
+		assertTrue(
+				beans.stream().anyMatch(
+						b -> b instanceof FactoryBean && b.qualifiedName.equals("summer.fixtures.dummy.PlainServiceA")),
+				"Should discover PlainServiceA as a FactoryBean");
+		assertTrue(
+				beans.stream().anyMatch(
+						b -> b instanceof FactoryBean && b.qualifiedName.equals("summer.fixtures.dummy.PlainServiceB")),
+				"Should discover PlainServiceB as a FactoryBean");
 	}
 }

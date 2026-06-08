@@ -3,10 +3,12 @@ package summer.example;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import summer.aop.InterceptorChain;
+import summer.aop.Interceptor;
 import summer.aop.MethodInterceptor;
 import summer.core.Component;
 
 @Component
+@Interceptor
 @Logged
 public class LoggingInterceptor implements MethodInterceptor {
 

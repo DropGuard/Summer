@@ -25,6 +25,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import summer.aop.Interceptor;
 import summer.aop.InterceptorChain;
 import summer.aop.MethodInterceptor;
 import summer.aop.SummerAopException;
@@ -744,22 +745,23 @@ public class QaHandsOnIntegrationTest {
 
 	@TestIntercepted
 	@Component
+	@Interceptor
 	public static class TestInterceptorComponent implements MethodInterceptor {
 		@Override
 		public Object intercept(InterceptorChain chain) throws Throwable {
 			return "[proxied] " + chain.proceed();
 		}
 	}
-
 	@TestIntercepted
+	@Interceptor
 	public static class TestInterceptor1 implements MethodInterceptor {
 		@Override
 		public Object intercept(InterceptorChain chain) throws Throwable {
 			return "[1]" + chain.proceed();
 		}
 	}
-
 	@TestIntercepted
+	@Interceptor
 	public static class TestInterceptor2 implements MethodInterceptor {
 		@Override
 		public Object intercept(InterceptorChain chain) throws Throwable {

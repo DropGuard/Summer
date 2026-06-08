@@ -2,31 +2,21 @@ package summer.runtime;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.InputStream;
-import java.lang.reflect.RecordComponent;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import summer.core.ErrorCode;
 import summer.core.config.ConfigurationBinder;
-import summer.core.config.DefaultValue;
 import summer.core.exception.ConfigurationException;
 import summer.core.json.SummerObjectMapper;
 
 /**
  * Loads YAML configuration and delegates to
- * {@link ConfigurationBinder#bind(Map, Class)}.
+ * {@link ConfigurationBinder#bindWithDefaults(Map, Class, String)}.
  *
  * <p>
  * If a prefix section is absent from the YAML file, binding proceeds with an
- * empty map. Record components annotated with {@code @DefaultValue} get their
- * declared values; components without cause a clear "missing required property"
- * error from the binder.
- * </p>
- *
- * <p>
- * This is a framework infrastructure bean provided by
- * {@link RuntimeInfrastructureConfiguration}.
+ * empty map. The binder applies {@code @DefaultValue} defaults and validates
+ * required fields in a single pass.
  * </p>
  */
 public class ConfigurationLoader {
@@ -70,9 +60,7 @@ public class ConfigurationLoader {
 				if (defaultValue != null) {
 					return defaultValue;
 				}
-				// File absent — start with an empty root so @DefaultValue
-				// can supply values for fields that declare it.
-				root = new java.util.LinkedHashMap<>();
+				root = new LinkedHashMap<>();
 			} else {
 				root = YAML_MAPPER.readValue(stream, Map.class);
 			}
@@ -86,48 +74,15 @@ public class ConfigurationLoader {
 				if (defaultValue != null) {
 					return defaultValue;
 				}
-				// Section absent — proceed with an empty map.
 				section = new LinkedHashMap<>();
 			}
 			section = ConfigurationBinder.normalizeKeys(section);
-			applyDefaults(section, type);
-			if (type.isRecord()) {
-				validateAllFieldsPresent(section, type, classpathResource);
-			}
-			return ConfigurationBinder.bind(section, type);
+			return ConfigurationBinder.bindWithDefaults(section, type, classpathResource);
 		} catch (ConfigurationException e) {
 			throw e;
 		} catch (Exception e) {
 			throw new ConfigurationException(ErrorCode.CONFIG_PARSE_ERROR,
 					"Failed to parse YAML configuration '" + classpathResource + "': " + e.getMessage(), e);
 		}
-	}
-
-	private static <T> void validateAllFieldsPresent(Map<String, Object> section, Class<T> type, String resource) {
-		List<String> missing = new ArrayList<>();
-		for (RecordComponent component : type.getRecordComponents()) {
-			if (!section.containsKey(component.getName()) && component.getAnnotation(DefaultValue.class) == null) {
-				missing.add(component.getName());
-			}
-		}
-		if (!missing.isEmpty()) {
-			throw new ConfigurationException(ErrorCode.CONFIG_PARSE_ERROR, "Missing required configuration properties "
-					+ missing + " for " + type.getSimpleName() + " in '" + resource + "'");
-		}
-	}
-
-	private static <T> void applyDefaults(Map<String, Object> section, Class<T> type) {
-		if (!type.isRecord())
-			return;
-		for (RecordComponent component : type.getRecordComponents()) {
-			DefaultValue ann = component.getAnnotation(DefaultValue.class);
-			if (ann != null && !section.containsKey(component.getName())) {
-				section.put(component.getName(), parseDefaultValue(ann.value(), component.getType()));
-			}
-		}
-	}
-
-	private static Object parseDefaultValue(String value, Class<?> targetType) {
-		return TypeConverter.convert(value, targetType);
 	}
 }
