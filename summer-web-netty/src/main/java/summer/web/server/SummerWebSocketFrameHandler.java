@@ -20,9 +20,9 @@ public class SummerWebSocketFrameHandler extends SimpleChannelInboundHandler<Tex
 
 	@Override
 	protected void channelRead0(ChannelHandlerContext ctx, TextWebSocketFrame frame) {
-		String text = frame.text();
-		if (text.length() > maxFrameSize) {
-			log.warn("WebSocket frame too large: {} bytes (max: {})", text.length(), maxFrameSize);
+		int frameBytes = frame.content().readableBytes();
+		if (frameBytes > maxFrameSize) {
+			log.warn("WebSocket frame too large: {} bytes (max: {})", frameBytes, maxFrameSize);
 			try {
 				ctx.close();
 			} catch (Exception e) {
@@ -30,6 +30,7 @@ public class SummerWebSocketFrameHandler extends SimpleChannelInboundHandler<Tex
 			}
 			return;
 		}
+		String text = frame.text();
 		wsContext.invokeMessageConsumer(text);
 	}
 
