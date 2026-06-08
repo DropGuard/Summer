@@ -1,14 +1,14 @@
 app:
-  name: summer-tck
+  name: summer-tck-fixtures
   port: 8080
   verbose: true
-
-server:
-  tls:
-    enabled: true
-    cert-chain: /path/to/cert.pem
 
 tls:
   enabled: true
   cert-chain: /path/to/cert.pem
   private-key: /path/to/key.pem
+
+server:
+  tls:
+    enabled: true
+    cert-chain: /path/to/cert.pem

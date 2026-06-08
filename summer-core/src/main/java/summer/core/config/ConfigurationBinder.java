@@ -2,7 +2,6 @@ package summer.core.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -120,46 +119,33 @@ public final class ConfigurationBinder {
 
 	/**
 	 * Binds a pre-processed map to the specified type, applying
-	 * {@link DefaultValue} defaults and validating required fields in a single
-	 * pass.
+	 * {@link DefaultValue} defaults.
 	 *
 	 * <p>
-	 * For record types, this method:
+	 * For record types, this method fills missing keys from
+	 * {@code @DefaultValue} annotations. Fields without {@code @DefaultValue}
+	 * that are absent from YAML are set to {@code null}. Use a
+	 * {@code Validator} to enforce business constraints after binding.
 	 * </p>
-	 * <ol>
-	 * <li>Fills missing keys from {@code @DefaultValue} annotations</li>
-	 * <li>Validates that all remaining record components are present</li>
-	 * <li>Binds the map to the target type</li>
-	 * </ol>
 	 *
 	 * @param section
 	 *            the configuration map (keys should already be normalized to
 	 *            camelCase)
 	 * @param type
 	 *            the target type to bind to
-	 * @param resource
-	 *            the classpath resource name (for error messages)
 	 * @return the bound configuration object
-	 * @throws MissingFieldException
-	 *             if a required field is missing and has no @DefaultValue
 	 */
-	public static <T> T bindWithDefaults(Map<String, Object> section, Class<T> type, String resource) {
+	public static <T> T bindWithDefaults(Map<String, Object> section, Class<T> type) {
 		if (type.isRecord()) {
-			List<String> missing = new ArrayList<>();
 			for (java.lang.reflect.RecordComponent component : type.getRecordComponents()) {
 				DefaultValue ann = component.getAnnotation(DefaultValue.class);
 				if (!section.containsKey(component.getName())) {
 					if (ann != null) {
 						section.put(component.getName(), TypeConverter.convert(ann.value(), component.getType()));
 					} else {
-						missing.add(component.getName());
+						section.put(component.getName(), null);
 					}
 				}
-			}
-			if (!missing.isEmpty()) {
-				throw new summer.core.exception.MissingFieldException(missing.getFirst(), type.getSimpleName(),
-						"Missing required configuration properties " + missing + " for " + type.getSimpleName()
-								+ " in '" + resource + "'");
 			}
 		}
 		return YAML_MAPPER.convertValue(section, type);

@@ -20,15 +20,15 @@ import summer.core.config.DefaultValue;
  * }</pre>
  *
  * @param enabled
- *            whether TLS is enabled
+ *                   whether TLS is enabled
  * @param certChain
- *            path to the server certificate chain (PEM format)
+ *                   path to the server certificate chain (PEM format)
  * @param privateKey
- *            path to the server private key (PEM format)
+ *                   path to the server private key (PEM format)
  * @param trustCert
- *            path to the CA certificate for client trust (PEM format)
+ *                   path to the CA certificate for client trust (PEM format)
  */
 @ConfigurationProperties(prefix = "grpc.tls")
-public record GrpcTlsConfig(@DefaultValue("false") Boolean enabled, @DefaultValue("") String certChain,
-		@DefaultValue("") String privateKey, @DefaultValue("") String trustCert) {
+public record GrpcTlsConfig(@DefaultValue("false") Boolean enabled, String certChain,
+		String privateKey, String trustCert) {
 }

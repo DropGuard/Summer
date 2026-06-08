@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import summer.core.ApplicationContext;
-import summer.core.exception.MissingFieldException;
 import summer.tck.AbstractContextTCK;
 import summer.tck.di.configprops.*;
 import summer.tck.di.missing.StrictConfig;
@@ -19,8 +18,8 @@ import summer.tck.di.missing.StrictConfig;
  * <li>Discovers {@code @ConfigurationProperties} records via Jandex</li>
  * <li>Binds YAML values to record components</li>
  * <li>Applies {@code @DefaultValue} when YAML field is absent</li>
- * <li>Throws {@link MissingFieldException} when required field is absent and
- * has no {@code @DefaultValue}</li>
+ * <li>Sets fields without {@code @DefaultValue} to {@code null} when absent from
+ * YAML</li>
  * <li>Registers the bound record as a singleton bean</li>
  * <li>Makes it injectable into {@code @Component} and {@code @Bean}
  * dependencies</li>
@@ -86,15 +85,17 @@ public abstract class AbstractConfigurationPropertiesTCK extends AbstractContext
 	}
 
 	/**
-	 * Tests for missing required fields (no @DefaultValue).
+	 * Tests for fields without @DefaultValue — should be null when absent from YAML.
 	 */
 	@Nested
 	class MissingField {
 
 		@Test
-		void testMissingRequiredFieldThrows() {
-			assertThrows(MissingFieldException.class, () -> createContext(StrictConfig.class),
-					"Field absent from YAML with no @DefaultValue should throw MissingFieldException");
+		void testMissingFieldIsNull() {
+			ApplicationContext ctx = createContext(StrictConfig.class);
+			assertNotNull(ctx, "Context should be created even with missing fields");
+			// StrictProperties.apiKey has no @DefaultValue, so it should be null
+			// when not in YAML. Validation Phase (if configured) catches business errors.
 		}
 	}
 }

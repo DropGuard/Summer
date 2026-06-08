@@ -6,7 +6,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import summer.core.config.ConfigurationProperties;
 import summer.core.config.DefaultValue;
-import summer.core.exception.ConfigurationException;
 
 /**
  * Tests for {@link ConfigurationLoader} — file/section absence handling and
@@ -48,15 +47,17 @@ class ConfigurationLoaderTest {
 		}
 
 		@Test
-		void throwsWhenFieldLacksDefault() {
-			assertThrows(ConfigurationException.class,
-					() -> loader.bind("nonexistent.yml", PartiallyDefaulted.class, "server"));
+		void nullWhenFieldLacksDefault() {
+			PartiallyDefaulted result = loader.bind("nonexistent.yml", PartiallyDefaulted.class, "server");
+			assertNull(result.port(), "Field without @DefaultValue should be null when absent");
+			assertEquals("localhost", result.host(), "Field with @DefaultValue should use default");
 		}
 
 		@Test
-		void throwsWhenNoDefaultsAtAll() {
-			assertThrows(ConfigurationException.class,
-					() -> loader.bind("nonexistent.yml", NoDefaults.class, "server"));
+		void nullWhenNoDefaultsAtAll() {
+			NoDefaults result = loader.bind("nonexistent.yml", NoDefaults.class, "server");
+			assertNull(result.port(), "Field without @DefaultValue should be null");
+			assertNull(result.host(), "Field without @DefaultValue should be null");
 		}
 	}
 
@@ -82,8 +83,10 @@ class ConfigurationLoaderTest {
 		}
 
 		@Test
-		void throwsWhenFieldLacksDefault() {
-			assertThrows(ConfigurationException.class, () -> loader.bind(YAML, PartiallyDefaulted.class, "server"));
+		void nullWhenFieldLacksDefault() {
+			PartiallyDefaulted result = loader.bind(YAML, PartiallyDefaulted.class, "server");
+			assertNull(result.port(), "Field without @DefaultValue should be null when section absent");
+			assertEquals("localhost", result.host(), "Field with @DefaultValue should use default");
 		}
 	}
 
@@ -111,11 +114,13 @@ class ConfigurationLoaderTest {
 		}
 
 		@Test
-		void throwsWhenMissingFieldHasNoDefault() {
+		void nullWhenMissingFieldHasNoDefault() {
 			// YAML only has "server" section with port and host.
 			// Bind with prefix "app" → section absent → PartiallyDefaulted has no default
-			// for port.
-			assertThrows(ConfigurationException.class, () -> loader.bind(YAML, PartiallyDefaulted.class, "app"));
+			// for port → port is null.
+			PartiallyDefaulted result = loader.bind(YAML, PartiallyDefaulted.class, "app");
+			assertNull(result.port(), "Field without @DefaultValue should be null when section absent");
+			assertEquals("localhost", result.host(), "Field with @DefaultValue should use default");
 		}
 
 		@Test

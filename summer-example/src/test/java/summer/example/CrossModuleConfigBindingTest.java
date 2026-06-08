@@ -34,8 +34,12 @@ class CrossModuleConfigBindingTest {
 		}
 
 		@Test
-		void defaultValueVisibleOnGrpcTlsConfig() {
-			assertAllComponentsAnnotated(GrpcTlsConfig.class);
+		void defaultValueVisibleOnGrpcTlsConfigEnabled() {
+			// Only 'enabled' has @DefaultValue; cert fields are nullable (no default)
+			RecordComponent enabled = GrpcTlsConfig.class.getRecordComponents()[0];
+			DefaultValue ann = enabled.getAnnotation(DefaultValue.class);
+			assertNotNull(ann, "@DefaultValue not visible on GrpcTlsConfig.enabled");
+			assertEquals("false", ann.value());
 		}
 
 		private void assertAllComponentsAnnotated(Class<?> recordClass) {
@@ -66,15 +70,16 @@ class CrossModuleConfigBindingTest {
 		}
 
 		@Test
-		void grpcTlsConfigBindsWithDefaults() {
+		void grpcTlsConfigBindsWithNulls() {
 			// application.yml has no "grpc.tls" section
+			// enabled has @DefaultValue("false"), cert fields are null
 			GrpcTlsConfig config = loader.bind("application.yml", GrpcTlsConfig.class, "grpc.tls");
 
-			assertNotNull(config, "GrpcTlsConfig should bind with defaults");
-			assertFalse(config.enabled());
-			assertEquals("", config.certChain());
-			assertEquals("", config.privateKey());
-			assertEquals("", config.trustCert());
+			assertNotNull(config, "GrpcTlsConfig should bind");
+			assertFalse(config.enabled(), "enabled should use @DefaultValue(false)");
+			assertNull(config.certChain(), "certChain should be null when not in YAML");
+			assertNull(config.privateKey(), "privateKey should be null when not in YAML");
+			assertNull(config.trustCert(), "trustCert should be null when not in YAML");
 		}
 	}
 }

@@ -77,7 +77,7 @@ public class ConfigurationLoader {
 				section = new LinkedHashMap<>();
 			}
 			section = ConfigurationBinder.normalizeKeys(section);
-			return ConfigurationBinder.bindWithDefaults(section, type, classpathResource);
+		return ConfigurationBinder.bindWithDefaults(section, type);
 		} catch (ConfigurationException e) {
 			throw e;
 		} catch (Exception e) {

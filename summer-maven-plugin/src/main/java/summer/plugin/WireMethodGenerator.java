@@ -55,6 +55,20 @@ final class WireMethodGenerator {
 				wire.addStatement("singletons.put($T.class, $N)", beanClass, varName);
 			}
 		}
+
+		// Validation Phase: run all Validator beans
+		wire.addCode("\n");
+		wire.addComment("Validation Phase");
+		wire.beginControlFlow("for (Object bean : singletons.values())");
+		wire.beginControlFlow("if (bean instanceof $T validator)",
+				ClassName.get("summer.core.validation", "Validator"));
+		wire.addStatement("$T target = singletons.get(validator.targetType())",
+				ClassName.get(Object.class));
+		wire.beginControlFlow("if (target != null)");
+		wire.addStatement("validator.validate(target)");
+		wire.endControlFlow();
+		wire.endControlFlow();
+		wire.endControlFlow();
 	}
 
 	private void emitComponentInstantiation(MethodSpec.Builder wire, BeanDefinition bean, ClassName beanClass,

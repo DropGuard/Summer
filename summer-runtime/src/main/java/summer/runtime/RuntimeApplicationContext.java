@@ -115,6 +115,8 @@ public class RuntimeApplicationContext implements ApplicationContext {
 			}
 		}
 
+		// 5. Validation Phase
+		runValidators();
 	}
 
 	/**
@@ -148,6 +150,19 @@ public class RuntimeApplicationContext implements ApplicationContext {
 					: loader.bind("application.yml", configClass, prefix);
 			singletons.put(configClass, instance);
 			log.debug("[Summer] Bound @ConfigurationProperties: {} (prefix='{}')", configClass.getSimpleName(), prefix);
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private void runValidators() {
+		for (Object bean : singletons.values()) {
+			if (bean instanceof summer.core.validation.Validator<?> validator) {
+				Class<?> targetType = validator.targetType();
+				Object target = singletons.get(targetType);
+				if (target != null) {
+					((summer.core.validation.Validator<Object>) validator).validate(target);
+				}
+			}
 		}
 	}
 	@SuppressWarnings("unchecked")
