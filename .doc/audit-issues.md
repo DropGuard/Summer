@@ -61,8 +61,7 @@ Frame size validation compares `text.length()` (character count) against `maxFra
 **File:** `summer-core/src/main/java/summer/core/RecordUtils.java`
 
 `isRecord()` wraps `Class.isRecord()` but is never called from any module. Can be removed.
-
-**Status:** TODO
+**Status:** FIXED — deleted dead RecordUtils class (4fd074c)
 
 ---
 
@@ -74,7 +73,7 @@ Frame size validation compares `text.length()` (character count) against `maxFra
 
 Both contain near-identical string-to-type conversion logic (int, long, double, boolean, enum). Should be extracted to a shared utility in summer-core.
 
-**Status:** TODO
+**Status:** PARTIAL — `parseDefaultValue` simplified to boxed-only (Integer/Long/Boolean/Double/String); shared extraction deferred
 
 ---
 

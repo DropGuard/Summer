@@ -106,15 +106,13 @@ public class SummerRedisTemplateTest {
 		// Given
 		UserCacheDTO user = new UserCacheDTO(1L, "gemini", List.of("admin"));
 		Duration ttl = Duration.ofHours(1);
-		when(commands.set("user:1", user)).thenReturn("OK");
-		when(commands.expire("user:1", 3600)).thenReturn(true);
+		when(commands.setex("user:1", 3600, user)).thenReturn("OK");
 
 		// When
 		template.set("user:1", user, ttl);
 
 		// Then
-		verify(commands).set("user:1", user);
-		verify(commands).expire("user:1", 3600);
+		verify(commands).setex("user:1", 3600, user);
 	}
 
 	@Test

@@ -17,7 +17,7 @@ import java.lang.annotation.Target;
  *
  * <pre>{@code
  * @ConfigurationProperties(prefix = "server")
- * public record ServerProperties(String host, @DefaultValue("8080") int port, @DefaultValue("false") boolean ssl) {
+ * public record ServerProperties(String host, @DefaultValue("8080") Integer port, @DefaultValue("false") Boolean ssl) {
  * }
  * }</pre>
  */

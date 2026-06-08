@@ -1,6 +1,7 @@
 package summer.grpc.config;
 
 import summer.core.config.ConfigurationProperties;
+import summer.core.config.DefaultValue;
 
 /**
  * gRPC TLS configuration bound from {@code application.yml}.
@@ -19,7 +20,7 @@ import summer.core.config.ConfigurationProperties;
  * }</pre>
  *
  * @param enabled
- *            whether TLS is enabled ({@code null} if not configured)
+ *            whether TLS is enabled
  * @param certChain
  *            path to the server certificate chain (PEM format)
  * @param privateKey
@@ -28,5 +29,6 @@ import summer.core.config.ConfigurationProperties;
  *            path to the CA certificate for client trust (PEM format)
  */
 @ConfigurationProperties(prefix = "grpc.tls")
-public record GrpcTlsConfig(Boolean enabled, String certChain, String privateKey, String trustCert) {
+public record GrpcTlsConfig(@DefaultValue("false") Boolean enabled, @DefaultValue("") String certChain,
+		@DefaultValue("") String privateKey, @DefaultValue("") String trustCert) {
 }

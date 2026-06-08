@@ -106,7 +106,7 @@ public class ConfigurationLoader {
 	private static <T> void validateAllFieldsPresent(Map<String, Object> section, Class<T> type, String resource) {
 		List<String> missing = new ArrayList<>();
 		for (RecordComponent component : type.getRecordComponents()) {
-			if (!section.containsKey(component.getName()) && component.getType().isPrimitive()) {
+			if (!section.containsKey(component.getName()) && component.getAnnotation(DefaultValue.class) == null) {
 				missing.add(component.getName());
 			}
 		}
@@ -130,20 +130,14 @@ public class ConfigurationLoader {
 	private static Object parseDefaultValue(String value, Class<?> targetType) {
 		if (targetType == String.class)
 			return value;
-		if (targetType == int.class || targetType == Integer.class)
+		if (targetType == Integer.class)
 			return Integer.parseInt(value);
-		if (targetType == long.class || targetType == Long.class)
+		if (targetType == Long.class)
 			return Long.parseLong(value);
-		if (targetType == boolean.class || targetType == Boolean.class)
+		if (targetType == Boolean.class)
 			return Boolean.parseBoolean(value);
-		if (targetType == double.class || targetType == Double.class)
+		if (targetType == Double.class)
 			return Double.parseDouble(value);
-		if (targetType == float.class || targetType == Float.class)
-			return Float.parseFloat(value);
-		if (targetType == short.class || targetType == Short.class)
-			return Short.parseShort(value);
-		if (targetType == byte.class || targetType == Byte.class)
-			return Byte.parseByte(value);
 		throw new ConfigurationException(ErrorCode.CONFIG_PARSE_ERROR,
 				"Unsupported type for @DefaultValue: " + targetType.getName());
 	}

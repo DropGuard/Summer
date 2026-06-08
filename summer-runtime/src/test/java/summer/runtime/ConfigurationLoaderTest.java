@@ -17,15 +17,15 @@ class ConfigurationLoaderTest {
 	private final ConfigurationLoader loader = new ConfigurationLoader();
 
 	@ConfigurationProperties(prefix = "server")
-	record AllDefaulted(@DefaultValue("8080") int port, @DefaultValue("localhost") String host) {
+	record AllDefaulted(@DefaultValue("8080") Integer port, @DefaultValue("localhost") String host) {
 	}
 
 	@ConfigurationProperties(prefix = "server")
-	record PartiallyDefaulted(int port, @DefaultValue("localhost") String host) {
+	record PartiallyDefaulted(Integer port, @DefaultValue("localhost") String host) {
 	}
 
 	@ConfigurationProperties(prefix = "server")
-	record NoDefaults(int port, String host) {
+	record NoDefaults(Integer port, String host) {
 	}
 
 	// --- File absent ---
