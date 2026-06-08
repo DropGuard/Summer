@@ -12,8 +12,7 @@ Generated: 2026-06-08
 
 Duplicate else-if branch makes `@Replaces` replacement for duplicate `@Bean` return types unreachable. The fallback path that should replace an existing bean of the same type is dead code.
 
-**Status:** TODO
-
+**Status:** FIXED — removed duplicate empty else-if (d803d93)
 ---
 
 ### C2: TransactionInterceptor ignores propagation parameter
@@ -41,7 +40,7 @@ Duplicate else-if branch makes `@Replaces` replacement for duplicate `@Bean` ret
 
 `set(key, value, ttl)` performs SET then EXPIRE as two separate commands. If the process crashes between them, the key persists without expiry. Should use `SETEX` or Redis pipeline/transaction.
 
-**Status:** TODO
+**Status:** FIXED — replaced with atomic `commands.setex()` (5b5b373)
 
 ---
 
@@ -51,7 +50,7 @@ Duplicate else-if branch makes `@Replaces` replacement for duplicate `@Bean` ret
 
 Frame size validation compares `text.length()` (character count) against `maxFrameSize` (intended as bytes). Multi-byte characters (CJK, emoji) bypass the limit. Should use `text.getBytes(UTF_8).length` or `ByteBuf.readableBytes()`.
 
-**Status:** TODO
+**Status:** FIXED — use `frame.content().readableBytes()` for byte-level check (c11d0d2)
 
 ---
 
