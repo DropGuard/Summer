@@ -1,6 +1,6 @@
 package summer.grpc.config;
 
-import summer.core.Component;
+import summer.core.annotation.Configuration;
 import summer.core.validation.ValidationException;
 import summer.core.validation.Validator;
 
@@ -12,7 +12,7 @@ import summer.core.validation.Validator;
  * provided.
  * </p>
  */
-@Component
+@Configuration
 public class GrpcTlsValidator implements Validator<GrpcTlsConfig> {
 
 	@Override
