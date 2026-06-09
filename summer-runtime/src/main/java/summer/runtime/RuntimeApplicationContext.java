@@ -49,6 +49,8 @@ public class RuntimeApplicationContext implements ApplicationContext {
 	 * </p>
 	 */
 	public static RuntimeApplicationContext create(Class<?> entryPoint) {
+		// Set reflection-based default value resolver for runtime engine
+		ConfigurationBinder.setDefaultResolver(new ReflectionDefaultValueResolver());
 		RuntimeApplicationContext ctx = new RuntimeApplicationContext();
 		ctx.registerSingleton(summer.core.RuntimeDiMarker.class, new summer.core.RuntimeDiMarker());
 		ctx.componentScanner.scan(entryPoint, entryPoint.getPackageName());

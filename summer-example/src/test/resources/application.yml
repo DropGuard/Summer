@@ -6,3 +6,6 @@ server:
   maxWebSocketFrameSize: 65536
   allowedOrigins:
     - "*"
+grpc:
+  server:
+    port: 0

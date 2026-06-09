@@ -3,6 +3,7 @@ package summer.runtime;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.lang.reflect.RecordComponent;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import summer.core.config.ConfigurationBinder;
@@ -16,6 +17,10 @@ import summer.runtime.config.PartialYamlConfig;
  */
 class ConfigurationBindingTest {
 
+	@BeforeAll
+	static void setupResolver() {
+		ConfigurationBinder.setDefaultResolver(new ReflectionDefaultValueResolver());
+	}
 	@Nested
 	class TypeConversion {
 

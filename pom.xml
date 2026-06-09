@@ -18,6 +18,8 @@
         <maven.compiler.release>${java.version}</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <jacoco.version>0.8.15</jacoco.version>
+        <!-- Default empty — JaCoCo prepare-agent overrides when active -->
+        <argLine></argLine>
     </properties>
 
     <modules>
@@ -62,11 +64,6 @@
         <pluginManagement>
             <plugins>
                 <plugin>
-                    <groupId>org.sonarsource.scanner.maven</groupId>
-                    <artifactId>sonar-maven-plugin</artifactId>
-                    <version>4.0.0.4121</version>
-                </plugin>
-                <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>3.15.0</version>
@@ -96,14 +93,6 @@
                     <groupId>io.smallrye</groupId>
                     <artifactId>jandex-maven-plugin</artifactId>
                     <version>3.5.3</version>
-                    <executions>
-                        <execution>
-                            <id>make-index</id>
-                            <goals>
-                                <goal>jandex</goal>
-                            </goals>
-                        </execution>
-                    </executions>
                 </plugin>
                 <!-- Add Spotless for static analysis and formatting -->
                 <plugin>
@@ -123,32 +112,65 @@
                         </java>
                     </configuration>
                 </plugin>
-                <!-- JaCoCo for code coverage -->
+                <!-- JaCoCo for code coverage — opt-in: add to <plugins> in modules that need it -->
                 <plugin>
                     <groupId>org.jacoco</groupId>
                     <artifactId>jacoco-maven-plugin</artifactId>
                     <version>${jacoco.version}</version>
+                    <executions>
+                        <execution>
+                            <id>prepare-agent</id>
+                            <goals>
+                                <goal>prepare-agent</goal>
+                            </goals>
+                        </execution>
+                        <execution>
+                            <id>report</id>
+                            <phase>test</phase>
+                            <goals>
+                                <goal>report</goal>
+                            </goals>
+                        </execution>
+                    </executions>
                 </plugin>
             </plugins>
         </pluginManagement>
-        <!-- JaCoCo coverage agent -->
         <plugins>
+            <!--
+                Clean annotation-processor-generated sources before every build.
+                Prevents stale .class pollution from incremental compilation:
+                if AP-generated code failed to compile in a previous run, the
+                poisoned .class files persist in target/classes/ and javac's
+                incremental mode skips recompiling them.
+
+                This execution runs at the initialize phase (before compile)
+                and only touches generated-sources directories — main sources
+                and compiled classes are untouched.
+            -->
             <plugin>
-                <groupId>org.jacoco</groupId>
-                <artifactId>jacoco-maven-plugin</artifactId>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-clean-plugin</artifactId>
+                <version>3.2.0</version>
                 <executions>
                     <execution>
-                        <id>prepare-agent</id>
+                        <id>clean-generated-sources</id>
+                        <phase>initialize</phase>
                         <goals>
-                            <goal>prepare-agent</goal>
+                            <goal>clean</goal>
                         </goals>
-                    </execution>
-                    <execution>
-                        <id>report</id>
-                        <phase>test</phase>
-                        <goals>
-                            <goal>report</goal>
-                        </goals>
+                        <configuration>
+                            <excludeDefaultDirectories>true</excludeDefaultDirectories>
+                            <filesets>
+                                <fileset>
+                                    <!--
+                                        AP-generated sources (avaje-validator-generator).
+                                        SummerMojo cleans its own generated-sources/aot/ before
+                                        generating — no external cleanup needed for AOT.
+                                    -->
+                                    <directory>${project.build.directory}/generated-sources/annotations</directory>
+                                </fileset>
+                            </filesets>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

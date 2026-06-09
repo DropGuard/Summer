@@ -16,7 +16,6 @@ import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
 import summer.runtime.RuntimeApplicationContext;
 import summer.test.annotation.SummerTest;
-import summer.web.ServerConfig;
 import summer.web.WsRouteProvider;
 
 @SummerTest(value = RuntimeApplicationContext.class, web = true)
@@ -51,7 +50,7 @@ class WebSocketBroadcasterTest {
 		}
 	}
 
-	private final String baseUrl = "ws://localhost:" + ServerConfig.fromYaml().port();
+	private final String baseUrl = "ws://localhost:" + NettyServerRunner.getActualPort();
 
 	@Test
 	void testWebSocketBroadcastingToRoom() throws Exception {

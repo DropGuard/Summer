@@ -1,4 +1,4 @@
-.PHONY: all clean compile install test test-module test-full run benchmark fmt check pre-commit arch realworld coverage coverage-module
+.PHONY: all clean compile install test test-module run benchmark fmt check pre-commit arch realworld coverage coverage-module
 
 
 export MAVEN_OPTS := --sun-misc-unsafe-memory-access=allow
@@ -9,13 +9,13 @@ clean:
 	mvn clean
 
 compile:
-	mvn clean compile
+	mvn compile
 
 install:
-	mvn clean install -DskipTests
+	mvn install -DskipTests
 
 test:
-	mvn clean test
+	mvn test
 
 test-module:
 ifndef MODULE
@@ -26,9 +26,6 @@ ifdef TEST
 else
 	mvn test -pl $(MODULE) -am -Dsurefire.useFile=false
 endif
-
-test-full:
-	mvn clean test
 
 run:
 	mvn compile exec:java -pl summer-example -am
@@ -50,9 +47,9 @@ pre-commit: fmt check test
 arch:
 	mvn test -pl summer-archunit
 coverage:
-	mvn clean test jacoco:report
+	mvn test jacoco:report
 coverage-module:
 ifndef MODULE
 	$(error Usage: make coverage-module MODULE=summer-example)
 endif
-	mvn clean test jacoco:report -pl $(MODULE) -am
+	mvn test jacoco:report -pl $(MODULE) -am

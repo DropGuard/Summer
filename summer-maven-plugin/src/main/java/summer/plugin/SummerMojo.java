@@ -55,17 +55,24 @@ public class SummerMojo extends AbstractMojo {
 			}
 			getLog().info("[Summer] Loaded Jandex index with " + index.getKnownClasses().size() + " classes");
 
-			// 2. Generate RowMapper classes (must happen before BeanDiscovery
-			// so the generated RowMapperConfiguration is in the index)
+			// 2. Clean stale generated sources to prevent stale class pollution
 			File generatedDir = new File(project.getBasedir(), "target/generated-sources/aot");
+			if (generatedDir.exists()) {
+				java.nio.file.Files.walk(generatedDir.toPath()).sorted(java.util.Comparator.reverseOrder())
+						.map(java.nio.file.Path::toFile).forEach(File::delete);
+				getLog().info("[Summer] Cleaned stale AOT generated sources");
+			}
 			generatedDir.mkdirs();
+
+			// 3. Generate RowMapper classes (must happen before BeanDiscovery
+			// so the generated RowMapperConfiguration is in the index)
 			new RowMapperGenerator().generate(index, generatedDir);
 
-			// 3. Compile generated sources and re-index
+			// 4. Compile generated sources and re-index
 			compileGeneratedSources(generatedDir);
 			index = reloadIndex(index, generatedDir);
 
-			// 4. Discover beans from the index (includes condition evaluation)
+			// 5. Discover beans from the index (includes condition evaluation)
 			List<BeanDefinition> beans = new BeanDiscovery(index).discover(null);
 			getLog().info("[Summer] Discovered " + beans.size() + BEANS_SUFFIX);
 

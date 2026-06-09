@@ -29,7 +29,7 @@ class WebLayerTest {
 	}
 
 	private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
-	private final String baseUrl = "http://localhost:" + ServerConfig.fromYaml().port();
+	private final String baseUrl = "http://localhost:" + summer.web.server.NettyServerRunner.getActualPort();
 
 	@Test
 	void shouldRouteGetRequest() throws Exception {

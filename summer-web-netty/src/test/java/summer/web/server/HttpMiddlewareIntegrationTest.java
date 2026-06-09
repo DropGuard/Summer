@@ -40,7 +40,7 @@ class HttpMiddlewareIntegrationTest {
 	}
 
 	private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
-	private final String baseUrl = "http://localhost:" + ServerConfig.fromYaml().port();
+	private final String baseUrl = "http://localhost:" + NettyServerRunner.getActualPort();
 
 	@Test
 	void testMiddlewareInterceptsAndModifiesResponse() throws Exception {

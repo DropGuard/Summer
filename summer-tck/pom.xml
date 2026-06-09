@@ -13,6 +13,7 @@
     <name>Summer Test Compatibility Kit</name>
     <description>Unified test suite for Summer dual DI engines</description>
 
+
     <dependencies>
         <!-- Test fixtures from separate module (tests cross-module bean discovery) -->
         <dependency>

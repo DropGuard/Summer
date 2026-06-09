@@ -13,6 +13,7 @@ import summer.core.ApplicationContext;
 import summer.core.ApplicationRunner;
 import summer.core.ErrorCode;
 import summer.core.config.ConfigurationBinder;
+import summer.grpc.config.GrpcServerConfig;
 import summer.grpc.config.GrpcTlsConfig;
 import summer.grpc.exception.SummerGrpcException;
 
@@ -29,14 +30,25 @@ public class GrpcServerRunner implements ApplicationRunner, AutoCloseable {
 	private static final Logger log = LoggerFactory.getLogger(GrpcServerRunner.class);
 
 	private final GrpcTlsConfig tlsConfig;
+	private final GrpcServerConfig serverConfig;
+	private static volatile int actualPort = -1;
 	private Server server;
 
 	public GrpcServerRunner() {
 		this.tlsConfig = ConfigurationBinder.bind(GrpcTlsConfig.class, "grpc.tls");
+		this.serverConfig = ConfigurationBinder.bind(GrpcServerConfig.class, "grpc.server");
 	}
 
 	public int getPort() {
 		return server != null ? server.getPort() : -1;
+	}
+
+	/**
+	 * Returns the actual port the gRPC server bound to. Useful when
+	 * {@code grpc.server.port} is 0 (random port).
+	 */
+	public static int getActualPort() {
+		return actualPort;
 	}
 
 	@Override
@@ -47,7 +59,7 @@ public class GrpcServerRunner implements ApplicationRunner, AutoCloseable {
 			return; // No gRPC services to expose
 		}
 
-		int port = resolvePort();
+		int port = resolvePort(serverConfig.port());
 		ServerBuilder<?> serverBuilder = ServerBuilder.forPort(port);
 
 		List<ServerInterceptor> interceptors = context.getBeans(ServerInterceptor.class);
@@ -77,7 +89,8 @@ public class GrpcServerRunner implements ApplicationRunner, AutoCloseable {
 
 		try {
 			this.server.start();
-			log.info("gRPC Server started on port {}", this.server.getPort());
+			actualPort = this.server.getPort();
+			log.info("gRPC Server started on port {}", actualPort);
 
 			// Add shutdown hook
 			Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -99,9 +112,8 @@ public class GrpcServerRunner implements ApplicationRunner, AutoCloseable {
 			log.info("gRPC Server stopped");
 		}
 	}
-
-	private static int resolvePort() {
+	private static int resolvePort(int defaultPort) {
 		String prop = System.getProperty("summer.grpc.port");
-		return prop != null ? Integer.parseInt(prop) : 9090;
+		return prop != null ? Integer.parseInt(prop) : defaultPort;
 	}
 }

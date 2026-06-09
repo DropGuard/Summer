@@ -27,6 +27,7 @@ public class NettyServerRunner implements ApplicationRunner, AutoCloseable {
 	private static final Logger log = LoggerFactory.getLogger(NettyServerRunner.class);
 	private final RouterRegistry routerRegistry;
 	private NettyHttpServer runningServer;
+	private static volatile int actualPort = -1;
 
 	public NettyServerRunner(RouterRegistry routerRegistry) {
 		this.routerRegistry = routerRegistry;
@@ -39,10 +40,18 @@ public class NettyServerRunner implements ApplicationRunner, AutoCloseable {
 		ExceptionRegistry exceptionRegistry = buildExceptionRegistry(context, engine);
 		HttpRouter httpRouter = buildHttpRouter(context, engine);
 		WsRouter wsRouter = buildWsRouter(context, engine);
-
 		ServerConfig config = ServerConfig.fromYaml();
 		runningServer = NettyHttpServer.create(context, config, httpRouter, wsRouter, exceptionRegistry);
 		runningServer.start();
+		actualPort = runningServer.getPort();
+	}
+
+	/**
+	 * Returns the actual port the server bound to. Useful when {@code server.port}
+	 * is 0 (random port).
+	 */
+	public static int getActualPort() {
+		return actualPort;
 	}
 
 	private ExceptionRegistry buildExceptionRegistry(ApplicationContext context, Engine engine) {

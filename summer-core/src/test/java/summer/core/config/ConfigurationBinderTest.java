@@ -2,6 +2,8 @@ package summer.core.config;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.Map;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -9,6 +11,16 @@ import org.junit.jupiter.api.Test;
  */
 class ConfigurationBinderTest {
 
+	@BeforeAll
+	static void setupResolver() {
+		AotDefaultValueResolver.register(ServerConfig.class,
+				Map.of("port", "8080", "connectionTimeout", "30000", "maxBodySize", "10485760", "readTimeout", "10000"),
+				Map.of("port", Integer.class, "connectionTimeout", Integer.class, "maxBodySize", Integer.class,
+						"readTimeout", Integer.class));
+		AotDefaultValueResolver.register(JwtConfig.class, Map.of("secret", "default-secret", "expiration", "3600000"),
+				Map.of("secret", String.class, "expiration", Long.class));
+		ConfigurationBinder.setDefaultResolver(new AotDefaultValueResolver());
+	}
 	// Test records
 	public record ServerConfig(@DefaultValue("8080") Integer port, @DefaultValue("30000") Integer connectionTimeout,
 			@DefaultValue("10485760") Integer maxBodySize, @DefaultValue("10000") Integer readTimeout) {

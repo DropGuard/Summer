@@ -3,11 +3,13 @@ package summer.example;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.lang.reflect.RecordComponent;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import summer.core.config.DefaultValue;
-import summer.grpc.config.GrpcTlsConfig;
 import summer.core.config.ConfigurationBinder;
+import summer.core.config.DefaultValue;
+import summer.runtime.ReflectionDefaultValueResolver;
+import summer.grpc.config.GrpcTlsConfig;
 import summer.web.middleware.CorsConfig;
 
 /**
@@ -21,6 +23,10 @@ import summer.web.middleware.CorsConfig;
  */
 class CrossModuleConfigBindingTest {
 
+	@BeforeAll
+	static void setupResolver() {
+		ConfigurationBinder.setDefaultResolver(new ReflectionDefaultValueResolver());
+	}
 
 	// ── Annotation visibility ────────────────────────────────────────
 

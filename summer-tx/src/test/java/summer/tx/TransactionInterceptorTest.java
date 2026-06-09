@@ -6,8 +6,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import summer.aop.InterceptorChain;
 import summer.aop.MethodMetadata;
-import summer.runtime.RuntimeMethodMetadata;
 import summer.aop.TargetInvoker;
+import summer.runtime.RuntimeMethodMetadata;
 
 /**
  * Tests for {@link TransactionInterceptor}.

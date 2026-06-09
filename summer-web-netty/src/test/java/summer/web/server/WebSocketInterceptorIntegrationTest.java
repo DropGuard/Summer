@@ -67,7 +67,7 @@ class WebSocketInterceptorIntegrationTest {
 		}
 	}
 
-	private final String baseUrl = "ws://localhost:" + ServerConfig.fromYaml().port();
+	private final String baseUrl = "ws://localhost:" + NettyServerRunner.getActualPort();
 
 	@Test
 	void testHandshakeFailsWithoutAuthHeader() {
