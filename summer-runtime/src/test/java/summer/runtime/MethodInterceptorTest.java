@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import summer.aop.InterceptorChain;
 import summer.aop.MethodInterceptor;
 import summer.aop.MethodMetadata;
-import summer.aop.RuntimeMethodMetadata;
+import summer.runtime.RuntimeMethodMetadata;
 import summer.aop.TargetInvoker;
 
 /**

@@ -8,7 +8,6 @@ import java.util.List;
 import summer.aop.InterceptorBinding;
 import summer.aop.MethodInterceptor;
 import summer.aop.ProxyInterceptorChain;
-import summer.aop.RuntimeMethodMetadata;
 import summer.aop.SummerAopException;
 import summer.core.ErrorCode;
 

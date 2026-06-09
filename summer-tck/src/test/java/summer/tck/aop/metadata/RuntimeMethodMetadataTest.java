@@ -2,7 +2,7 @@ package summer.tck.aop.metadata;
 
 import java.lang.reflect.Method;
 import summer.aop.MethodMetadata;
-import summer.aop.RuntimeMethodMetadata;
+import summer.runtime.RuntimeMethodMetadata;
 
 /**
  * Runtime implementation of the MethodMetadata TCK.

@@ -33,7 +33,7 @@ import org.jboss.jandex.MethodParameterInfo;
 public final class AotProxyGenerator {
 
 	private static final ClassName PROXY_CHAIN = ClassName.get("summer.aop", "ProxyInterceptorChain");
-	private static final ClassName RUNTIME_METADATA = ClassName.get("summer.aop", "RuntimeMethodMetadata");
+	private static final ClassName RUNTIME_METADATA = ClassName.get("summer.runtime", "RuntimeMethodMetadata");
 	private static final ClassName INVOCATION_TARGET_EX = ClassName.get("java.lang.reflect",
 			"InvocationTargetException");
 

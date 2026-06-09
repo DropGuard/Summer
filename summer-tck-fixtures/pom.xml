@@ -32,6 +32,11 @@
         </dependency>
         <dependency>
             <groupId>summer</groupId>
+            <artifactId>summer-runtime</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>summer</groupId>
             <artifactId>summer-tx</artifactId>
             <version>${project.version}</version>
         </dependency>
