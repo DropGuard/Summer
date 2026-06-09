@@ -5,8 +5,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 import summer.core.ApplicationContext;
 import summer.core.validation.ValidationException;
-import summer.tck.AbstractContextTCK;
 import summer.fixtures.validation.*;
+import summer.tck.AbstractContextTCK;
 
 /**
  * TCK contract for the Validation Phase.

@@ -17,11 +17,16 @@ import summer.test.SummerExtension;
 @Retention(RetentionPolicy.RUNTIME)
 @ExtendWith(SummerExtension.class)
 public @interface SummerTest {
-
 	/**
 	 * The ApplicationContext implementation to use for the test. The class must
 	 * have a public no-arg constructor and a static {@code create(Class<?>)}
 	 * method.
 	 */
 	Class<? extends ApplicationContext> value();
+	/**
+	 * When true, all {@link summer.core.ApplicationRunner} beans are started after
+	 * the context is initialized (e.g. Netty HTTP server, gRPC server). Defaults to
+	 * false — only DI initialization.
+	 */
+	boolean web() default false;
 }

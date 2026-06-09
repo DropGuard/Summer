@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import summer.core.config.DefaultValue;
 import summer.grpc.config.GrpcTlsConfig;
-import summer.runtime.ConfigurationLoader;
+import summer.core.config.ConfigurationBinder;
 import summer.web.middleware.CorsConfig;
 
 /**
@@ -21,7 +21,6 @@ import summer.web.middleware.CorsConfig;
  */
 class CrossModuleConfigBindingTest {
 
-	private final ConfigurationLoader loader = new ConfigurationLoader();
 
 	// ── Annotation visibility ────────────────────────────────────────
 
@@ -60,7 +59,7 @@ class CrossModuleConfigBindingTest {
 		@Test
 		void corsConfigBindsWithDefaults() {
 			// application.yml has no "cors" section
-			CorsConfig config = loader.bind("application.yml", CorsConfig.class, "cors");
+			CorsConfig config = ConfigurationBinder.bind(CorsConfig.class, "cors");
 
 			assertNotNull(config, "CorsConfig should bind with defaults");
 			assertEquals("*", config.allowedOrigins());
@@ -73,7 +72,7 @@ class CrossModuleConfigBindingTest {
 		void grpcTlsConfigBindsWithNulls() {
 			// application.yml has no "grpc.tls" section
 			// enabled has @DefaultValue("false"), cert fields are null
-			GrpcTlsConfig config = loader.bind("application.yml", GrpcTlsConfig.class, "grpc.tls");
+			GrpcTlsConfig config = ConfigurationBinder.bind(GrpcTlsConfig.class, "grpc.tls");
 
 			assertNotNull(config, "GrpcTlsConfig should bind");
 			assertFalse(config.enabled(), "enabled should use @DefaultValue(false)");

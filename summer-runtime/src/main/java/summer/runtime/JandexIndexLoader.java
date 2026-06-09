@@ -160,8 +160,10 @@ final class JandexIndexLoader {
 			Enumeration<URL> urls = JandexIndexLoader.class.getClassLoader().getResources("META-INF/jandex.idx");
 			while (urls.hasMoreElements()) {
 				URL url = urls.nextElement();
+				log.debug("[Summer] Found jandex.idx at: {}", url);
 				loadIndexFromUrl(url, indexes);
 			}
+			log.debug("[Summer] Loaded {} framework indexes", indexes.size());
 		} catch (IOException e) {
 			log.warn("[Summer] Failed to enumerate jandex.idx resources: {}", e.getMessage());
 		}

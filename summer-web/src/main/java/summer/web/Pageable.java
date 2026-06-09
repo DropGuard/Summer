@@ -1,4 +1,5 @@
 package summer.web;
+import java.util.List;
 
 /**
  * Abstract interface for pagination information. Follows the Spring Data JPA
@@ -57,6 +58,28 @@ public interface Pageable {
 	 */
 	default Pageable unpaged() {
 		return Pageable.UNPAGED;
+	}
+	/**
+	 * Paginates a list of items using this pageable's page number and size.
+	 *
+	 * <p>
+	 * Example usage:
+	 * </p>
+	 *
+	 * <pre>
+	 * Page&lt;Article&gt; page = pageable.paginate(allArticles);
+	 * ctx.json(HttpStatus.OK, new ArticlesResponse(page.content(), page.totalElements()));
+	 * </pre>
+	 *
+	 * @param items
+	 *            the full list of items to paginate
+	 * @return a Page containing the paginated subset and metadata
+	 */
+	default <T> Page<T> paginate(List<T> items) {
+		int offset = getPageNumber() * getPageSize();
+		int start = Math.min(offset, items.size());
+		int end = Math.min(start + getPageSize(), items.size());
+		return new Page<>(items.subList(start, end), items.size(), this);
 	}
 
 	/**

@@ -1,7 +1,8 @@
-port: 9090
-connectionTimeout: 30000
-maxBodySize: 10485760
-readTimeout: 10000
+server:
+  port: 9090
+  connectionTimeout: 30000
+  maxBodySize: 10485760
+  readTimeout: 10000
 
 jwt:
   secret: test-secret-for-unit-tests

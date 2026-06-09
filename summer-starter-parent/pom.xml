@@ -41,7 +41,7 @@
                         <source>${java.version}</source>
                         <target>${java.version}</target>
                         <encoding>${project.build.sourceEncoding}</encoding>
-                        <proc>none</proc>
+                        <proc>full</proc>
                     </configuration>
                 </plugin>
                 <plugin>

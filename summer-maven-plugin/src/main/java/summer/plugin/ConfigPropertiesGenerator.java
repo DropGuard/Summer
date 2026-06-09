@@ -83,11 +83,9 @@ final class ConfigPropertiesGenerator {
 				.addModifiers(Modifier.PUBLIC).returns(configClass);
 
 		if (prefix.isEmpty()) {
-			provideMethod.addStatement("return $T.bind($S, $T.class)", CONFIGURATION_BINDER, "application.yml",
-					configClass);
+			provideMethod.addStatement("return $T.bind($T.class, $S)", CONFIGURATION_BINDER, configClass, "");
 		} else {
-			provideMethod.addStatement("return $T.bind($S, $T.class, $S)", CONFIGURATION_BINDER, "application.yml",
-					configClass, prefix);
+			provideMethod.addStatement("return $T.bind($T.class, $S)", CONFIGURATION_BINDER, configClass, prefix);
 		}
 
 		// Build the Provider class

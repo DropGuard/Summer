@@ -17,6 +17,7 @@
         <java.version>26</java.version>
         <maven.compiler.release>${java.version}</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <jacoco.version>0.8.15</jacoco.version>
     </properties>
 
     <modules>
@@ -80,7 +81,7 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.5.5</version>
                     <configuration>
-                        <argLine>--sun-misc-unsafe-memory-access=allow</argLine>
+                        <argLine>@{argLine} --sun-misc-unsafe-memory-access=allow</argLine>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -88,7 +89,7 @@
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>3.5.5</version>
                     <configuration>
-                        <argLine>--sun-misc-unsafe-memory-access=allow</argLine>
+                        <argLine>@{argLine} --sun-misc-unsafe-memory-access=allow</argLine>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -122,10 +123,36 @@
                         </java>
                     </configuration>
                 </plugin>
+                <!-- JaCoCo for code coverage -->
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco.version}</version>
+                </plugin>
             </plugins>
         </pluginManagement>
-
-        <!-- surefire/failsafe config inherited from pluginManagement -->
+        <!-- JaCoCo coverage agent -->
+        <plugins>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
     </build>
 
     <distributionManagement>

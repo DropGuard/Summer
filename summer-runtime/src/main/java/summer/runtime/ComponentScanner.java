@@ -47,7 +47,25 @@ public class ComponentScanner {
 	public void scan(String... packageNames) {
 		IndexView index = JandexIndexLoader.buildIndex(packageNames);
 		this.lastIndex = index;
-		registerDiscoveredBeans(index);
+		registerDiscoveredBeans(index, null);
+	}
+
+	/**
+	 * Discovers @Component-annotated classes, filtering inner classes to only
+	 * include those belonging to the given owner class. This prevents test mock
+	 * configurations from leaking across test classes.
+	 *
+	 * @param ownerClass
+	 *            the entry point class (e.g., test class or application class);
+	 *            inner classes are only included if their enclosing class is
+	 *            ownerClass or one of its superclasses
+	 * @param packageNames
+	 *            packages to scan
+	 */
+	public void scan(Class<?> ownerClass, String... packageNames) {
+		IndexView index = JandexIndexLoader.buildIndex(packageNames);
+		this.lastIndex = index;
+		registerDiscoveredBeans(index, ownerClass);
 	}
 
 	/**
@@ -76,13 +94,18 @@ public class ComponentScanner {
 	 * Queries the merged index for classes annotated with @Component (directly or
 	 * via recursive meta-annotation), then loads and registers them.
 	 */
-	private void registerDiscoveredBeans(IndexView index) {
+	private void registerDiscoveredBeans(IndexView index, Class<?> ownerClass) {
 		for (ClassInfo classInfo : index.getKnownClasses()) {
 			if (classInfo.isInterface() || classInfo.isAbstract())
 				continue;
 
 			String className = classInfo.name().toString();
 			if (className.contains(".config.generated.") || className.contains("$Generated")) {
+				continue;
+			}
+
+			// Filter inner classes: only include those belonging to the owner class
+			if (ownerClass != null && isInnerClassOfAnotherClass(className, ownerClass)) {
 				continue;
 			}
 
@@ -95,6 +118,27 @@ public class ComponentScanner {
 			}
 		}
 		log.debug("[Summer] Registered {} component classes", componentClasses.size());
+	}
+
+	/**
+	 * Checks if a class is an inner class that does NOT belong to the given owner
+	 * class (or its superclasses). Inner classes are identified by the '$'
+	 * separator in their binary name.
+	 */
+	private boolean isInnerClassOfAnotherClass(String className, Class<?> ownerClass) {
+		int dollarIndex = className.lastIndexOf('$');
+		if (dollarIndex < 0) {
+			return false; // not an inner class
+		}
+		String outerClassName = className.substring(0, dollarIndex);
+		Class<?> current = ownerClass;
+		while (current != null) {
+			if (current.getName().equals(outerClassName)) {
+				return false; // belongs to owner
+			}
+			current = current.getSuperclass();
+		}
+		return true; // belongs to another class
 	}
 
 	/**

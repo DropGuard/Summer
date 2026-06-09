@@ -20,10 +20,12 @@ import summer.core.exception.NoSuchBeanException;
  * annotations, topological sort.
  * </p>
  * <p>
- * Phase 2: @Replaces — single pass, mutate registry.
+ * Phase 2: @Replaces — mark redirects (original → replacement). Original bean
+ * stays in registry but points to its replacement.
  * </p>
  * <p>
- * Phase 3: @ConditionalOnBean — linear pass in topological order.
+ * Phase 3: @ConditionalOnBean — evaluate conditions in topological order.
+ * Resolve through redirects. If a replacement is removed, restore the original.
  * </p>
  */
 final class RuntimeConditionEvaluator {
@@ -35,11 +37,12 @@ final class RuntimeConditionEvaluator {
 		// Phase 1: Build dependency graph + topological sort
 		List<Object> topoOrder = buildTopologicalOrder(nodes);
 
-		// Phase 2: @Replaces — single pass, mutate registry
-		resolveReplaces(nodes);
+		// Phase 2: @Replaces — mark redirects, don't remove
+		Map<Object, Object> redirects = new HashMap<>();
+		resolveReplaces(nodes, redirects);
 
-		// Phase 3: @ConditionalOnBean — linear pass in topological order
-		resolveConditionalOnBean(nodes, topoOrder);
+		// Phase 3: @ConditionalOnBean — evaluate conditions, resolve through redirects
+		resolveConditionalOnBean(nodes, topoOrder, redirects);
 	}
 
 	// ── Phase 1: Dependency Graph + Topological Sort ──────────────────
@@ -50,25 +53,14 @@ final class RuntimeConditionEvaluator {
 	 * dependencies.
 	 */
 	private static List<Object> buildTopologicalOrder(Set<Object> nodes) {
-		// Build adjacency: node → set of nodes it depends on
 		Map<Object, Set<Object>> deps = new HashMap<>();
 		for (Object node : nodes) {
-			Class<?> requiredType = getRequiredType(node);
-			if (requiredType == null)
-				continue;
-
-			Set<Object> matches = new HashSet<>();
-			for (Object other : nodes) {
-				if (requiredType.isAssignableFrom(getProvidedType(other))) {
-					matches.add(other);
-				}
-			}
-			if (!matches.isEmpty()) {
-				deps.put(node, matches);
+			Class<?> required = getRequiredType(node);
+			if (required != null) {
+				deps.computeIfAbsent(node, k -> new HashSet<>()).add(required);
 			}
 		}
 
-		// Topological sort (DFS post-order)
 		Set<Object> visited = new HashSet<>();
 		Set<Object> inStack = new HashSet<>();
 		List<Object> order = new ArrayList<>();
@@ -106,7 +98,8 @@ final class RuntimeConditionEvaluator {
 		if (node instanceof Class<?> clazz) {
 			ConditionalOnBean cond = clazz.getAnnotation(ConditionalOnBean.class);
 			return cond != null ? cond.value() : null;
-		} else if (node instanceof Method method && method.isAnnotationPresent(Bean.class)) {
+		}
+		if (node instanceof Method method) {
 			ConditionalOnBean cond = method.getAnnotation(ConditionalOnBean.class);
 			return cond != null ? cond.value() : null;
 		}
@@ -115,9 +108,11 @@ final class RuntimeConditionEvaluator {
 
 	// ── Phase 2: @Replaces ────────────────────────────────────────────
 
-	private static void resolveReplaces(Set<Object> nodes) {
-		Set<Object> replaced = new HashSet<>();
-
+	/**
+	 * Marks redirects for @Replaces. Original beans stay in the registry but point
+	 * to their replacements.
+	 */
+	private static void resolveReplaces(Set<Object> nodes, Map<Object, Object> redirects) {
 		// Class-level @Replaces
 		for (Object node : new ArrayList<>(nodes)) {
 			if (!(node instanceof Class<?> clazz))
@@ -132,11 +127,11 @@ final class RuntimeConditionEvaluator {
 			if (target == null) {
 				throw new NoSuchBeanException("@Replaces target not found: " + targetType.getName());
 			}
-			replaced.add(target);
-			// Also remove @Bean methods declared on the replaced class
+			redirects.put(target, node);
+			// Also redirect @Bean methods declared on the replaced class
 			for (Object n : nodes) {
 				if (n instanceof Method m && m.getDeclaringClass() == targetType) {
-					replaced.add(m);
+					redirects.put(m, node);
 				}
 			}
 		}
@@ -157,19 +152,18 @@ final class RuntimeConditionEvaluator {
 			if (target == null) {
 				throw new NoSuchBeanException("@Replaces target not found: " + targetType.getName());
 			}
-			replaced.add(target);
+			redirects.put(target, node);
 		}
-
-		nodes.removeAll(replaced);
 	}
 
 	// ── Phase 3: @ConditionalOnBean ───────────────────────────────────
 
 	/**
-	 * Evaluates @ConditionalOnBean in topological order. Single pass — no loops, no
-	 * BFS. Dependencies are guaranteed to be evaluated before dependents.
+	 * Evaluates @ConditionalOnBean in topological order. Resolves through
+	 * redirects. If a replacement is removed, restores the original.
 	 */
-	private static void resolveConditionalOnBean(Set<Object> nodes, List<Object> topoOrder) {
+	private static void resolveConditionalOnBean(Set<Object> nodes, List<Object> topoOrder,
+			Map<Object, Object> redirects) {
 		for (Object node : topoOrder) {
 			if (!nodes.contains(node))
 				continue;
@@ -178,7 +172,27 @@ final class RuntimeConditionEvaluator {
 			if (requiredType == null)
 				continue;
 
-			boolean satisfied = nodes.stream().anyMatch(n -> requiredType.isAssignableFrom(getProvidedType(n)));
+			// Check if the required type is satisfied, resolving through redirects
+			boolean satisfied = false;
+			for (Object n : nodes) {
+				Class<?> providedType = getProvidedType(n);
+				if (providedType == null)
+					continue;
+				// Direct match
+				if (requiredType.isAssignableFrom(providedType)) {
+					satisfied = true;
+					break;
+				}
+				// Redirect match: n is redirected, check if redirect target provides the type
+				Object redirectTarget = redirects.get(n);
+				if (redirectTarget != null) {
+					Class<?> redirectType = getProvidedType(redirectTarget);
+					if (redirectType != null && requiredType.isAssignableFrom(redirectType)) {
+						satisfied = true;
+						break;
+					}
+				}
+			}
 
 			if (!satisfied) {
 				nodes.remove(node);
@@ -186,7 +200,28 @@ final class RuntimeConditionEvaluator {
 				if (node instanceof Class<?> clazz) {
 					nodes.removeIf(n -> n instanceof Method m && m.getDeclaringClass() == clazz);
 				}
+				// If this node was a replacement, restore the original
+				redirects.entrySet().removeIf(entry -> {
+					if (entry.getValue() == node) {
+						// Original is no longer redirected — it survives
+						return true;
+					}
+					return false;
+				});
 			}
+		}
+		// Cleanup: remove original beans whose replacements survived
+		for (Map.Entry<Object, Object> entry : new ArrayList<>(redirects.entrySet())) {
+			Object original = entry.getKey();
+			Object replacement = entry.getValue();
+			if (nodes.contains(replacement)) {
+				// Replacement survived — remove original
+				nodes.remove(original);
+				if (original instanceof Class<?> clazz) {
+					nodes.removeIf(n -> n instanceof Method m && m.getDeclaringClass() == clazz);
+				}
+			}
+			// If replacement was removed, original stays (redirect already cleared above)
 		}
 	}
 
@@ -203,18 +238,20 @@ final class RuntimeConditionEvaluator {
 
 	private static Object findNodeByReturnType(Set<Object> nodes, Class<?> returnType, Method replacement) {
 		for (Object node : nodes) {
-			if (node instanceof Method m && m != replacement && m.getReturnType() == returnType) {
-				return node;
+			if (node instanceof Method m && m.getReturnType() == returnType && m != replacement) {
+				return m;
 			}
 		}
 		return null;
 	}
 
 	private static Class<?> getProvidedType(Object node) {
-		if (node instanceof Class<?> c)
-			return c;
-		if (node instanceof Method m)
-			return m.getReturnType();
+		if (node instanceof Class<?> clazz) {
+			return clazz;
+		}
+		if (node instanceof Method method) {
+			return method.getReturnType();
+		}
 		return null;
 	}
 }

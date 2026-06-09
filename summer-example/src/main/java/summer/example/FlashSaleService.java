@@ -7,28 +7,29 @@ import summer.core.Component;
 @Component
 public class FlashSaleService {
 
+	private static final String STOCK_KEY_PREFIX = "seckill:item:";
+
 	private final RedisCommands<String, Object> redisCommands;
 
 	public FlashSaleService(RedisCommands<String, Object> redisCommands) {
 		this.redisCommands = redisCommands;
 	}
 
-	private RedisCommands<String, Object> getRedisCommands() {
-		return redisCommands;
+	private String stockKey(String itemId) {
+		return STOCK_KEY_PREFIX + itemId;
 	}
 
 	/**
 	 * Initializes the stock for a given item.
 	 */
 	public void initStock(String itemId, int stock) {
-		// Jackson will serialize the int natively.
-		getRedisCommands().set("seckill:item:" + itemId, stock);
+		redisCommands.set(stockKey(itemId), stock);
 	}
 
 	/**
 	 * Attempts to purchase the item. Uses a Lua script for atomic execution in
 	 * Redis.
-	 * 
+	 *
 	 * @return true if purchase successful (stock deducted), false if sold out.
 	 */
 	public boolean purchase(String itemId) {
@@ -36,7 +37,7 @@ public class FlashSaleService {
 				+ "if stock == nil or stock <= 0 then \n" + "    return 0 \n" + "end \n"
 				+ "redis.call('decr', KEYS[1]) \n" + "return 1";
 
-		Long result = getRedisCommands().eval(script, ScriptOutputType.INTEGER, new String[]{"seckill:item:" + itemId});
+		Long result = redisCommands.eval(script, ScriptOutputType.INTEGER, new String[]{stockKey(itemId)});
 
 		return result != null && result == 1L;
 	}
@@ -45,7 +46,7 @@ public class FlashSaleService {
 	 * Gets current stock.
 	 */
 	public int getStock(String itemId) {
-		Object val = getRedisCommands().get("seckill:item:" + itemId);
+		Object val = redisCommands.get(stockKey(itemId));
 		if (val instanceof Integer) {
 			return (Integer) val;
 		} else if (val != null) {

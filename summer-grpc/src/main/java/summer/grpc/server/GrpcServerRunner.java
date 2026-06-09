@@ -27,14 +27,12 @@ import summer.grpc.exception.SummerGrpcException;
 public class GrpcServerRunner implements ApplicationRunner, AutoCloseable {
 
 	private static final Logger log = LoggerFactory.getLogger(GrpcServerRunner.class);
-	private static final GrpcTlsConfig DEFAULT_TLS_CONFIG = new GrpcTlsConfig(false, null, null, null);
 
 	private final GrpcTlsConfig tlsConfig;
 	private Server server;
 
 	public GrpcServerRunner() {
-		this.tlsConfig = ConfigurationBinder.bindOrDefault("application.yml", GrpcTlsConfig.class, "grpc.tls",
-				DEFAULT_TLS_CONFIG);
+		this.tlsConfig = ConfigurationBinder.bind(GrpcTlsConfig.class, "grpc.tls");
 	}
 
 	public int getPort() {

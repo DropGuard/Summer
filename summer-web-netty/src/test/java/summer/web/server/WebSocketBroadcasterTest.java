@@ -1,115 +1,101 @@
 package summer.web.server;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import summer.core.annotation.Bean;
+import summer.core.annotation.Configuration;
+import summer.runtime.RuntimeApplicationContext;
+import summer.test.annotation.SummerTest;
 import summer.web.ServerConfig;
-import summer.web.WsRouter;
-import summer.web.http.RadixTreeHttpRouter;
-import summer.web.websocket.RadixWsRouter;
+import summer.web.WsRouteProvider;
 
-public class WebSocketBroadcasterTest {
+@SummerTest(value = RuntimeApplicationContext.class, web = true)
+class WebSocketBroadcasterTest {
 
-	private static NettyHttpServer server;
-	private static int port;
-	private static NettyWebSocketBroadcaster broadcaster;
+	@Configuration
+	public static class TestConfig {
+		public TestConfig() {
+		}
 
-	@BeforeAll
-	public static void setup() throws Exception {
-		RadixTreeHttpRouter httpRouter = new RadixTreeHttpRouter();
-		broadcaster = new NettyWebSocketBroadcaster();
+		@Bean
+		public NettyWebSocketBroadcaster broadcaster() {
+			return new NettyWebSocketBroadcaster();
+		}
 
-		// 1. Setup route
-		WsRouter wsRouter = new WsRouter.Builder(RadixWsRouter::new).ws("/chat/{room}", ctx -> {
-			String room = ctx.pathParam("room");
-			broadcaster.join(room, ctx);
+		@Bean
+		public WsRouteProvider wsRouteProvider(NettyWebSocketBroadcaster broadcaster) {
+			return builder -> builder.ws("/chat/{room}", ctx -> {
+				String room = ctx.pathParam("room");
+				broadcaster.join(room, ctx);
 
-			ctx.onMessage(msg -> {
-				if (msg.startsWith("BROADCAST:")) {
-					broadcaster.broadcast(room, msg.substring(10));
-				}
+				ctx.onMessage(msg -> {
+					if (msg.startsWith("BROADCAST:")) {
+						broadcaster.broadcast(room, msg.substring(10));
+					}
+				});
+
+				ctx.onClose(() -> {
+					broadcaster.leave(room, ctx);
+				});
 			});
-
-			ctx.onClose(() -> {
-				broadcaster.leave(room, ctx);
-			});
-		}).build();
-
-		// 2. Start server
-		ServerConfig config = new ServerConfig(0, 30000, 1024 * 1024, 10000, List.of("*"), 65536);
-		server = new NettyHttpServer(config, httpRouter, wsRouter, List.of(), null, null, List.of());
-
-		Thread serverThread = new Thread(() -> {
-			server.start();
-		});
-		serverThread.start();
-
-		// Wait for server to bind
-		Thread.sleep(1500); // Integration test: wait for server startup
-		port = server.getPort();
-	}
-
-	@AfterAll
-	public static void teardown() {
-		if (server != null) {
-			server.stop();
 		}
 	}
 
+	private final String baseUrl = "ws://localhost:" + ServerConfig.fromYaml().port();
+
 	@Test
-	public void testWebSocketBroadcastingToRoom() throws Exception {
-		HttpClient client = HttpClient.newHttpClient();
-		String roomUrl = "ws://localhost:" + port + "/chat/tech";
+	void testWebSocketBroadcastingToRoom() throws Exception {
+		HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+		CountDownLatch latch = new CountDownLatch(2);
+		CopyOnWriteArrayList<String> client1Messages = new CopyOnWriteArrayList<>();
+		CopyOnWriteArrayList<String> client2Messages = new CopyOnWriteArrayList<>();
 
-		CountDownLatch latch = new CountDownLatch(3);
-		List<String> receivedMessages1 = new CopyOnWriteArrayList<>();
-		List<String> receivedMessages2 = new CopyOnWriteArrayList<>();
-		List<String> receivedMessages3 = new CopyOnWriteArrayList<>();
+		// Connect client1 to room1
+		WebSocket ws1 = createClient(client, baseUrl + "/chat/room1", client1Messages, latch);
+		TimeUnit.MILLISECONDS.sleep(200);
 
-		// Create 3 clients
-		WebSocket ws1 = createClient(client, roomUrl, receivedMessages1, latch);
-		WebSocket ws2 = createClient(client, roomUrl, receivedMessages2, latch);
-		WebSocket ws3 = createClient(client, roomUrl, receivedMessages3, latch);
+		// Connect client2 to room1
+		WebSocket ws2 = createClient(client, baseUrl + "/chat/room1", client2Messages, latch);
+		TimeUnit.MILLISECONDS.sleep(200);
 
-		// Wait for connection to be fully established and added to ChannelGroup
-		Thread.sleep(500); // Integration test: wait for WebSocket handshake
+		// Client1 broadcasts
+		ws1.sendText("BROADCAST:Hello Room1", true).join();
 
-		// Client 1 sends a broadcast message
-		ws1.sendText("BROADCAST:Hello World", true).join();
+		boolean received = latch.await(5, TimeUnit.SECONDS);
+		assertTrue(received, "Did not receive broadcast within timeout");
 
-		// Wait for all 3 clients to receive it
-		boolean completed = latch.await(5, TimeUnit.SECONDS);
+		assertEquals(1, client1Messages.size());
+		assertEquals("Hello Room1", client1Messages.get(0));
+		assertEquals(1, client2Messages.size());
+		assertEquals("Hello Room1", client2Messages.get(0));
 
-		assertTrue(completed, "Not all clients received the broadcast message in time");
-
-		assertEquals(1, receivedMessages1.size());
-		assertEquals("Hello World", receivedMessages1.get(0));
-
-		assertEquals(1, receivedMessages2.size());
-		assertEquals("Hello World", receivedMessages2.get(0));
-
-		assertEquals(1, receivedMessages3.size());
-		assertEquals("Hello World", receivedMessages3.get(0));
+		ws1.sendClose(WebSocket.NORMAL_CLOSURE, "Done").join();
+		ws2.sendClose(WebSocket.NORMAL_CLOSURE, "Done").join();
 	}
 
 	private WebSocket createClient(HttpClient client, String url, List<String> messages, CountDownLatch latch) {
 		return client.newWebSocketBuilder().buildAsync(URI.create(url), new WebSocket.Listener() {
 			@Override
+			public void onOpen(WebSocket webSocket) {
+				webSocket.request(1);
+			}
+
+			@Override
 			public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
 				messages.add(data.toString());
 				latch.countDown();
-				return WebSocket.Listener.super.onText(webSocket, data, last);
+				webSocket.request(1);
+				return null;
 			}
 		}).join();
 	}

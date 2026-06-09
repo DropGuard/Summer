@@ -1,76 +1,52 @@
 package summer.web.server;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
 import java.util.List;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import summer.web.Handler;
-import summer.web.HttpMethod;
-import summer.web.HttpStatus;
-import summer.web.Middleware;
-import summer.web.ServerConfig;
-import summer.web.http.RadixTreeHttpRouter;
-import summer.web.websocket.RadixWsRouter;
+import summer.runtime.RuntimeApplicationContext;
+import summer.test.annotation.SummerTest;
+import summer.web.*;
+import summer.web.annotation.Get;
+import summer.web.annotation.GlobalMiddleware;
+import summer.web.annotation.RestController;
 
-public class HttpMiddlewareIntegrationTest {
+@SummerTest(value = RuntimeApplicationContext.class, web = true)
+class HttpMiddlewareIntegrationTest {
 
-	private static NettyHttpServer server;
-	private static int port;
-
-	@BeforeAll
-	public static void setup() throws Exception {
-		RadixTreeHttpRouter httpRouter = new RadixTreeHttpRouter();
-		RadixWsRouter wsRouter = new RadixWsRouter(List.of());
-
-		Middleware testMiddleware = new Middleware() {
-			@Override
-			public Handler apply(Handler next) {
-				return ctx -> {
-					Object result = next.handle(ctx);
-					ctx.setHeader("X-Test-Middleware", "Active");
-					return result;
-				};
-			}
-		};
-
-		httpRouter.register(HttpMethod.GET, "/hello", ctx -> {
-			ctx.text(HttpStatus.OK, "world");
-			return null;
-		});
-
-		ServerConfig config = new ServerConfig(0, 30000, 1024 * 1024, 10000, List.of("*"), 65536);
-		server = new NettyHttpServer(config, httpRouter, wsRouter, List.of(testMiddleware), null, null, List.of());
-
-		Thread serverThread = new Thread(() -> {
-			server.start();
-		});
-		serverThread.start();
-
-		Thread.sleep(1500);
-		port = server.getPort();
-	}
-
-	@AfterAll
-	public static void teardown() {
-		if (server != null) {
-			server.stop();
+	@GlobalMiddleware
+	public static class TestMiddleware implements Middleware {
+		@Override
+		public Handler apply(Handler next) {
+			return ctx -> {
+				Object result = next.handle(ctx);
+				ctx.setHeader("X-Test-Middleware", "Active");
+				return result;
+			};
 		}
 	}
 
-	@Test
-	public void testMiddlewareInterceptsAndModifiesResponse() throws Exception {
-		HttpClient client = HttpClient.newHttpClient();
-		HttpRequest request = HttpRequest.newBuilder().uri(URI.create("http://localhost:" + port + "/hello")).GET()
-				.build();
+	@RestController("/test")
+	public static class TestController {
+		@Get("/hello")
+		public void hello(HttpContext ctx) {
+			ctx.text(HttpStatus.OK, "world");
+		}
+	}
 
-		HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+	private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+	private final String baseUrl = "http://localhost:" + ServerConfig.fromYaml().port();
+
+	@Test
+	void testMiddlewareInterceptsAndModifiesResponse() throws Exception {
+		HttpResponse<String> response = client.send(
+				HttpRequest.newBuilder().uri(URI.create(baseUrl + "/test/hello")).GET().build(),
+				HttpResponse.BodyHandlers.ofString());
 
 		assertEquals(200, response.statusCode());
 		assertEquals("world", response.body());

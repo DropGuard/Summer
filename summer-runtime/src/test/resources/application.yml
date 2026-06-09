@@ -1,3 +1,7 @@
+server:
+  port: 3000
+  host: example.com
+
 all-types:
   name: from-yaml
   defaultedString: overridden
@@ -5,3 +9,9 @@ all-types:
   longVal: 1234567890123
   doubleVal: 2.718
   boolVal: false
+
+partial:
+  host: localhost
+
+other:
+  key: value

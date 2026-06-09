@@ -18,8 +18,8 @@ import summer.tck.di.missing.StrictConfig;
  * <li>Discovers {@code @ConfigurationProperties} records via Jandex</li>
  * <li>Binds YAML values to record components</li>
  * <li>Applies {@code @DefaultValue} when YAML field is absent</li>
- * <li>Sets fields without {@code @DefaultValue} to {@code null} when absent from
- * YAML</li>
+ * <li>Sets fields without {@code @DefaultValue} to {@code null} when absent
+ * from YAML</li>
  * <li>Registers the bound record as a singleton bean</li>
  * <li>Makes it injectable into {@code @Component} and {@code @Bean}
  * dependencies</li>
@@ -85,7 +85,8 @@ public abstract class AbstractConfigurationPropertiesTCK extends AbstractContext
 	}
 
 	/**
-	 * Tests for fields without @DefaultValue — should be null when absent from YAML.
+	 * Tests for fields without @DefaultValue — should be null when absent from
+	 * YAML.
 	 */
 	@Nested
 	class MissingField {

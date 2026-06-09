@@ -13,23 +13,26 @@ package summer.core.validation;
  * Example:
  * </p>
  *
- * <pre>{@code
- * @Component
- * public class TlsValidator implements Validator<GrpcTlsConfig> {
+ * <pre>
+ * {
+ * 	&#64;code
+ * 	&#64;Component
+ * 	public class TlsValidator implements Validator<GrpcTlsConfig> {
  *
- *     @Override
- *     public Class<GrpcTlsConfig> targetType() {
- *         return GrpcTlsConfig.class;
- *     }
+ * 		&#64;Override
+ * 		public Class<GrpcTlsConfig> targetType() {
+ * 			return GrpcTlsConfig.class;
+ * 		}
  *
- *     @Override
- *     public void validate(GrpcTlsConfig config) {
- *         if (config.enabled() && config.certChain() == null) {
- *             throw new ValidationException("TLS enabled but cert-chain is required");
- *         }
- *     }
+ * 		@Override
+ * 		public void validate(GrpcTlsConfig config) {
+ * 			if (config.enabled() && config.certChain() == null) {
+ * 				throw new ValidationException("TLS enabled but cert-chain is required");
+ * 			}
+ * 		}
+ * 	}
  * }
- * }</pre>
+ * </pre>
  *
  * @param <T>
  *            the type to validate

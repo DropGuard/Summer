@@ -67,24 +67,26 @@ public class ProxyFactory {
 		 * Determines if a method should be intercepted by checking if any interceptor
 		 * has an {@code @InterceptorBinding} annotation that matches an annotation on
 		 * the target method.
+		 * 
+		 * <p>
+		 * Note: Only checks direct annotations on the interceptor class, not inherited
+		 * ones. This matches the behavior of DependencyGraph and RuntimeAopProcessor.
+		 * </p>
 		 */
 		private boolean shouldIntercept(Method targetMethod, List<MethodInterceptor> interceptors) {
 			for (MethodInterceptor interceptor : interceptors) {
 				Class<?> clazz = interceptor.getClass();
-				while (clazz != null && clazz != Object.class) {
-					for (Annotation ann : clazz.getAnnotations()) {
-						if (ann.annotationType().isAnnotationPresent(InterceptorBinding.class)) {
-							// Check class-level binding on the target
-							if (targetMethod.getDeclaringClass().isAnnotationPresent(ann.annotationType())) {
-								return true;
-							}
-							// Check method-level binding
-							if (targetMethod.isAnnotationPresent(ann.annotationType())) {
-								return true;
-							}
+				for (Annotation ann : clazz.getAnnotations()) {
+					if (ann.annotationType().isAnnotationPresent(InterceptorBinding.class)) {
+						// Check class-level binding on the target
+						if (targetMethod.getDeclaringClass().isAnnotationPresent(ann.annotationType())) {
+							return true;
+						}
+						// Check method-level binding
+						if (targetMethod.isAnnotationPresent(ann.annotationType())) {
+							return true;
 						}
 					}
-					clazz = clazz.getSuperclass();
 				}
 			}
 			return false;

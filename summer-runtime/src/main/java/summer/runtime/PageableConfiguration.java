@@ -11,9 +11,9 @@ import summer.core.config.PageableProperties;
  * Configuration for pagination support.
  *
  * <p>
- * Provides {@link PageableResolver} with configurable defaults bound from
- * {@code application.yml}. If no configuration is present, uses
- * {@link PageableProperties#DEFAULT} (page=0, size=20).
+ * Provides {@link PageableResolver} with configurable defaults. Defaults are
+ * defined via {@link DefaultValue} annotations on {@link PageableProperties}
+ * record components.
  * </p>
  *
  * <p>
@@ -39,8 +39,7 @@ public class PageableConfiguration {
 
 	@Bean
 	public PageableProperties pageableProperties() {
-		return ConfigurationBinder.bindOrDefault("application.yml", PageableProperties.class, "summer.pageable",
-				PageableProperties.DEFAULT);
+		return ConfigurationBinder.bind(PageableProperties.class, "summer.pageable");
 	}
 
 	@Bean

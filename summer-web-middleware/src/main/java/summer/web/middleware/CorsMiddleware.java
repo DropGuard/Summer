@@ -1,6 +1,7 @@
 package summer.web.middleware;
 
 import summer.web.Handler;
+import summer.web.HttpMethod;
 import summer.web.HttpStatus;
 import summer.web.Middleware;
 import summer.web.annotation.GlobalMiddleware;
@@ -45,7 +46,7 @@ public class CorsMiddleware implements Middleware {
 			ctx.setHeader("Access-Control-Max-Age", String.valueOf(config.maxAge()));
 
 			// Handle preflight OPTIONS request
-			if ("OPTIONS".equals(ctx.method())) {
+			if (HttpMethod.OPTIONS == ctx.method()) {
 				ctx.status(HttpStatus.NO_CONTENT);
 				return null;
 			}

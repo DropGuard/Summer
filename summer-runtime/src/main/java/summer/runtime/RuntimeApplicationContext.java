@@ -12,6 +12,7 @@ import summer.core.ApplicationContext;
 import summer.core.Engine;
 import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
+import summer.core.config.ConfigurationBinder;
 import summer.core.config.ConfigurationProperties;
 import summer.core.exception.AmbiguousBeanException;
 import summer.core.exception.CircularDependencyException;
@@ -50,7 +51,9 @@ public class RuntimeApplicationContext implements ApplicationContext {
 	public static RuntimeApplicationContext create(Class<?> entryPoint) {
 		RuntimeApplicationContext ctx = new RuntimeApplicationContext();
 		ctx.registerSingleton(summer.core.RuntimeDiMarker.class, new summer.core.RuntimeDiMarker());
-		return ctx.scan(entryPoint.getPackageName());
+		ctx.componentScanner.scan(entryPoint, entryPoint.getPackageName());
+		ctx.initializeBeans();
+		return ctx;
 	}
 
 	@Override
@@ -135,7 +138,6 @@ public class RuntimeApplicationContext implements ApplicationContext {
 			return;
 		}
 
-		ConfigurationLoader loader = new ConfigurationLoader();
 		for (Class<?> configClass : configClasses) {
 			if (singletons.containsKey(configClass)) {
 				continue; // already registered (e.g. by @Bean)
@@ -143,11 +145,8 @@ public class RuntimeApplicationContext implements ApplicationContext {
 			ConfigurationProperties ann = configClass.getAnnotation(ConfigurationProperties.class);
 			if (ann == null)
 				continue;
-
 			String prefix = ann.prefix();
-			Object instance = prefix.isEmpty()
-					? loader.bind("application.yml", configClass)
-					: loader.bind("application.yml", configClass, prefix);
+			Object instance = ConfigurationBinder.bind(configClass, prefix);
 			singletons.put(configClass, instance);
 			log.debug("[Summer] Bound @ConfigurationProperties: {} (prefix='{}')", configClass.getSimpleName(), prefix);
 		}

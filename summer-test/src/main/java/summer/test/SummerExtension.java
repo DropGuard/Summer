@@ -24,13 +24,17 @@ public class SummerExtension implements BeforeAllCallback, AfterAllCallback, Par
 	public void beforeAll(ExtensionContext extensionContext) throws Exception {
 		Class<?> testClass = extensionContext.getRequiredTestClass();
 		SummerTest summerTest = testClass.getAnnotation(SummerTest.class);
-
 		if (summerTest != null) {
 			Class<? extends ApplicationContext> contextClass = summerTest.value();
 			// Call static create(Class<?>) method
 			Method createMethod = contextClass.getMethod("create", Class.class);
 			ApplicationContext context = (ApplicationContext) createMethod.invoke(null, testClass);
 			extensionContext.getStore(NAMESPACE).put(CONTEXT_KEY, context);
+			if (summerTest.web()) {
+				for (summer.core.ApplicationRunner runner : context.getBeans(summer.core.ApplicationRunner.class)) {
+					runner.run(context);
+				}
+			}
 		}
 	}
 

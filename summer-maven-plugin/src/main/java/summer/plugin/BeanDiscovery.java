@@ -79,9 +79,9 @@ public final class BeanDiscovery {
 			if (collected.add(name)) {
 				ConfigPropertiesBean bean = new ConfigPropertiesBean(name, ci.simpleName());
 				AnnotationInstance ann = ci.annotation(CONFIG_PROPERTIES_DOT);
-			bean.configPropertiesPrefix = (ann != null && ann.value("prefix") != null)
-					? ann.value("prefix").asString()
-					: "";
+				bean.configPropertiesPrefix = (ann != null && ann.value("prefix") != null)
+						? ann.value("prefix").asString()
+						: "";
 				beans.add(bean);
 			}
 		} else if (ci.hasAnnotation(COMPONENT_DOT) || ci.hasAnnotation(CONFIG_DOT)

@@ -91,19 +91,8 @@ class ProxyFactoryTest {
 	@Test
 	void shouldHandleMultipleInterceptors() {
 		TestService target = new TestServiceImpl();
-		MethodInterceptor interceptor1 = new TestInterceptor() {
-			@Override
-			public Object intercept(InterceptorChain chain) throws Throwable {
-				return "First: " + chain.proceed();
-			}
-		};
-
-		MethodInterceptor interceptor2 = new TestInterceptor() {
-			@Override
-			public Object intercept(InterceptorChain chain) throws Throwable {
-				return "Second: " + chain.proceed();
-			}
-		};
+		MethodInterceptor interceptor1 = new FirstTestInterceptor();
+		MethodInterceptor interceptor2 = new SecondTestInterceptor();
 
 		TestService proxy = ProxyFactory.createProxy(target, List.of(interceptor1, interceptor2));
 		String result = proxy.sayHello();
@@ -137,6 +126,22 @@ class ProxyFactoryTest {
 		@Override
 		public Object intercept(InterceptorChain chain) throws Throwable {
 			return "Intercepted: " + chain.proceed();
+		}
+	}
+
+	@TestIntercepted
+	public static class FirstTestInterceptor implements MethodInterceptor {
+		@Override
+		public Object intercept(InterceptorChain chain) throws Throwable {
+			return "First: " + chain.proceed();
+		}
+	}
+
+	@TestIntercepted
+	public static class SecondTestInterceptor implements MethodInterceptor {
+		@Override
+		public Object intercept(InterceptorChain chain) throws Throwable {
+			return "Second: " + chain.proceed();
 		}
 	}
 }

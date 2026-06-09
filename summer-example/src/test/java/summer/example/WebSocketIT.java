@@ -1,46 +1,41 @@
 package summer.example;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
+import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import summer.boot.SummerApplication;
+import summer.runtime.RuntimeApplicationContext;
+import summer.test.annotation.SummerTest;
+import summer.web.ServerConfig;
 
-public class WebSocketIT {
+@SummerTest(value = RuntimeApplicationContext.class, web = true)
+class WebSocketIT {
 
-	private static summer.core.ApplicationContext context;
-
-	@BeforeAll
-	public static void startServer() throws Exception {
-		System.setProperty("summer.engine", "runtime");
-		context = SummerApplication.run(Application.class, new String[0]);
-		// Give it a tiny bit of time for Netty to bind
-		Thread.sleep(1000);
-	}
-
-	@AfterAll
-	public static void stopServer() throws Exception {
-		if (context != null) {
-			context.close();
+	@summer.core.annotation.Configuration
+	@summer.core.annotation.Replaces(summer.data.redis.config.RedisAutoConfiguration.class)
+	public static class MockRedisConfiguration {
+		@summer.core.annotation.Bean
+		public io.lettuce.core.api.sync.RedisCommands<String, Object> mockRedisCommands() {
+			return org.mockito.Mockito.mock(io.lettuce.core.api.sync.RedisCommands.class);
 		}
 	}
 
+	private final String baseUrl = "ws://localhost:" + ServerConfig.fromYaml().port();
+
 	@Test
-	public void testWebSocketEcho() throws Exception {
-		HttpClient client = HttpClient.newHttpClient();
+	void testWebSocketEcho() throws Exception {
+		HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 		CountDownLatch latch = new CountDownLatch(1);
 		AtomicReference<String> responseRef = new AtomicReference<>();
 
 		WebSocket webSocket = client.newWebSocketBuilder()
-				.buildAsync(URI.create("ws://localhost:8080/chat/room123"), new WebSocket.Listener() {
+				.buildAsync(URI.create(baseUrl + "/chat/room123"), new WebSocket.Listener() {
 					@Override
 					public void onOpen(WebSocket webSocket) {
 						webSocket.request(1);
@@ -56,10 +51,8 @@ public class WebSocketIT {
 					}
 				}).join();
 
-		// Wait for response
 		boolean received = latch.await(5, TimeUnit.SECONDS);
 
-		// Assertions
 		assertTrue(received, "Did not receive WebSocket response within timeout");
 		assertEquals("Echo: Hello Summer", responseRef.get());
 

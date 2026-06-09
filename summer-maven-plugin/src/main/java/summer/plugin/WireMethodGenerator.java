@@ -62,8 +62,7 @@ final class WireMethodGenerator {
 		wire.beginControlFlow("for (Object bean : singletons.values())");
 		wire.beginControlFlow("if (bean instanceof $T validator)",
 				ClassName.get("summer.core.validation", "Validator"));
-		wire.addStatement("$T target = singletons.get(validator.targetType())",
-				ClassName.get(Object.class));
+		wire.addStatement("$T target = singletons.get(validator.targetType())", ClassName.get(Object.class));
 		wire.beginControlFlow("if (target != null)");
 		wire.addStatement("validator.validate(target)");
 		wire.endControlFlow();
@@ -176,44 +175,12 @@ final class WireMethodGenerator {
 
 	private void emitConfigPropertiesInstantiation(MethodSpec.Builder wire, ConfigPropertiesBean bean,
 			ClassName beanClass, String varName) {
-
-		// @ConfigurationProperties — bind from YAML
 		ClassName binder = ClassName.get("summer.core.config", "ConfigurationBinder");
 		String prefix = bean.configPropertiesPrefix;
-
-		List<CodeBlock> defaultEntries = new ArrayList<>();
-		if (context.index != null) {
-			org.jboss.jandex.ClassInfo ci = context.index
-					.getClassByName(org.jboss.jandex.DotName.createSimple(bean.qualifiedName));
-			if (ci != null) {
-				for (org.jboss.jandex.FieldInfo fi : ci.fields()) {
-					org.jboss.jandex.AnnotationInstance dv = fi
-							.annotation(org.jboss.jandex.DotName.createSimple("summer.core.config.DefaultValue"));
-					if (dv != null) {
-						defaultEntries.add(CodeBlock.of("$S, $S", fi.name(), dv.value().asString()));
-					}
-				}
-			}
-		}
-
-		if (!defaultEntries.isEmpty()) {
-			CodeBlock defaultsMap = CodeBlock.builder().add("$T.of(", java.util.Map.class)
-					.add(CodeBlock.join(defaultEntries, ", ")).add(")").build();
-			if (prefix == null || prefix.isEmpty()) {
-				wire.addStatement("$T $N = $T.bindWithDefaults($S, $T.class, $S, $L)", beanClass, varName, binder,
-						"application.yml", beanClass, "", defaultsMap);
-			} else {
-				wire.addStatement("$T $N = $T.bindWithDefaults($S, $T.class, $S, $L)", beanClass, varName, binder,
-						"application.yml", beanClass, prefix, defaultsMap);
-			}
+		if (prefix == null || prefix.isEmpty()) {
+			wire.addStatement("$T $N = $T.bind($T.class, $S)", beanClass, varName, binder, beanClass, "");
 		} else {
-			if (prefix == null || prefix.isEmpty()) {
-				wire.addStatement("$T $N = $T.bind($S, $T.class)", beanClass, varName, binder, "application.yml",
-						beanClass);
-			} else {
-				wire.addStatement("$T $N = $T.bind($S, $T.class, $S)", beanClass, varName, binder, "application.yml",
-						beanClass, prefix);
-			}
+			wire.addStatement("$T $N = $T.bind($T.class, $S)", beanClass, varName, binder, beanClass, prefix);
 		}
 	}
 

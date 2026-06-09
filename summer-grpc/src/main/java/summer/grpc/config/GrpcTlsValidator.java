@@ -8,7 +8,8 @@ import summer.core.validation.Validator;
  * Validates gRPC TLS configuration after binding.
  *
  * <p>
- * Ensures that when TLS is enabled, the required certificate paths are provided.
+ * Ensures that when TLS is enabled, the required certificate paths are
+ * provided.
  * </p>
  */
 @Component

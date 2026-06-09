@@ -2,12 +2,12 @@ package summer.runtime;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.lang.reflect.Method;
 import org.junit.jupiter.api.Test;
 import summer.aop.InterceptorChain;
 import summer.aop.MethodInterceptor;
 import summer.aop.MethodMetadata;
 import summer.aop.RuntimeMethodMetadata;
+import summer.aop.TargetInvoker;
 
 /**
  * Tests for {@link MethodInterceptor} interface.
@@ -15,29 +15,12 @@ import summer.aop.RuntimeMethodMetadata;
 class MethodInterceptorTest {
 
 	@Test
-	void shouldCreateMethodInterceptor() {
-		MethodInterceptor interceptor = new MethodInterceptor() {
-			@Override
-			public Object intercept(InterceptorChain chain) throws Throwable {
-				return chain.proceed();
-			}
-		};
-
-		assertNotNull(interceptor);
-	}
-
-	@Test
 	void shouldInterceptMethodCall() throws Throwable {
-		MethodInterceptor interceptor = new MethodInterceptor() {
-			@Override
-			public Object intercept(InterceptorChain chain) throws Throwable {
-				return "Intercepted: " + chain.proceed();
-			}
-		};
+		MethodInterceptor interceptor = chain -> "Intercepted: " + chain.proceed();
 
 		TestService target = new TestService();
-		MethodMetadata methodMetadata = new RuntimeMethodMetadata(TestService.class.getMethod("sayHello"));
-		InterceptorChain chain = new TestInterceptorChain(target, methodMetadata, new Object[0]);
+		MethodMetadata metadata = new RuntimeMethodMetadata(TestService.class.getMethod("sayHello"));
+		InterceptorChain chain = new TestInterceptorChain(target, metadata, new Object[0], target::sayHello);
 
 		Object result = interceptor.intercept(chain);
 		assertEquals("Intercepted: Hello", result);
@@ -45,21 +28,18 @@ class MethodInterceptorTest {
 
 	@Test
 	void shouldModifyMethodArguments() throws Throwable {
-		MethodInterceptor interceptor = new MethodInterceptor() {
-			@Override
-			public Object intercept(InterceptorChain chain) throws Throwable {
-				Object[] args = chain.getArguments();
-				if (args.length > 0 && args[0] instanceof String) {
-					args[0] = args[0].toString().toUpperCase();
-				}
-				return chain.proceed();
+		MethodInterceptor interceptor = chain -> {
+			Object[] args = chain.getArguments();
+			if (args.length > 0 && args[0] instanceof String s) {
+				args[0] = s.toUpperCase();
 			}
+			return chain.proceed();
 		};
 
 		TestService target = new TestService();
-		MethodMetadata methodMetadata = new RuntimeMethodMetadata(TestService.class.getMethod("greet", String.class));
-		Object[] args = new Object[]{"world"};
-		InterceptorChain chain = new TestInterceptorChain(target, methodMetadata, args);
+		MethodMetadata metadata = new RuntimeMethodMetadata(TestService.class.getMethod("greet", String.class));
+		Object[] args = {"world"};
+		InterceptorChain chain = new TestInterceptorChain(target, metadata, args, () -> target.greet((String) args[0]));
 
 		Object result = interceptor.intercept(chain);
 		assertEquals("Hello, WORLD!", result);
@@ -67,21 +47,17 @@ class MethodInterceptorTest {
 
 	@Test
 	void shouldHandleExceptionInInterceptor() throws Exception {
-		MethodInterceptor interceptor = new MethodInterceptor() {
-			@Override
-			public Object intercept(InterceptorChain chain) throws Throwable {
-				throw new RuntimeException("Interceptor error");
-			}
+		MethodInterceptor interceptor = chain -> {
+			throw new RuntimeException("Interceptor error");
 		};
 
 		TestService target = new TestService();
-		MethodMetadata methodMetadata = new RuntimeMethodMetadata(TestService.class.getMethod("sayHello"));
-		InterceptorChain chain = new TestInterceptorChain(target, methodMetadata, new Object[0]);
+		MethodMetadata metadata = new RuntimeMethodMetadata(TestService.class.getMethod("sayHello"));
+		InterceptorChain chain = new TestInterceptorChain(target, metadata, new Object[0], target::sayHello);
 
 		assertThrows(RuntimeException.class, () -> interceptor.intercept(chain));
 	}
 
-	// Test helper class
 	public static class TestService {
 		public String sayHello() {
 			return "Hello";
@@ -92,16 +68,17 @@ class MethodInterceptorTest {
 		}
 	}
 
-	// Test InterceptorChain implementation
 	private static class TestInterceptorChain implements InterceptorChain {
 		private final Object target;
 		private final MethodMetadata methodMetadata;
 		private final Object[] arguments;
+		private final TargetInvoker invoker;
 
-		TestInterceptorChain(Object target, MethodMetadata methodMetadata, Object[] arguments) {
+		TestInterceptorChain(Object target, MethodMetadata methodMetadata, Object[] arguments, TargetInvoker invoker) {
 			this.target = target;
 			this.methodMetadata = methodMetadata;
 			this.arguments = arguments;
+			this.invoker = invoker;
 		}
 
 		@Override
@@ -121,18 +98,7 @@ class MethodInterceptorTest {
 
 		@Override
 		public Object proceed() throws Throwable {
-			if (methodMetadata instanceof RuntimeMethodMetadata runtimeMetadata) {
-				try {
-					java.lang.reflect.Field methodField = RuntimeMethodMetadata.class.getDeclaredField("method");
-					methodField.setAccessible(true);
-					Method method = (Method) methodField.get(runtimeMetadata);
-					method.setAccessible(true);
-					return method.invoke(target, arguments);
-				} catch (Exception e) {
-					throw new RuntimeException("Failed to invoke method", e);
-				}
-			}
-			throw new UnsupportedOperationException("Only RuntimeMethodMetadata is supported in tests");
+			return invoker.invoke();
 		}
 	}
 }

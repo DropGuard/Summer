@@ -158,8 +158,8 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 						try {
 							c.request().setAttribute("last_exception", e);
 							return customHandler.handle(c);
-						} catch (Exception ex) {
-							e = ex;
+						} catch (Exception handlerException) {
+							log.warn("Exception handler failed for: {}", e.getClass().getName(), handlerException);
 						}
 					}
 				}

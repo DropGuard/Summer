@@ -4,8 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
-import summer.web.HttpRouter;
-import summer.web.Middleware;
+import summer.web.*;
 
 class HttpRouterBuilderTest {
 
@@ -21,7 +20,11 @@ class HttpRouterBuilderTest {
 			return null;
 		}).build();
 
-		assertNotNull(router);
+		router.route(ctx(HttpMethod.GET, "/hello"));
+		assertEquals("hello", result.get());
+
+		router.route(ctx(HttpMethod.POST, "/world"));
+		assertEquals("world", result.get());
 	}
 
 	@Test
@@ -34,12 +37,16 @@ class HttpRouterBuilderTest {
 				return null;
 			});
 			v1.get("/users/{id}", ctx -> {
-				result.set("get");
+				result.set("get:" + ctx.request().pathParam("id"));
 				return null;
 			});
 		}).build();
 
-		assertNotNull(router);
+		router.route(ctx(HttpMethod.GET, "/api/v1/users"));
+		assertEquals("list", result.get());
+
+		router.route(ctx(HttpMethod.GET, "/api/v1/users/42"));
+		assertEquals("get:42", result.get());
 	}
 
 	@Test
@@ -53,31 +60,14 @@ class HttpRouterBuilderTest {
 			});
 		}).build();
 
-		assertNotNull(router);
-	}
-
-	@Test
-	void shouldBuildRoutesWithMiddleware() {
-		AtomicReference<String> result = new AtomicReference<>();
-
-		Middleware logging = next -> ctx -> {
-			result.set("middleware");
-			return next.handle(ctx);
-		};
-
-		HttpRouter router = new HttpRouter.Builder(RadixTreeHttpRouter::new).use(logging).get("/test", ctx -> {
-			result.set("handler");
-			return null;
-		}).build();
-
-		assertNotNull(router);
+		router.route(ctx(HttpMethod.GET, "/mounted"));
+		assertEquals("mounted", result.get());
 	}
 
 	@Test
 	void shouldSupportFluentChaining() {
 		HttpRouter.Builder builder = new HttpRouter.Builder(RadixTreeHttpRouter::new);
 
-		// Verify fluent chaining returns the same builder instance
 		HttpRouter.Builder result = builder.get("/a", ctx -> null).post("/b", ctx -> null).put("/c", ctx -> null)
 				.delete("/d", ctx -> null);
 
@@ -97,7 +87,8 @@ class HttpRouterBuilderTest {
 			});
 		}).build();
 
-		assertNotNull(router);
+		router.route(ctx(HttpMethod.GET, "/api/v1/users"));
+		assertEquals("nested", result.get());
 	}
 
 	@Test
@@ -117,6 +108,12 @@ class HttpRouterBuilderTest {
 			});
 		}).build();
 
-		assertNotNull(router);
+		router.route(ctx(HttpMethod.GET, "/api/protected"));
+		assertEquals("auth:handler", order.get());
+	}
+
+	private HttpContext ctx(HttpMethod method, String path) {
+		Request req = new Request(method, path, null, null, new byte[0]);
+		return new HttpContext(req);
 	}
 }

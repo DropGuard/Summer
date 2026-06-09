@@ -28,14 +28,12 @@ import summer.grpc.exception.SummerGrpcException;
 public class GrpcChannelManager implements AutoCloseable {
 
 	private static final Logger log = LoggerFactory.getLogger(GrpcChannelManager.class);
-	private static final GrpcTlsConfig DEFAULT_TLS_CONFIG = new GrpcTlsConfig(false, null, null, null);
 
 	private final Map<String, ManagedChannel> channels = new ConcurrentHashMap<>();
 	private final GrpcTlsConfig tlsConfig;
 
 	public GrpcChannelManager() {
-		this.tlsConfig = ConfigurationBinder.bindOrDefault("application.yml", GrpcTlsConfig.class, "grpc.tls",
-				DEFAULT_TLS_CONFIG);
+		this.tlsConfig = ConfigurationBinder.bind(GrpcTlsConfig.class, "grpc.tls");
 	}
 
 	/**
