@@ -2,12 +2,15 @@ package summer.tck.web;
 
 import summer.core.ApplicationContext;
 import summer.runtime.RuntimeApplicationContext;
-import summer.tck.web.dummy.UserController;
+import summer.fixtures.web.dummy.UserController;
 
 public class RuntimeWebRouteTest extends AbstractWebRouteTCK {
 
 	@Override
 	protected ApplicationContext createContext() {
-		return RuntimeApplicationContext.create(UserController.class);
+		var ctx = new RuntimeApplicationContext();
+		ctx.scan();
+		ctx.initializeBeans();
+		return ctx;
 	}
 }

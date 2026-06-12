@@ -2,6 +2,7 @@ package summer.web.middleware;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
@@ -20,7 +21,6 @@ class CorsMiddlewareTest {
 		AtomicBoolean called = new AtomicBoolean(false);
 		Handler handler = middleware.apply(ctx -> {
 			called.set(true);
-			return null;
 		});
 
 		HttpContext ctx = ctx(HttpMethod.GET, "/api/test");
@@ -41,14 +41,12 @@ class CorsMiddlewareTest {
 		AtomicBoolean called = new AtomicBoolean(false);
 		Handler handler = middleware.apply(ctx -> {
 			called.set(true);
-			return null;
 		});
 
 		HttpContext ctx = ctx(HttpMethod.OPTIONS, "/api/test");
-		Object result = handler.handle(ctx);
+		handler.handle(ctx);
 
 		assertFalse(called.get(), "Next handler should NOT be called for preflight");
-		assertNull(result);
 		assertEquals(HttpStatus.NO_CONTENT, ctx.statusCode());
 		assertEquals("*", ctx.headers().get("Access-Control-Allow-Origin"));
 	}
@@ -61,14 +59,14 @@ class CorsMiddlewareTest {
 		AtomicReference<String> result = new AtomicReference<>();
 		Handler handler = middleware.apply(ctx -> {
 			result.set("delegated");
-			return "response";
+			ctx.text(HttpStatus.OK, "response");
 		});
 
 		HttpContext ctx = ctx(HttpMethod.GET, "/api/test");
-		Object response = handler.handle(ctx);
+		handler.handle(ctx);
 
 		assertEquals("delegated", result.get());
-		assertEquals("response", response);
+		assertEquals("response", new String(ctx.body(), StandardCharsets.UTF_8));
 	}
 
 	@Test
@@ -76,7 +74,7 @@ class CorsMiddlewareTest {
 		CorsConfig config = new CorsConfig("https://example.com", "GET", "Authorization", 7200);
 		CorsMiddleware middleware = new CorsMiddleware(config);
 
-		Handler handler = middleware.apply(ctx -> null);
+		Handler handler = middleware.apply(ctx -> {});
 
 		HttpContext ctx = ctx(HttpMethod.GET, "/api/test");
 		handler.handle(ctx);

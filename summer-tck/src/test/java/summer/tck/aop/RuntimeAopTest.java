@@ -13,6 +13,9 @@ public class RuntimeAopTest extends AbstractAopTCK {
 
 	@Override
 	protected ApplicationContext createContext() {
-		return RuntimeApplicationContext.create(GreeterService.class);
+		var ctx = new RuntimeApplicationContext();
+		ctx.scan();
+		ctx.initializeBeans();
+		return ctx;
 	}
 }

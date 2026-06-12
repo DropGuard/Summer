@@ -20,5 +20,9 @@ package summer.web;
  */
 @FunctionalInterface
 public interface Handler {
-	Object handle(HttpContext ctx);
+	/**
+	 * Handles an HTTP request. Controllers must write responses explicitly via
+	 * {@link HttpContext} methods (e.g., {@code ctx.ok(data)}, {@code ctx.text(status, body)}).
+	 */
+	void handle(HttpContext ctx);
 }

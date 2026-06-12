@@ -1,18 +1,21 @@
 package summer.grpc.server;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.grpc.BindableService;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.ServerInterceptor;
-import java.io.File;
-import java.io.IOException;
-import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import summer.core.ApplicationContext;
 import summer.core.ApplicationRunner;
 import summer.core.ErrorCode;
-import summer.core.config.ConfigurationBinder;
+import summer.grpc.config.GrpcServerConfig;
+import summer.grpc.config.GrpcTlsConfig;
 import summer.grpc.config.GrpcServerConfig;
 import summer.grpc.config.GrpcTlsConfig;
 import summer.grpc.exception.SummerGrpcException;
@@ -34,9 +37,9 @@ public class GrpcServerRunner implements ApplicationRunner, AutoCloseable {
 	private static volatile int actualPort = -1;
 	private Server server;
 
-	public GrpcServerRunner() {
-		this.tlsConfig = ConfigurationBinder.bind(GrpcTlsConfig.class, "grpc.tls");
-		this.serverConfig = ConfigurationBinder.bind(GrpcServerConfig.class, "grpc.server");
+	public GrpcServerRunner(GrpcTlsConfig tlsConfig, GrpcServerConfig serverConfig) {
+		this.tlsConfig = tlsConfig;
+		this.serverConfig = serverConfig;
 	}
 
 	public int getPort() {
@@ -112,6 +115,7 @@ public class GrpcServerRunner implements ApplicationRunner, AutoCloseable {
 			log.info("gRPC Server stopped");
 		}
 	}
+
 	private static int resolvePort(int defaultPort) {
 		String prop = System.getProperty("summer.grpc.port");
 		return prop != null ? Integer.parseInt(prop) : defaultPort;

@@ -11,11 +11,6 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Unit tests for {@link TransactionAwareDataSourceProxy}.
- *
- * <p>
- * Only tests the core behavior: returning transactional connection when one
- * exists, or delegating to target DataSource when no transaction is active.
- * </p>
  */
 class TransactionAwareDataSourceProxyTest {
 
@@ -34,7 +29,7 @@ class TransactionAwareDataSourceProxyTest {
 		TransactionAwareDataSourceProxy proxy = new TransactionAwareDataSourceProxy(targetDs);
 		Connection result = proxy.getConnection();
 
-		assertInstanceOf(TransactionAwareConnectionWrapper.class, result);
+		assertSame(ThreadLocalTransactionContext.getCurrentConnection(), result);
 		verify(targetDs, never()).getConnection();
 	}
 

@@ -16,7 +16,6 @@ class ExceptionRegistryTest {
 		AtomicReference<String> called = new AtomicReference<>();
 		Handler handler = ctx -> {
 			called.set("handled");
-			return null;
 		};
 
 		registry.register(RuntimeException.class, handler);
@@ -31,7 +30,6 @@ class ExceptionRegistryTest {
 		AtomicReference<String> called = new AtomicReference<>();
 		Handler handler = ctx -> {
 			called.set("handled");
-			return null;
 		};
 
 		registry.register(RuntimeException.class, handler);
@@ -52,8 +50,8 @@ class ExceptionRegistryTest {
 	@Test
 	void shouldMatchMostSpecificType() {
 		ExceptionRegistry registry = new ExceptionRegistry();
-		Handler generalHandler = ctx -> null;
-		Handler specificHandler = ctx -> null;
+		Handler generalHandler = ctx -> {};
+		Handler specificHandler = ctx -> {};
 
 		registry.register(Exception.class, generalHandler);
 		registry.register(IllegalArgumentException.class, specificHandler);
@@ -65,7 +63,7 @@ class ExceptionRegistryTest {
 	@Test
 	void shouldHandleDeepInheritance() {
 		ExceptionRegistry registry = new ExceptionRegistry();
-		Handler handler = ctx -> null;
+		Handler handler = ctx -> {};
 
 		registry.register(Throwable.class, handler);
 

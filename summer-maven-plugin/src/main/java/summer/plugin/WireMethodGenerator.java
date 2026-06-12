@@ -175,13 +175,9 @@ final class WireMethodGenerator {
 
 	private void emitConfigPropertiesInstantiation(MethodSpec.Builder wire, ConfigPropertiesBean bean,
 			ClassName beanClass, String varName) {
-		ClassName binder = ClassName.get("summer.core.config", "ConfigurationBinder");
-		String prefix = bean.configPropertiesPrefix;
-		if (prefix == null || prefix.isEmpty()) {
-			wire.addStatement("$T $N = $T.bind($T.class, $S)", beanClass, varName, binder, beanClass, "");
-		} else {
-			wire.addStatement("$T $N = $T.bind($T.class, $S)", beanClass, varName, binder, beanClass, prefix);
-		}
+		ClassName configBinder = ClassName.get("summer.core.config", "ConfigBinder");
+		wire.addStatement("$T $N = $T.bind($S, $T.class)", beanClass, varName, configBinder,
+				bean.configPropertiesPrefix != null ? bean.configPropertiesPrefix : "", beanClass);
 	}
 
 	private CodeBlock buildArgs(List<BeanDefinition> deps) {

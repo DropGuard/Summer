@@ -4,7 +4,7 @@ import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.util.concurrent.GlobalEventExecutor;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
 import summer.web.websocket.WebSocketBroadcaster;
 import summer.web.websocket.WebSocketContext;
 
@@ -19,7 +19,7 @@ import summer.web.websocket.WebSocketContext;
 public class NettyWebSocketBroadcaster implements WebSocketBroadcaster {
 
 	private final ChannelGroup globalGroup = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);
-	private final ConcurrentHashMap<String, ChannelGroup> roomGroups = new ConcurrentHashMap<>();
+	private final HashMap<String, ChannelGroup> roomGroups = new HashMap<>();
 
 	@Override
 	public void join(String room, WebSocketContext ctx) {

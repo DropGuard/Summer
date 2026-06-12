@@ -8,10 +8,14 @@ import java.util.logging.Logger;
 import javax.sql.DataSource;
 
 /**
- * Proxy for a target DataSource that intercepts getConnection() to return the
- * current thread-bound transactional connection if one exists. This allows
- * third-party ORMs (like MyBatis or JDBI) to participate in
- * Summer's @Transactional mechanism.
+ * DataSource proxy that returns the transactional connection when a transaction
+ * is active, or delegates to the target DataSource otherwise.
+ *
+ * <p>
+ * When a transaction is active, the returned connection is wrapped to suppress
+ * {@code close()}, {@code commit()}, and {@code rollback()} calls — these are
+ * managed by the {@link TransactionInterceptor}.
+ * </p>
  */
 public class TransactionAwareDataSourceProxy implements DataSource {
 
@@ -21,15 +25,11 @@ public class TransactionAwareDataSourceProxy implements DataSource {
 		this.targetDataSource = targetDataSource;
 	}
 
-	/**
-	 * Returns the transactional connection if one exists, wrapped to ignore close()
-	 * calls. Otherwise returns a fresh connection from the target DataSource.
-	 */
 	@Override
 	public Connection getConnection() throws SQLException {
 		Connection txConnection = ThreadLocalTransactionContext.getCurrentConnection();
 		if (txConnection != null) {
-			return new TransactionAwareConnectionWrapper(txConnection);
+			return txConnection;
 		}
 		return targetDataSource.getConnection();
 	}
@@ -38,12 +38,11 @@ public class TransactionAwareDataSourceProxy implements DataSource {
 	public Connection getConnection(String username, String password) throws SQLException {
 		Connection txConnection = ThreadLocalTransactionContext.getCurrentConnection();
 		if (txConnection != null) {
-			return new TransactionAwareConnectionWrapper(txConnection);
+			return txConnection;
 		}
 		return targetDataSource.getConnection(username, password);
 	}
 
-	// Delegate remaining DataSource methods to the target
 	@Override
 	public PrintWriter getLogWriter() throws SQLException {
 		return targetDataSource.getLogWriter();

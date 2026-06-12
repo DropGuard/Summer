@@ -3,6 +3,7 @@ package summer.web.server;
 import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
 import summer.web.RouterRegistry;
+import summer.web.ServerConfig;
 import summer.web.websocket.WebSocketBroadcaster;
 
 /**
@@ -16,8 +17,8 @@ import summer.web.websocket.WebSocketBroadcaster;
 public class NettyServerConfiguration {
 
 	@Bean
-	public NettyServerRunner nettyServerRunner(RouterRegistry routerRegistry) {
-		return new NettyServerRunner(routerRegistry);
+	public NettyServerRunner nettyServerRunner(RouterRegistry routerRegistry, ServerConfig config) {
+		return new NettyServerRunner(routerRegistry, config);
 	}
 
 	@Bean

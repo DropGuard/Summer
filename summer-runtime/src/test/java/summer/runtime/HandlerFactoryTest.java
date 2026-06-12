@@ -20,15 +20,16 @@ class HandlerFactoryTest {
 	@Test
 	void shouldCreateHandlerAndInvokeMethod() throws Exception {
 		TestController controller = new TestController();
-		Method method = TestController.class.getDeclaredMethod("hello", String.class);
-		HttpParameterResolverChain chain = new HttpParameterResolverChain(List.of(new TestResolver("World")));
+		Method method = TestController.class.getDeclaredMethod("hello", String.class, HttpContext.class);
+		HttpParameterResolverChain chain = new HttpParameterResolverChain(
+				List.of(new TypeParameterResolver(), new TestResolver("World")));
 
 		Handler handler = HandlerFactory.create(controller, method, chain);
 		Request request = new Request(HttpMethod.GET, "/hello", null, null, null);
 		HttpContext ctx = new HttpContext(request);
 
-		Object result = handler.handle(ctx);
-		assertEquals("Hello, World", result);
+		handler.handle(ctx);
+		assertEquals("Hello, World", new String(ctx.body(), java.nio.charset.StandardCharsets.UTF_8));
 	}
 
 	@Test
@@ -63,26 +64,26 @@ class HandlerFactoryTest {
 	@Test
 	void shouldResolveMultipleParameters() throws Exception {
 		TestController controller = new TestController();
-		Method method = TestController.class.getDeclaredMethod("greet", String.class, String.class);
+		Method method = TestController.class.getDeclaredMethod("greet", String.class, String.class, HttpContext.class);
 		HttpParameterResolverChain chain = new HttpParameterResolverChain(
-				List.of(new IndexedResolver(0, "Hello"), new IndexedResolver(1, "Alice")));
+				List.of(new TypeParameterResolver(), new IndexedResolver(0, "Hello"), new IndexedResolver(1, "Alice")));
 
 		Handler handler = HandlerFactory.create(controller, method, chain);
 		Request request = new Request(HttpMethod.GET, "/greet", null, null, null);
 		HttpContext ctx = new HttpContext(request);
 
-		Object result = handler.handle(ctx);
-		assertEquals("Hello, Alice", result);
+		handler.handle(ctx);
+		assertEquals("Hello, Alice", new String(ctx.body(), java.nio.charset.StandardCharsets.UTF_8));
 	}
 
 	// Test controller
 	static class TestController {
-		String hello(String name) {
-			return "Hello, " + name;
+		void hello(String name, HttpContext ctx) {
+			ctx.text(summer.web.HttpStatus.OK, "Hello, " + name);
 		}
 
-		String greet(String greeting, String name) {
-			return greeting + ", " + name;
+		void greet(String greeting, String name, HttpContext ctx) {
+			ctx.text(summer.web.HttpStatus.OK, greeting + ", " + name);
 		}
 
 		void throwRuntime() {

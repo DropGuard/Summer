@@ -13,9 +13,9 @@ public class AuthMiddleware implements Middleware {
 			String auth = ctx.header("Authorization");
 			if (auth == null || !auth.equals("secret-token")) {
 				ctx.json(HttpStatus.UNAUTHORIZED, new ErrorResponse("Unauthorized", "Invalid or missing token"));
-				return null;
+				return;
 			}
-			return next.handle(ctx);
+			next.handle(ctx);
 		};
 	}
 

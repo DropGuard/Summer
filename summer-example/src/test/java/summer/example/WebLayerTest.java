@@ -7,16 +7,16 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import summer.runtime.RuntimeApplicationContext;
-import summer.test.annotation.SummerTest;
-import summer.web.ServerConfig;
+import summer.web.server.NettyServerRunner;
 
 /**
- * Verifies the HTTP request → middleware → router → controller → service chain
+ * Verifies the HTTP request -> middleware -> router -> controller -> service chain
  * through the framework's own Netty server.
  */
-@SummerTest(value = RuntimeApplicationContext.class, web = true)
 class WebLayerTest {
 
 	@summer.core.annotation.Configuration
@@ -26,10 +26,40 @@ class WebLayerTest {
 		public io.lettuce.core.api.sync.RedisCommands<String, Object> mockRedisCommands() {
 			return org.mockito.Mockito.mock(io.lettuce.core.api.sync.RedisCommands.class);
 		}
+
+		@summer.core.annotation.Bean
+		@summer.core.annotation.Replaces(summer.data.jdbc.RowMapperRegistry.class)
+		public summer.data.jdbc.RowMapperRegistry rowMapperRegistry() {
+			summer.data.jdbc.RowMapperRegistry registry = new summer.data.jdbc.RowMapperRegistry();
+			registry.put(summer.example.User.class, (java.sql.ResultSet rs, int rowNum) -> new summer.example.User(
+					rs.getString("id"),
+					rs.getString("name"),
+					rs.getString("email")));
+			return registry;
+		}
 	}
 
+	private static RuntimeApplicationContext context;
+	private static NettyServerRunner serverRunner;
+
 	private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
-	private final String baseUrl = "http://localhost:" + summer.web.server.NettyServerRunner.getActualPort();
+	private final String baseUrl = "http://localhost:" + NettyServerRunner.getActualPort();
+
+	@BeforeAll
+	static void startServer() throws Exception {
+		context = new RuntimeApplicationContext();
+		context.registerComponent(MockRedisConfiguration.class);
+		context.scan();
+		context.initializeBeans();
+		serverRunner = context.getBean(NettyServerRunner.class);
+		serverRunner.run(context);
+	}
+
+	@AfterAll
+	static void stopServer() throws Exception {
+		if (serverRunner != null) serverRunner.close();
+		if (context != null) context.close();
+	}
 
 	@Test
 	void shouldRouteGetRequest() throws Exception {

@@ -102,21 +102,17 @@ public class Request {
 		return "Request{" + "method='" + method + '\'' + ", path='" + path + '\'' + ", query='" + query + '\'' + '}';
 	}
 
-	public void setAttribute(String name, Object value) {
+	public <T> void setAttribute(RequestAttributes.AttributeKey<T> key, T value) {
+		attributes.put(key.name(), value);
+	}
+
+	public void setPathParam(String name, String value) {
 		attributes.put(name, value);
 	}
 
 	@SuppressWarnings("unchecked")
-	public <T> T getAttribute(String name) {
-		return (T) attributes.get(name);
-	}
-
-	public <T> T getAttribute(String name, Class<T> type) {
-		Object value = attributes.get(name);
-		if (value == null) {
-			return null;
-		}
-		return type.cast(value);
+	public <T> T getAttribute(RequestAttributes.AttributeKey<T> key) {
+		return (T) attributes.get(key.name());
 	}
 
 	public Map<String, Object> getAttributes() {
@@ -161,7 +157,7 @@ public class Request {
 	 * </p>
 	 */
 	public String pathParam(String name) {
-		return getAttribute(name);
+		return (String) attributes.get(name);
 	}
 
 	/**

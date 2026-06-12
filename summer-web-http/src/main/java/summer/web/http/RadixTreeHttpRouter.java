@@ -66,20 +66,20 @@ public class RadixTreeHttpRouter implements HttpRouter {
 	 * Matches a request against the trie and dispatches to the appropriate handler.
 	 */
 	@Override
-	public Object route(HttpContext ctx) {
+	public void route(HttpContext ctx) {
 		HttpMethod method = ctx.request().getMethod();
 		RadixTrie<Handler> trie = tries.get(method.name());
 		if (trie == null) {
-			return null;
+			return;
 		}
 
 		byte[] path = ctx.request().getRawPathBytes();
 		RadixTrie.MatchResult<Handler> result = trie.match(path);
 		if (result == null) {
-			return null;
+			return;
 		}
 
-		result.params().forEach(ctx.request()::setAttribute);
-		return result.handler().handle(ctx);
+		result.params().forEach(ctx.request()::setPathParam);
+		result.handler().handle(ctx);
 	}
 }

@@ -5,28 +5,33 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.junit.jupiter.api.extension.ExtendWith;
-import summer.core.ApplicationContext;
+import summer.core.Engine;
 import summer.test.SummerExtension;
 
 /**
- * JUnit 5 Extension annotation that manages the Summer ApplicationContext
- * lifecycle and automatically injects beans into test class fields annotated
- * with @Inject.
+ * JUnit 5 annotation that manages the Summer {@code ApplicationContext}
+ * lifecycle and automatically injects beans into test methods.
+ *
+ * <pre>
+ * {
+ * 	&#64;code
+ * 	&#64;SummerTest // defaults to AOT
+ * 	class MyTest {
+ * 		ApplicationContext context;
+ *
+ * 		@Test
+ * 		void test(Foo foo) { // auto-resolved from context
+ * 		}
+ * 	}
+ * }
+ * </pre>
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @ExtendWith(SummerExtension.class)
 public @interface SummerTest {
 	/**
-	 * The ApplicationContext implementation to use for the test. The class must
-	 * have a public no-arg constructor and a static {@code create(Class<?>)}
-	 * method.
+	 * DI engine to use. Defaults to {@link Engine#AOT}.
 	 */
-	Class<? extends ApplicationContext> value();
-	/**
-	 * When true, all {@link summer.core.ApplicationRunner} beans are started after
-	 * the context is initialized (e.g. Netty HTTP server, gRPC server). Defaults to
-	 * false — only DI initialization.
-	 */
-	boolean web() default false;
+	Engine engine() default Engine.AOT;
 }

@@ -125,7 +125,6 @@ public final class RouteAdapterGenerator {
 
 		if (route.returnType.equals("void")) {
 			body.add("$N.$L($N);\n", controllerVar, route.methodName, args.toString());
-			body.add("return null;\n");
 		} else {
 			body.add("$T result = $N.$L($N);\n", ClassName.bestGuess(route.returnType), controllerVar, route.methodName,
 					args.toString());

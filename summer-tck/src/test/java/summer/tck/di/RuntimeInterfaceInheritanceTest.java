@@ -2,7 +2,7 @@ package summer.tck.di;
 
 import summer.core.ApplicationContext;
 import summer.runtime.RuntimeApplicationContext;
-import summer.tck.di.inheritance.ServiceImpl;
+import summer.fixtures.di.inheritance.ServiceImpl;
 
 /**
  * Runtime test for interface inheritance dependency resolution.
@@ -11,6 +11,9 @@ public class RuntimeInterfaceInheritanceTest extends AbstractInterfaceInheritanc
 
 	@Override
 	protected ApplicationContext createContext() {
-		return RuntimeApplicationContext.create(ServiceImpl.class);
+		var ctx = new RuntimeApplicationContext();
+		ctx.scan();
+		ctx.initializeBeans();
+		return ctx;
 	}
 }

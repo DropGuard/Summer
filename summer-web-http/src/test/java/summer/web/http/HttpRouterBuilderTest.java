@@ -14,10 +14,8 @@ class HttpRouterBuilderTest {
 
 		HttpRouter router = new HttpRouter.Builder(RadixTreeHttpRouter::new).get("/hello", ctx -> {
 			result.set("hello");
-			return null;
 		}).post("/world", ctx -> {
 			result.set("world");
-			return null;
 		}).build();
 
 		router.route(ctx(HttpMethod.GET, "/hello"));
@@ -34,11 +32,9 @@ class HttpRouterBuilderTest {
 		HttpRouter router = new HttpRouter.Builder(RadixTreeHttpRouter::new).group("/api/v1", v1 -> {
 			v1.get("/users", ctx -> {
 				result.set("list");
-				return null;
 			});
 			v1.get("/users/{id}", ctx -> {
 				result.set("get:" + ctx.request().pathParam("id"));
-				return null;
 			});
 		}).build();
 
@@ -56,7 +52,6 @@ class HttpRouterBuilderTest {
 		HttpRouter router = new HttpRouter.Builder(RadixTreeHttpRouter::new).mount(r -> {
 			r.get("/mounted", ctx -> {
 				result.set("mounted");
-				return null;
 			});
 		}).build();
 
@@ -68,8 +63,8 @@ class HttpRouterBuilderTest {
 	void shouldSupportFluentChaining() {
 		HttpRouter.Builder builder = new HttpRouter.Builder(RadixTreeHttpRouter::new);
 
-		HttpRouter.Builder result = builder.get("/a", ctx -> null).post("/b", ctx -> null).put("/c", ctx -> null)
-				.delete("/d", ctx -> null);
+		HttpRouter.Builder result = builder.get("/a", ctx -> {}).post("/b", ctx -> {}).put("/c", ctx -> {})
+				.delete("/d", ctx -> {});
 
 		assertSame(builder, result);
 	}
@@ -82,7 +77,6 @@ class HttpRouterBuilderTest {
 			api.group("/v1", v1 -> {
 				v1.get("/users", ctx -> {
 					result.set("nested");
-					return null;
 				});
 			});
 		}).build();
@@ -97,14 +91,13 @@ class HttpRouterBuilderTest {
 
 		Middleware auth = next -> ctx -> {
 			order.set(order.get() + "auth:");
-			return next.handle(ctx);
+			next.handle(ctx);
 		};
 
 		HttpRouter router = new HttpRouter.Builder(RadixTreeHttpRouter::new).group("/api", api -> {
 			api.use(auth);
 			api.get("/protected", ctx -> {
 				order.set(order.get() + "handler");
-				return null;
 			});
 		}).build();
 

@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 import summer.core.ApplicationContext;
 import summer.tck.AbstractContextTCK;
-import summer.tck.di.conditional.*;
+import summer.fixtures.di.conditional.*;
 
 /**
  * TCK test for @ConditionalOnBean behavior.

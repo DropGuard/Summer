@@ -5,7 +5,6 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.util.List;
-import summer.aop.InterceptorBinding;
 import summer.aop.MethodInterceptor;
 import summer.aop.ProxyInterceptorChain;
 import summer.aop.SummerAopException;
@@ -74,17 +73,12 @@ public class ProxyFactory {
 		 */
 		private boolean shouldIntercept(Method targetMethod, List<MethodInterceptor> interceptors) {
 			for (MethodInterceptor interceptor : interceptors) {
-				Class<?> clazz = interceptor.getClass();
-				for (Annotation ann : clazz.getAnnotations()) {
-					if (ann.annotationType().isAnnotationPresent(InterceptorBinding.class)) {
-						// Check class-level binding on the target
-						if (targetMethod.getDeclaringClass().isAnnotationPresent(ann.annotationType())) {
-							return true;
-						}
-						// Check method-level binding
-						if (targetMethod.isAnnotationPresent(ann.annotationType())) {
-							return true;
-						}
+				for (Class<? extends Annotation> binding : BindingMatcher.findBindings(interceptor.getClass())) {
+					if (targetMethod.getDeclaringClass().isAnnotationPresent(binding)) {
+						return true;
+					}
+					if (targetMethod.isAnnotationPresent(binding)) {
+						return true;
 					}
 				}
 			}

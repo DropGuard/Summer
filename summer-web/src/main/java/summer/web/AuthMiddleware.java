@@ -29,7 +29,7 @@ package summer.web;
  * 	});
  *
  * 	// 3. In handler, check userId
- * 	Long userId = ctx.request().getAttribute("userId", Long.class);
+ * 	Long userId = ctx.request().getAttribute(RequestAttributes.USER_ID);
  * 	if (userId == null) {
  * 		ctx.json(401, Errors.tokenMissing());
  * 		return;
@@ -62,9 +62,9 @@ public interface AuthMiddleware extends Middleware {
 		return ctx -> {
 			Long userId = authenticate(ctx);
 			if (userId != null) {
-				ctx.request().setAttribute("userId", userId);
+				ctx.request().setAttribute(RequestAttributes.USER_ID, userId);
 			}
-			return handler.handle(ctx);
+			handler.handle(ctx);
 		};
 	}
 }

@@ -50,14 +50,15 @@ public class MapRouter implements HttpRouter {
 	}
 
 	@Override
-	public Object route(HttpContext ctx) {
+	public void route(HttpContext ctx) {
 		HttpMethod method = ctx.request().getMethod();
 		String path = PathUtils.normalizePath(ctx.request().getPath());
 
 		String key = method + " " + path;
 		RouteEntryWithHandler entry = routes.get(key);
 		if (entry != null) {
-			return entry.handler.handle(ctx);
+			entry.handler.handle(ctx);
+			return;
 		}
 
 		for (Map.Entry<String, RouteEntryWithHandler> route : routes.entrySet()) {
@@ -66,12 +67,11 @@ public class MapRouter implements HttpRouter {
 
 			Map<String, String> params = PathMatcher.matchPattern(route.getValue(), path);
 			if (params != null) {
-				params.forEach(ctx.request()::setAttribute);
-				return route.getValue().handler.handle(ctx);
+				params.forEach(ctx.request()::setPathParam);
+				route.getValue().handler.handle(ctx);
+				return;
 			}
 		}
-
-		return null;
 	}
 
 	private static class RouteEntryWithHandler extends RouteEntry {

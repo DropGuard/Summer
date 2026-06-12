@@ -37,12 +37,24 @@ final class RuntimeConditionEvaluator {
 		// Phase 1: Build dependency graph + topological sort
 		List<Object> topoOrder = buildTopologicalOrder(nodes);
 
+		// Phase 1.5: Pre-compute @Bean return types for @ConditionalOnBean evaluation
+		Set<Class<?>> beanReturnTypes = new HashSet<>();
+		for (Object node : nodes) {
+			if (node instanceof Class<?> clazz && clazz.isAnnotationPresent(summer.core.annotation.Configuration.class)) {
+				for (Method method : clazz.getDeclaredMethods()) {
+					if (method.isAnnotationPresent(Bean.class)) {
+						beanReturnTypes.add(method.getReturnType());
+					}
+				}
+			}
+		}
+
 		// Phase 2: @Replaces — mark redirects, don't remove
 		Map<Object, Object> redirects = new HashMap<>();
 		resolveReplaces(nodes, redirects);
 
 		// Phase 3: @ConditionalOnBean — evaluate conditions, resolve through redirects
-		resolveConditionalOnBean(nodes, topoOrder, redirects);
+		resolveConditionalOnBean(nodes, topoOrder, redirects, beanReturnTypes);
 	}
 
 	// ── Phase 1: Dependency Graph + Topological Sort ──────────────────
@@ -163,7 +175,7 @@ final class RuntimeConditionEvaluator {
 	 * redirects. If a replacement is removed, restores the original.
 	 */
 	private static void resolveConditionalOnBean(Set<Object> nodes, List<Object> topoOrder,
-			Map<Object, Object> redirects) {
+			Map<Object, Object> redirects, Set<Class<?>> beanReturnTypes) {
 		for (Object node : topoOrder) {
 			if (!nodes.contains(node))
 				continue;
@@ -193,6 +205,15 @@ final class RuntimeConditionEvaluator {
 					}
 				}
 			}
+			// Check @Bean return types (not yet in nodes but declared by surviving configs)
+			if (!satisfied) {
+				for (Class<?> returnType : beanReturnTypes) {
+					if (requiredType.isAssignableFrom(returnType)) {
+						satisfied = true;
+						break;
+					}
+				}
+			}
 
 			if (!satisfied) {
 				nodes.remove(node);
@@ -208,6 +229,7 @@ final class RuntimeConditionEvaluator {
 					}
 					return false;
 				});
+			} else {
 			}
 		}
 		// Cleanup: remove original beans whose replacements survived

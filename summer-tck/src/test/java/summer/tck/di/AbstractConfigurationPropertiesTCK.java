@@ -6,10 +6,10 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import summer.core.ApplicationContext;
 import summer.tck.AbstractContextTCK;
-import summer.tck.di.configprops.*;
-import summer.tck.di.missing.StrictConfig;
-import summer.tck.di.root.RootConfig;
-import summer.tck.di.root.RootService;
+import summer.fixtures.di.configprops.*;
+import summer.fixtures.di.missing.StrictConfig;
+import summer.fixtures.di.root.RootConfig;
+import summer.fixtures.di.root.RootService;
 
 /**
  * TCK contract for {@code @ConfigurationProperties} auto-binding.

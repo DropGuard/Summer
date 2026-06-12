@@ -21,7 +21,14 @@ public class SummerApplication {
 	 * Convenience constructor using runtime scanning.
 	 */
 	public SummerApplication(Class<?> mainClass) {
-		this(RuntimeApplicationContext.create(mainClass));
+		this(buildRuntimeContext());
+	}
+
+	private static RuntimeApplicationContext buildRuntimeContext() {
+		var ctx = new RuntimeApplicationContext();
+		ctx.scan();
+		ctx.initializeBeans();
+		return ctx;
 	}
 
 	static {

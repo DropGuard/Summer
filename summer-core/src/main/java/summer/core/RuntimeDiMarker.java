@@ -5,7 +5,7 @@ package summer.core;
  *
  * <p>
  * This is a framework infrastructure bean registered programmatically by
- * {@code RuntimeApplicationContext.create()}. It is NOT annotated with
+ * {@code RuntimeApplicationContext}'s constructor. It is NOT annotated with
  * {@code @Component} because framework code must use
  * {@code @Configuration + @Bean} instead.
  * </p>

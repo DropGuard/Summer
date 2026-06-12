@@ -27,9 +27,8 @@ class AuthMiddlewareTest {
 			AuthMiddleware middleware = ctx -> 42L;
 
 			Handler handler = ctx -> {
-				capturedUserId.set(ctx.request().getAttribute("userId", Long.class));
+				capturedUserId.set(ctx.request().getAttribute(RequestAttributes.USER_ID));
 				handlerCalled.set(true);
-				return null;
 			};
 
 			// When
@@ -51,8 +50,7 @@ class AuthMiddlewareTest {
 			AuthMiddleware middleware = ctx -> 0L;
 
 			Handler handler = ctx -> {
-				capturedUserId.set(ctx.request().getAttribute("userId", Long.class));
-				return null;
+				capturedUserId.set(ctx.request().getAttribute(RequestAttributes.USER_ID));
 			};
 
 			// When
@@ -79,9 +77,8 @@ class AuthMiddlewareTest {
 			AuthMiddleware middleware = ctx -> null;
 
 			Handler handler = ctx -> {
-				capturedUserId.set(ctx.request().getAttribute("userId", Long.class));
+				capturedUserId.set(ctx.request().getAttribute(RequestAttributes.USER_ID));
 				handlerCalled.set(true);
-				return null;
 			};
 
 			// When
@@ -107,18 +104,17 @@ class AuthMiddlewareTest {
 
 			AuthMiddleware auth1 = ctx -> {
 				order.append("auth1 ");
-				ctx.request().setAttribute("userId", 1L);
+				ctx.request().setAttribute(RequestAttributes.USER_ID, 1L);
 				return 1L;
 			};
 
 			Middleware logging = handler -> ctx -> {
 				order.append("logging ");
-				return handler.handle(ctx);
+				handler.handle(ctx);
 			};
 
 			Handler handler = ctx -> {
 				order.append("handler");
-				return null;
 			};
 
 			// When
@@ -131,7 +127,7 @@ class AuthMiddlewareTest {
 
 			// Then
 			assertEquals("auth1 logging handler", order.toString());
-			assertEquals(1L, ctx.request().getAttribute("userId", Long.class));
+			assertEquals(1L, ctx.request().getAttribute(RequestAttributes.USER_ID));
 		}
 	}
 

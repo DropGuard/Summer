@@ -64,8 +64,8 @@ public abstract class AbstractWebRouteTCK extends AbstractContextTCK {
 		Request req = new Request(method, path, null, contentType, bodyBytes);
 		HttpContext ctx = new HttpContext(req);
 
-		Object result = router.route(ctx);
-		assertEquals(expected, result);
+		router.route(ctx);
+		assertEquals(expected, new String(ctx.body(), StandardCharsets.UTF_8));
 	}
 
 	static Stream<Arguments> routeTestCases() {
@@ -91,10 +91,10 @@ public abstract class AbstractWebRouteTCK extends AbstractContextTCK {
 			Handler errHandler = exceptionRegistry.getHandler(e);
 			assertNotNull(errHandler, "ExceptionHandler must be registered for IllegalArgumentException");
 
-			ctx.request().setAttribute("last_exception", e);
+			ctx.request().setAttribute(summer.web.RequestAttributes.LAST_EXCEPTION, e);
 			try {
-				Object errResult = errHandler.handle(ctx);
-				assertEquals("error_caught:invalid id", errResult);
+				errHandler.handle(ctx);
+				assertEquals("error_caught:invalid id", new String(ctx.body(), StandardCharsets.UTF_8));
 			} catch (Exception ex) {
 				fail("Exception handler handle() threw exception: " + ex.getMessage());
 			}

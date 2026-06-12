@@ -5,6 +5,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import javax.sql.DataSource;
 import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
+import summer.data.jdbc.RowMapperRegistry;
 import summer.tx.TransactionAwareDataSourceProxy;
 
 @Configuration
@@ -21,7 +22,12 @@ public class DataSourceConfiguration {
 	}
 
 	@Bean
-	public summer.data.jdbc.JdbcTemplate jdbcTemplate(DataSource dataSource, summer.data.jdbc.RowMapperRegistry rowMapperRegistry) {
+	public RowMapperRegistry rowMapperRegistry() {
+		return new RowMapperRegistry();
+	}
+
+	@Bean
+	public summer.data.jdbc.JdbcTemplate jdbcTemplate(DataSource dataSource, RowMapperRegistry rowMapperRegistry) {
 		return new summer.data.jdbc.JdbcTemplate(dataSource, rowMapperRegistry);
 	}
 }

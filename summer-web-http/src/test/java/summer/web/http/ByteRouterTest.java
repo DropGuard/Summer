@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import summer.web.Handler;
 import summer.web.HttpContext;
 import summer.web.HttpMethod;
+import summer.web.HttpStatus;
 import summer.web.Request;
 
 public class ByteRouterTest {
@@ -24,48 +25,58 @@ public class ByteRouterTest {
 
 	@Test
 	void testStaticRouteMatching() {
-		Handler handler = (ctx) -> "ok";
+		Handler handler = ctx -> ctx.text(HttpStatus.OK, "ok");
 		router.register(HttpMethod.GET, "/api/users", handler);
 
 		HttpContext ctx = createMockContext(HttpMethod.GET, "/api/users");
+		router.route(ctx);
 
-		Object result = router.route(ctx);
-		assertNotNull(result);
-		assertEquals("ok", result);
+		assertNotNull(ctx.body());
+		assertEquals("ok", new String(ctx.body(), StandardCharsets.UTF_8));
 	}
 
 	@Test
 	void testPathParameterMatching() {
-		Handler handler = (ctx) -> "user-" + ctx.request().pathParam("id");
+		Handler handler = ctx -> ctx.text(HttpStatus.OK, "user-" + ctx.request().pathParam("id"));
 		router.register(HttpMethod.GET, "/users/{id}", handler);
 
 		HttpContext ctx = createMockContext(HttpMethod.GET, "/users/42");
+		router.route(ctx);
 
-		Object result = router.route(ctx);
-		assertEquals("user-42", result);
+		assertEquals("user-42", new String(ctx.body(), StandardCharsets.UTF_8));
 	}
 
 	@Test
 	void testDeepNestedRoutes() {
-		router.register(HttpMethod.GET, "/api/v1/products/search", (ctx) -> "search");
-		router.register(HttpMethod.POST, "/api/v1/products", (ctx) -> "create");
+		router.register(HttpMethod.GET, "/api/v1/products/search", ctx -> ctx.text(HttpStatus.OK, "search"));
+		router.register(HttpMethod.POST, "/api/v1/products", ctx -> ctx.text(HttpStatus.OK, "create"));
 
-		assertEquals("search", router.route(createMockContext(HttpMethod.GET, "/api/v1/products/search")));
-		assertEquals("create", router.route(createMockContext(HttpMethod.POST, "/api/v1/products")));
-		assertNull(router.route(createMockContext(HttpMethod.GET, "/api/v1/products")));
+		assertEquals("search", bodyOf(HttpMethod.GET, "/api/v1/products/search"));
+		assertEquals("create", bodyOf(HttpMethod.POST, "/api/v1/products"));
+
+		HttpContext noMatch = createMockContext(HttpMethod.GET, "/api/v1/products");
+		router.route(noMatch);
+		assertNull(noMatch.body());
 	}
 
 	@Test
 	void testRootPath() {
-		router.register(HttpMethod.GET, "/", (ctx) -> "home");
-		assertEquals("home", router.route(createMockContext(HttpMethod.GET, "/")));
-		assertEquals("home", router.route(createMockContext(HttpMethod.GET, "")));
+		router.register(HttpMethod.GET, "/", ctx -> ctx.text(HttpStatus.OK, "home"));
+		assertEquals("home", bodyOf(HttpMethod.GET, "/"));
+		assertEquals("home", bodyOf(HttpMethod.GET, ""));
 	}
 
 	@Test
 	void testTrailingSlash() {
-		router.register(HttpMethod.GET, "/users", (ctx) -> "list");
-		assertEquals("list", router.route(createMockContext(HttpMethod.GET, "/users/")));
+		router.register(HttpMethod.GET, "/users", ctx -> ctx.text(HttpStatus.OK, "list"));
+		assertEquals("list", bodyOf(HttpMethod.GET, "/users/"));
+	}
+
+	private String bodyOf(HttpMethod method, String path) {
+		HttpContext ctx = createMockContext(method, path);
+		router.route(ctx);
+		byte[] body = ctx.body();
+		return body != null ? new String(body, StandardCharsets.UTF_8) : null;
 	}
 
 	private HttpContext createMockContext(HttpMethod method, String path) {

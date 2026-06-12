@@ -24,7 +24,7 @@ import java.util.function.Function;
  * 		.build();
  *
  * // At runtime, only route() is available
- * Object result = router.route(httpContext);
+ * router.route(httpContext);
  * }</pre>
  */
 public interface HttpRouter {
@@ -34,9 +34,8 @@ public interface HttpRouter {
 	 *
 	 * @param ctx
 	 *            the web context containing the request
-	 * @return the handler result, or null if no route matches
 	 */
-	Object route(HttpContext ctx);
+	void route(HttpContext ctx);
 
 	/**
 	 * Builder for HTTP routers. Provides a fluent DSL for defining routes.

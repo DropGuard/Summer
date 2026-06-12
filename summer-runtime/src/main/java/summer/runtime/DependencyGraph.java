@@ -15,42 +15,75 @@ import summer.core.exception.BeanCreationException;
  */
 public class DependencyGraph {
 
+	private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(DependencyGraph.class);
+
 	private final Map<Object, Set<Object>> graph = new java.util.LinkedHashMap<>();
 	private final Map<Class<?>, Constructor<?>> beanConstructors = new HashMap<>();
+	private final Map<Class<?>, Set<Class<?>>> beanInterceptorMap = new java.util.LinkedHashMap<>();
 
 	/**
 	 * Builds the dependency graph from component classes and bean methods.
 	 */
 	public void buildGraph(Set<Object> nodes) {
 		for (Object node : nodes) {
-			// @ConfigurationProperties records are bound from YAML, not injected as beans.
-			// Their constructor params (Boolean, String, etc.) are not bean dependencies.
-			if (node instanceof Class<?> c && c.isAnnotationPresent(summer.core.config.ConfigurationProperties.class)) {
+			// Skip interfaces — they cannot be instantiated and have no constructors
+			if (node instanceof Class<?> c && c.isInterface()) {
+				log.trace("[Summer] Skipping interface: {}", c.getName());
 				continue;
 			}
+			log.debug("[Summer] Building graph for: {}", node);
 			Set<Object> dependencies = getDependencies(node, nodes);
 			graph.put(node, dependencies);
 		}
 	}
 
 	private Set<Object> getDependencies(Object node, Set<Object> allNodes) {
-		Type[] paramTypes;
 		Set<Object> deps = new java.util.LinkedHashSet<>();
 
-		if (node instanceof Class<?> clazz) {
-			Constructor<?> constructor = getConstructor(clazz);
-			paramTypes = constructor.getGenericParameterTypes();
-		} else if (node instanceof Method method) {
-			paramTypes = method.getGenericParameterTypes();
-			// A @Bean method depends on its declaring configuration class
-			Class<?> configClass = method.getDeclaringClass();
-			if (allNodes.contains(configClass)) {
-				deps.add(configClass);
-			}
-		} else {
-			return Collections.emptySet();
+		if (node instanceof Method method) {
+			// @Bean method depends on its declaring @Configuration class
+			deps.add(method.getDeclaringClass());
+			resolveParamDeps(method.getGenericParameterTypes(), allNodes, deps);
+			return deps;
 		}
 
+		if (!(node instanceof Class<?> clazz)) {
+			return deps;
+		}
+
+		// @ConfigurationProperties records have no bean dependencies —
+		// they are bound from YAML by the bean factory
+		if (clazz.isAnnotationPresent(summer.core.config.ConfigurationProperties.class)) {
+			return deps;
+		}
+		Constructor<?> constructor = getConstructor(clazz);
+		Type[] paramTypes = constructor.getGenericParameterTypes();
+		log.debug("[Summer] getDependencies: {} params={}", clazz.getName(), paramTypes.length);
+
+		resolveParamDeps(paramTypes, allNodes, deps);
+
+		// Implicit AOP dependencies: a bean depends on its matching interceptors
+		Class<?> providedType = getProvidedType(node);
+		if (!providedType.isAnnotationPresent(summer.aop.Interceptor.class)) {
+			Set<Class<?>> matchingInterceptors = new java.util.LinkedHashSet<>();
+			for (Object interceptorNode : allNodes) {
+				Class<?> interceptorType = getProvidedType(interceptorNode);
+				if (interceptorType.isAnnotationPresent(summer.aop.Interceptor.class)) {
+					if (hasMatchingBinding(interceptorType, providedType)) {
+						deps.add(interceptorNode);
+						matchingInterceptors.add(interceptorType);
+					}
+				}
+			}
+			if (!matchingInterceptors.isEmpty()) {
+				beanInterceptorMap.put(providedType, matchingInterceptors);
+			}
+		}
+
+		return deps;
+	}
+
+	private void resolveParamDeps(Type[] paramTypes, Set<Object> allNodes, Set<Object> deps) {
 		for (Type paramType : paramTypes) {
 			if (paramType == ApplicationContext.class) {
 				continue;
@@ -64,35 +97,16 @@ public class DependencyGraph {
 				deps.add(resolveDependency(paramClass, allNodes));
 			}
 		}
-
-		// Implicit AOP dependencies: a bean depends on its matching interceptors
-		Class<?> providedType = getProvidedType(node);
-		if (!providedType.isAnnotationPresent(summer.aop.Interceptor.class)) {
-			for (Object interceptorNode : allNodes) {
-				Class<?> interceptorType = getProvidedType(interceptorNode);
-				if (interceptorType.isAnnotationPresent(summer.aop.Interceptor.class)) {
-					if (hasMatchingBinding(interceptorType, providedType)) {
-						deps.add(interceptorNode);
-					}
-				}
-			}
-		}
-
-		return deps;
 	}
 
 	private boolean hasMatchingBinding(Class<?> interceptorClass, Class<?> targetClass) {
-		for (java.lang.annotation.Annotation ann : interceptorClass.getAnnotations()) {
-			if (ann.annotationType().isAnnotationPresent(summer.aop.InterceptorBinding.class)) {
-				// Check class-level annotations on the target
-				if (targetClass.isAnnotationPresent(ann.annotationType())) {
+		for (Class<? extends java.lang.annotation.Annotation> binding : BindingMatcher.findBindings(interceptorClass)) {
+			if (targetClass.isAnnotationPresent(binding)) {
+				return true;
+			}
+			for (Method method : targetClass.getMethods()) {
+				if (method.isAnnotationPresent(binding)) {
 					return true;
-				}
-				// Check method-level annotations on the target
-				for (Method method : targetClass.getMethods()) {
-					if (method.isAnnotationPresent(ann.annotationType())) {
-						return true;
-					}
 				}
 			}
 		}
@@ -135,6 +149,15 @@ public class DependencyGraph {
 			return method.getReturnType();
 		}
 		throw new IllegalArgumentException("Unknown node type: " + node.getClass());
+	}
+
+	/**
+	 * Returns the interceptor classes that match the given bean class, as computed
+	 * during {@link #buildGraph(Set)}. Returns an empty set if no interceptors
+	 * match.
+	 */
+	public Set<Class<?>> getMatchingInterceptorClasses(Class<?> beanClass) {
+		return beanInterceptorMap.getOrDefault(beanClass, Collections.emptySet());
 	}
 
 	private Constructor<?> getConstructor(Class<?> clazz) {

@@ -9,12 +9,10 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import summer.runtime.RuntimeApplicationContext;
-import summer.test.annotation.SummerTest;
 import summer.web.HttpContext;
 import summer.web.HttpMethod;
 import summer.web.Request;
 
-@SummerTest(RuntimeApplicationContext.class)
 public class UserControllerTest {
 
 	@summer.core.annotation.Configuration
@@ -24,10 +22,27 @@ public class UserControllerTest {
 		public io.lettuce.core.api.sync.RedisCommands<String, Object> mockRedisCommands() {
 			return org.mockito.Mockito.mock(io.lettuce.core.api.sync.RedisCommands.class);
 		}
+
+		@summer.core.annotation.Bean
+		@summer.core.annotation.Replaces(summer.data.jdbc.RowMapperRegistry.class)
+		public summer.data.jdbc.RowMapperRegistry rowMapperRegistry() {
+			summer.data.jdbc.RowMapperRegistry registry = new summer.data.jdbc.RowMapperRegistry();
+			registry.put(User.class, (java.sql.ResultSet rs, int rowNum) -> new User(
+					rs.getString("id"),
+					rs.getString("name"),
+					rs.getString("email")));
+			return registry;
+		}
 	}
 
 	@Test
-	void testUserControllerOperations(UserController userController) {
+	void testUserControllerOperations() {
+		var ctx = new RuntimeApplicationContext();
+		ctx.registerComponent(MockRedisConfiguration.class);
+		ctx.scan();
+		ctx.initializeBeans();
+
+		UserController userController = ctx.getBean(UserController.class);
 		assertNotNull(userController, "UserController should be injected");
 
 		// 1. Create a user
@@ -75,6 +90,3 @@ public class UserControllerTest {
 		return new HttpContext(req);
 	}
 }
-
-
-

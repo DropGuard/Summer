@@ -11,18 +11,18 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
 import summer.runtime.RuntimeApplicationContext;
-import summer.test.annotation.SummerTest;
 import summer.web.*;
 import summer.web.annotation.GlobalMiddleware;
 import summer.web.websocket.WebSocketContext;
 import summer.web.websocket.WsFilterChain;
 import summer.web.websocket.WsInterceptor;
 
-@SummerTest(value = RuntimeApplicationContext.class, web = true)
 class WebSocketInterceptorIntegrationTest {
 
 	@GlobalMiddleware
@@ -34,9 +34,9 @@ class WebSocketInterceptorIntegrationTest {
 				if (!"Secret".equals(auth)) {
 					ctx.status(HttpStatus.FORBIDDEN);
 					ctx.text(HttpStatus.FORBIDDEN, "Unauthorized");
-					return null;
+					return;
 				}
-				return next.handle(ctx);
+				next.handle(ctx);
 			};
 		}
 	}
@@ -67,7 +67,31 @@ class WebSocketInterceptorIntegrationTest {
 		}
 	}
 
+	private static RuntimeApplicationContext context;
+	private static NettyServerRunner serverRunner;
+
 	private final String baseUrl = "ws://localhost:" + NettyServerRunner.getActualPort();
+
+	@BeforeAll
+	static void startServer() throws Exception {
+		context = new RuntimeApplicationContext();
+		context.registerComponent(AuthMiddleware.class);
+		context.registerComponent(TestConfig.class);
+		context.scan();
+		context.initializeBeans();
+		serverRunner = context.getBean(NettyServerRunner.class);
+		serverRunner.run(context);
+	}
+
+	@AfterAll
+	static void stopServer() throws Exception {
+		if (serverRunner != null) {
+			serverRunner.close();
+		}
+		if (context != null) {
+			context.close();
+		}
+	}
 
 	@Test
 	void testHandshakeFailsWithoutAuthHeader() {

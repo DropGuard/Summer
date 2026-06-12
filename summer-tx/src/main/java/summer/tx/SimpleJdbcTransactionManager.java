@@ -40,7 +40,6 @@ public class SimpleJdbcTransactionManager implements TransactionManager {
 				try {
 					connection.close();
 				} catch (SQLException ignored) {
-					// Already in error path; closing failure is secondary
 				}
 			}
 			throw new SummerTransactionException(ErrorCode.TRANSACTION_ERROR, "Failed to begin transaction", e);
@@ -54,13 +53,13 @@ public class SimpleJdbcTransactionManager implements TransactionManager {
 				return;
 			}
 			try {
-				Connection connection = txContext.getConnection();
-				if (!connection.getAutoCommit()) {
-					connection.commit();
+				Connection raw = txContext.getRawConnection();
+				if (!raw.getAutoCommit()) {
+					raw.commit();
 				}
 			} catch (SQLException e) {
 				try {
-					txContext.getConnection().rollback();
+					txContext.getRawConnection().rollback();
 				} catch (SQLException rollbackEx) {
 					e.addSuppressed(rollbackEx);
 				}
@@ -79,9 +78,9 @@ public class SimpleJdbcTransactionManager implements TransactionManager {
 				return;
 			}
 			try {
-				Connection connection = txContext.getConnection();
-				if (!connection.getAutoCommit()) {
-					connection.rollback();
+				Connection raw = txContext.getRawConnection();
+				if (!raw.getAutoCommit()) {
+					raw.rollback();
 				}
 			} catch (SQLException e) {
 				throw new SummerTransactionException(ErrorCode.TRANSACTION_ERROR, "Failed to rollback transaction", e);

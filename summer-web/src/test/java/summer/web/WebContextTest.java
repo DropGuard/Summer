@@ -45,7 +45,7 @@ class WebContextTest {
 	@Test
 	void shouldGetPathParam() {
 		Request request = createRequest(HttpMethod.GET, "/users/123");
-		request.setAttribute("id", "123");
+		request.setPathParam("id", "123");
 		HttpContext ctx = new HttpContext(request);
 
 		assertEquals("123", ctx.pathParam("id"));

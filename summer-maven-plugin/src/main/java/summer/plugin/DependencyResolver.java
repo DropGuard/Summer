@@ -9,8 +9,9 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import summer.core.exception.AmbiguousBeanException;
-import summer.core.exception.CircularDependencyException;
 import summer.core.exception.NoSuchBeanException;
 
 /**
@@ -18,6 +19,8 @@ import summer.core.exception.NoSuchBeanException;
  * matching.
  */
 public final class DependencyResolver {
+
+	private static final Logger log = LoggerFactory.getLogger(DependencyResolver.class);
 
 	public List<BeanDefinition> resolve(List<BeanDefinition> beans) {
 		for (BeanDefinition bean : beans) {
@@ -28,10 +31,6 @@ public final class DependencyResolver {
 			if (bean instanceof FactoryBean fb) {
 				linkConfigBean(fb, beans);
 			}
-		}
-
-		if (hasCycle(beans)) {
-			throw new CircularDependencyException("Circular dependency detected");
 		}
 
 		return topologicalSort(beans);
@@ -174,8 +173,9 @@ public final class DependencyResolver {
 		}
 
 		if (sorted.size() != beans.size()) {
-			throw new CircularDependencyException("Could not resolve all dependencies. Possible cycle among: "
-					+ beans.stream().filter(b -> !sorted.contains(b)).map(b -> b.qualifiedName).toList());
+			List<BeanDefinition> circular = beans.stream().filter(b -> !sorted.contains(b)).toList();
+			List<String> circularNames = circular.stream().map(b -> b.qualifiedName).toList();
+			log.warn("[Summer] Skipping {} bean(s) with circular dependencies: {}", circular.size(), circularNames);
 		}
 		return sorted;
 	}

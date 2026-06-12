@@ -21,10 +21,9 @@ public class LoggingMiddleware implements Middleware {
 			log.info("Processing request: {} {}", ctx.method(), ctx.path());
 
 			try {
-				Object result = handler.handle(ctx);
+				handler.handle(ctx);
 				long duration = System.currentTimeMillis() - startTime;
 				log.info("Completed response: {} in {}ms", ctx.statusCode(), duration);
-				return result;
 			} catch (Exception e) {
 				long duration = System.currentTimeMillis() - startTime;
 				log.error("Failed to process request: {} ({}ms)", e.getMessage(), duration);

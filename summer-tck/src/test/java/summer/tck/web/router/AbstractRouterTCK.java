@@ -4,10 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import java.nio.charset.StandardCharsets;
 import org.junit.jupiter.api.Test;
 import summer.tck.AbstractComponentTCK;
 import summer.web.HttpContext;
 import summer.web.HttpMethod;
+import summer.web.HttpStatus;
 import summer.web.HttpRouter;
 import summer.web.Request;
 
@@ -31,149 +33,142 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
 
 	@Test
 	void testExactStaticRoute() {
-		HttpRouter r = builder().get("/users", ctx -> "user-list").build();
+		HttpRouter r = builder().get("/users", ctx -> ctx.text(HttpStatus.OK, "user-list")).build();
 
-		Object result = r.route(ctx(HttpMethod.GET, "/users"));
-		assertEquals("user-list", result);
+		r.route(ctx(HttpMethod.GET, "/users"));
+		assertEquals("user-list", bodyAsString(r, HttpMethod.GET, "/users"));
 	}
 
 	@Test
 	void testMultiSegmentStaticRoute() {
-		HttpRouter r = builder().get("/api/v1/users", ctx -> "v1-users").build();
+		HttpRouter r = builder().get("/api/v1/users", ctx -> ctx.text(HttpStatus.OK, "v1-users")).build();
 
-		Object result = r.route(ctx(HttpMethod.GET, "/api/v1/users"));
-		assertEquals("v1-users", result);
+		assertEquals("v1-users", bodyAsString(r, HttpMethod.GET, "/api/v1/users"));
 	}
 
 	@Test
 	void testUnmatchedRouteReturnsNull() {
-		HttpRouter r = builder().get("/users", ctx -> "user-list").build();
+		HttpRouter r = builder().get("/users", ctx -> ctx.text(HttpStatus.OK, "user-list")).build();
 
-		Object result = r.route(ctx(HttpMethod.GET, "/posts"));
-		assertNull(result);
+		HttpContext ctx = ctx(HttpMethod.GET, "/posts");
+		r.route(ctx);
+		assertNull(ctx.body());
 	}
 
 	// --- Path parameters ---
 
 	@Test
 	void testSinglePathParam() {
-		HttpRouter r = builder().get("/users/{id}", ctx -> "user-" + ctx.request().pathParam("id")).build();
+		HttpRouter r = builder().get("/users/{id}", ctx -> ctx.text(HttpStatus.OK, "user-" + ctx.request().pathParam("id"))).build();
 
-		Object result = r.route(ctx(HttpMethod.GET, "/users/42"));
-		assertEquals("user-42", result);
+		assertEquals("user-42", bodyAsString(r, HttpMethod.GET, "/users/42"));
 	}
 
 	@Test
 	void testMultiplePathParams() {
 		HttpRouter r = builder().get("/users/{userId}/posts/{postId}",
-				ctx -> ctx.request().pathParam("userId") + ":" + ctx.request().pathParam("postId")).build();
+				ctx -> ctx.text(HttpStatus.OK, ctx.request().pathParam("userId") + ":" + ctx.request().pathParam("postId"))).build();
 
-		Object result = r.route(ctx(HttpMethod.GET, "/users/10/posts/20"));
-		assertEquals("10:20", result);
+		assertEquals("10:20", bodyAsString(r, HttpMethod.GET, "/users/10/posts/20"));
 	}
 
 	@Test
 	void testPathParamAtEnd() {
-		HttpRouter r = builder().get("/files/{name}", ctx -> "file-" + ctx.request().pathParam("name")).build();
+		HttpRouter r = builder().get("/files/{name}", ctx -> ctx.text(HttpStatus.OK, "file-" + ctx.request().pathParam("name"))).build();
 
-		Object result = r.route(ctx(HttpMethod.GET, "/files/report.pdf"));
-		assertEquals("file-report.pdf", result);
+		assertEquals("file-report.pdf", bodyAsString(r, HttpMethod.GET, "/files/report.pdf"));
 	}
 
 	@Test
 	void testPathParamAtStart() {
-		HttpRouter r = builder().get("{tenant}/users", ctx -> "tenant-" + ctx.request().pathParam("tenant")).build();
+		HttpRouter r = builder().get("{tenant}/users", ctx -> ctx.text(HttpStatus.OK, "tenant-" + ctx.request().pathParam("tenant"))).build();
 
-		Object result = r.route(ctx(HttpMethod.GET, "acme/users"));
-		assertEquals("tenant-acme", result);
+		assertEquals("tenant-acme", bodyAsString(r, HttpMethod.GET, "acme/users"));
 	}
 
 	// --- HTTP method isolation ---
 
 	@Test
 	void testSamePathDifferentMethods() {
-		HttpRouter r = builder().get("/users", ctx -> "get-users").post("/users", ctx -> "post-users")
-				.put("/users", ctx -> "put-users").delete("/users", ctx -> "delete-users").build();
+		HttpRouter r = builder().get("/users", ctx -> ctx.text(HttpStatus.OK, "get-users"))
+				.post("/users", ctx -> ctx.text(HttpStatus.OK, "post-users"))
+				.put("/users", ctx -> ctx.text(HttpStatus.OK, "put-users"))
+				.delete("/users", ctx -> ctx.text(HttpStatus.OK, "delete-users")).build();
 
-		assertEquals("get-users", r.route(ctx(HttpMethod.GET, "/users")));
-		assertEquals("post-users", r.route(ctx(HttpMethod.POST, "/users")));
-		assertEquals("put-users", r.route(ctx(HttpMethod.PUT, "/users")));
-		assertEquals("delete-users", r.route(ctx(HttpMethod.DELETE, "/users")));
+		assertEquals("get-users", bodyAsString(r, HttpMethod.GET, "/users"));
+		assertEquals("post-users", bodyAsString(r, HttpMethod.POST, "/users"));
+		assertEquals("put-users", bodyAsString(r, HttpMethod.PUT, "/users"));
+		assertEquals("delete-users", bodyAsString(r, HttpMethod.DELETE, "/users"));
 	}
 
 	@Test
 	void testWrongMethodReturnsNull() {
-		HttpRouter r = builder().get("/users", ctx -> "get-users").build();
+		HttpRouter r = builder().get("/users", ctx -> ctx.text(HttpStatus.OK, "get-users")).build();
 
-		Object result = r.route(ctx(HttpMethod.POST, "/users"));
-		assertNull(result);
+		HttpContext ctx = ctx(HttpMethod.POST, "/users");
+		r.route(ctx);
+		assertNull(ctx.body());
 	}
 
 	// --- Path normalization ---
 
 	@Test
 	void testTrailingSlashMatches() {
-		HttpRouter r = builder().get("/users", ctx -> "user-list").build();
+		HttpRouter r = builder().get("/users", ctx -> ctx.text(HttpStatus.OK, "user-list")).build();
 
-		Object result = r.route(ctx(HttpMethod.GET, "/users/"));
-		assertEquals("user-list", result);
+		assertEquals("user-list", bodyAsString(r, HttpMethod.GET, "/users/"));
 	}
 
 	@Test
 	void testTrailingSlashOnRegistration() {
-		HttpRouter r = builder().get("/users/", ctx -> "user-list").build();
+		HttpRouter r = builder().get("/users/", ctx -> ctx.text(HttpStatus.OK, "user-list")).build();
 
-		Object result = r.route(ctx(HttpMethod.GET, "/users"));
-		assertEquals("user-list", result);
+		assertEquals("user-list", bodyAsString(r, HttpMethod.GET, "/users"));
 	}
 
 	@Test
 	void testRootPath() {
-		HttpRouter r = builder().get("/", ctx -> "home").build();
+		HttpRouter r = builder().get("/", ctx -> ctx.text(HttpStatus.OK, "home")).build();
 
-		assertEquals("home", r.route(ctx(HttpMethod.GET, "/")));
-		assertEquals("home", r.route(ctx(HttpMethod.GET, "")));
+		assertEquals("home", bodyAsString(r, HttpMethod.GET, "/"));
+		assertEquals("home", bodyAsString(r, HttpMethod.GET, ""));
 	}
 
 	@Test
 	void testDoubleSlashNormalization() {
-		HttpRouter r = builder().get("/users/{id}", ctx -> "user-" + ctx.request().pathParam("id")).build();
+		HttpRouter r = builder().get("/users/{id}", ctx -> ctx.text(HttpStatus.OK, "user-" + ctx.request().pathParam("id"))).build();
 
-		Object result = r.route(ctx(HttpMethod.GET, "//users//42"));
-		assertEquals("user-42", result);
+		assertEquals("user-42", bodyAsString(r, HttpMethod.GET, "//users//42"));
 	}
 
 	@Test
 	void testMultipleTrailingSlashes() {
-		HttpRouter r = builder().get("/users", ctx -> "user-list").build();
+		HttpRouter r = builder().get("/users", ctx -> ctx.text(HttpStatus.OK, "user-list")).build();
 
-		Object result = r.route(ctx(HttpMethod.GET, "/users///"));
-		assertEquals("user-list", result);
+		assertEquals("user-list", bodyAsString(r, HttpMethod.GET, "/users///"));
 	}
 
 	@Test
 	void testLeadingDoubleSlash() {
-		HttpRouter r = builder().get("/api/health", ctx -> "ok").build();
+		HttpRouter r = builder().get("/api/health", ctx -> ctx.text(HttpStatus.OK, "ok")).build();
 
-		Object result = r.route(ctx(HttpMethod.GET, "//api/health"));
-		assertEquals("ok", result);
+		assertEquals("ok", bodyAsString(r, HttpMethod.GET, "//api/health"));
 	}
 
 	// --- Edge cases ---
 
 	@Test
 	void testEmptyPathSegments() {
-		HttpRouter r = builder().get("/api///users", ctx -> "users").build();
+		HttpRouter r = builder().get("/api///users", ctx -> ctx.text(HttpStatus.OK, "users")).build();
 
-		Object result = r.route(ctx(HttpMethod.GET, "/api/users"));
-		assertEquals("users", result);
+		assertEquals("users", bodyAsString(r, HttpMethod.GET, "/api/users"));
 	}
 
 	@Test
 	void testPathParamWithSpecialChars() {
-		HttpRouter r = builder().get("/files/{name}", ctx -> ctx.request().pathParam("name")).build();
+		HttpRouter r = builder().get("/files/{name}", ctx -> ctx.text(HttpStatus.OK, ctx.request().pathParam("name"))).build();
 
-		Object result = r.route(ctx(HttpMethod.GET, "/files/my%20file.txt"));
+		String result = bodyAsString(r, HttpMethod.GET, "/files/my%20file.txt");
 		assertNotNull(result);
 		assertEquals("my file.txt", result);
 	}
@@ -182,29 +177,35 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
 
 	@Test
 	void testSingleSegmentWildcard() {
-		HttpRouter r = builder().get("/files/*", ctx -> "file-wildcard").build();
+		HttpRouter r = builder().get("/files/*", ctx -> ctx.text(HttpStatus.OK, "file-wildcard")).build();
 
-		assertEquals("file-wildcard", r.route(ctx(HttpMethod.GET, "/files/a.txt")));
-		assertEquals("file-wildcard", r.route(ctx(HttpMethod.GET, "/files/report.pdf")));
-		assertNull(r.route(ctx(HttpMethod.GET, "/files/sub/dir")));
+		assertEquals("file-wildcard", bodyAsString(r, HttpMethod.GET, "/files/a.txt"));
+		assertEquals("file-wildcard", bodyAsString(r, HttpMethod.GET, "/files/report.pdf"));
+
+		HttpContext noMatch = ctx(HttpMethod.GET, "/files/sub/dir");
+		r.route(noMatch);
+		assertNull(noMatch.body());
 	}
 
 	@Test
 	void testMultiSegmentWildcard() {
-		HttpRouter r = builder().get("/api/**", ctx -> "catch-all").build();
+		HttpRouter r = builder().get("/api/**", ctx -> ctx.text(HttpStatus.OK, "catch-all")).build();
 
-		assertEquals("catch-all", r.route(ctx(HttpMethod.GET, "/api/users")));
-		assertEquals("catch-all", r.route(ctx(HttpMethod.GET, "/api/users/123")));
-		assertEquals("catch-all", r.route(ctx(HttpMethod.GET, "/api/v1/posts/456")));
+		assertEquals("catch-all", bodyAsString(r, HttpMethod.GET, "/api/users"));
+		assertEquals("catch-all", bodyAsString(r, HttpMethod.GET, "/api/users/123"));
+		assertEquals("catch-all", bodyAsString(r, HttpMethod.GET, "/api/v1/posts/456"));
 	}
 
 	@Test
 	void testWildcardWithStaticPrefix() {
-		HttpRouter r = builder().get("/static/**", ctx -> "static-files").build();
+		HttpRouter r = builder().get("/static/**", ctx -> ctx.text(HttpStatus.OK, "static-files")).build();
 
-		assertEquals("static-files", r.route(ctx(HttpMethod.GET, "/static/css/main.css")));
-		assertEquals("static-files", r.route(ctx(HttpMethod.GET, "/static/js/app.js")));
-		assertNull(r.route(ctx(HttpMethod.GET, "/api/users")));
+		assertEquals("static-files", bodyAsString(r, HttpMethod.GET, "/static/css/main.css"));
+		assertEquals("static-files", bodyAsString(r, HttpMethod.GET, "/static/js/app.js"));
+
+		HttpContext noMatch = ctx(HttpMethod.GET, "/api/users");
+		r.route(noMatch);
+		assertNull(noMatch.body());
 	}
 
 	// --- Helper ---
@@ -216,5 +217,12 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
 	private HttpContext ctx(HttpMethod method, String path) {
 		Request req = new Request(method, path, null, null, new byte[0]);
 		return new HttpContext(req);
+	}
+
+	private String bodyAsString(HttpRouter r, HttpMethod method, String path) {
+		HttpContext ctx = ctx(method, path);
+		r.route(ctx);
+		byte[] body = ctx.body();
+		return body != null ? new String(body, StandardCharsets.UTF_8) : null;
 	}
 }

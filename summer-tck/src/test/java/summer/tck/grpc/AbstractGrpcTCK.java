@@ -34,7 +34,11 @@ public abstract class AbstractGrpcTCK extends AbstractTCK {
 	 * Implementations typically call:
 	 * 
 	 * <pre>
-	 * return RuntimeApplicationContext.create(components);
+	 * var ctx = new RuntimeApplicationContext();
+	 * ctx.scan();
+	 * // register extra components
+	 * ctx.initializeBeans();
+	 * return ctx;
 	 * </pre>
 	 */
 	protected abstract ApplicationContext createContext(Class<?>... configClasses);

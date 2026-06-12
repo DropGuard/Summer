@@ -1,19 +1,16 @@
 package summer.web;
 
 import java.util.List;
-import summer.core.config.ConfigurationBinder;
+import summer.core.config.ConfigurationProperties;
 import summer.core.config.DefaultValue;
 
 /**
  * Immutable server configuration bound from {@code application.yml}.
  */
+@ConfigurationProperties(prefix = "server")
 public record ServerConfig(@DefaultValue("8080") Integer port, @DefaultValue("30000") Integer connectionTimeout,
 		@DefaultValue("10485760") Integer maxBodySize, @DefaultValue("10000") Integer readTimeout,
 		List<String> allowedOrigins, @DefaultValue("65536") Integer maxWebSocketFrameSize) {
-
-	public static ServerConfig fromYaml() {
-		return ConfigurationBinder.bind(ServerConfig.class, "server");
-	}
 
 	public boolean isOriginAllowed(String origin, String requestHost) {
 		if (allowedOrigins.isEmpty()) {

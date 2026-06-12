@@ -1,13 +1,8 @@
 package summer.web;
 
-import io.avaje.validation.ConstraintViolationException;
-import io.avaje.validation.Validator;
-import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import summer.web.exception.BodyParseException;
-import summer.web.exception.ValidationException;
 
 /**
  * Facade for HTTP request processing. Controllers and framework handlers
@@ -40,11 +35,9 @@ public class HttpContext {
 
 	private static final Logger log = LoggerFactory.getLogger(HttpContext.class);
 
-	private static final Validator validator = Validator.builder().build();
-
 	private final Request request;
 	private final Response response = new Response();
-	private final BodyConverter jsonConverter;
+	private final BodyParser bodyParser;
 	private boolean handled = false;
 
 	public HttpContext(Request request) {
@@ -52,8 +45,12 @@ public class HttpContext {
 	}
 
 	public HttpContext(Request request, BodyConverter jsonConverter) {
+		this(request, new BodyParser(jsonConverter, io.avaje.validation.Validator.builder().build()));
+	}
+
+	public HttpContext(Request request, BodyParser bodyParser) {
 		this.request = request;
-		this.jsonConverter = jsonConverter;
+		this.bodyParser = bodyParser;
 	}
 
 	// --- Read facade ---
@@ -108,10 +105,11 @@ public class HttpContext {
 	 * flushed by the IO layer.
 	 */
 	public void json(HttpStatus status, Object data) {
+		BodyConverter converter = bodyParser.converter();
 		response.status = status;
 		response.resultObject = data;
-		response.converter = jsonConverter;
-		response.headers.put("Content-Type", jsonConverter.getContentType());
+		response.converter = converter;
+		response.headers.put("Content-Type", converter.getContentType());
 	}
 
 	/**
@@ -173,31 +171,10 @@ public class HttpContext {
 	}
 
 	public <T> T body(Class<T> type) {
-		return parseBody(type);
+		return bodyParser.parse(request.getBody(), request.getContentType(), type);
 	}
 
 	public <T> T validatedBody(Class<T> type) {
-		T body = body(type);
-		validate(body, type);
-		return body;
-	}
-
-	private <T> T parseBody(Class<T> type) {
-		try {
-			return jsonConverter.read(request.getBody(), type);
-		} catch (java.io.IOException e) {
-			throw new BodyParseException(request.getContentType(), e);
-		}
-	}
-
-	private <T> void validate(T body, Class<T> type) {
-		if (body != null) {
-			try {
-				validator.validate(body);
-			} catch (ConstraintViolationException e) {
-				List<String> errors = e.violations().stream().map(Object::toString).toList();
-				throw new ValidationException(errors);
-			}
-		}
+		return bodyParser.parseAndValidate(request.getBody(), request.getContentType(), type);
 	}
 }

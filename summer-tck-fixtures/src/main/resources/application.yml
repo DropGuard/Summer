@@ -12,3 +12,7 @@ server:
   tls:
     enabled: true
     cert-chain: /path/to/cert.pem
+
+root:
+  host: localhost
+  port: 9090

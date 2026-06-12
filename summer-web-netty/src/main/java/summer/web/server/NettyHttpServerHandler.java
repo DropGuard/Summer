@@ -12,44 +12,28 @@ import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
-import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import summer.web.BodyConverter;
 import summer.web.Handler;
 import summer.web.HttpContext;
-import summer.web.HttpRouter;
 import summer.web.HttpStatus;
 import summer.web.Middleware;
 import summer.web.Request;
 import summer.web.ServerConfig;
-import summer.web.WsRouter;
 
 public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 
 	private static final Logger log = LoggerFactory.getLogger(NettyHttpServerHandler.class);
 
-	private final HttpRouter httpRouter;
-	private final WsRouter wsRouter;
-	private final List<Middleware> middlewares;
-	private final BodyConverter jsonConverter;
 	private final NettyHttpServer server;
 	private final ServerConfig config;
-	private final summer.web.ExceptionRegistry exceptionRegistry;
-	private final List<summer.web.websocket.WsInterceptor> wsInterceptors;
+	private final WebServerDependencies deps;
 
-	public NettyHttpServerHandler(HttpRouter httpRouter, WsRouter wsRouter, List<Middleware> middlewares,
-			BodyConverter jsonConverter, NettyHttpServer server, ServerConfig config,
-			summer.web.ExceptionRegistry exceptionRegistry, List<summer.web.websocket.WsInterceptor> wsInterceptors) {
-		this.httpRouter = httpRouter;
-		this.wsRouter = wsRouter;
-		this.middlewares = middlewares;
-		this.jsonConverter = jsonConverter;
+	public NettyHttpServerHandler(NettyHttpServer server, ServerConfig config, WebServerDependencies deps) {
 		this.server = server;
 		this.config = config;
-		this.exceptionRegistry = exceptionRegistry;
-		this.wsInterceptors = wsInterceptors;
+		this.deps = deps;
 	}
 
 	@Override
@@ -88,7 +72,7 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 	private void processRequest(ChannelHandlerContext ctx, FullHttpRequest nettyReq, boolean keepAlive) {
 		try {
 			Request request = NettyRequestAdapter.adapt(nettyReq);
-			HttpContext webCtx = new HttpContext(request, jsonConverter);
+			HttpContext webCtx = new HttpContext(request, deps.jsonConverter());
 
 			Handler handler = createHandlerChain(ctx, nettyReq);
 			handler.handle(webCtx);
@@ -112,52 +96,20 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 	private Handler createHandlerChain(ChannelHandlerContext nettyCtx, FullHttpRequest nettyReq) {
 		Handler dispatchHandler = (c) -> {
 			try {
-				if (nettyReq.headers().contains(HttpHeaderNames.UPGRADE, HttpHeaderValues.WEBSOCKET, true)) {
-					String uri = nettyReq.uri();
-					String path = uri;
-					int questionMarkIndex = uri.indexOf('?');
-					if (questionMarkIndex != -1) {
-						path = uri.substring(0, questionMarkIndex);
-					}
-
-					String origin = nettyReq.headers().get(HttpHeaderNames.ORIGIN);
-					String host = nettyReq.headers().get(HttpHeaderNames.HOST);
-					if (!config.isOriginAllowed(origin, host)) {
-						log.warn("WebSocket connection rejected: origin '{}' not allowed for host '{}'", origin, host);
-						c.status(HttpStatus.FORBIDDEN);
-						c.text(HttpStatus.FORBIDDEN, "Origin not allowed");
-						return null;
-					}
-
-					WsRouter.WsMatch wsMatch = wsRouter.routeWs(path);
-					if (wsMatch != null) {
-						NettyWebSocketContext wsContext = new NettyWebSocketContext(nettyCtx, wsMatch.pathParams(),
-								wsInterceptors);
-						wsMatch.handler().handle(wsContext);
-
-						c.setHandled(true);
-
-						FullHttpRequest retainedReq = nettyReq.retain();
-						nettyCtx.executor().execute(() -> {
-							nettyCtx.pipeline().addLast(
-									new io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler(uri, null,
-											true, config.maxWebSocketFrameSize()));
-							nettyCtx.pipeline().addLast(
-									new SummerWebSocketFrameHandler(wsContext, config.maxWebSocketFrameSize()));
-							nettyCtx.fireChannelRead(retainedReq);
-						});
-						return null;
-					}
+				if (deps.wsUpgradeHandler().isWebSocketUpgrade(nettyReq)) {
+					deps.wsUpgradeHandler().handleUpgrade(nettyCtx, nettyReq, c);
+					return;
 				}
 
-				httpRouter.route(c);
+				deps.httpRouter().route(c);
 			} catch (Exception e) {
-				if (exceptionRegistry != null) {
-					Handler customHandler = exceptionRegistry.getHandler(e);
+				if (deps.exceptionRegistry() != null) {
+					Handler customHandler = deps.exceptionRegistry().getHandler(e);
 					if (customHandler != null) {
 						try {
-							c.request().setAttribute("last_exception", e);
-							return customHandler.handle(c);
+							c.request().setAttribute(summer.web.RequestAttributes.LAST_EXCEPTION, e);
+							customHandler.handle(c);
+							return;
 						} catch (Exception handlerException) {
 							log.warn("Exception handler failed for: {}", e.getClass().getName(), handlerException);
 						}
@@ -169,18 +121,16 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 					if (webEx.getMessage() != null) {
 						c.text(webEx.statusCode(), webEx.getMessage());
 					}
-					return null;
+					return;
 				}
 
 				c.error(e);
 				log.error("Request failed: {}", c.request().getPath(), e);
-				return null;
 			}
-			return null;
 		};
 
 		Handler handler = dispatchHandler;
-		for (Middleware middleware : middlewares) {
+		for (Middleware middleware : deps.middlewares()) {
 			handler = middleware.apply(handler);
 		}
 

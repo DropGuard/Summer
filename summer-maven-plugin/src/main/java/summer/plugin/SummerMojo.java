@@ -137,10 +137,14 @@ public class SummerMojo extends AbstractMojo {
 
 		java.util.List<String> options = java.util.List.of("-cp", classpath, "-d", compileOutputDir.getAbsolutePath());
 
-		javax.tools.JavaCompiler.CompilationTask task = compiler.getTask(null, fileManager, null, options, null,
+		javax.tools.DiagnosticCollector<javax.tools.JavaFileObject> diagnostics = new javax.tools.DiagnosticCollector<>();
+		javax.tools.JavaCompiler.CompilationTask task = compiler.getTask(null, fileManager, diagnostics, options, null,
 				compilationUnits);
 
 		if (!task.call()) {
+			for (javax.tools.Diagnostic<? extends javax.tools.JavaFileObject> d : diagnostics.getDiagnostics()) {
+				getLog().error("[Summer] " + d.getMessage(null));
+			}
 			throw new MojoExecutionException("[Summer] Compilation of generated sources failed");
 		}
 		fileManager.close();

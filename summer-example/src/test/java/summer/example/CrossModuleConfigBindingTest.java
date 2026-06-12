@@ -1,15 +1,20 @@
 package summer.example;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.lang.reflect.RecordComponent;
-import org.junit.jupiter.api.BeforeAll;
+
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import summer.core.config.ConfigurationBinder;
+
+import summer.core.ApplicationContext;
 import summer.core.config.DefaultValue;
-import summer.runtime.ReflectionDefaultValueResolver;
 import summer.grpc.config.GrpcTlsConfig;
+import summer.runtime.RuntimeApplicationContext;
 import summer.web.middleware.CorsConfig;
 
 /**
@@ -23,9 +28,23 @@ import summer.web.middleware.CorsConfig;
  */
 class CrossModuleConfigBindingTest {
 
-	@BeforeAll
-	static void setupResolver() {
-		ConfigurationBinder.setDefaultResolver(new ReflectionDefaultValueResolver());
+	private ApplicationContext context;
+
+	@AfterEach
+	void tearDown() {
+		if (context instanceof AutoCloseable ac) {
+			try { ac.close(); } catch (Exception ignored) {}
+		}
+	}
+
+	private ApplicationContext createContext(Class<?>... components) {
+		RuntimeApplicationContext ctx = new RuntimeApplicationContext();
+		for (Class<?> c : components) {
+			ctx.registerComponent(c);
+		}
+		ctx.initializeBeans();
+		context = ctx;
+		return ctx;
 	}
 
 	// ── Annotation visibility ────────────────────────────────────────
@@ -64,8 +83,8 @@ class CrossModuleConfigBindingTest {
 
 		@Test
 		void corsConfigBindsWithDefaults() {
-			// application.yml has no "cors" section
-			CorsConfig config = ConfigurationBinder.bind(CorsConfig.class, "cors");
+			ApplicationContext ctx = createContext(CorsConfig.class);
+			CorsConfig config = ctx.getBean(CorsConfig.class);
 
 			assertNotNull(config, "CorsConfig should bind with defaults");
 			assertEquals("*", config.allowedOrigins());
@@ -76,9 +95,8 @@ class CrossModuleConfigBindingTest {
 
 		@Test
 		void grpcTlsConfigBindsWithNulls() {
-			// application.yml has no "grpc.tls" section
-			// enabled has @DefaultValue("false"), cert fields are null
-			GrpcTlsConfig config = ConfigurationBinder.bind(GrpcTlsConfig.class, "grpc.tls");
+			ApplicationContext ctx = createContext(GrpcTlsConfig.class);
+			GrpcTlsConfig config = ctx.getBean(GrpcTlsConfig.class);
 
 			assertNotNull(config, "GrpcTlsConfig should bind");
 			assertFalse(config.enabled(), "enabled should use @DefaultValue(false)");

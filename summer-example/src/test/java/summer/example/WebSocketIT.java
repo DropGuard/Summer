@@ -1,6 +1,7 @@
 package summer.example;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -9,12 +10,14 @@ import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import org.junit.jupiter.api.Test;
-import summer.runtime.RuntimeApplicationContext;
-import summer.test.annotation.SummerTest;
-import summer.web.ServerConfig;
 
-@SummerTest(value = RuntimeApplicationContext.class, web = true)
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+
+import summer.runtime.RuntimeApplicationContext;
+import summer.web.server.NettyServerRunner;
+
 class WebSocketIT {
 
 	@summer.core.annotation.Configuration
@@ -26,7 +29,25 @@ class WebSocketIT {
 		}
 	}
 
-	private final String baseUrl = "ws://localhost:" + ServerConfig.fromYaml().port();
+	private static RuntimeApplicationContext context;
+	private static NettyServerRunner serverRunner;
+
+	private final String baseUrl = "ws://localhost:" + NettyServerRunner.getActualPort();
+
+	@BeforeAll
+	static void startServer() throws Exception {
+		context = new RuntimeApplicationContext();
+		context.scan();
+		context.initializeBeans();
+		serverRunner = context.getBean(NettyServerRunner.class);
+		serverRunner.run(context);
+	}
+
+	@AfterAll
+	static void stopServer() throws Exception {
+		if (serverRunner != null) serverRunner.close();
+		if (context != null) context.close();
+	}
 
 	@Test
 	void testWebSocketEcho() throws Exception {

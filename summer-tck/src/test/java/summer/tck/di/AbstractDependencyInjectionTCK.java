@@ -5,9 +5,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 import summer.core.ApplicationContext;
 import summer.tck.AbstractContextTCK;
-import summer.tck.dummy.ServiceA;
-import summer.tck.dummy.ServiceB;
-import summer.tck.dummy.ServiceC;
+import summer.fixtures.dummy.ServiceA;
+import summer.fixtures.dummy.ServiceB;
+import summer.fixtures.dummy.ServiceC;
 
 /**
  * TCK for core dependency injection behavior.

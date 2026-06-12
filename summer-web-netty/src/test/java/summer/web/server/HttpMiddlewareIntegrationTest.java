@@ -8,15 +8,15 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import summer.runtime.RuntimeApplicationContext;
-import summer.test.annotation.SummerTest;
 import summer.web.*;
 import summer.web.annotation.Get;
 import summer.web.annotation.GlobalMiddleware;
 import summer.web.annotation.RestController;
 
-@SummerTest(value = RuntimeApplicationContext.class, web = true)
 class HttpMiddlewareIntegrationTest {
 
 	@GlobalMiddleware
@@ -24,9 +24,8 @@ class HttpMiddlewareIntegrationTest {
 		@Override
 		public Handler apply(Handler next) {
 			return ctx -> {
-				Object result = next.handle(ctx);
+				next.handle(ctx);
 				ctx.setHeader("X-Test-Middleware", "Active");
-				return result;
 			};
 		}
 	}
@@ -39,8 +38,32 @@ class HttpMiddlewareIntegrationTest {
 		}
 	}
 
+	private static RuntimeApplicationContext context;
+	private static NettyServerRunner serverRunner;
+
 	private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 	private final String baseUrl = "http://localhost:" + NettyServerRunner.getActualPort();
+
+	@BeforeAll
+	static void startServer() throws Exception {
+		context = new RuntimeApplicationContext();
+		context.registerComponent(TestMiddleware.class);
+		context.registerComponent(TestController.class);
+		context.scan();
+		context.initializeBeans();
+		serverRunner = context.getBean(NettyServerRunner.class);
+		serverRunner.run(context);
+	}
+
+	@AfterAll
+	static void stopServer() throws Exception {
+		if (serverRunner != null) {
+			serverRunner.close();
+		}
+		if (context != null) {
+			context.close();
+		}
+	}
 
 	@Test
 	void testMiddlewareInterceptsAndModifiesResponse() throws Exception {

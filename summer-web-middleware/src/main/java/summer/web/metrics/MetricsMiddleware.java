@@ -23,15 +23,13 @@ public class MetricsMiddleware implements Middleware {
 		return (ctx) -> {
 			registry.incrementActive();
 			try {
-				Object result = next.handle(ctx);
+				next.handle(ctx);
 
 				// If status is an error status, record it
 				HttpStatus status = ctx.statusCode();
 				if (status != null && status.code() >= 500) {
 					registry.recordError();
 				}
-
-				return result;
 			} catch (Exception e) {
 				registry.recordError();
 				throw e;

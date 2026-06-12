@@ -15,6 +15,7 @@ import javax.lang.model.element.Modifier;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
+import org.jboss.jandex.MethodInfo;
 import org.jboss.jandex.RecordComponentInfo;
 import org.jboss.jandex.Type;
 
@@ -58,6 +59,8 @@ final class RowMapperGenerator {
 	private static final ClassName CONFIGURATION = ClassName.get("summer.core.annotation", "Configuration");
 	private static final ClassName BEAN = ClassName.get("summer.core.annotation", "Bean");
 
+	private static final DotName ROW_MAPPER_REGISTRY_DOT = DotName.createSimple("summer.data.jdbc.RowMapperRegistry");
+
 	void generate(IndexView index, File outputDir) throws IOException {
 		List<ClassInfo> rowModels = new ArrayList<>();
 		for (ClassInfo ci : index.getKnownClasses()) {
@@ -69,9 +72,33 @@ final class RowMapperGenerator {
 			rowModels.add(ci);
 			generateMapper(ci, outputDir);
 		}
-		if (!rowModels.isEmpty()) {
+		if (!rowModels.isEmpty() && !hasUserDefinedRowMapperRegistryBean(index)) {
 			generateConfiguration(rowModels, outputDir);
 		}
+	}
+
+	/**
+	 * Checks if any {@code @Configuration} class in the index already declares a
+	 * {@code @Bean} method returning {@code RowMapperRegistry}. If so, we skip
+	 * generating {@code RowMapperConfiguration} to avoid duplicates.
+	 */
+	private boolean hasUserDefinedRowMapperRegistryBean(IndexView index) {
+		ClassName configAnn = ClassName.get("summer.core.annotation", "Configuration");
+		ClassName beanAnn = ClassName.get("summer.core.annotation", "Bean");
+		for (ClassInfo ci : index.getKnownClasses()) {
+			if (ci.isAnnotation() || ci.isInterface() || ci.isAbstract())
+				continue;
+			if (!ci.hasAnnotation(DotName.createSimple(configAnn.canonicalName())))
+				continue;
+			for (MethodInfo method : ci.methods()) {
+				if (!method.hasAnnotation(DotName.createSimple(beanAnn.canonicalName())))
+					continue;
+				if (method.returnType() != null && method.returnType().name().equals(ROW_MAPPER_REGISTRY_DOT)) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	private void generateMapper(ClassInfo ci, File outputDir) throws IOException {
@@ -132,7 +159,7 @@ final class RowMapperGenerator {
 			String simpleName = ci.name().withoutPackagePrefix();
 			ClassName modelClass = ClassName.get(ci.name().packagePrefix(), simpleName);
 			ClassName mapperClass = ClassName.get(ci.name().packagePrefix(), simpleName + "_RowMapper");
-			method.addStatement("registry.register($T.class, new $T())", modelClass, mapperClass);
+			method.addStatement("registry.put($T.class, new $T())", modelClass, mapperClass);
 		}
 		method.addStatement("return registry");
 

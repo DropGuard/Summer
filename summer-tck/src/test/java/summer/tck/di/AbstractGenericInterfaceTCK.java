@@ -5,9 +5,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 import summer.core.ApplicationContext;
 import summer.tck.AbstractContextTCK;
-import summer.tck.di.generic.GenericService;
-import summer.tck.di.generic.GenericServiceClient;
-import summer.tck.di.generic.StringServiceImpl;
+import summer.fixtures.di.generic.GenericService;
+import summer.fixtures.di.generic.GenericServiceClient;
+import summer.fixtures.di.generic.StringServiceImpl;
 
 /**
  * TCK test for generic interface dependency resolution.

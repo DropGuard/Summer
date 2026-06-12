@@ -28,29 +28,17 @@ public class NettyHttpServer {
 	private static final Logger log = LoggerFactory.getLogger(NettyHttpServer.class);
 
 	private final ServerConfig config;
-	private final HttpRouter httpRouter;
-	private final WsRouter wsRouter;
-	private final List<Middleware> middlewares;
-	private final BodyConverter jsonConverter;
+	private final WebServerDependencies deps;
 
 	private EventLoopGroup bossGroup;
 	private EventLoopGroup workerGroup;
 	private ChannelFuture serverChannelFuture;
-	private final summer.web.ExceptionRegistry exceptionRegistry;
-	private final List<summer.web.websocket.WsInterceptor> wsInterceptors;
 
 	private final AtomicInteger activeConnections = new AtomicInteger(0);
 
-	public NettyHttpServer(ServerConfig config, HttpRouter httpRouter, WsRouter wsRouter, List<Middleware> middlewares,
-			BodyConverter jsonConverter, summer.web.ExceptionRegistry exceptionRegistry,
-			List<summer.web.websocket.WsInterceptor> wsInterceptors) {
+	public NettyHttpServer(ServerConfig config, WebServerDependencies deps) {
 		this.config = config;
-		this.httpRouter = httpRouter;
-		this.wsRouter = wsRouter;
-		this.middlewares = middlewares;
-		this.jsonConverter = jsonConverter;
-		this.exceptionRegistry = exceptionRegistry;
-		this.wsInterceptors = wsInterceptors;
+		this.deps = deps;
 	}
 
 	/**
@@ -69,8 +57,10 @@ public class NettyHttpServer {
 
 		List<summer.web.websocket.WsInterceptor> wsInterceptors = context
 				.getBeans(summer.web.websocket.WsInterceptor.class);
-		return new NettyHttpServer(config, httpRouter, wsRouter, middlewares, jsonConverter, exceptionRegistry,
-				wsInterceptors);
+		WebSocketUpgradeHandler wsUpgradeHandler = new WebSocketUpgradeHandler(wsRouter, config, wsInterceptors);
+		return new NettyHttpServer(config,
+				new WebServerDependencies(httpRouter, wsRouter, middlewares, jsonConverter, exceptionRegistry,
+						wsInterceptors, wsUpgradeHandler));
 	}
 
 	/**
@@ -116,8 +106,7 @@ public class NettyHttpServer {
 									.addLast(new HttpObjectAggregator(config.maxBodySize())) // Combine HTTP parts into
 																								// FullHttpRequest
 									.addLast(
-											new NettyHttpServerHandler(httpRouter, wsRouter, middlewares, jsonConverter,
-													NettyHttpServer.this, config, exceptionRegistry, wsInterceptors));
+											new NettyHttpServerHandler(NettyHttpServer.this, config, deps));
 						}
 					}).option(ChannelOption.SO_BACKLOG, 1024).childOption(ChannelOption.TCP_NODELAY, true)
 					.childOption(ChannelOption.SO_KEEPALIVE, true);

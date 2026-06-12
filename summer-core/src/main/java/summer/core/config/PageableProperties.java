@@ -22,5 +22,6 @@ package summer.core.config;
  * @param defaultSize
  *            number of items per page
  */
+@ConfigurationProperties(prefix = "summer.pageable")
 public record PageableProperties(@DefaultValue("0") Integer defaultPage, @DefaultValue("20") Integer defaultSize) {
 }

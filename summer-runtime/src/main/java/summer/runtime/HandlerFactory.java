@@ -40,7 +40,7 @@ public final class HandlerFactory {
 				args[i] = resolverChain.resolve(ctx, params[i]);
 			}
 			try {
-				return method.invoke(instance, args);
+				method.invoke(instance, args);
 			} catch (InvocationTargetException e) {
 				Throwable cause = e.getTargetException();
 				throw (cause instanceof RuntimeException re)

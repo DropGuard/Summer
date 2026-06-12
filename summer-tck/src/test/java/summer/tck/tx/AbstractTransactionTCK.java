@@ -9,8 +9,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import summer.core.ApplicationContext;
 import summer.tck.AbstractContextTCK;
-import summer.tck.tx.dummy.TransactionalService;
-import summer.tck.tx.dummy.TxTestConfiguration;
+import summer.fixtures.tx.dummy.TransactionalService;
+import summer.fixtures.tx.dummy.TxTestConfiguration;
 
 /**
  * TCK for transaction commit/rollback behavior.

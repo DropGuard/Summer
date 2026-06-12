@@ -11,14 +11,14 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
 import summer.runtime.RuntimeApplicationContext;
-import summer.test.annotation.SummerTest;
 import summer.web.WsRouteProvider;
 
-@SummerTest(value = RuntimeApplicationContext.class, web = true)
 class WebSocketBroadcasterTest {
 
 	@Configuration
@@ -50,7 +50,30 @@ class WebSocketBroadcasterTest {
 		}
 	}
 
+	private static RuntimeApplicationContext context;
+	private static NettyServerRunner serverRunner;
+
 	private final String baseUrl = "ws://localhost:" + NettyServerRunner.getActualPort();
+
+	@BeforeAll
+	static void startServer() throws Exception {
+		context = new RuntimeApplicationContext();
+		context.registerComponent(TestConfig.class);
+		context.scan();
+		context.initializeBeans();
+		serverRunner = context.getBean(NettyServerRunner.class);
+		serverRunner.run(context);
+	}
+
+	@AfterAll
+	static void stopServer() throws Exception {
+		if (serverRunner != null) {
+			serverRunner.close();
+		}
+		if (context != null) {
+			context.close();
+		}
+	}
 
 	@Test
 	void testWebSocketBroadcastingToRoom() throws Exception {
@@ -59,15 +82,12 @@ class WebSocketBroadcasterTest {
 		CopyOnWriteArrayList<String> client1Messages = new CopyOnWriteArrayList<>();
 		CopyOnWriteArrayList<String> client2Messages = new CopyOnWriteArrayList<>();
 
-		// Connect client1 to room1
 		WebSocket ws1 = createClient(client, baseUrl + "/chat/room1", client1Messages, latch);
 		TimeUnit.MILLISECONDS.sleep(200);
 
-		// Connect client2 to room1
 		WebSocket ws2 = createClient(client, baseUrl + "/chat/room1", client2Messages, latch);
 		TimeUnit.MILLISECONDS.sleep(200);
 
-		// Client1 broadcasts
 		ws1.sendText("BROADCAST:Hello Room1", true).join();
 
 		boolean received = latch.await(5, TimeUnit.SECONDS);

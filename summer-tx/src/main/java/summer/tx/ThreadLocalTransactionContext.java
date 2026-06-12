@@ -13,13 +13,15 @@ public class ThreadLocalTransactionContext implements TransactionStatus {
 	private boolean active = true;
 	private final boolean isNewTransaction;
 
-	private final Connection connection;
+	private final Connection rawConnection;
+	private final Connection wrappedConnection;
 
 	public ThreadLocalTransactionContext(Connection connection, boolean isNewTransaction) {
-		this.connection = connection;
+		this.rawConnection = connection;
+		this.wrappedConnection = new TransactionAwareConnectionWrapper(connection);
 		this.isNewTransaction = isNewTransaction;
 		if (isNewTransaction) {
-			connectionThreadLocal.set(connection);
+			connectionThreadLocal.set(wrappedConnection);
 		}
 	}
 
@@ -53,11 +55,10 @@ public class ThreadLocalTransactionContext implements TransactionStatus {
 
 	@Override
 	public void flush() {
-		// JDBC Connection doesn't have flush method, so this is a no-op
 	}
 
-	public Connection getConnection() {
-		return connection;
+	public Connection getRawConnection() {
+		return rawConnection;
 	}
 
 	public void close() {
@@ -65,8 +66,8 @@ public class ThreadLocalTransactionContext implements TransactionStatus {
 		if (isNewTransaction) {
 			clearCurrentConnection();
 			try {
-				if (connection != null && !connection.isClosed()) {
-					connection.close();
+				if (rawConnection != null && !rawConnection.isClosed()) {
+					rawConnection.close();
 				}
 			} catch (SQLException e) {
 				throw new SummerTransactionException(ErrorCode.TRANSACTION_ERROR, "Failed to close connection", e);

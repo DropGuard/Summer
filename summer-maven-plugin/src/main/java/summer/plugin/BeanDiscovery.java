@@ -21,9 +21,9 @@ import summer.core.exception.NoSuchBeanException;
  * Pipeline:
  * </p>
  * <ol>
- * <li>Discover class-level beans
- * (@Component, @Configuration, @ConfigurationProperties, meta-annotations)</li>
- * <li>Discover factory method beans (@Bean in @Configuration classes)</li>
+ * <li>Discover beans — classes
+ * (@Component, @Configuration, @ConfigurationProperties, meta-annotations) and
+ * factory methods (@Bean in @Configuration classes) in a single pass</li>
  * <li>Evaluate conditions (@ConditionalOnBean, @Replaces) and remove
  * unsatisfied beans</li>
  * <li>Enrich via {@link BeanEnrichment}</li>
@@ -38,6 +38,7 @@ public final class BeanDiscovery {
 			.createSimple("summer.core.config.ConfigurationProperties");
 	private static final DotName REPLACES_DOT = DotName.createSimple("summer.core.annotation.Replaces");
 	private static final DotName CONDITIONAL_DOT = DotName.createSimple("summer.core.annotation.ConditionalOnBean");
+	private static final DotName DEFAULT_VALUE_DOT = DotName.createSimple("summer.core.config.DefaultValue");
 
 	private final IndexView index;
 
@@ -52,16 +53,26 @@ public final class BeanDiscovery {
 		List<BeanDefinition> beans = new ArrayList<>();
 		Set<String> collected = new HashSet<>();
 
-		// Phase 1: Discover beans
+		// Phase 1: Discover beans (classes + factory methods in one pass)
 		for (ClassInfo ci : index.getKnownClasses()) {
 			if (ci.isAnnotation() || !matchesPackage(ci, packagePrefix))
 				continue;
+			if (ci.isInterface() || ci.isAbstract()) {
+				if (hasMetaComponentAnnotation(ci, new HashSet<>())) {
+					throw new summer.core.exception.BeanCreationException(summer.core.ErrorCode.BEAN_CREATION_FAILED,
+							"@Component cannot be placed on an interface or abstract class: " + ci.name()
+									+ ". Annotate the concrete implementation instead.");
+				}
+				continue;
+			}
+			boolean isNew = !collected.contains(ci.name().toString());
 			discoverClass(ci, beans, collected);
+			if (isNew && ci.hasAnnotation(CONFIG_DOT)) {
+				discoverBeanFactoryMethods(ci, beans, collected);
+			}
 		}
-		discoverBeanFactoryMethods(beans, collected);
 
-		// Phase 2: Prepare and evaluate conditions
-		scanMethodLevelReplaces(beans);
+		// Phase 2: Evaluate conditions
 		resolveConditions(beans);
 
 		// Phase 3: Enrich remaining metadata
@@ -82,12 +93,32 @@ public final class BeanDiscovery {
 				bean.configPropertiesPrefix = (ann != null && ann.value("prefix") != null)
 						? ann.value("prefix").asString()
 						: "";
+				extractDefaultValues(ci, bean);
 				beans.add(bean);
 			}
 		} else if (ci.hasAnnotation(COMPONENT_DOT) || ci.hasAnnotation(CONFIG_DOT)
 				|| hasMetaComponentAnnotation(ci, new HashSet<>())) {
 			if (collected.add(name))
 				beans.add(new ComponentBean(name, ci.simpleName()));
+		}
+	}
+
+	/**
+	 * Extracts {@code @DefaultValue} annotations from record components.
+	 */
+	private void extractDefaultValues(ClassInfo ci, ConfigPropertiesBean bean) {
+		List<org.jboss.jandex.RecordComponentInfo> components = ci.recordComponents();
+		if (components == null || components.isEmpty())
+			return;
+
+		for (org.jboss.jandex.RecordComponentInfo comp : components) {
+			String fieldName = comp.name();
+			AnnotationInstance defaultAnn = comp.annotation(DEFAULT_VALUE_DOT);
+			if (defaultAnn != null) {
+				String rawValue = defaultAnn.value().asString();
+				bean.defaultValues.put(fieldName, rawValue);
+				bean.fieldTypes.put(fieldName, comp.type().name().toString());
+			}
 		}
 	}
 
@@ -105,67 +136,69 @@ public final class BeanDiscovery {
 		return false;
 	}
 
-	private void discoverBeanFactoryMethods(List<BeanDefinition> beans, Set<String> collected) {
-		for (ClassInfo configCi : index.getKnownClasses()) {
-			if (configCi.isAnnotation() || configCi.isInterface() || configCi.isAbstract())
-				continue;
-			if (!configCi.hasAnnotation(CONFIG_DOT))
+	private void discoverBeanFactoryMethods(ClassInfo configCi, List<BeanDefinition> beans, Set<String> collected) {
+		for (MethodInfo method : configCi.methods()) {
+			if (!method.hasAnnotation(BEAN_DOT))
 				continue;
 
-			for (MethodInfo method : configCi.methods()) {
-				if (!method.hasAnnotation(BEAN_DOT))
-					continue;
+			org.jboss.jandex.Type returnType = method.returnType();
+			if (returnType == null)
+				continue;
 
-				org.jboss.jandex.Type returnType = method.returnType();
-				if (returnType == null)
-					continue;
+			String returnTypeName = returnType.name().toString();
+			boolean hasReplaces = method.hasAnnotation(REPLACES_DOT);
 
-				String returnTypeName = returnType.name().toString();
-				boolean hasReplaces = method.hasAnnotation(REPLACES_DOT);
+			// A non-replacing @Bean takes priority over @ConfigurationProperties
+			if (!hasReplaces) {
+				beans.removeIf(b -> b instanceof ConfigPropertiesBean && b.qualifiedName.equals(returnTypeName));
+				collected.remove(returnTypeName);
+			}
 
-				if (!hasReplaces) {
-					BeanDefinition existing = findBeanByClass(beans, returnTypeName, ConfigPropertiesBean.class);
-					if (existing != null) {
-						beans.remove(existing);
-						collected.remove(returnTypeName);
-					}
-				}
-
-				if (collected.add(returnTypeName)) {
-					FactoryBean factoryBean = new FactoryBean(returnTypeName, returnType.name().withoutPackagePrefix());
-					factoryBean.configClassName = configCi.name().toString();
-					factoryBean.producerMethodName = method.name();
-					for (int i = 0; i < method.parametersCount(); i++) {
-						factoryBean.producerParamTypes.add(method.parameterType(i).name().toString());
-					}
-					beans.add(factoryBean);
-				} else if (hasReplaces) {
-					BeanDefinition existing = findBeanByClass(beans, returnTypeName, FactoryBean.class);
-					if (existing instanceof FactoryBean fb) {
-						fb.configClassName = configCi.name().toString();
-						fb.producerMethodName = method.name();
-						fb.producerParamTypes.clear();
-						for (int i = 0; i < method.parametersCount(); i++) {
-							fb.producerParamTypes.add(method.parameterType(i).name().toString());
-						}
-					}
+			if (collected.add(returnTypeName)) {
+				// First @Bean for this type — register it
+				beans.add(createFactoryBean(returnTypeName, configCi, method));
+			} else if (hasReplaces) {
+				// @Replaces — override the existing @Bean's producer
+				BeanDefinition existing = findBeanByClass(beans, returnTypeName, FactoryBean.class);
+				if (existing instanceof FactoryBean fb) {
+					fillFactoryBean(fb, configCi, method);
 				}
 			}
+		}
+	}
+
+	private FactoryBean createFactoryBean(String returnTypeName, ClassInfo configCi, MethodInfo method) {
+		FactoryBean fb = new FactoryBean(returnTypeName, method.returnType().name().withoutPackagePrefix());
+		fillFactoryBean(fb, configCi, method);
+		return fb;
+	}
+
+	private void fillFactoryBean(FactoryBean fb, ClassInfo configCi, MethodInfo method) {
+		fb.configClassName = configCi.name().toString();
+		fb.producerMethodName = method.name();
+		fb.producerParamTypes.clear();
+		for (int i = 0; i < method.parametersCount(); i++) {
+			fb.producerParamTypes.add(method.parameterType(i).name().toString());
 		}
 	}
 
 	// ── Phase 2: Condition Evaluation (Three-Phase) ──────────────────
 
 	private void resolveConditions(List<BeanDefinition> beans) {
-		List<BeanDefinition> topoOrder = buildTopologicalOrder(beans);
+		Map<String, String> requiredTypes = collectConditionalRequirements(beans);
+		List<BeanDefinition> topoOrder = buildTopologicalOrder(beans, requiredTypes);
 		resolveReplaces(beans);
-		resolveConditionalOnBean(beans, topoOrder);
+		resolveConditionalOnBean(beans, topoOrder, requiredTypes);
 		removeOrphanedFactoryProducts(beans);
 	}
 
 	// ── Dependency Graph + Topological Sort ──────────────────────────
 
-	private List<BeanDefinition> buildTopologicalOrder(List<BeanDefinition> beans) {
+	/**
+	 * Builds a map from bean qualified name → the type it @ConditionalOnBean
+	 * requires. Used by both topological sort and condition evaluation.
+	 */
+	private Map<String, String> collectConditionalRequirements(List<BeanDefinition> beans) {
 		Map<String, String> requiredTypes = new HashMap<>();
 		for (BeanDefinition bean : beans) {
 			ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
@@ -189,7 +222,10 @@ public final class BeanDiscovery {
 				}
 			}
 		}
+		return requiredTypes;
+	}
 
+	private List<BeanDefinition> buildTopologicalOrder(List<BeanDefinition> beans, Map<String, String> requiredTypes) {
 		Map<BeanDefinition, Set<BeanDefinition>> deps = new HashMap<>();
 		for (BeanDefinition bean : beans) {
 			String required = requiredTypes.get(bean.qualifiedName);
@@ -238,103 +274,77 @@ public final class BeanDiscovery {
 
 	// ── @Replaces ────────────────────────────────────────────────────
 
-	private void scanMethodLevelReplaces(List<BeanDefinition> beans) {
+	/**
+	 * Resolves all @Replaces: class-level (annotation on the replacement) and
+	 * method-level (annotation on @Bean methods). Removes replaced beans.
+	 */
+	private void resolveReplaces(List<BeanDefinition> beans) {
+		// Mark method-level @Replaces targets first
 		for (BeanDefinition bean : beans) {
 			if (!(bean instanceof FactoryBean fb) || fb.configClassName == null)
 				continue;
+			String target = resolveMethodLevelReplaces(fb);
+			if (target != null) {
+				bean.replacesReturnType = target;
+			}
+		}
 
-			ClassInfo configCi = index.getClassByName(DotName.createSimple(fb.configClassName));
-			if (configCi == null)
-				continue;
-
-			for (MethodInfo method : configCi.methods()) {
-				if (!method.name().equals(fb.producerMethodName) || !method.hasAnnotation(REPLACES_DOT))
-					continue;
-
-				AnnotationInstance replacesAnn = method.annotation(REPLACES_DOT);
-				if (replacesAnn == null)
-					continue;
-
-				String targetTypeName = replacesAnn.value().asClass().name().toString();
-				if (bean.qualifiedName.equals(targetTypeName))
-					continue;
-
-				bean.replacesReturnType = targetTypeName;
-
-				ClassInfo targetCi = index.getClassByName(DotName.createSimple(targetTypeName));
-				if (targetCi != null && !targetCi.isInterface()) {
-					bean.replacesTargetClass = targetTypeName;
+		// Collect all beans to remove
+		List<BeanDefinition> replaced = new ArrayList<>();
+		for (BeanDefinition bean : beans) {
+			// Class-level: @Replaces annotation on the bean itself
+			ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
+			if (ci != null) {
+				AnnotationInstance ann = ci.annotation(REPLACES_DOT);
+				if (ann != null) {
+					String targetName = ann.value().asClass().name().toString();
+					BeanDefinition target = findBeanByName(beans, targetName);
+					if (target == null)
+						throw new NoSuchBeanException("@Replaces target not found: " + targetName);
+					replaced.add(target);
 				}
 			}
-		}
-	}
-
-	private void resolveReplaces(List<BeanDefinition> beans) {
-		List<BeanDefinition> replaced = new ArrayList<>();
-
-		for (BeanDefinition bean : beans) {
-			ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
-			if (ci == null)
-				continue;
-
-			AnnotationInstance replacesAnn = ci.annotation(REPLACES_DOT);
-			if (replacesAnn == null)
-				continue;
-
-			String targetName = replacesAnn.value().asClass().name().toString();
-			BeanDefinition target = findBeanByName(beans, targetName);
-			if (target == null) {
-				throw new NoSuchBeanException("@Replaces target not found: " + targetName);
+			// Method-level: @Replaces annotation on @Bean method
+			if (bean.replacesReturnType != null) {
+				BeanDefinition target = findBeanByReturnType(beans, bean.replacesReturnType, bean);
+				if (target == null)
+					throw new NoSuchBeanException("@Replaces target not found: " + bean.replacesReturnType);
+				replaced.add(target);
 			}
-			replaced.add(target);
-		}
-
-		for (BeanDefinition bean : beans) {
-			if (bean.replacesReturnType == null)
-				continue;
-
-			BeanDefinition target = findBeanByReturnType(beans, bean.replacesReturnType, bean);
-			if (target == null) {
-				throw new NoSuchBeanException("@Replaces target not found: " + bean.replacesReturnType);
-			}
-			replaced.add(target);
 		}
 
 		beans.removeAll(replaced);
 	}
 
+	/**
+	 * Returns the target type name if the @Bean method has @Replaces, null
+	 * otherwise.
+	 */
+	private String resolveMethodLevelReplaces(FactoryBean fb) {
+		ClassInfo configCi = index.getClassByName(DotName.createSimple(fb.configClassName));
+		if (configCi == null)
+			return null;
+
+		for (MethodInfo method : configCi.methods()) {
+			if (!method.name().equals(fb.producerMethodName) || !method.hasAnnotation(REPLACES_DOT))
+				continue;
+			AnnotationInstance ann = method.annotation(REPLACES_DOT);
+			if (ann != null) {
+				return ann.value().asClass().name().toString();
+			}
+		}
+		return null;
+	}
+
 	// ── @ConditionalOnBean (Linear Pass) ─────────────────────────────
 
-	private void resolveConditionalOnBean(List<BeanDefinition> beans, List<BeanDefinition> topoOrder) {
+	private void resolveConditionalOnBean(List<BeanDefinition> beans, List<BeanDefinition> topoOrder,
+			Map<String, String> requiredTypes) {
 		Set<String> available = new HashSet<>();
 		for (BeanDefinition bean : beans) {
 			available.add(bean.qualifiedName);
 			if (bean instanceof ComponentBean cb) {
 				available.addAll(cb.interfaceNames);
-			}
-		}
-
-		Map<String, String> requiredTypes = new HashMap<>();
-		for (BeanDefinition bean : beans) {
-			ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
-			if (ci == null)
-				continue;
-
-			AnnotationInstance condAnn = ci.annotation(CONDITIONAL_DOT);
-			if (condAnn != null) {
-				requiredTypes.put(bean.qualifiedName, condAnn.value().asClass().name().toString());
-			}
-
-			if (bean instanceof FactoryBean fb && fb.configClassName != null) {
-				ClassInfo configCi = index.getClassByName(DotName.createSimple(fb.configClassName));
-				if (configCi != null) {
-					for (MethodInfo method : configCi.methods()) {
-						if (method.name().equals(fb.producerMethodName) && method.hasAnnotation(CONDITIONAL_DOT)) {
-							requiredTypes.put(bean.qualifiedName,
-									method.annotation(CONDITIONAL_DOT).value().asClass().name().toString());
-						}
-					}
-				}
 			}
 		}
 

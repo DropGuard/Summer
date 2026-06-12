@@ -6,9 +6,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import summer.core.ApplicationContext;
 import summer.tck.AbstractContextTCK;
-import summer.tck.di.replaces.OriginalComponent;
-import summer.tck.di.replaces.ReplacableService;
-import summer.tck.di.replaces.ServiceBean;
+import summer.fixtures.di.replaces.OriginalComponent;
+import summer.fixtures.di.replaces.ReplacableService;
+import summer.fixtures.di.replaces.ServiceBean;
 
 /**
  * TCK test for {@code @Replaces} and {@code @ConditionalOnBean} interaction.
@@ -74,11 +74,11 @@ public abstract class AbstractReplacesTCK extends AbstractContextTCK {
 		// @ConditionalOnBean(NonExistentMarker.class)
 		// NonExistentMarker is NOT registered as a component, so condition is unmet
 		assertThrows(Exception.class,
-				() -> ctx.getBean(summer.tck.di.replaces.conditional.ReplacesWithConditionComponent.class));
+				() -> ctx.getBean(summer.fixtures.di.replaces.conditional.ReplacesWithConditionComponent.class));
 
 		// OriginalComponent (from conditional package) should survive
-		summer.tck.di.replaces.conditional.OriginalComponent original = ctx
-				.getBean(summer.tck.di.replaces.conditional.OriginalComponent.class);
+		summer.fixtures.di.replaces.conditional.OriginalComponent original = ctx
+				.getBean(summer.fixtures.di.replaces.conditional.OriginalComponent.class);
 		assertNotNull(original, "OriginalComponent should survive when conditional replacement's condition is unmet");
 		assertEquals("original", original.serve());
 	}

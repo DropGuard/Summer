@@ -100,7 +100,7 @@ class ParameterResolverTest {
 		@Test
 		void resolvesPathParameter() throws Exception {
 			HttpContext ctx = ctx("/users/42");
-			ctx.request().setAttribute("id", "42");
+			ctx.request().setPathParam("id", "42");
 			assertEquals("42", resolver.resolve(ctx, param("pathParam", String.class)));
 		}
 	}
@@ -144,7 +144,7 @@ class ParameterResolverTest {
 		void resolvesExceptionFromAttribute() throws Exception {
 			HttpContext ctx = ctx("/test");
 			RuntimeException ex = new RuntimeException("boom");
-			ctx.request().setAttribute("last_exception", ex);
+			ctx.request().setAttribute(summer.web.RequestAttributes.LAST_EXCEPTION, ex);
 			assertSame(ex, resolver.resolve(ctx, param("throwableParam", RuntimeException.class)));
 		}
 	}

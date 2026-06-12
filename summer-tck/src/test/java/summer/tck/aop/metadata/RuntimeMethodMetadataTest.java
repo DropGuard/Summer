@@ -2,6 +2,7 @@ package summer.tck.aop.metadata;
 
 import java.lang.reflect.Method;
 import summer.aop.MethodMetadata;
+import summer.fixtures.aop.metadata.MetadataSampleService;
 import summer.runtime.RuntimeMethodMetadata;
 
 /**

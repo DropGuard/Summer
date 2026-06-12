@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
 import summer.aop.MethodMetadata;
+import summer.fixtures.aop.metadata.MetadataSampleService;
+import summer.fixtures.aop.metadata.MetadataTagged;
 import summer.tck.AbstractComponentTCK;
 
 /**

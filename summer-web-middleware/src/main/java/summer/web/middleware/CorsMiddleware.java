@@ -48,10 +48,10 @@ public class CorsMiddleware implements Middleware {
 			// Handle preflight OPTIONS request
 			if (HttpMethod.OPTIONS == ctx.method()) {
 				ctx.status(HttpStatus.NO_CONTENT);
-				return null;
+				return;
 			}
 
-			return next.handle(ctx);
+			next.handle(ctx);
 		};
 	}
 }

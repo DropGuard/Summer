@@ -23,7 +23,8 @@ class ThreadLocalTransactionContextTest {
 		Connection conn = mock(Connection.class);
 		ThreadLocalTransactionContext context = new ThreadLocalTransactionContext(conn, true);
 
-		assertSame(conn, ThreadLocalTransactionContext.getCurrentConnection());
+		Connection current = ThreadLocalTransactionContext.getCurrentConnection();
+		assertInstanceOf(TransactionAwareConnectionWrapper.class, current);
 		assertTrue(context.isActive());
 		assertTrue(context.isNewTransaction());
 		assertFalse(context.isRollbackOnly());

@@ -1,12 +1,14 @@
 package summer.runtime;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.lang.reflect.RecordComponent;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import summer.core.config.ConfigurationBinder;
+import summer.core.ApplicationContext;
 import summer.core.config.DefaultValue;
 import summer.runtime.config.AllTypesConfig;
 import summer.runtime.config.EmptyDefaultsConfig;
@@ -17,16 +19,35 @@ import summer.runtime.config.PartialYamlConfig;
  */
 class ConfigurationBindingTest {
 
-	@BeforeAll
-	static void setupResolver() {
-		ConfigurationBinder.setDefaultResolver(new ReflectionDefaultValueResolver());
+	private ApplicationContext context;
+
+	@AfterEach
+	void tearDown() {
+		if (context instanceof AutoCloseable ac) {
+			try {
+				ac.close();
+			} catch (Exception ignored) {
+			}
+		}
 	}
+
+	private ApplicationContext createContext(Class<?>... components) {
+		RuntimeApplicationContext ctx = new RuntimeApplicationContext();
+		for (Class<?> c : components) {
+			ctx.registerComponent(c);
+		}
+		ctx.initializeBeans();
+		context = ctx;
+		return ctx;
+	}
+
 	@Nested
 	class TypeConversion {
 
 		@Test
 		void bindsAllTypesFromYaml() {
-			AllTypesConfig config = ConfigurationBinder.bind(AllTypesConfig.class, "all-types");
+			ApplicationContext ctx = createContext(AllTypesConfig.class);
+			AllTypesConfig config = ctx.getBean(AllTypesConfig.class);
 
 			assertNotNull(config);
 			assertEquals("from-yaml", config.name());
@@ -43,7 +64,8 @@ class ConfigurationBindingTest {
 
 		@Test
 		void fallsBackToDefaultsWhenSectionMissing() {
-			EmptyDefaultsConfig config = ConfigurationBinder.bind(EmptyDefaultsConfig.class, "missing-section");
+			ApplicationContext ctx = createContext(EmptyDefaultsConfig.class);
+			EmptyDefaultsConfig config = ctx.getBean(EmptyDefaultsConfig.class);
 
 			assertNotNull(config);
 			assertEquals("", config.emptyStr());
@@ -52,26 +74,6 @@ class ConfigurationBindingTest {
 			assertEquals(0.0, config.zeroDouble(), 0.001);
 			assertFalse(config.falseBool());
 		}
-
-		@Test
-		void fallsBackToDefaultsWhenPrefixAbsent() {
-			EmptyDefaultsConfig config = ConfigurationBinder.bind(EmptyDefaultsConfig.class, "nonexistent");
-
-			assertNotNull(config);
-			assertEquals("", config.emptyStr());
-		}
-
-		@Test
-		void handlesEmptyPrefix() {
-			EmptyDefaultsConfig config = ConfigurationBinder.bind(EmptyDefaultsConfig.class, "");
-			assertNotNull(config);
-		}
-
-		@Test
-		void handlesNullPrefix() {
-			EmptyDefaultsConfig config = ConfigurationBinder.bind(EmptyDefaultsConfig.class, (String) null);
-			assertNotNull(config);
-		}
 	}
 
 	@Nested
@@ -79,7 +81,8 @@ class ConfigurationBindingTest {
 
 		@Test
 		void mergesYamlWithDefaults() {
-			PartialYamlConfig config = ConfigurationBinder.bind(PartialYamlConfig.class, "partial");
+			ApplicationContext ctx = createContext(PartialYamlConfig.class);
+			PartialYamlConfig config = ctx.getBean(PartialYamlConfig.class);
 
 			assertNotNull(config);
 			assertEquals("localhost", config.host());

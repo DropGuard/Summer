@@ -21,9 +21,7 @@ import org.junit.jupiter.api.Test;
 import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
 import summer.runtime.RuntimeApplicationContext;
-import summer.test.annotation.SummerTest;
 
-@SummerTest(RuntimeApplicationContext.class)
 public class GrpcInterceptorIntegrationTest {
 
 	private static final Metadata.Key<String> TEST_HEADER_KEY = Metadata.Key.of("x-test-interceptor",
@@ -54,6 +52,30 @@ public class GrpcInterceptorIntegrationTest {
 	@BeforeAll
 	public static void setupProperty() {
 		System.setProperty("summer.grpc.port", "0");
+	}
+
+	@Test
+	public void testGrpcServerInterceptorDiscovery() throws Exception {
+		var ctx = new RuntimeApplicationContext();
+		ctx.registerComponent(TestGrpcConfiguration.class);
+		ctx.scan();
+		ctx.initializeBeans();
+
+		GrpcServerRunner serverRunner = ctx.getBean(GrpcServerRunner.class);
+		serverRunner.run(ctx);
+		int port = serverRunner.getPort();
+		assertTrue(port > 0, "Server should be bound to a valid port");
+
+		ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", port).usePlaintext().build();
+
+		try {
+			String response = ClientCalls.blockingUnaryCall(channel, TEST_METHOD, CallOptions.DEFAULT, "RequestData");
+			assertEquals("Hello Intercepted!", response);
+		} finally {
+			channel.shutdown();
+			serverRunner.close();
+			ctx.close();
+		}
 	}
 
 	@Configuration
@@ -98,21 +120,5 @@ public class GrpcInterceptorIntegrationTest {
 		}
 	}
 
-	@Test
-	public void testGrpcServerInterceptorDiscovery(GrpcServerRunner serverRunner,
-			summer.core.ApplicationContext context) throws Exception {
-		serverRunner.run(context);
-		int port = serverRunner.getPort();
-		assertTrue(port > 0, "Server should be bound to a valid port");
 
-		ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", port).usePlaintext().build();
-
-		try {
-			String response = ClientCalls.blockingUnaryCall(channel, TEST_METHOD, CallOptions.DEFAULT, "RequestData");
-			assertEquals("Hello Intercepted!", response);
-		} finally {
-			channel.shutdown();
-			serverRunner.close();
-		}
-	}
 }

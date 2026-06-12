@@ -16,7 +16,7 @@ public class AotJdbcTemplateTest extends AbstractJdbcTemplateTCK {
 		// Mirrors what AOT-generated RowMapperConfiguration.rowMapperRegistry()
 		// produces
 		RowMapperRegistry registry = new RowMapperRegistry();
-		registry.register(User.class, new User_RowMapper());
+		registry.put(User.class, new User_RowMapper());
 		return registry;
 	}
 }

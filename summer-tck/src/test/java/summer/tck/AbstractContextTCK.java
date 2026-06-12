@@ -36,7 +36,10 @@ import summer.core.ApplicationContext;
  * public class RuntimeMyTest extends AbstractMyTCK {
  * 	&#64;Override
  * 	protected ApplicationContext createContext() {
- * 		return RuntimeApplicationContext.create(entryComponents());
+ * 		var ctx = new RuntimeApplicationContext();
+ * 		ctx.scan();
+ * 		ctx.initializeBeans();
+ * 		return ctx;
  * 	}
  * }
  * </pre>
@@ -52,7 +55,10 @@ public abstract class AbstractContextTCK extends AbstractTCK {
 	 * Implementations typically call:
 	 * 
 	 * <pre>
-	 * return RuntimeApplicationContext.create(entryComponents());
+	 * var ctx = new RuntimeApplicationContext();
+	 * ctx.scan();
+	 * ctx.initializeBeans();
+	 * return ctx;
 	 * </pre>
 	 */
 	protected abstract ApplicationContext createContext();

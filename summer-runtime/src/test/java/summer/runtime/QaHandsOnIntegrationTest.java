@@ -322,20 +322,22 @@ public class QaHandsOnIntegrationTest {
 		@Test
 		@DisplayName("P1-7: Router registers and dispatches GET route")
 		void basicGetRoute() {
-			router.register(HttpMethod.GET, "/hello", ctx -> "world");
+			router.register(HttpMethod.GET, "/hello", ctx -> ctx.text(HttpStatus.OK, "world"));
 			Request req = new Request(HttpMethod.GET, "/hello", null, null, null);
 			HttpContext ctx = new HttpContext(req);
-			assertEquals("world", router.route(ctx));
+			router.route(ctx);
+			assertEquals("world", new String(ctx.body(), StandardCharsets.UTF_8));
 		}
 
 		@Test
 		@DisplayName("P1-8: Router registers and dispatches POST route")
 		void basicPostRoute() {
-			router.register(HttpMethod.POST, "/items", ctx -> "created");
+			router.register(HttpMethod.POST, "/items", ctx -> ctx.text(HttpStatus.OK, "created"));
 			Request req = new Request(HttpMethod.POST, "/items", null, "application/json",
 					"{\"name\":\"test\"}".getBytes(StandardCharsets.UTF_8));
 			HttpContext ctx = new HttpContext(req);
-			assertEquals("created", router.route(ctx));
+			router.route(ctx);
+			assertEquals("created", new String(ctx.body(), StandardCharsets.UTF_8));
 		}
 
 		@Test
@@ -343,56 +345,54 @@ public class QaHandsOnIntegrationTest {
 		void pathParameters() {
 			router.register(HttpMethod.GET, "/users/{id}", ctx -> {
 				String id = ctx.request().pathParam("id");
-				return "user:" + id;
+				ctx.text(HttpStatus.OK, "user:" + id);
 			});
 			Request req = new Request(HttpMethod.GET, "/users/42", null, null, null);
 			HttpContext ctx = new HttpContext(req);
-			Object result = router.route(ctx);
-			assertEquals("user:42", result);
+			router.route(ctx);
+			assertEquals("user:42", new String(ctx.body(), StandardCharsets.UTF_8));
 		}
 
 		@Test
 		@DisplayName("P1-10: Router returns null for unmatched route")
 		void unmatchedRouteReturnsNull() {
-			router.register(HttpMethod.GET, "/exists", ctx -> "yes");
+			router.register(HttpMethod.GET, "/exists", ctx -> ctx.text(HttpStatus.OK, "yes"));
 			Request req = new Request(HttpMethod.GET, "/not-exists", null, null, null);
 			HttpContext ctx = new HttpContext(req);
-			assertNull(router.route(ctx));
+			router.route(ctx);
+			assertNull(ctx.body());
 		}
 
 		@Test
 		@DisplayName("P1-11: Router distinguishes HTTP methods on same path")
 		void methodDistinction() {
-			router.register(HttpMethod.GET, "/resource", ctx -> "get");
-			router.register(HttpMethod.POST, "/resource", ctx -> "post");
-			router.register(HttpMethod.PUT, "/resource", ctx -> "put");
-			router.register(HttpMethod.DELETE, "/resource", ctx -> "delete");
+			router.register(HttpMethod.GET, "/resource", ctx -> ctx.text(HttpStatus.OK, "get"));
+			router.register(HttpMethod.POST, "/resource", ctx -> ctx.text(HttpStatus.OK, "post"));
+			router.register(HttpMethod.PUT, "/resource", ctx -> ctx.text(HttpStatus.OK, "put"));
+			router.register(HttpMethod.DELETE, "/resource", ctx -> ctx.text(HttpStatus.OK, "delete"));
 
-			assertEquals("get",
-					router.route(new HttpContext(new Request(HttpMethod.GET, "/resource", null, null, null))));
-			assertEquals("post",
-					router.route(new HttpContext(new Request(HttpMethod.POST, "/resource", null, null, null))));
-			assertEquals("put",
-					router.route(new HttpContext(new Request(HttpMethod.PUT, "/resource", null, null, null))));
-			assertEquals("delete",
-					router.route(new HttpContext(new Request(HttpMethod.DELETE, "/resource", null, null, null))));
+			assertEquals("get", bodyOf(router, HttpMethod.GET, "/resource"));
+			assertEquals("post", bodyOf(router, HttpMethod.POST, "/resource"));
+			assertEquals("put", bodyOf(router, HttpMethod.PUT, "/resource"));
+			assertEquals("delete", bodyOf(router, HttpMethod.DELETE, "/resource"));
 		}
 
 		@Test
 		@DisplayName("P1-12: Router handles root path")
 		void rootPath() {
-			router.register(HttpMethod.GET, "/", ctx -> "root");
+			router.register(HttpMethod.GET, "/", ctx -> ctx.text(HttpStatus.OK, "root"));
 			Request req = new Request(HttpMethod.GET, "/", null, null, null);
 			HttpContext ctx = new HttpContext(req);
-			assertEquals("root", router.route(ctx));
+			router.route(ctx);
+			assertEquals("root", new String(ctx.body(), StandardCharsets.UTF_8));
 		}
 
 		@Test
 		@DisplayName("P1-13: Route conflict detection for overlapping params")
 		void routeConflictDetection() {
-			router.register(HttpMethod.GET, "/users/{id}", ctx -> "user");
+			router.register(HttpMethod.GET, "/users/{id}", ctx -> ctx.text(HttpStatus.OK, "user"));
 			assertThrows(RouteConflictException.class,
-					() -> router.register(HttpMethod.GET, "/users/{name}", ctx -> "conflict"));
+					() -> router.register(HttpMethod.GET, "/users/{name}", ctx -> ctx.text(HttpStatus.OK, "conflict")));
 		}
 
 		@Test
@@ -401,11 +401,19 @@ public class QaHandsOnIntegrationTest {
 			router.register(HttpMethod.GET, "/orgs/{orgId}/repos/{repoId}", ctx -> {
 				String org = ctx.request().pathParam("orgId");
 				String repo = ctx.request().pathParam("repoId");
-				return org + "/" + repo;
+				ctx.text(HttpStatus.OK, org + "/" + repo);
 			});
 			Request req = new Request(HttpMethod.GET, "/orgs/summer/repos/core", null, null, null);
 			HttpContext ctx = new HttpContext(req);
-			assertEquals("summer/core", router.route(ctx));
+			router.route(ctx);
+			assertEquals("summer/core", new String(ctx.body(), StandardCharsets.UTF_8));
+		}
+
+		private String bodyOf(RadixTreeHttpRouter r, HttpMethod method, String path) {
+			HttpContext ctx = new HttpContext(new Request(method, path, null, null, null));
+			r.route(ctx);
+			byte[] body = ctx.body();
+			return body != null ? new String(body, StandardCharsets.UTF_8) : null;
 		}
 	}
 
@@ -478,31 +486,48 @@ public class QaHandsOnIntegrationTest {
 		@DisplayName("P1-20: Middleware wraps handler result")
 		void middlewareWrapsResult() {
 			RadixTreeHttpRouter router = new RadixTreeHttpRouter();
-			summer.web.Middleware wrapMiddleware = next -> ctx -> "[wrapped] " + next.handle(ctx);
+			summer.web.Middleware wrapMiddleware = next -> ctx -> {
+				next.handle(ctx);
+				byte[] body = ctx.body();
+				String content = body != null ? new String(body, StandardCharsets.UTF_8) : "";
+				ctx.text(ctx.statusCode(), "[wrapped] " + content);
+			};
 
 			router.register(HttpMethod.GET, "/test", ctx -> {
-				Handler original = ctx2 -> "data";
+				Handler original = ctx2 -> ctx2.text(HttpStatus.OK, "data");
 				Handler wrapped = wrapMiddleware.apply(original);
-				return wrapped.handle(ctx);
+				wrapped.handle(ctx);
 			});
 
 			Request req = new Request(HttpMethod.GET, "/test", null, null, null);
 			HttpContext ctx = new HttpContext(req);
-			assertEquals("[wrapped] data", router.route(ctx));
+			router.route(ctx);
+			assertEquals("[wrapped] data", new String(ctx.body(), StandardCharsets.UTF_8));
 		}
 
 		@Test
 		@DisplayName("P1-21: Multiple middlewares chain correctly")
 		void multipleMiddlewaresChain() {
-			summer.web.Middleware first = next -> ctx -> "[1]" + next.handle(ctx);
-			summer.web.Middleware second = next -> ctx -> "[2]" + next.handle(ctx);
+			summer.web.Middleware first = next -> ctx -> {
+				next.handle(ctx);
+				byte[] body = ctx.body();
+				String content = body != null ? new String(body, StandardCharsets.UTF_8) : "";
+				ctx.text(ctx.statusCode(), "[1]" + content);
+			};
+			summer.web.Middleware second = next -> ctx -> {
+				next.handle(ctx);
+				byte[] body = ctx.body();
+				String content = body != null ? new String(body, StandardCharsets.UTF_8) : "";
+				ctx.text(ctx.statusCode(), "[2]" + content);
+			};
 
-			Handler original = ctx -> "core";
+			Handler original = ctx -> ctx.text(HttpStatus.OK, "core");
 			Handler chain = first.apply(second.apply(original));
 
 			Request req = new Request(HttpMethod.GET, "/test", null, null, null);
 			HttpContext ctx = new HttpContext(req);
-			assertEquals("[1][2]core", chain.handle(ctx));
+			chain.handle(ctx);
+			assertEquals("[1][2]core", new String(ctx.body(), StandardCharsets.UTF_8));
 		}
 	}
 
@@ -520,7 +545,6 @@ public class QaHandsOnIntegrationTest {
 			ExceptionRegistry registry = new ExceptionRegistry();
 			registry.register(IllegalArgumentException.class, ctx -> {
 				ctx.text(HttpStatus.BAD_REQUEST, "bad request");
-				return "bad_request";
 			});
 
 			Handler handler = registry.getHandler(new IllegalArgumentException("test"));
@@ -616,25 +640,31 @@ public class QaHandsOnIntegrationTest {
 		@DisplayName("P2-5: MapRouter as alternative router implementation")
 		void mapRouterWorks() {
 			MapRouter router = new MapRouter(
-					java.util.List.of(new summer.web.HttpRouter.Builder.Route(HttpMethod.GET, "/hello", ctx -> "world"),
+					java.util.List.of(new summer.web.HttpRouter.Builder.Route(HttpMethod.GET, "/hello",
+							ctx -> ctx.text(HttpStatus.OK, "world")),
 							new summer.web.HttpRouter.Builder.Route(HttpMethod.GET, "/users/{id}",
-									ctx -> "user:" + ctx.request().pathParam("id"))));
+									ctx -> ctx.text(HttpStatus.OK, "user:" + ctx.request().pathParam("id")))));
 
 			Request req1 = new Request(HttpMethod.GET, "/hello", null, null, null);
-			assertEquals("world", router.route(new HttpContext(req1)));
+			HttpContext ctx1 = new HttpContext(req1);
+			router.route(ctx1);
+			assertEquals("world", new String(ctx1.body(), StandardCharsets.UTF_8));
 
 			Request req2 = new Request(HttpMethod.GET, "/users/99", null, null, null);
-			assertEquals("user:99", router.route(new HttpContext(req2)));
+			HttpContext ctx2 = new HttpContext(req2);
+			router.route(ctx2);
+			assertEquals("user:99", new String(ctx2.body(), StandardCharsets.UTF_8));
 		}
 
 		@Test
 		@DisplayName("P2-7: Router handles deeply nested paths")
 		void deeplyNestedPaths() {
 			RadixTreeHttpRouter router = new RadixTreeHttpRouter();
-			router.register(HttpMethod.GET, "/a/b/c/d/e/f", ctx -> "deep");
+			router.register(HttpMethod.GET, "/a/b/c/d/e/f", ctx -> ctx.text(HttpStatus.OK, "deep"));
 			Request req = new Request(HttpMethod.GET, "/a/b/c/d/e/f", null, null, null);
 			HttpContext ctx = new HttpContext(req);
-			assertEquals("deep", router.route(ctx));
+			router.route(ctx);
+			assertEquals("deep", new String(ctx.body(), StandardCharsets.UTF_8));
 		}
 
 		@Test
@@ -664,10 +694,11 @@ public class QaHandsOnIntegrationTest {
 		@DisplayName("P2-10: Router handles URL-encoded path parameters")
 		void urlEncodedPathParams() {
 			RadixTreeHttpRouter r = new RadixTreeHttpRouter();
-			r.register(HttpMethod.GET, "/search/{query}", c -> c.request().pathParam("query"));
+			r.register(HttpMethod.GET, "/search/{query}", c -> c.text(HttpStatus.OK, c.request().pathParam("query")));
 			Request req = new Request(HttpMethod.GET, "/search/hello%20world", null, null, null);
 			HttpContext ctx = new HttpContext(req);
-			assertEquals("hello world", r.route(ctx));
+			r.route(ctx);
+			assertEquals("hello world", new String(ctx.body(), StandardCharsets.UTF_8));
 		}
 	}
 
@@ -752,6 +783,7 @@ public class QaHandsOnIntegrationTest {
 			return "[proxied] " + chain.proceed();
 		}
 	}
+
 	@TestIntercepted
 	@Interceptor
 	public static class TestInterceptor1 implements MethodInterceptor {
@@ -760,6 +792,7 @@ public class QaHandsOnIntegrationTest {
 			return "[1]" + chain.proceed();
 		}
 	}
+
 	@TestIntercepted
 	@Interceptor
 	public static class TestInterceptor2 implements MethodInterceptor {

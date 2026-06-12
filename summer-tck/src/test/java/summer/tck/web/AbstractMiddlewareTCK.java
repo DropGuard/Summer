@@ -3,6 +3,7 @@ package summer.tck.web;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,6 +11,7 @@ import summer.core.ApplicationContext;
 import summer.tck.AbstractContextTCK;
 import summer.web.HttpContext;
 import summer.web.HttpMethod;
+import summer.web.HttpStatus;
 import summer.web.HttpRouter;
 import summer.web.Middleware;
 import summer.web.Request;
@@ -54,20 +56,20 @@ public abstract class AbstractMiddlewareTCK extends AbstractContextTCK {
 			registrar.registerControllers(builder, ctx);
 		}
 
-		summer.tck.web.dummy.MyMiddleware myMiddleware = ctx.getBean(summer.tck.web.dummy.MyMiddleware.class);
-		summer.tck.web.dummy.LoggingMiddleware loggingMiddleware = ctx
-				.getBean(summer.tck.web.dummy.LoggingMiddleware.class);
+		summer.fixtures.web.dummy.MyMiddleware myMiddleware = ctx.getBean(summer.fixtures.web.dummy.MyMiddleware.class);
+		summer.fixtures.web.dummy.LoggingMiddleware loggingMiddleware = ctx
+				.getBean(summer.fixtures.web.dummy.LoggingMiddleware.class);
 
 		builder.group("/api/users", group -> {
 			group.use(myMiddleware);
-			group.get("/secured", ctx2 -> "secret");
+			group.get("/secured", c -> c.text(HttpStatus.OK, "secret"));
 			group.use(loggingMiddleware);
-			group.get("/multi", ctx2 -> "multi");
+			group.get("/multi", c -> c.text(HttpStatus.OK, "multi"));
 		});
 
 		builder.group("/api/class-level", group -> {
 			group.use(loggingMiddleware);
-			group.get("/test", ctx2 -> "test");
+			group.get("/test", c -> c.text(HttpStatus.OK, "test"));
 		});
 
 		router = builder.build();
@@ -80,16 +82,15 @@ public abstract class AbstractMiddlewareTCK extends AbstractContextTCK {
 	/**
 	 * Route request through global middlewares and router.
 	 */
-	private Object routeWithMiddlewares(Request req) {
+	private String routeWithMiddlewares(Request req) {
 		HttpContext ctx = new HttpContext(req);
 
 		// Build handler chain: global middlewares -> router
 		summer.web.Handler handler = c -> {
 			try {
-				return router.route(c);
+				router.route(c);
 			} catch (Exception e) {
 				c.error(e);
-				return null;
 			}
 		};
 
@@ -98,7 +99,9 @@ public abstract class AbstractMiddlewareTCK extends AbstractContextTCK {
 			handler = middleware.apply(handler);
 		}
 
-		return handler.handle(ctx);
+		handler.handle(ctx);
+		byte[] body = ctx.body();
+		return body != null ? new String(body, StandardCharsets.UTF_8) : null;
 	}
 
 	@Test
@@ -106,7 +109,7 @@ public abstract class AbstractMiddlewareTCK extends AbstractContextTCK {
 		// Route-level middleware via RouteProvider
 		Request req = new Request(HttpMethod.GET, "/api/users/secured", null, null, null);
 
-		Object result = routeWithMiddlewares(req);
+		String result = routeWithMiddlewares(req);
 		assertNotNull(result);
 		assertEquals("[global-logged] [secured] secret", result);
 	}
@@ -116,7 +119,7 @@ public abstract class AbstractMiddlewareTCK extends AbstractContextTCK {
 		// Route group middleware via RouteProvider
 		Request req = new Request(HttpMethod.GET, "/api/class-level/test", null, null, null);
 
-		Object result = routeWithMiddlewares(req);
+		String result = routeWithMiddlewares(req);
 		assertNotNull(result);
 		assertEquals("[global-logged] [class-logged] test", result);
 	}
@@ -126,7 +129,7 @@ public abstract class AbstractMiddlewareTCK extends AbstractContextTCK {
 		// Multiple route-level middlewares via RouteProvider
 		Request req = new Request(HttpMethod.GET, "/api/users/multi", null, null, null);
 
-		Object result = routeWithMiddlewares(req);
+		String result = routeWithMiddlewares(req);
 		assertNotNull(result);
 		// MyMiddleware first, then LoggingMiddleware, wrapped by
 		// GlobalLoggingMiddleware
@@ -138,7 +141,7 @@ public abstract class AbstractMiddlewareTCK extends AbstractContextTCK {
 		// GlobalLoggingMiddleware should wrap all routes
 		Request req = new Request(HttpMethod.GET, "/api/users/123", null, null, null);
 
-		Object result = routeWithMiddlewares(req);
+		String result = routeWithMiddlewares(req);
 		assertNotNull(result);
 		assertEquals("[global-logged] user:123", result);
 	}
