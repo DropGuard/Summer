@@ -270,7 +270,7 @@ public final class TestGraphGenerator {
         WireMethodGenerator wm = new WireMethodGenerator(new AotContextGenerator());
         java.util.Set<String> closureNames = sortedBeans.stream().map(b -> b.qualifiedName).collect(java.util.stream.Collectors.toSet());
         wm.generateWireMethod(method, sortedBeans);
-        wm.emitRowMapperRegistrations(method, index, closureNames, sortedBeans);
+        AotContextGenerator.addPostWireRegistrations(method, sortedBeans);
 
         method.addCode("\n");
         method.addStatement("return $T.create(registry, $T.AOT)", CN_BEAN_CONTAINER, CN_ENGINE);
