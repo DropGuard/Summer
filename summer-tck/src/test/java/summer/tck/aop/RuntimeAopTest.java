@@ -3,6 +3,7 @@ package summer.tck.aop;
 import summer.core.BeanContainer;
 import summer.fixtures.aop.GreeterService;
 import summer.runtime.RuntimeApplicationContext;
+import summer.core.Engine;
 
 /**
  * Runs the full AOP TCK against the Runtime (reflection + JDK proxy) engine.
@@ -13,6 +14,6 @@ public class RuntimeAopTest extends AbstractAopTCK {
 
 	@Override
 	protected BeanContainer createContext() {
-		return RuntimeApplicationContext.createRuntime();
+		return RuntimeApplicationContext.create(summer.core.Engine.RUNTIME);
 	}
 }

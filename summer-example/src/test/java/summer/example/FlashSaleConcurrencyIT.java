@@ -5,13 +5,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import summer.core.Engine;
 import summer.runtime.RuntimeApplicationContext;
 
 public class FlashSaleConcurrencyIT {
 
 	@Test
 	void shouldNotOversell() throws Exception {
-		var ctx = RuntimeApplicationContext.createRuntime();
+		var ctx = RuntimeApplicationContext.create(summer.core.Engine.RUNTIME);
 
 		FlashSaleService service = ctx.getBean(FlashSaleService.class);
 

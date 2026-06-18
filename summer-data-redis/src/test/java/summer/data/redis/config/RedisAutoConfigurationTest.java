@@ -11,6 +11,7 @@ import org.mockito.MockedStatic;
 import summer.core.BeanContainer;
 import summer.data.redis.codec.JsonRedisCodec;
 import summer.runtime.RuntimeApplicationContext;
+import summer.core.Engine;
 
 public class RedisAutoConfigurationTest {
 
@@ -26,7 +27,7 @@ public class RedisAutoConfigurationTest {
 		try (MockedStatic<RedisClient> mocked = mockStatic(RedisClient.class)) {
 			mocked.when(() -> RedisClient.create(anyString())).thenReturn(mockClient);
 
-			BeanContainer context = RuntimeApplicationContext.createRuntime();
+			BeanContainer context = RuntimeApplicationContext.create(summer.core.Engine.RUNTIME);
 
 			// Then all beans should be created
 			RedisProperties props = context.getBean(RedisProperties.class);

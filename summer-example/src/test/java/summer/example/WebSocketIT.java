@@ -16,6 +16,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import summer.core.BeanContainer;
+import summer.core.Engine;
 import summer.runtime.RuntimeApplicationContext;
 import summer.web.server.NettyServerRunner;
 
@@ -37,7 +38,7 @@ class WebSocketIT {
 
 	@BeforeAll
 	static void startServer() throws Exception {
-		context = RuntimeApplicationContext.createRuntime();
+		context = RuntimeApplicationContext.create(summer.core.Engine.RUNTIME);
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);
 	}

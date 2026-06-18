@@ -3,6 +3,7 @@ package summer.tck.di;
 import summer.core.BeanContainer;
 import summer.runtime.RuntimeApplicationContext;
 import summer.fixtures.di.configprops.AppConfig;
+import summer.core.Engine;
 
 /**
  * Runtime engine test for {@code @ConfigurationProperties} auto-binding.
@@ -11,7 +12,7 @@ public class RuntimeConfigurationPropertiesTest extends AbstractConfigurationPro
 
 	@Override
 	protected BeanContainer createContext() {
-		return RuntimeApplicationContext.createRuntime();
+		return RuntimeApplicationContext.create(summer.core.Engine.RUNTIME);
 	}
 
 	@Override

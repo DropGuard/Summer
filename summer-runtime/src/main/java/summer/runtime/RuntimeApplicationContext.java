@@ -78,7 +78,7 @@ public final class RuntimeApplicationContext {
             return create(summer.core.Engine.AOT);
         } catch (Exception e) {
             log.debug("No AOT context, falling back to runtime: {}", e.getMessage());
-            return createRuntime();
+            return create(summer.core.Engine.RUNTIME);
         }
     }
 
@@ -100,17 +100,10 @@ public final class RuntimeApplicationContext {
                             "AOT context not found. Run summer-maven-plugin before building.", e);
                 }
             }
-            case RUNTIME -> createRuntime();
+            case RUNTIME -> builder().build();
         };
     }
 
-    /**
-     * Creates a {@link BeanContainer} using runtime Jandex classpath
-     * scanning — the pure runtime path. No AOT detection.
-     */
-    public static BeanContainer createRuntime() {
-        return builder().build();
-    }
     /**
      * Builds a {@link BeanContainer} containing only the given beans and their
      * transitive dependency closure. No Jandex classpath scanning is performed.

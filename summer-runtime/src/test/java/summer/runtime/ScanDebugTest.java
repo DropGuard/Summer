@@ -3,11 +3,12 @@ package summer.runtime;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.IndexView;
 import org.junit.jupiter.api.Test;
+import summer.core.Engine;
 
 class ScanDebugTest {
     @Test
     void testScan() {
-        RuntimeApplicationContext.createRuntime(); // ensure runtime context is ready
+        RuntimeApplicationContext.create(summer.core.Engine.RUNTIME); // ensure runtime context is ready
         IndexView index = JandexIndexLoader.buildIndex();
         System.out.println("Classes in index: " + index.getKnownClasses().size());
         for (ClassInfo ci : index.getKnownClasses()) {
