@@ -66,18 +66,21 @@ Summer's DI container has two interchangeable implementations:
 |---|---|---|
 | **How it works** | Scans Jandex indexes at startup, resolves dependencies via reflection | Generates a `wire()` method at compile time that calls constructors directly |
 | **When to use** | Development, debugging | Production, fast startup |
-| **Activation** | Default | Pass `GeneratedAotContext` to `SummerApplication.run()` |
+| **Activation** | `SummerApplication.run(Engine.RUNTIME, args)` | `SummerApplication.run(Engine.AOT, args)` |
 | **Startup cost** | ~200ms (classpath scanning) | ~10ms (direct constructor calls) |
 | **Failure point** | `NoSuchBeanException` at runtime | Compilation error (fail-fast) |
 
-Both engines share the same annotation contract (`@Component`, `@Configuration`, `@Bean`, `@ConditionalOnBean`). Switching between them requires no code changes — only a different entry point:
+Both engines share the same annotation contract (`@Component`, `@Configuration`, `@Bean`, `@ConditionalOnBean`). Switching requires no code changes — only the `Engine` enum:
 
 ```java
-// Runtime mode (default) — scans classpath at startup
-SummerApplication.run(Application.class, args);
+// Default — auto-detect AOT, fall back to Runtime
+SummerApplication.run(args);
 
-// AOT mode — uses compile-time generated wiring
-SummerApplication.run(Application.class, args, new GeneratedAotContext());
+// Explicit Runtime
+SummerApplication.run(Engine.RUNTIME, args);
+
+// Explicit AOT
+SummerApplication.run(Engine.AOT, args);
 ```
 
 The AOT engine works by scanning Jandex indexes at build time via the `summer-maven-plugin`, resolving the dependency graph, and emitting a `GeneratedAotContext` class that wires all beans in a single `wire()` method. At runtime, this class replaces the runtime scanner entirely.

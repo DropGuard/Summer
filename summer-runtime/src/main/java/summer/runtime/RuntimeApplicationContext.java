@@ -69,6 +69,22 @@ public final class RuntimeApplicationContext {
     }
 
     /**
+     * Creates a {@link BeanContainer} from the AOT-generated context
+     * ({@code GeneratedAotContext}). Throws if the generated class is
+     * not on the classpath.
+     */
+    public static BeanContainer createAot() {
+        try {
+            Class<?> aotClass = Class.forName("summer.core.aot.GeneratedAotContext");
+            java.lang.reflect.Method createMethod = aotClass.getMethod("create");
+            return (BeanContainer) createMethod.invoke(null);
+        } catch (Exception e) {
+            throw new summer.core.exception.BeanCreationException(
+                    summer.core.ErrorCode.BEAN_CREATION_FAILED,
+                    "AOT context not found. Run summer-maven-plugin before building.", e);
+        }
+    }
+    /**
      * Creates a {@link BeanContainer}: AOT bootstrap if the generated
      * {@code GeneratedAotContext} is present on the classpath, otherwise
      * falls back to runtime Jandex scanning.
