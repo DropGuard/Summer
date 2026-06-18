@@ -67,21 +67,6 @@ public final class RuntimeApplicationContext {
 
     private RuntimeApplicationContext() {
     }
-
-    /**
-     * Creates a {@link BeanContainer} with auto-detection: AOT if the
-     * generated context is on the classpath, otherwise falls back to
-     * runtime scanning.
-     */
-    public static BeanContainer create() {
-        try {
-            return create(summer.core.Engine.AOT);
-        } catch (Exception e) {
-            log.debug("No AOT context, falling back to runtime: {}", e.getMessage());
-            return create(summer.core.Engine.RUNTIME);
-        }
-    }
-
     /**
      * Creates a {@link BeanContainer} for the given engine.
      * {@link summer.core.Engine#AOT} throws if no AOT context is on the

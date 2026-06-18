@@ -70,17 +70,14 @@ Summer's DI container has two interchangeable implementations:
 | **Startup cost** | ~200ms (classpath scanning) | ~10ms (direct constructor calls) |
 | **Failure point** | `NoSuchBeanException` at runtime | Compilation error (fail-fast) |
 
-Both engines share the same annotation contract (`@Component`, `@Configuration`, `@Bean`, `@ConditionalOnBean`). Switching requires no code changes — only the `Engine` enum:
+Both engines share the same annotation contract ({@code @Component}, {@code @Configuration}, {@code @Bean}, {@code @ConditionalOnBean}). Switching requires no code changes — only the {@code Engine} enum:
 
 ```java
-// Default — auto-detect AOT, fall back to Runtime
-SummerApplication.run(args);
-
-// Explicit Runtime
-SummerApplication.run(Engine.RUNTIME, args);
-
-// Explicit AOT
+// Production — compile-time generated wiring
 SummerApplication.run(Engine.AOT, args);
+
+// Development — runtime classpath scanning
+SummerApplication.run(Engine.RUNTIME, args);
 ```
 
 The AOT engine works by scanning Jandex indexes at build time via the `summer-maven-plugin`, resolving the dependency graph, and emitting a `GeneratedAotContext` class that wires all beans in a single `wire()` method. At runtime, this class replaces the runtime scanner entirely.

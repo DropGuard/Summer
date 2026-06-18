@@ -11,12 +11,11 @@ import summer.runtime.RuntimeApplicationContext;
  * Single entry point for Summer applications.
  *
  * <pre>{@code
- * // Default — auto-detect AOT, fall back to Runtime
- * SummerApplication.run(args);
+ * // Production — compile-time generated wiring
+ * SummerApplication.run(Engine.AOT, args);
  *
- * // Explicit engine
- * SummerApplication.run(Engine.AOT, args);     // fail if AOT missing
- * SummerApplication.run(Engine.RUNTIME, args); // always Runtime
+ * // Development — runtime classpath scanning
+ * SummerApplication.run(Engine.RUNTIME, args);
  * }</pre>
  */
 public final class SummerApplication {
@@ -31,18 +30,8 @@ public final class SummerApplication {
     private SummerApplication() {
     }
 
-    /** Auto-detect: AOT first, Runtime fallback. */
-    public static BeanContainer run(String[] args) throws Exception {
-        return start(RuntimeApplicationContext.create(), args);
-    }
-
-    /** Explicit engine ({@link Engine#AOT} fails if no AOT context). */
     public static BeanContainer run(Engine engine, String[] args) throws Exception {
-        return start(RuntimeApplicationContext.create(engine), args);
-    }
-
-
-    private static BeanContainer start(BeanContainer context, String[] args) throws Exception {
+        BeanContainer context = RuntimeApplicationContext.create(engine);
         System.out.println(Banner.format());
         log.info("Starting Summer Application...");
 
