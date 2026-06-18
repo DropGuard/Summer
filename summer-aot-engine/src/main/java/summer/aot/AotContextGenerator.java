@@ -96,9 +96,20 @@ public final class AotContextGenerator {
 
         // Wire all beans
         new WireMethodGenerator(this).generateWireMethod(method, sortedBeans);
-        // Register @RowModel mappers with JdbcTemplate (must run after
-        // generateWireMethod so the JdbcTemplate singleton exists)
-        new WireMethodGenerator(this).emitRowMapperRegistrations(method, this.index, null, sortedBeans);
+        // Register route adapter
+        boolean hasControllers = sortedBeans.stream().anyMatch(b -> !b.routes.isEmpty());
+        if (hasControllers) {
+            method.addCode("\n");
+            method.addComment("Register route adapter");
+            method.addStatement("$T _routeAdapter = new $T()",
+                    ClassName.get("summer.core.aot", "GeneratedAnnotationRouterAdapter"),
+                    ClassName.get("summer.core.aot", "GeneratedAnnotationRouterAdapter"));
+            method.addStatement("registry.registerSingleton($T.class, _routeAdapter)",
+                    ClassName.get("summer.web", "RouteRegistrar"));
+        }
+
+         // Register @RowModel mappers with JdbcTemplate (must run after
+         // generateWireMethod so the JdbcTemplate singleton exists)
 
         method.addCode("\n");
         method.addStatement("return $T.create(registry, $T.AOT)", BEAN_CONTAINER, ENGINE);
