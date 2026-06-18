@@ -57,12 +57,11 @@ public class QaHandsOnIntegrationTest {
 
 	// Helper to create a context with explicit component registration
 	private static ApplicationContext createContext(Class<?>... components) {
-		RuntimeApplicationContext ctx = new RuntimeApplicationContext();
+		var builder = RuntimeApplicationContext.builder();
 		for (Class<?> c : components) {
-			ctx.registerComponent(c);
+			builder.registerComponent(c);
 		}
-		ctx.initializeBeans();
-		return ctx;
+		return builder.build();
 	}
 
 	// =========================================================================

@@ -8,10 +8,6 @@ public class RuntimeTransactionTest extends AbstractTransactionTCK {
 
 	@Override
 	protected ApplicationContext createContext() {
-		var ctx = new RuntimeApplicationContext();
-		ctx.scan();
-		ctx.registerComponent(TxTestConfiguration.class);
-		ctx.initializeBeans();
-		return ctx;
+		return RuntimeApplicationContext.builder().registerComponent(TxTestConfiguration.class).build();
 	}
 }

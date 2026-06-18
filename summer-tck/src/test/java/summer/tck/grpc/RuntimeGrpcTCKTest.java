@@ -11,13 +11,10 @@ public class RuntimeGrpcTCKTest extends AbstractGrpcTCK {
 
 	@Override
 	protected ApplicationContext createContext(Class<?>... components) {
-		RuntimeApplicationContext ctx = new RuntimeApplicationContext();
-		ctx.scan();
-		ctx.registerComponent(GrpcInfrastructureConfiguration.class);
+		var builder = RuntimeApplicationContext.builder().registerComponent(GrpcInfrastructureConfiguration.class);
 		for (Class<?> c : components) {
-			ctx.registerComponent(c);
+			builder.registerComponent(c);
 		}
-		ctx.initializeBeans();
-		return ctx;
+		return builder.build();
 	}
 }

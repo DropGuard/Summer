@@ -10,9 +10,6 @@ public class RuntimeMethodReplacesTest extends AbstractMethodReplacesTCK {
 
 	@Override
 	protected ApplicationContext createContext() {
-		var ctx = new RuntimeApplicationContext();
-		ctx.scan();
-		ctx.initializeBeans();
-		return ctx;
+		return RuntimeApplicationContext.create();
 	}
 }

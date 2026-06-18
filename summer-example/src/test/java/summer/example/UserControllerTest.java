@@ -35,12 +35,10 @@ public class UserControllerTest {
 		}
 	}
 
-	@Test
-	void testUserControllerOperations() {
-		var ctx = new RuntimeApplicationContext();
-		ctx.registerComponent(MockRedisConfiguration.class);
-		ctx.scan();
-		ctx.initializeBeans();
+@Test
+		void testUserControllerOperations() {
+			var ctx = RuntimeApplicationContext.builder().registerComponent(MockRedisConfiguration.class)
+					.registerComponent(UserController.class).build();
 
 		UserController userController = ctx.getBean(UserController.class);
 		assertNotNull(userController, "UserController should be injected");

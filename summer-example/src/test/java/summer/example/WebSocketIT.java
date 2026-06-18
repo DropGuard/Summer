@@ -15,6 +15,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import summer.core.ApplicationContext;
 import summer.runtime.RuntimeApplicationContext;
 import summer.web.server.NettyServerRunner;
 
@@ -29,16 +30,14 @@ class WebSocketIT {
 		}
 	}
 
-	private static RuntimeApplicationContext context;
+	private static ApplicationContext context;
 	private static NettyServerRunner serverRunner;
 
 	private final String baseUrl = "ws://localhost:" + NettyServerRunner.getActualPort();
 
 	@BeforeAll
 	static void startServer() throws Exception {
-		context = new RuntimeApplicationContext();
-		context.scan();
-		context.initializeBeans();
+		context = RuntimeApplicationContext.create();
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);
 	}

@@ -44,9 +44,9 @@ public class GrpcChannelManager implements AutoCloseable {
 	 * @param target
 	 *               e.g. "localhost:9091"
 	 */
-	public ManagedChannel getChannel(String target) {
-		return channels.computeIfAbsent(target, t -> {
-			if (tlsConfig.enabled() && tlsConfig.trustCert() != null) {
+public ManagedChannel getChannel(String target) {
+            return channels.computeIfAbsent(target, t -> {
+                if (tlsConfig.enabled() != null && tlsConfig.enabled() && tlsConfig.trustCert() != null) {
 				// TLS enabled with CA certificate
 				try {
 					SslContext sslContext = SslContextBuilder.forClient().trustManager(new File(tlsConfig.trustCert()))

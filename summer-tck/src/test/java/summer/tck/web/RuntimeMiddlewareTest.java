@@ -8,9 +8,6 @@ public class RuntimeMiddlewareTest extends AbstractMiddlewareTCK {
 
 	@Override
 	protected ApplicationContext createContext() {
-		var ctx = new RuntimeApplicationContext();
-		ctx.scan();
-		ctx.initializeBeans();
-		return ctx;
+		return RuntimeApplicationContext.create();
 	}
 }

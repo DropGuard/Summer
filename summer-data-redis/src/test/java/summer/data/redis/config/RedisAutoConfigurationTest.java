@@ -26,10 +26,7 @@ public class RedisAutoConfigurationTest {
 		try (MockedStatic<RedisClient> mocked = mockStatic(RedisClient.class)) {
 			mocked.when(() -> RedisClient.create(anyString())).thenReturn(mockClient);
 
-			var ctx = new RuntimeApplicationContext();
-			ctx.scan();
-			ctx.initializeBeans();
-			ApplicationContext context = ctx;
+			ApplicationContext context = RuntimeApplicationContext.create();
 
 			// Then all beans should be created
 			RedisProperties props = context.getBean(RedisProperties.class);

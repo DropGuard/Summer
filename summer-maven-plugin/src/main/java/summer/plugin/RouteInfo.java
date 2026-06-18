@@ -43,12 +43,12 @@ public final class RouteInfo {
 		}
 	}
 
-	public final String httpMethod;
-	public final String path;
-	public final String controllerClass;
-	public final String methodName;
-	public final String returnType;
-	public final List<ParamInfo> params = new ArrayList<>();
+public final String httpMethod;
+    public final String path;
+    public final String controllerClass;
+    public final String methodName;
+    public final String returnType;
+    public final List<ParamInfo> params = new ArrayList<>();
 
 	public RouteInfo(String httpMethod, String path, String controllerClass, String methodName, String returnType) {
 		this.httpMethod = httpMethod;

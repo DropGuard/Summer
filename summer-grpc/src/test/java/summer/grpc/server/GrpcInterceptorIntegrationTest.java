@@ -56,10 +56,7 @@ public class GrpcInterceptorIntegrationTest {
 
 	@Test
 	public void testGrpcServerInterceptorDiscovery() throws Exception {
-		var ctx = new RuntimeApplicationContext();
-		ctx.registerComponent(TestGrpcConfiguration.class);
-		ctx.scan();
-		ctx.initializeBeans();
+		var ctx = RuntimeApplicationContext.builder().registerComponent(TestGrpcConfiguration.class).build();
 
 		GrpcServerRunner serverRunner = ctx.getBean(GrpcServerRunner.class);
 		serverRunner.run(ctx);

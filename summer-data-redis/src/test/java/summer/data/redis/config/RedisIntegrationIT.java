@@ -28,10 +28,7 @@ public class RedisIntegrationIT {
 		String redisUri = "redis://" + redis.getHost() + ":" + redis.getFirstMappedPort();
 		System.setProperty("summer.redis.uri", redisUri);
 
-		var ctx = new RuntimeApplicationContext();
-		ctx.scan();
-		ctx.initializeBeans();
-		ApplicationContext context = ctx;
+		ApplicationContext context = RuntimeApplicationContext.create();
 
 		try {
 

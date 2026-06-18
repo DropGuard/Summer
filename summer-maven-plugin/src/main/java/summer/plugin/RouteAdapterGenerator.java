@@ -44,11 +44,12 @@ public final class RouteAdapterGenerator {
 		// Generate the registerControllers method body
 		CodeBlock.Builder registerBody = CodeBlock.builder();
 
-		for (BeanDefinition controller : controllers) {
-			String varName = controller.variableName;
-			registerBody.addStatement("$T $N = context.getBean($T.class)",
-					ClassName.bestGuess(controller.qualifiedName), varName,
-					ClassName.bestGuess(controller.qualifiedName));
+for (BeanDefinition controller : controllers) {
+                String varName = controller.variableName;
+                ClassName controllerClass = safeClassName(controller.qualifiedName);
+                registerBody.addStatement("$T $N = context.getBean($T.class)",
+                        controllerClass, varName,
+                        controllerClass);
 
 			for (RouteInfo route : controller.routes) {
 				CodeBlock handlerBody = generateHandlerBody(route, varName);
@@ -116,12 +117,13 @@ public final class RouteAdapterGenerator {
 			}
 		}
 
-		// Call controller method — always pass ctx as first arg (HttpContext)
-		StringBuilder args = new StringBuilder("ctx");
-		for (int i = 0; i < route.params.size(); i++) {
-			args.append(", ");
-			args.append(route.params.get(i).name);
-		}
+// Controller methods require HttpContext as first parameter.
+            // Validation happens in BeanEnrichment.
+            StringBuilder args = new StringBuilder("ctx");
+            for (int i = 0; i < route.params.size(); i++) {
+                args.append(", ");
+                args.append(route.params.get(i).name);
+            }
 
 		if (route.returnType.equals("void")) {
 			body.add("$N.$L($N);\n", controllerVar, route.methodName, args.toString());
@@ -150,7 +152,11 @@ public final class RouteAdapterGenerator {
 			case "short" -> com.palantir.javapoet.TypeName.SHORT;
 			case "byte" -> com.palantir.javapoet.TypeName.BYTE;
 			case "char" -> com.palantir.javapoet.TypeName.CHAR;
-			default -> ClassName.bestGuess(type);
-		};
-	}
-}
+default -> ClassName.bestGuess(type);
+            };
+        }
+
+        private static ClassName safeClassName(String qualifiedName) {
+            return ClassName.bestGuess(qualifiedName.replace('$', '.'));
+        }
+    }

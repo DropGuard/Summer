@@ -10,6 +10,7 @@ import java.time.Duration;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import summer.core.ApplicationContext;
 import summer.runtime.RuntimeApplicationContext;
 import summer.web.server.NettyServerRunner;
 
@@ -39,7 +40,7 @@ class WebLayerTest {
 		}
 	}
 
-	private static RuntimeApplicationContext context;
+	private static ApplicationContext context;
 	private static NettyServerRunner serverRunner;
 
 	private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
@@ -47,10 +48,7 @@ class WebLayerTest {
 
 	@BeforeAll
 	static void startServer() throws Exception {
-		context = new RuntimeApplicationContext();
-		context.registerComponent(MockRedisConfiguration.class);
-		context.scan();
-		context.initializeBeans();
+		context = RuntimeApplicationContext.builder().registerComponent(MockRedisConfiguration.class).build();
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);
 	}

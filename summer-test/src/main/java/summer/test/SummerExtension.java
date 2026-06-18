@@ -62,30 +62,36 @@ public class SummerExtension
 	private ApplicationContext createContext(Engine engine, SummerTestProfile profile) {
 		try {
 			return switch (engine) {
-				case AOT -> (ApplicationContext) Class.forName("summer.core.aot.GeneratedAotContext").getConstructor()
-						.newInstance();
+				case AOT -> {
+					try {
+						// AOT: try the new create() factory first, then fall back to old constructor
+						Class<?> aotClass = Class.forName("summer.core.aot.GeneratedAotContext");
+						try {
+							java.lang.reflect.Method createMethod = aotClass.getMethod("create");
+							yield (ApplicationContext) createMethod.invoke(null);
+						} catch (NoSuchMethodException e) {
+							yield (ApplicationContext) aotClass.getConstructor().newInstance();
+						}
+					} catch (ClassNotFoundException e) {
+						throw new IllegalStateException("AOT context not on classpath: " + e.getMessage());
+					}
+				}
 				case RUNTIME -> {
 					Class<?> runtimeCtx = Class.forName("summer.runtime.RuntimeApplicationContext");
-					ApplicationContext ctx = (ApplicationContext) runtimeCtx.getConstructor().newInstance();
-
-					// scan
-					runtimeCtx.getMethod("scan").invoke(ctx);
-
-					// apply profile
+					java.lang.reflect.Method builderMethod = runtimeCtx.getMethod("builder");
+					Object builder = builderMethod.invoke(null);
+					Class<?> builderClass = builder.getClass();
 					if (profile != null) {
 						Set<Class<?>> enabledBeans = profile.getEnabledBeans();
 						if (!enabledBeans.isEmpty()) {
-							runtimeCtx.getMethod("applyProfile", Set.class).invoke(ctx, enabledBeans);
+							builderClass.getMethod("withEnabledBeans", Set.class).invoke(builder, enabledBeans);
 						}
 						Map<String, String> configOverrides = profile.getConfigOverrides();
 						if (!configOverrides.isEmpty()) {
-							runtimeCtx.getMethod("applyConfigOverrides", Map.class).invoke(ctx, configOverrides);
+							builderClass.getMethod("withConfigOverrides", Map.class).invoke(builder, configOverrides);
 						}
 					}
-
-					// initialize
-					runtimeCtx.getMethod("initializeBeans").invoke(ctx);
-					yield ctx;
+					yield (ApplicationContext) builderClass.getMethod("build").invoke(builder);
 				}
 			};
 		} catch (ClassNotFoundException e) {

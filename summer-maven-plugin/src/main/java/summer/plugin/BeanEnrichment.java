@@ -129,9 +129,19 @@ final class BeanEnrichment {
 				String fullPath = combinePaths(basePath, methodPath);
 				String returnType = method.returnType().name().toString();
 
-				RouteInfo route = new RouteInfo(httpMethod, fullPath, bean.qualifiedName, method.name(), returnType);
-				collectParameters(method, route);
-				cb.routes.add(route);
+RouteInfo route = new RouteInfo(httpMethod, fullPath, bean.qualifiedName, method.name(), returnType);
+                    collectParameters(method, route);
+
+                    // Enforce Gin-style contract: first parameter MUST be HttpContext
+                    var params = method.parameters();
+                    if (params.isEmpty() || !params.get(0).type().name().toString().equals("summer.web.HttpContext")) {
+                        throw new IllegalStateException(bean.qualifiedName + "."
+                                + method.name() + "() must declare HttpContext as its first parameter. "
+                                + "All controller methods follow the Gin pattern: "
+                                + "first arg is always the context.");
+                    }
+
+                    cb.routes.add(route);
 			}
 		}
 	}
@@ -175,9 +185,9 @@ final class BeanEnrichment {
 						.add(new RouteInfo.ParamInfo(bindingName, paramType, RouteInfo.ParamBinding.QUERY, hasValid));
 			} else if (paramType.equals("summer.web.Pageable") || param.type().name().equals(PAGEABLE_DOT)) {
 				route.params.add(new RouteInfo.ParamInfo(paramName, paramType, RouteInfo.ParamBinding.PAGEABLE, false));
-			} else if (!paramType.equals("summer.web.WebContext") && !paramType.equals("summer.web.HttpContext")) {
-				route.params.add(new RouteInfo.ParamInfo(paramName, paramType, RouteInfo.ParamBinding.BODY, hasValid));
-			}
+} else if (!paramType.equals("summer.web.WebContext") && !paramType.equals("summer.web.HttpContext")) {
+                    route.params.add(new RouteInfo.ParamInfo(paramName, paramType, RouteInfo.ParamBinding.BODY, hasValid));
+                }
 		}
 	}
 

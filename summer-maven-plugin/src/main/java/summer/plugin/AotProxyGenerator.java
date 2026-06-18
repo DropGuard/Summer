@@ -75,13 +75,13 @@ public final class AotProxyGenerator {
 						AnnotationSpec.builder(SuppressWarnings.class).addMember("value", "$S", "unchecked").build())
 				.addModifiers(Modifier.PUBLIC, Modifier.FINAL);
 
-		// Implement interfaces
-		for (String ifaceName : bean.interfaceNames) {
-			proxyBuilder.addSuperinterface(ClassName.bestGuess(ifaceName));
-		}
+// Implement interfaces
+            for (String ifaceName : bean.interfaceNames) {
+                proxyBuilder.addSuperinterface(safeClassName(ifaceName));
+            }
 
-		// Add target field
-		ClassName targetClass = ClassName.bestGuess(bean.qualifiedName);
+            // Add target field
+            ClassName targetClass = safeClassName(bean.qualifiedName);
 		proxyBuilder.addField(targetClass, "target", Modifier.PRIVATE, Modifier.FINAL);
 
 		// Add interceptors field
@@ -338,8 +338,12 @@ public final class AotProxyGenerator {
 				.build();
 	}
 
-	private String getPackageName(String qualifiedName) {
-		int lastDot = qualifiedName.lastIndexOf('.');
-		return lastDot > 0 ? qualifiedName.substring(0, lastDot) : "";
-	}
+private String getPackageName(String qualifiedName) {
+        int lastDot = qualifiedName.lastIndexOf('.');
+        return lastDot > 0 ? qualifiedName.substring(0, lastDot) : "";
+    }
+
+    private static ClassName safeClassName(String qualifiedName) {
+        return ClassName.bestGuess(qualifiedName.replace('$', '.'));
+    }
 }

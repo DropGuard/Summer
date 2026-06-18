@@ -11,10 +11,7 @@ public class RuntimeConditionalTCKTest extends AbstractConditionalTCK {
 
 	@BeforeEach
 	void setUp() {
-		var ctx = new RuntimeApplicationContext();
-		ctx.scan();
-		ctx.initializeBeans();
-		context = ctx;
+		context = RuntimeApplicationContext.create();
 	}
 
 	@AfterEach

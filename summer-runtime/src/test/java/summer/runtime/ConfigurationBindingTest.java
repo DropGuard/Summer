@@ -32,13 +32,12 @@ class ConfigurationBindingTest {
 	}
 
 	private ApplicationContext createContext(Class<?>... components) {
-		RuntimeApplicationContext ctx = new RuntimeApplicationContext();
+		var builder = RuntimeApplicationContext.builder();
 		for (Class<?> c : components) {
-			ctx.registerComponent(c);
+			builder.registerComponent(c);
 		}
-		ctx.initializeBeans();
-		context = ctx;
-		return ctx;
+		context = builder.build();
+		return context;
 	}
 
 	@Nested

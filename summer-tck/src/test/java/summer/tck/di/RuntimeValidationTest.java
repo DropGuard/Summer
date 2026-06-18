@@ -11,18 +11,11 @@ public class RuntimeValidationTest extends AbstractValidationTCK {
 
 	@Override
 	protected ApplicationContext createContext() {
-		var ctx = new RuntimeApplicationContext();
-		ctx.scan();
-		ctx.initializeBeans();
-		return ctx;
+		return RuntimeApplicationContext.create();
 	}
 
 	@Override
 	protected ApplicationContext createContext(Class<?> entryPoint) {
-		var ctx = new RuntimeApplicationContext();
-		ctx.registerComponent(entryPoint);
-		ctx.scan();
-		ctx.initializeBeans();
-		return ctx;
+		return RuntimeApplicationContext.builder().registerComponent(entryPoint).build();
 	}
 }

@@ -38,13 +38,8 @@ class CrossModuleConfigBindingTest {
 	}
 
 	private ApplicationContext createContext(Class<?>... components) {
-		RuntimeApplicationContext ctx = new RuntimeApplicationContext();
-		for (Class<?> c : components) {
-			ctx.registerComponent(c);
-		}
-		ctx.initializeBeans();
-		context = ctx;
-		return ctx;
+		context = RuntimeApplicationContext.containing(components);
+		return context;
 	}
 
 	// ── Annotation visibility ────────────────────────────────────────

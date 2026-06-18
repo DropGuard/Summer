@@ -7,8 +7,6 @@ public class RuntimeMultiModuleConflictTest extends AbstractMultiModuleConflictT
 
 	@Override
 	protected void triggerFailure() {
-		var ctx = new RuntimeApplicationContext();
-		ctx.registerComponent(ConflictConfig.class);
-		ctx.initializeBeans();
+		RuntimeApplicationContext.builder().registerComponent(ConflictConfig.class).build();
 	}
 }

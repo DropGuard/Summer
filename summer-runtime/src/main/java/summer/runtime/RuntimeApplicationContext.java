@@ -1,9 +1,15 @@
 package summer.runtime;
 
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Deque;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -13,333 +19,882 @@ import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import summer.aop.MethodInterceptor;
 import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
+import summer.core.BeanRegistry;
 import summer.core.Component;
 import summer.core.Engine;
+import summer.core.ErrorCode;
+import summer.core.Provider;
+import summer.core.RuntimeDiMarker;
 import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
+import summer.core.annotation.ConditionalOnBean;
+import summer.core.annotation.Replaces;
 import summer.core.config.ConfigBinder;
 import summer.core.config.ConfigurationProperties;
-import summer.core.exception.AmbiguousBeanException;
 import summer.core.exception.BeanCreationException;
 import summer.core.exception.CircularDependencyException;
-import summer.core.ErrorCode;
 import summer.core.exception.NoSuchBeanException;
+import summer.core.validation.Validator;
 
 /**
- * The runtime Summer application context that manages beans and their
- * dependencies using Jandex and Reflection.
+ * Runtime (reflection-based) DI engine entry point. Discovers beans from the
+ * Jandex index, evaluates conditions, builds the dependency graph, instantiates
+ * beans (with AOP proxy wrapping), and produces an immutable
+ * {@link BeanContainer}.
+ *
+ * <p>
+ * Usage:
+ * </p>
+ *
+ * <pre>{@code
+ * // default: scan classpath + initialize
+ * BeanContainer container = RuntimeApplicationContext.create();
+ *
+ * // with extra components (e.g. test fixtures)
+ * BeanContainer container = RuntimeApplicationContext.builder()
+ *         .registerComponent(MyConfig.class)
+ *         .build();
+ * }</pre>
  */
-public class RuntimeApplicationContext implements ApplicationContext {
+public final class RuntimeApplicationContext {
 
-	private static final Logger log = LoggerFactory.getLogger(RuntimeApplicationContext.class);
+    private static final Logger log = LoggerFactory.getLogger(RuntimeApplicationContext.class);
 
-	private static final DotName COMPONENT = DotName.createSimple(Component.class);
-	private static final DotName CONFIG_PROPERTIES = DotName.createSimple(ConfigurationProperties.class);
+    private static final DotName COMPONENT = DotName.createSimple(Component.class);
+    private static final DotName CONFIGURATION_PROPERTIES = DotName.createSimple(ConfigurationProperties.class);
 
-	private final Set<Class<?>> componentClasses = new HashSet<>();
-	private IndexView lastIndex;
-	private final DependencyGraph dependencyGraph;
-	private final Map<Class<?>, Object> singletons = new java.util.LinkedHashMap<>();
-	private final List<AutoCloseable> closeables = new ArrayList<>();
-	private List<Object> instantiationOrder = List.of();
-	private RuntimeBeanFactory beanFactory;
+    private RuntimeApplicationContext() {
+    }
 
-	public RuntimeApplicationContext() {
-		this.dependencyGraph = new DependencyGraph();
-		ConfigBinder.setDefaultValueResolver(RuntimeDefaultValueResolver.INSTANCE);
-		registerSingleton(summer.core.RuntimeDiMarker.class, new summer.core.RuntimeDiMarker());
-	}
+    /**
+     * Builds a {@link BeanContainer} by scanning the classpath via Jandex and
+     * initializing all discovered beans. This is the default production entry
+     * point.
+     */
+    public static BeanContainer create() {
+        return builder().build();
+    }
 
-	/**
-	 * Convenience factory method that creates a RuntimeApplicationContext and scans
-	 * from the entry point's package.
-	 *
-	 * <p>
-	 * Registers {@link RuntimeDiMarker} as a singleton before scanning, enabling
-	 * {@code @ConditionalOnBean(RuntimeDiMarker.class)} on runtime-specific
-	 * configurations.
-	 * </p>
-	 */
-	public static RuntimeApplicationContext create(Class<?> entryPoint) {
-		ConfigBinder.setDefaultValueResolver(RuntimeDefaultValueResolver.INSTANCE);
-		RuntimeApplicationContext ctx = new RuntimeApplicationContext();
-		ctx.registerSingleton(summer.core.RuntimeDiMarker.class, new summer.core.RuntimeDiMarker());
-		ctx.scan();
-		ctx.initializeBeans();
-		return ctx;
-	}
+    /**
+     * Builds a {@link BeanContainer} containing only the given beans and their
+     * transitive dependency closure. No Jandex classpath scanning is performed.
+     * This is the "local expansion" entry point for isolated unit tests.
+     */
+    public static BeanContainer containing(Class<?>... components) {
+        return new Builder().buildLocal(components);
+    }
 
-	@Override
-	public Engine engine() {
-		return Engine.RUNTIME;
-	}
+    /**
+     * Returns a builder for customizing container creation. Use this when you
+     * need to register extra components (e.g. test fixtures) or apply profile
+     * filters in addition to Jandex discovery.
+     */
+    public static Builder builder() {
+        return new Builder();
+    }
 
-	// ── Component Discovery ──────────────────────────────────────────
+    /**
+     * Builder for {@link BeanContainer}. Supports extra component registration,
+     * profile filtering, and config overrides.
+     */
+    public static final class Builder {
 
-	public void scan() {
-		IndexView index = JandexIndexLoader.buildIndex();
-		this.lastIndex = index;
-		for (ClassInfo classInfo : index.getKnownClasses()) {
-			if (classInfo.isInterface() || classInfo.isAbstract())
-				continue;
+        private final Set<Class<?>> extraComponents = new LinkedHashSet<>();
+        private Set<Class<?>> enabledBeans;
+        private Map<String, String> configOverrides;
 
-			String className = classInfo.name().toString();
-			if (className.contains(".config.generated.") || className.contains("$Generated"))
-				continue;
+        private Builder() {
+        }
 
-			if (hasMetaComponentAnnotation(classInfo, new HashSet<>())) {
-				try {
-					Class<?> clazz = Class.forName(className);
-					log.debug("[Summer] Registering component: {} isInterface={}", className, clazz.isInterface());
-					componentClasses.add(clazz);
-				} catch (ClassNotFoundException e) {
-					log.debug("[Summer] Could not load indexed class: {}", classInfo.name());
-				}
-			}
-		}
-		log.debug("[Summer] Registered {} component classes", componentClasses.size());
-	}
+        /**
+         * Registers an additional component class. The class must be annotated
+         * with {@link Component} (or a meta-annotation), {@link Configuration},
+         * or {@link ConfigurationProperties}.
+         */
+        public Builder registerComponent(Class<?> clazz) {
+            extraComponents.add(clazz);
+            return this;
+        }
 
-	public void registerComponent(Class<?> clazz) {
-		log.debug("[Summer] registerComponent called: {} isInterface={}", clazz.getName(), clazz.isInterface());
-		if (clazz.isInterface() || java.lang.reflect.Modifier.isAbstract(clazz.getModifiers())) {
-			if (isComponent(clazz)) {
-				throw new BeanCreationException(ErrorCode.BEAN_CREATION_FAILED,
-						"@Component cannot be placed on an interface or abstract class: " + clazz.getName()
-								+ ". Annotate the concrete implementation instead.");
-			}
-			return;
-		}
-		if (!isComponent(clazz) && !clazz.isAnnotationPresent(ConfigurationProperties.class)) {
-			throw new BeanCreationException(ErrorCode.BEAN_CREATION_FAILED,
-					"Class " + clazz.getName() + " is not annotated with @Component or @ConfigurationProperties");
-		}
-		componentClasses.add(clazz);
-	}
+        /**
+         * Restricts the active beans to the given set. Empty or null means no
+         * filtering.
+         */
+        public Builder withEnabledBeans(Set<Class<?>> enabledBeans) {
+            this.enabledBeans = enabledBeans;
+            return this;
+        }
 
-	public void applyProfile(Set<Class<?>> enabledBeans) {
-		if (enabledBeans != null && !enabledBeans.isEmpty()) {
-			int before = componentClasses.size();
-			componentClasses.retainAll(enabledBeans);
-			log.debug("[Summer] Profile filter: {} -> {} component classes", before, componentClasses.size());
-		}
-	}
+        /**
+         * Applies the given config overrides as system properties before bean
+         * binding. Useful for testing {@code @ConfigurationProperties}.
+         */
+        public Builder withConfigOverrides(Map<String, String> overrides) {
+            this.configOverrides = overrides;
+            return this;
+        }
 
-	public org.jboss.jandex.IndexView getIndex() {
-		return lastIndex;
-	}
+        /**
+         * Builds the {@link BeanContainer}.
+         *
+         * <p>
+         * Always performs full Jandex classpath scanning. Any components
+         * registered via {@link #registerComponent(Class)} are added on top
+         * of the scan result (e.g. mock configurations for integration tests).
+         * Use {@link RuntimeApplicationContext#containing(Class...)} for the
+         * local-expansion (test isolation) path.
+         * </p>
+         */
+        public BeanContainer build() {
+            ConfigBinder.setDefaultValueResolver(RuntimeDefaultValueResolver.INSTANCE);
 
-	private List<Class<?>> discoverConfigurationProperties() {
-		if (lastIndex == null) {
-			return List.of();
-		}
-		List<Class<?>> result = new ArrayList<>();
-		for (AnnotationInstance ann : lastIndex.getAnnotations(CONFIG_PROPERTIES)) {
-			ClassInfo ci = ann.target().asClass();
-			if (ci.isInterface() || ci.isAbstract())
-				continue;
-			try {
-				result.add(Class.forName(ci.name().toString()));
-			} catch (ClassNotFoundException e) {
-				log.debug("[Summer] Could not load @ConfigurationProperties class: {}", ci.name());
-			}
-		}
-		return result;
-	}
+            if (configOverrides != null && !configOverrides.isEmpty()) {
+                for (Map.Entry<String, String> entry : configOverrides.entrySet()) {
+                    System.setProperty(entry.getKey(), entry.getValue());
+                }
+            }
 
-	private boolean hasMetaComponentAnnotation(ClassInfo classInfo, Set<DotName> visited) {
-		if (classInfo == null)
-			return false;
-		DotName name = classInfo.name();
-		if (!visited.add(name))
-			return false;
+            BeanRegistry registry = new BeanRegistry();
+            registry.registerSingleton(RuntimeDiMarker.class, new RuntimeDiMarker());
 
-		if (classInfo.hasAnnotation(COMPONENT))
-			return true;
+            IndexView index = JandexIndexLoader.buildIndex();
 
-		for (AnnotationInstance ann : classInfo.declaredAnnotations()) {
-			if (hasMetaComponentAnnotation(lastIndex.getClassByName(ann.name()), visited))
-				return true;
-		}
-		return false;
-	}
+            // Full classpath scan (production / integration test mode)
+            Set<Class<?>> componentClasses = discoverComponents(index);
+            // Also include @ConfigurationProperties beans that are not
+            // @Component (e.g. PageableProperties).
+            for (AnnotationInstance ann : index.getAnnotations(CONFIGURATION_PROPERTIES)) {
+                ClassInfo ci = ann.target().asClass();
+                if (ci.isInterface() || ci.isAbstract()) {
+                    continue;
+                }
+                try {
+                    Class<?> configClass = Class.forName(ci.name().toString());
+                    componentClasses.add(configClass);
+                } catch (ClassNotFoundException e) {
+                    log.debug("[Summer] Could not load @ConfigurationProperties class: {}", ci.name());
+                }
+            }
+            // Add explicitly registered extra components
+            for (Class<?> clazz : extraComponents) {
+                validateExtraComponent(clazz);
+                componentClasses.add(clazz);
+            }
 
-	private boolean isComponent(Class<?> clazz) {
-		if (clazz.isAnnotationPresent(Component.class))
-			return true;
-		for (java.lang.annotation.Annotation ann : clazz.getAnnotations()) {
-			if (ann.annotationType().isAnnotationPresent(Component.class))
-				return true;
-		}
-		return false;
-	}
+            // Apply profile filter
+            if (enabledBeans != null && !enabledBeans.isEmpty()) {
+                componentClasses.retainAll(enabledBeans);
+            }
 
-	// ── Bean Lifecycle ───────────────────────────────────────────────
+            // Pre-bind @ConfigurationProperties (before condition eval so they count as available)
+            bindConfigurationProperties(componentClasses, index, registry);
 
-	public void registerSingleton(Class<?> type, Object instance) {
-		singletons.put(type, instance);
-	}
+            // Build the full node set (component classes + @Bean methods + programmatic singletons)
+            Set<Object> allNodes = new LinkedHashSet<>(componentClasses);
+            allNodes.addAll(registry.getRegisteredTypes());
+            for (Class<?> clazz : componentClasses) {
+                if (clazz.isAnnotationPresent(Configuration.class)) {
+                    for (Method method : clazz.getDeclaredMethods()) {
+                        if (method.isAnnotationPresent(Bean.class)) {
+                            allNodes.add(method);
+                        }
+                    }
+                }
+            }
 
-	public void applyConfigOverrides(Map<String, String> overrides) {
-		if (overrides != null && !overrides.isEmpty()) {
-			for (Map.Entry<String, String> entry : overrides.entrySet()) {
-				System.setProperty(entry.getKey(), entry.getValue());
-			}
-			log.debug("[Summer] Applied {} config override(s)", overrides.size());
-		}
-	}
+            // Phase 1: condition evaluation (@ConditionalOnBean + @Replaces)
+            ConditionEvaluator.evaluate(allNodes);
+            componentClasses.retainAll(allNodes.stream().filter(n -> n instanceof Class<?>).map(n -> (Class<?>) n)
+                    .collect(java.util.stream.Collectors.toSet()));
 
-	public void initializeBeans() {
-		beanFactory = new RuntimeBeanFactory(singletons, closeables, dependencyGraph, this);
+            // Phase 2: build dependency graph
+            DependencyGraph dependencyGraph = new DependencyGraph();
+            dependencyGraph.buildGraph(allNodes);
+            if (dependencyGraph.hasCircularDependencies()) {
+                throw new CircularDependencyException("Circular dependencies detected");
+            }
 
-		bindConfigurationProperties();
+            // Phase 3: instantiate in topological order
+            List<Object> instantiationOrder = dependencyGraph.topologicalSort();
+            BeanInstantiator instantiator = new BeanInstantiator(registry, dependencyGraph);
+            for (Object node : instantiationOrder) {
+                if (node instanceof Class<?> clazz) {
+                    instantiator.instantiateBean(clazz);
+                } else if (node instanceof Method method) {
+                    instantiator.invokeBeanProducer(method);
+                }
+            }
 
-		Set<Object> allNodes = new java.util.LinkedHashSet<>(componentClasses);
+            // Phase 4: validation
+            runValidators(registry);
 
-		// Include programmatically registered singletons in conditional evaluation
-		allNodes.addAll(singletons.keySet());
+            return BeanContainer.create(registry, Engine.RUNTIME);
+        }
 
-		for (Class<?> clazz : componentClasses) {
-			if (clazz.isAnnotationPresent(Configuration.class)) {
-				for (Method method : clazz.getDeclaredMethods()) {
-					if (method.isAnnotationPresent(Bean.class)) {
-						allNodes.add(method);
-					}
-				}
-			}
-		}
+        /**
+         * Transitive dependency closure starting from the given seed classes.
+         * Uses the Jandex index to resolve interface/abstract dependencies to
+         * their concrete implementations.
+         */
+        private Set<Class<?>> transitiveExpand(Set<Class<?>> seeds, IndexView index) {
+            // Validate all seeds first
+            for (Class<?> clazz : seeds) {
+                validateExtraComponent(clazz);
+            }
 
-		// 1. Evaluate @ConditionalOnBean and @Replaces
-		RuntimeConditionEvaluator.evaluate(allNodes);
-		componentClasses.removeIf(clazz -> !allNodes.contains(clazz));
+            Set<Class<?>> closure = new LinkedHashSet<>(seeds);
+            Deque<Class<?>> queue = new ArrayDeque<>(seeds);
 
-		// 2. Build Dependency Graph
-		dependencyGraph.buildGraph(allNodes);
+            while (!queue.isEmpty()) {
+                Class<?> current = queue.pollFirst();
 
-		if (dependencyGraph.hasCircularDependencies()) {
-			throw new CircularDependencyException("Circular dependencies detected");
-		}
+                // @Replaces target: the replaced class must be in the closure
+                // so that ConditionEvaluator can find and redirect it.
+                // If the target is an interface/abstract, also pull in its
+                // known implementations so they can be replaced.
+                Replaces replaces = current.getAnnotation(Replaces.class);
+                if (replaces != null) {
+                    Class<?> target = replaces.value();
+                    if (closure.add(target)) {
+                        queue.addLast(target);
+                    }
+                    for (Class<?> impl : findImplementations(target, index)) {
+                        if (closure.add(impl)) {
+                            queue.addLast(impl);
+                        }
+                    }
+                }
 
-		// 4. Topological Sort and Instantiation
-		instantiationOrder = dependencyGraph.topologicalSort();
+                // @ConfigurationProperties have no constructor dependencies
+                if (current.isAnnotationPresent(ConfigurationProperties.class)) {
+                    continue;
+                }
 
-		for (Object node : instantiationOrder) {
-			if (node instanceof Class<?> clazz) {
-				beanFactory.instantiateBean(clazz);
-			} else if (node instanceof Method method) {
-				beanFactory.invokeBeanProducer(method);
-			}
-		}
+                // @Configuration: also pull in @Bean method return types
+                if (current.isAnnotationPresent(Configuration.class)) {
+                    for (Method method : current.getDeclaredMethods()) {
+                        if (method.isAnnotationPresent(Bean.class)) {
+                            Class<?> returnType = method.getReturnType();
+                            if (!closure.contains(returnType) && !returnType.isInterface()) {
+                                try {
+                                    Class.forName(returnType.getName());
+                                } catch (ClassNotFoundException e) {
+                                    log.debug("[Summer] Could not load @Bean return type: {}", returnType.getName());
+                                }
+                            }
+                            // Also check method-level @Replaces
+                            Replaces beanReplaces = method.getAnnotation(Replaces.class);
+                            if (beanReplaces != null) {
+                                Class<?> beanTarget = beanReplaces.value();
+                                if (closure.add(beanTarget)) {
+                                    queue.addLast(beanTarget);
+                                }
+                                for (Class<?> impl : findImplementations(beanTarget, index)) {
+                                    if (closure.add(impl)) {
+                                        queue.addLast(impl);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
 
-		// 5. Validation Phase
-		runValidators();
-	}
+                // Examine constructor parameters for dependencies
+                Constructor<?>[] constructors = current.getConstructors();
+                if (constructors.length != 1) {
+                    continue; // Let DependencyGraph.validateConstructor handle this
+                }
+                Constructor<?> ctor = constructors[0];
+                for (Class<?> paramType : ctor.getParameterTypes()) {
+                    if (paramType == ApplicationContext.class) {
+                        continue;
+                    }
 
-	/**
-	 * Scans for {@code @ConfigurationProperties}-annotated records and binds them
-	 * from {@code application.yml}. Results are registered as singletons so they
-	 * are available as dependencies for other beans.
-	 *
-	 * <p>
-	 * Fields absent from YAML are left as {@code null}. Skips types already
-	 * registered (e.g. via a manual {@code @Bean} method).
-	 * </p>
-	 */
-	private void bindConfigurationProperties() {
-		List<Class<?>> configClasses = discoverConfigurationProperties();
-		if (configClasses.isEmpty()) {
-			return;
-		}
+                    // Discover implementations from the Jandex index
+                    List<Class<?>> impls = findImplementations(paramType, index);
+                    for (Class<?> impl : impls) {
+                        if (closure.add(impl)) {
+                            queue.addLast(impl);
+                        }
+                    }
+                }
+            }
 
-		for (Class<?> configClass : configClasses) {
-			if (singletons.containsKey(configClass)) {
-				continue; // already registered (e.g. by @Bean)
-			}
-			ConfigurationProperties ann = configClass.getAnnotation(ConfigurationProperties.class);
-			if (ann == null)
-				continue;
-			String prefix = ann.prefix();
-			Object instance = ConfigBinder.bind(prefix, configClass);
-			singletons.put(configClass, instance);
-			log.debug("[Summer] Bound @ConfigurationProperties: {} (prefix='{}')", configClass.getSimpleName(), prefix);
-		}
-	}
+            log.debug("[Summer] Transitive expansion: {} seeds -> {} closure beans", seeds.size(), closure.size());
+            return closure;
+        }
 
-	@SuppressWarnings("unchecked")
-	private void runValidators() {
-		for (Object bean : singletons.values()) {
-			if (bean instanceof summer.core.validation.Validator<?> validator) {
-				Class<?> targetType = validator.targetType();
-				Object target = singletons.get(targetType);
-				if (target != null) {
-					((summer.core.validation.Validator<Object>) validator).validate(target);
-				}
-			}
-		}
-	}
+        /**
+         * Finds concrete implementations of a dependency type from the Jandex
+         * index. If the type is already a concrete class, returns it directly.
+         * If it's an interface or abstract class, returns all known
+         * implementors that are annotated with {@code @Component} (or a
+         * meta-annotation).
+         */
+        private List<Class<?>> findImplementations(Class<?> type, IndexView index) {
+            if (!type.isInterface() && !Modifier.isAbstract(type.getModifiers())) {
+                // Concrete class — can be used directly
+                return List.of(type);
+            }
 
-	@SuppressWarnings("unchecked")
-	public <T> T getBean(Class<T> type) {
-		Object instance = singletons.get(type);
-		if (instance != null) {
-			return (T) instance;
-		}
+            List<Class<?>> result = new ArrayList<>();
+            DotName dotName = DotName.createSimple(type.getName());
+            for (ClassInfo ci : index.getKnownDirectImplementors(dotName)) {
+                if (ci.isInterface() || ci.isAbstract()) {
+                    continue;
+                }
+                if (hasMetaComponentAnnotation(ci, index, new HashSet<>())) {
+                    try {
+                        result.add(Class.forName(ci.name().toString()));
+                    } catch (ClassNotFoundException e) {
+                        log.debug("[Summer] Could not load implementation: {}", ci.name());
+                    }
+                }
+            }
+            return result;
+        }
 
-		List<Object> matches = new ArrayList<>();
-		for (Object singleton : singletons.values()) {
-			if (type.isInstance(singleton) && !matches.contains(singleton)) {
-				matches.add(singleton);
-			}
-		}
+        // ---- Discovery ----
 
-		if (matches.isEmpty()) {
-			throw new NoSuchBeanException("No bean found of type: " + type.getName());
-		}
-		if (matches.size() == 1) {
-			return (T) matches.get(0);
-		}
-		throw new AmbiguousBeanException("Ambiguous dependency. Multiple beans found for type: " + type.getName());
-	}
+        private Set<Class<?>> discoverComponents(IndexView index) {
+            Set<Class<?>> componentClasses = new LinkedHashSet<>();
+            for (ClassInfo classInfo : index.getKnownClasses()) {
+                if (classInfo.isInterface() || classInfo.isAbstract()) {
+                    continue;
+                }
+                String className = classInfo.name().toString();
+                if (className.contains(".config.generated.") || className.contains("$Generated")) {
+                    continue;
+                }
+                if (hasMetaComponentAnnotation(classInfo, index, new HashSet<>())) {
+                    try {
+                        Class<?> clazz = Class.forName(className);
+                        componentClasses.add(clazz);
+                    } catch (ClassNotFoundException e) {
+                        log.debug("[Summer] Could not load indexed class: {}", classInfo.name());
+                    }
+                }
+            }
+            log.debug("[Summer] Discovered {} component classes", componentClasses.size());
+            return componentClasses;
+        }
 
-	@Override
-	@SuppressWarnings("unchecked")
-	public <T> List<T> getBeans(Class<T> type) {
-		List<T> result = new ArrayList<>();
-		for (Object instance : singletons.values()) {
-			if (instance != null && type.isInstance(instance) && !result.contains(instance)) {
-				result.add((T) instance);
-			}
-		}
-		return result;
-	}
+        private void validateExtraComponent(Class<?> clazz) {
+            if (clazz.isInterface() || Modifier.isAbstract(clazz.getModifiers())) {
+                if (isComponent(clazz)) {
+                    throw new BeanCreationException(ErrorCode.BEAN_CREATION_FAILED,
+                            "@Component cannot be placed on an interface or abstract class: " + clazz.getName()
+                                    + ". Annotate the concrete implementation instead.");
+                }
+                return;
+            }
+            if (!isComponent(clazz) && !clazz.isAnnotationPresent(ConfigurationProperties.class)) {
+                throw new BeanCreationException(ErrorCode.BEAN_CREATION_FAILED,
+                        "Class " + clazz.getName() + " is not annotated with @Component or @ConfigurationProperties");
+            }
+        }
 
-	public boolean containsBean(Class<?> type) {
-		if (singletons.containsKey(type)) {
-			return true;
-		}
-		for (Object instance : singletons.values()) {
-			if (instance != null && type.isInstance(instance)) {
-				return true;
-			}
-		}
-		return false;
-	}
+        private boolean hasMetaComponentAnnotation(ClassInfo classInfo, IndexView index, Set<DotName> visited) {
+            if (classInfo == null) {
+                return false;
+            }
+            DotName name = classInfo.name();
+            if (!visited.add(name)) {
+                return false;
+            }
+            if (classInfo.hasAnnotation(COMPONENT)) {
+                return true;
+            }
+            for (AnnotationInstance ann : classInfo.declaredAnnotations()) {
+                if (hasMetaComponentAnnotation(index.getClassByName(ann.name()), index, visited)) {
+                    return true;
+                }
+            }
+            return false;
+        }
 
-	@Override
-	public Set<Class<?>> getRegisteredTypes() {
-		return Collections.unmodifiableSet(componentClasses);
-	}
+        private boolean isComponent(Class<?> clazz) {
+            if (clazz.isAnnotationPresent(Component.class)) {
+                return true;
+            }
+            for (java.lang.annotation.Annotation ann : clazz.getAnnotations()) {
+                if (ann.annotationType().isAnnotationPresent(Component.class)) {
+                    return true;
+                }
+            }
+            return false;
+        }
 
-	@Override
-	public void close() {
-		for (AutoCloseable closeable : closeables.reversed()) {
-			try {
-				closeable.close();
-				log.debug("[Summer] Closed: {}", closeable.getClass().getSimpleName());
-			} catch (Exception e) {
-				log.warn("[Summer] Error closing resource: {}", closeable.getClass().getSimpleName(), e);
-			}
-		}
-	}
+        // ---- @ConfigurationProperties binding ----
+
+        private void bindConfigurationProperties(Set<Class<?>> componentClasses, IndexView index,
+                BeanRegistry registry) {
+            // Only bind @ConfigurationProperties that are in the active component set.
+            // This avoids binding RedisProperties etc. when tests only want CorsConfig.
+            for (Class<?> configClass : componentClasses) {
+                if (!configClass.isAnnotationPresent(ConfigurationProperties.class)) {
+                    continue;
+                }
+                if (registry.peek(configClass) != null) {
+                    continue; // already registered (e.g. by @Bean)
+                }
+                ConfigurationProperties props = configClass.getAnnotation(ConfigurationProperties.class);
+                if (props == null) {
+                    continue;
+                }
+                Object instance = ConfigBinder.bind(props.prefix(), configClass);
+                registry.registerSingleton(configClass, instance);
+                log.debug("[Summer] Bound @ConfigurationProperties: {} (prefix='{}')", configClass.getSimpleName(),
+                        props.prefix());
+            }
+        }
+
+        /**
+         * Builds a {@link BeanContainer} from the given seed components using
+         * transitive dependency expansion (no Jandex classpath scanning).
+         * Called by {@link RuntimeApplicationContext#containing(Class...)}.
+         */
+        private BeanContainer buildLocal(Class<?>... components) {
+            ConfigBinder.setDefaultValueResolver(RuntimeDefaultValueResolver.INSTANCE);
+
+            BeanRegistry registry = new BeanRegistry();
+            registry.registerSingleton(RuntimeDiMarker.class, new RuntimeDiMarker());
+
+            IndexView index = JandexIndexLoader.buildIndex();
+
+            Set<Class<?>> seeds = new LinkedHashSet<>();
+            for (Class<?> c : components) {
+                seeds.add(c);
+            }
+            Set<Class<?>> componentClasses = transitiveExpand(seeds, index);
+
+            // Pre-bind @ConfigurationProperties
+            bindConfigurationProperties(componentClasses, index, registry);
+
+            // Build the full node set
+            Set<Object> allNodes = new LinkedHashSet<>(componentClasses);
+            allNodes.addAll(registry.getRegisteredTypes());
+            for (Class<?> clazz : componentClasses) {
+                if (clazz.isAnnotationPresent(Configuration.class)) {
+                    for (Method method : clazz.getDeclaredMethods()) {
+                        if (method.isAnnotationPresent(Bean.class)) {
+                            allNodes.add(method);
+                        }
+                    }
+                }
+            }
+
+            // Phase 1: condition evaluation
+            ConditionEvaluator.evaluate(allNodes);
+            componentClasses.retainAll(allNodes.stream().filter(n -> n instanceof Class<?>).map(n -> (Class<?>) n)
+                    .collect(java.util.stream.Collectors.toSet()));
+
+            // Phase 2: build dependency graph
+            DependencyGraph dependencyGraph = new DependencyGraph();
+            dependencyGraph.buildGraph(allNodes);
+            if (dependencyGraph.hasCircularDependencies()) {
+                throw new CircularDependencyException("Circular dependencies detected");
+            }
+
+            // Phase 3: instantiate
+            List<Object> instantiationOrder = dependencyGraph.topologicalSort();
+            BeanInstantiator instantiator = new BeanInstantiator(registry, dependencyGraph);
+            for (Object node : instantiationOrder) {
+                if (node instanceof Class<?> clazz) {
+                    instantiator.instantiateBean(clazz);
+                } else if (node instanceof Method method) {
+                    instantiator.invokeBeanProducer(method);
+                }
+            }
+
+            // Phase 4: validation
+            runValidators(registry);
+
+            return BeanContainer.create(registry, Engine.RUNTIME);
+        }
+
+        // ---- Validation ----
+
+        @SuppressWarnings("unchecked")
+        private void runValidators(BeanRegistry registry) {
+            for (Object bean : registry.singletons().values()) {
+                if (bean instanceof Validator<?> validator) {
+                    Class<?> targetType = validator.targetType();
+                    Object target = registry.peek(targetType);
+                    if (target != null) {
+                        ((Validator<Object>) validator).validate(target);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Bean instantiator that operates on a {@link BeanRegistry}. Handles
+     * constructor injection, {@code @Bean} method invocation, {@link Provider}
+     * resolution, interface registration, and AOP proxy wrapping.
+     */
+    private static final class BeanInstantiator {
+
+        private final BeanRegistry registry;
+        private final DependencyGraph dependencyGraph;
+
+        BeanInstantiator(BeanRegistry registry, DependencyGraph dependencyGraph) {
+            this.registry = registry;
+            this.dependencyGraph = dependencyGraph;
+        }
+
+        void instantiateBean(Class<?> clazz) {
+            if (registry.peek(clazz) != null) {
+                return;
+            }
+            try {
+                Object instance;
+                if (clazz.isAnnotationPresent(ConfigurationProperties.class)) {
+                    ConfigurationProperties ann = clazz.getAnnotation(ConfigurationProperties.class);
+                    instance = ConfigBinder.bind(ann.prefix(), clazz);
+                } else {
+                    instance = createInstance(clazz);
+                }
+                registerBean(clazz, instance);
+            } catch (Exception e) {
+                if (e instanceof NoSuchBeanException nse) {
+                    throw nse;
+                }
+                throw new BeanCreationException("Failed to instantiate bean: " + clazz.getName(), e);
+            }
+        }
+
+        private Object createInstance(Class<?> clazz) throws ReflectiveOperationException {
+            Constructor<?> constructor = dependencyGraph.getConstructorForClass(clazz);
+            Object[] args = resolveArgs(constructor.getParameterTypes(), constructor.getGenericParameterTypes());
+            return constructor.newInstance(args);
+        }
+
+        private Object[] resolveArgs(Class<?>[] paramTypes, Type[] genericTypes) {
+            Object[] args = new Object[paramTypes.length];
+            for (int i = 0; i < paramTypes.length; i++) {
+                Class<?> paramType = paramTypes[i];
+                Type genericType = genericTypes[i];
+                if (paramType == List.class && genericType instanceof ParameterizedType pt) {
+                    Type elementType = pt.getActualTypeArguments()[0];
+                    if (elementType instanceof Class<?> elementClass) {
+                        args[i] = registry.getBeans(elementClass);
+                    } else {
+                        args[i] = registry.getBean(paramType);
+                    }
+                } else {
+                    // ApplicationContext was injected before — now we don't have access to it here
+                    // so we throw (no production code uses this in runtime engine anymore)
+                    if (paramType == summer.core.ApplicationContext.class) {
+                        throw new BeanCreationException(ErrorCode.BEAN_CREATION_FAILED,
+                                "ApplicationContext injection is not supported by the runtime engine. Use BeanContainer from caller.");
+                    }
+                    args[i] = registry.getBean(paramType);
+                }
+            }
+            return args;
+        }
+
+        private void registerBean(Class<?> clazz, Object instance) {
+            if (instance instanceof Provider<?> provider) {
+                registerProvider(clazz, provider);
+            } else {
+                registerRegularBean(clazz, instance);
+            }
+        }
+
+        private void registerProvider(Class<?> clazz, Provider<?> provider) {
+            Object providedInstance = provider.provide();
+            Class<?> providedType = getProvidedType(clazz);
+            registry.registerSingleton(providedType, providedInstance);
+            registry.registerSingleton(clazz, provider);
+        }
+
+        private void registerRegularBean(Class<?> clazz, Object instance) {
+            List<MethodInterceptor> matchingInterceptors = resolveMatchingInterceptors(clazz);
+            Object proxy = RuntimeAopProcessor.applyProxy(instance, clazz, matchingInterceptors);
+            // Concrete class key keeps the raw instance
+            registry.registerSingleton(clazz, instance);
+            // Interfaces get the proxy (first-wins)
+            registerAllInterfaces(clazz, proxy);
+        }
+
+        private void registerAllInterfaces(Class<?> clazz, Object instance) {
+            for (Class<?> iface : clazz.getInterfaces()) {
+                registry.registerInterface(iface, instance);
+                registerAllInterfaces(iface, instance);
+            }
+        }
+
+        void invokeBeanProducer(Method producer) {
+            try {
+                Class<?> configClass = producer.getDeclaringClass();
+                Object configBean = registry.getBean(configClass);
+                Object[] args = resolveArgs(producer.getParameterTypes(), producer.getGenericParameterTypes());
+                Object result = producer.invoke(configBean, args);
+                if (result == null) {
+                    return;
+                }
+                Class<?> producedType = producer.getReturnType();
+                List<MethodInterceptor> matchingInterceptors = resolveMatchingInterceptors(producedType);
+                Object proxy = RuntimeAopProcessor.applyProxy(result, producedType, matchingInterceptors);
+                registry.registerSingleton(producedType, result);
+                registerAllInterfaces(producedType, proxy);
+            } catch (java.lang.reflect.InvocationTargetException | IllegalAccessException e) {
+                throw new BeanCreationException("Failed to invoke @Bean method: " + producer.getName(), e);
+            }
+        }
+
+        private List<MethodInterceptor> resolveMatchingInterceptors(Class<?> beanClass) {
+            Set<Class<?>> interceptorClasses = dependencyGraph.getMatchingInterceptorClasses(beanClass);
+            if (interceptorClasses.isEmpty()) {
+                return List.of();
+            }
+            List<MethodInterceptor> result = new ArrayList<>();
+            for (Class<?> interceptorClass : interceptorClasses) {
+                Object interceptor = registry.getBean(interceptorClass);
+                if (interceptor instanceof MethodInterceptor mi) {
+                    result.add(mi);
+                }
+            }
+            return result;
+        }
+
+        private static Class<?> getProvidedType(Class<?> providerClass) {
+            for (Type iface : providerClass.getGenericInterfaces()) {
+                if (iface instanceof ParameterizedType pt && pt.getRawType() == Provider.class) {
+                    return (Class<?>) pt.getActualTypeArguments()[0];
+                }
+            }
+            throw new BeanCreationException("Could not determine provided type for: " + providerClass.getName());
+        }
+    }
+
+    /**
+     * Three-phase condition evaluator for the Runtime DI engine.
+     *
+     * <p>
+     * Phase 1: Build dependency graph from {@code @ConditionalOnBean} edges,
+     * topological sort. Phase 2: {@code @Replaces} — mark redirects (original
+     * → replacement); originals stay until Phase 3 cleanup. Phase 3:
+     * {@code @ConditionalOnBean} evaluated in topo order with redirect
+     * resolution; replacements that get removed restore their originals.
+     * </p>
+     */
+    private static final class ConditionEvaluator {
+
+        private ConditionEvaluator() {
+        }
+
+        static void evaluate(Set<Object> nodes) {
+            List<Object> topoOrder = buildTopologicalOrder(nodes);
+
+            // Pre-compute @Bean return types for @ConditionalOnBean fallback matching
+            Set<Class<?>> beanReturnTypes = new HashSet<>();
+            for (Object node : nodes) {
+                if (node instanceof Class<?> clazz
+                        && clazz.isAnnotationPresent(Configuration.class)) {
+                    for (Method method : clazz.getDeclaredMethods()) {
+                        if (method.isAnnotationPresent(Bean.class)) {
+                            beanReturnTypes.add(method.getReturnType());
+                        }
+                    }
+                }
+            }
+
+            // @Replaces — mark redirects
+            Map<Object, Object> redirects = new java.util.HashMap<>();
+            resolveReplaces(nodes, redirects);
+
+            // @ConditionalOnBean — evaluate in topo order
+            resolveConditionalOnBean(nodes, topoOrder, redirects, beanReturnTypes);
+        }
+
+        private static List<Object> buildTopologicalOrder(Set<Object> nodes) {
+            Map<Object, Set<Object>> deps = new java.util.HashMap<>();
+            for (Object node : nodes) {
+                Class<?> required = getRequiredType(node);
+                if (required != null) {
+                    deps.computeIfAbsent(node, k -> new HashSet<>()).add(required);
+                }
+            }
+            Set<Object> visited = new HashSet<>();
+            Set<Object> inStack = new HashSet<>();
+            List<Object> order = new ArrayList<>();
+            for (Object node : nodes) {
+                dfs(node, deps, visited, inStack, order);
+            }
+            return order;
+        }
+
+        private static void dfs(Object node, Map<Object, Set<Object>> deps, Set<Object> visited, Set<Object> inStack,
+                List<Object> order) {
+            if (visited.contains(node)) {
+                return;
+            }
+            visited.add(node);
+            inStack.add(node);
+            Set<Object> nodeDeps = deps.getOrDefault(node, Set.of());
+            for (Object dep : nodeDeps) {
+                if (!visited.contains(dep)) {
+                    dfs(dep, deps, visited, inStack, order);
+                }
+            }
+            inStack.remove(node);
+            order.add(node);
+        }
+
+        private static Class<?> getRequiredType(Object node) {
+            if (node instanceof Class<?> clazz) {
+                ConditionalOnBean cond = clazz.getAnnotation(ConditionalOnBean.class);
+                return cond != null ? cond.value() : null;
+            }
+            if (node instanceof Method method) {
+                ConditionalOnBean cond = method.getAnnotation(ConditionalOnBean.class);
+                return cond != null ? cond.value() : null;
+            }
+            return null;
+        }
+
+        private static void resolveReplaces(Set<Object> nodes, Map<Object, Object> redirects) {
+            // Class-level @Replaces
+            for (Object node : new ArrayList<>(nodes)) {
+                if (!(node instanceof Class<?> clazz)) {
+                    continue;
+                }
+                Replaces replaces = clazz.getAnnotation(Replaces.class);
+                if (replaces == null) {
+                    continue;
+                }
+                Class<?> targetType = replaces.value();
+                Object target = findNodeByType(nodes, targetType);
+                if (target == null) {
+                    throw new NoSuchBeanException("@Replaces target not found: " + targetType.getName());
+                }
+                redirects.put(target, node);
+                // Also redirect @Bean methods declared on the replaced class
+                for (Object n : nodes) {
+                    if (n instanceof Method m && m.getDeclaringClass() == targetType) {
+                        redirects.put(m, node);
+                    }
+                }
+            }
+
+            // Method-level @Replaces (on @Bean methods)
+            for (Object node : new ArrayList<>(nodes)) {
+                if (!(node instanceof Method method)) {
+                    continue;
+                }
+                if (!method.isAnnotationPresent(Bean.class)) {
+                    continue;
+                }
+                Replaces replaces = method.getAnnotation(Replaces.class);
+                if (replaces == null) {
+                    continue;
+                }
+                Class<?> targetType = replaces.value();
+                Object target = findNodeByReturnType(nodes, targetType, method);
+                if (target == null) {
+                    throw new NoSuchBeanException("@Replaces target not found: " + targetType.getName());
+                }
+                redirects.put(target, node);
+            }
+        }
+
+        private static void resolveConditionalOnBean(Set<Object> nodes, List<Object> topoOrder,
+                Map<Object, Object> redirects, Set<Class<?>> beanReturnTypes) {
+            for (Object node : topoOrder) {
+                if (!nodes.contains(node)) {
+                    continue;
+                }
+                Class<?> requiredType = getRequiredType(node);
+                if (requiredType == null) {
+                    continue;
+                }
+                boolean satisfied = false;
+                for (Object n : nodes) {
+                    Class<?> providedType = getProvidedType(n);
+                    if (providedType == null) {
+                        continue;
+                    }
+                    if (requiredType.isAssignableFrom(providedType)) {
+                        satisfied = true;
+                        break;
+                    }
+                    Object redirectTarget = redirects.get(n);
+                    if (redirectTarget != null) {
+                        Class<?> redirectType = getProvidedType(redirectTarget);
+                        if (redirectType != null && requiredType.isAssignableFrom(redirectType)) {
+                            satisfied = true;
+                            break;
+                        }
+                    }
+                }
+                if (!satisfied) {
+                    for (Class<?> returnType : beanReturnTypes) {
+                        if (requiredType.isAssignableFrom(returnType)) {
+                            satisfied = true;
+                            break;
+                        }
+                    }
+                }
+                if (!satisfied) {
+                    nodes.remove(node);
+                    if (node instanceof Class<?> clazz) {
+                        nodes.removeIf(n -> n instanceof Method m && m.getDeclaringClass() == clazz);
+                    }
+                    // Restore original if a replacement is removed
+                    redirects.entrySet().removeIf(entry -> entry.getValue() == node);
+                }
+            }
+            // Cleanup: remove originals whose replacements survived
+            for (Map.Entry<Object, Object> entry : new ArrayList<>(redirects.entrySet())) {
+                Object original = entry.getKey();
+                Object replacement = entry.getValue();
+                if (nodes.contains(replacement)) {
+                    nodes.remove(original);
+                    if (original instanceof Class<?> clazz) {
+                        nodes.removeIf(n -> n instanceof Method m && m.getDeclaringClass() == clazz);
+                    }
+                }
+            }
+        }
+
+        private static Object findNodeByType(Set<Object> nodes, Class<?> type) {
+            for (Object node : nodes) {
+                if (getProvidedType(node) == type) {
+                    return node;
+                }
+            }
+            return null;
+        }
+
+        private static Object findNodeByReturnType(Set<Object> nodes, Class<?> returnType, Method replacement) {
+            for (Object node : nodes) {
+                // Match a Class node whose type is the return type
+                if (node instanceof Class<?> c && c == returnType) {
+                    return c;
+                }
+                // Match a Method node whose return type matches
+                if (node instanceof Method m && m.getReturnType() == returnType && m != replacement) {
+                    return m;
+                }
+            }
+            return null;
+        }
+
+        private static Class<?> getProvidedType(Object node) {
+            if (node instanceof Class<?> clazz) {
+                return clazz;
+            }
+            if (node instanceof Method method) {
+                return method.getReturnType();
+            }
+            return null;
+        }
+    }
 }
