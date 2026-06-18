@@ -15,10 +15,10 @@ import summer.runtime.RuntimeApplicationContext;
  * SummerApplication.run(args);
  *
  * // Explicit engine
- * SummerApplication.run(Engine.AOT, args);
- * SummerApplication.run(Engine.RUNTIME, args);
+ * SummerApplication.run(Engine.AOT, args);     // fail if AOT missing
+ * SummerApplication.run(Engine.RUNTIME, args); // always Runtime
  *
- * // Pre-built container (tests, custom bootstraps)
+ * // Pre-built container
  * SummerApplication.run(container, args);
  * }</pre>
  */
@@ -34,30 +34,17 @@ public final class SummerApplication {
     private SummerApplication() {
     }
 
-    /**
-     * Run with auto-detection: AOT if the generated context is on the
-     * classpath, otherwise fall back to runtime Jandex scanning.
-     */
+    /** Auto-detect: AOT first, Runtime fallback. */
     public static BeanContainer run(String[] args) throws Exception {
         return start(RuntimeApplicationContext.create(), args);
     }
 
-    /**
-     * Run with an explicit engine.
-     *
-     * @param engine {@link Engine#AOT} (fail if no AOT context) or
-     *               {@link Engine#RUNTIME} (always classpath scanning)
-     */
+    /** Explicit engine ({@link Engine#AOT} fails if no AOT context). */
     public static BeanContainer run(Engine engine, String[] args) throws Exception {
-        BeanContainer ctx = engine == Engine.AOT
-                ? RuntimeApplicationContext.createAot()
-                : RuntimeApplicationContext.createRuntime();
-        return start(ctx, args);
+        return start(RuntimeApplicationContext.create(engine), args);
     }
 
-    /**
-     * Run with a pre-built {@link BeanContainer}.
-     */
+    /** Pre-built {@link BeanContainer}. */
     public static BeanContainer run(BeanContainer context, String[] args) throws Exception {
         return start(context, args);
     }
