@@ -17,9 +17,6 @@ import summer.runtime.RuntimeApplicationContext;
  * // Explicit engine
  * SummerApplication.run(Engine.AOT, args);     // fail if AOT missing
  * SummerApplication.run(Engine.RUNTIME, args); // always Runtime
- *
- * // Pre-built container
- * SummerApplication.run(container, args);
  * }</pre>
  */
 public final class SummerApplication {
@@ -44,10 +41,6 @@ public final class SummerApplication {
         return start(RuntimeApplicationContext.create(engine), args);
     }
 
-    /** Pre-built {@link BeanContainer}. */
-    public static BeanContainer run(BeanContainer context, String[] args) throws Exception {
-        return start(context, args);
-    }
 
     private static BeanContainer start(BeanContainer context, String[] args) throws Exception {
         System.out.println(Banner.format());
