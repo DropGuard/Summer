@@ -8,6 +8,6 @@ public class RuntimeWebRouteTest extends AbstractWebRouteTCK {
 
 	@Override
 	protected BeanContainer createContext() {
-		return RuntimeApplicationContext.create();
+		return RuntimeApplicationContext.createRuntime();
 	}
 }

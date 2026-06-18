@@ -1,8 +1,10 @@
-package summer.tx;
+package summer.data.jdbc.tx;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 import summer.core.ErrorCode;
+import summer.tx.SummerTransactionException;
+import summer.tx.TransactionStatus;
 
 /**
  * ThreadLocal based transaction context that manages connections per thread.

@@ -2,12 +2,13 @@ package summer.tx;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
 import summer.aop.InterceptorChain;
 import summer.aop.MethodMetadata;
 import summer.aop.TargetInvoker;
-import summer.runtime.RuntimeMethodMetadata;
 
 /**
  * Tests for {@link TransactionInterceptor}.
@@ -28,7 +29,7 @@ class TransactionInterceptorTest {
 		TransactionInterceptor interceptor = new TransactionInterceptor(manager);
 
 		TestService target = new TestServiceImpl();
-		MethodMetadata metadata = new RuntimeMethodMetadata(TestService.class.getMethod("transactionalMethod"));
+		MethodMetadata metadata = new SimpleMethodMetadata(TestService.class.getMethod("transactionalMethod"));
 		InterceptorChain chain = new TestInterceptorChain(target, metadata, new Object[0], target::transactionalMethod);
 
 		Object result = interceptor.intercept(chain);
@@ -41,7 +42,7 @@ class TransactionInterceptorTest {
 		TransactionInterceptor interceptor = new TransactionInterceptor(manager);
 
 		TestService target = new TestServiceImpl();
-		MethodMetadata metadata = new RuntimeMethodMetadata(TestService.class.getMethod("nonTransactionalMethod"));
+		MethodMetadata metadata = new SimpleMethodMetadata(TestService.class.getMethod("nonTransactionalMethod"));
 		InterceptorChain chain = new TestInterceptorChain(target, metadata, new Object[0],
 				target::nonTransactionalMethod);
 
@@ -55,7 +56,7 @@ class TransactionInterceptorTest {
 		TransactionInterceptor interceptor = new TransactionInterceptor(manager);
 
 		TestService target = new TestServiceImpl();
-		MethodMetadata metadata = new RuntimeMethodMetadata(TestService.class.getMethod("transactionalMethod"));
+		MethodMetadata metadata = new SimpleMethodMetadata(TestService.class.getMethod("transactionalMethod"));
 		InterceptorChain chain = new TestInterceptorChain(target, metadata, new Object[0], () -> {
 			throw new RuntimeException("Test exception");
 		});
@@ -72,7 +73,7 @@ class TransactionInterceptorTest {
 		TransactionInterceptor interceptor = new TransactionInterceptor(manager);
 
 		TestService target = new TestServiceImpl();
-		MethodMetadata metadata = new RuntimeMethodMetadata(TestService.class.getMethod("transactionalMethod"));
+		MethodMetadata metadata = new SimpleMethodMetadata(TestService.class.getMethod("transactionalMethod"));
 		InterceptorChain chain = new TestInterceptorChain(target, metadata, new Object[0], target::transactionalMethod);
 
 		Object result = interceptor.intercept(chain);
@@ -203,6 +204,29 @@ class TransactionInterceptorTest {
 		@Override
 		public Object proceed() throws Throwable {
 			return invoker.invoke();
+		}
+	}
+
+	private record SimpleMethodMetadata(Method method) implements MethodMetadata {
+		@Override
+		public String getName() {
+			return method.getName();
+		}
+
+		@Override
+		public Class<?> getDeclaringClass() {
+			return method.getDeclaringClass();
+		}
+
+		@Override
+		public boolean isAnnotationPresent(Class<? extends Annotation> annotationClass) {
+			return method.isAnnotationPresent(annotationClass);
+		}
+
+		@SuppressWarnings("unchecked")
+		@Override
+		public <T extends Annotation> T getAnnotation(Class<T> annotationClass) {
+			return method.getAnnotation(annotationClass);
 		}
 	}
 }

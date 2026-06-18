@@ -5,10 +5,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import java.util.List;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import summer.data.jdbc.JdbcTemplate;
-import summer.data.jdbc.RowMapperRegistry;
 import summer.fixtures.data.jdbc.User;
 import summer.tck.AbstractComponentTCK;
 
@@ -16,8 +16,8 @@ import summer.tck.AbstractComponentTCK;
  * TCK for JdbcTemplate CRUD operations.
  *
  * <p>
- * Both DI engines use the same generated {@code RowMapperConfiguration} to
- * provide {@link RowMapperRegistry}. Subclasses simulate each engine's
+ * Subclasses provide a {@code JdbcTemplate} via
+ * {@link #createJdbcTemplate(DataSource)}, simulating each engine's
  * instantiation path: Runtime via reflection, AOT via generated code.
  * </p>
  */
@@ -27,9 +27,9 @@ public abstract class AbstractJdbcTemplateTCK extends AbstractComponentTCK {
 	protected JdbcTemplate jdbcTemplate;
 
 	/**
-	 * Creates the RowMapperRegistry for this engine.
+	 * Creates the JdbcTemplate for this engine.
 	 */
-	protected abstract RowMapperRegistry createRegistry();
+	protected abstract JdbcTemplate createJdbcTemplate(DataSource dataSource);
 	@BeforeEach
 	void setUpJdbcTemplate() {
 		HikariConfig config = new HikariConfig();
@@ -38,7 +38,7 @@ public abstract class AbstractJdbcTemplateTCK extends AbstractComponentTCK {
 		config.setPassword("");
 		dataSource = new HikariDataSource(config);
 
-		jdbcTemplate = new JdbcTemplate(dataSource, createRegistry());
+		jdbcTemplate = createJdbcTemplate(dataSource);
 
 		jdbcTemplate.update("CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY, name VARCHAR(255))");
 		jdbcTemplate.update("TRUNCATE TABLE users");

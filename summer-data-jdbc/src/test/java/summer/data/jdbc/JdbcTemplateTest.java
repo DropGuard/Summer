@@ -38,18 +38,15 @@ class JdbcTemplateTest {
 	@Mock
 	private ResultSet resultSet;
 
-	private RowMapperRegistry registry;
 	private JdbcTemplate jdbcTemplate;
 
 	@BeforeEach
 	void setUp() throws SQLException {
-		registry = new RowMapperRegistry();
-		registry.put(TestRow.class, (rs, rowNum) -> new TestRow(rs.getInt("id"), rs.getString("name")));
+		jdbcTemplate = new JdbcTemplate(dataSource);
+		jdbcTemplate.registerMapper(TestRow.class, (rs, rowNum) -> new TestRow(rs.getInt("id"), rs.getString("name")));
 
 		lenient().when(dataSource.getConnection()).thenReturn(connection);
 		lenient().when(connection.prepareStatement(anyString())).thenReturn(preparedStatement);
-
-		jdbcTemplate = new JdbcTemplate(dataSource, registry);
 	}
 
 	// ---- setParameters boundary cases ----
@@ -167,7 +164,7 @@ class JdbcTemplateTest {
             RowMapper<TestRow> failingMapper = (rs, rowNum) -> {
                 throw new SQLException("Column not found");
             };
-            registry.put(TestRow.class, failingMapper);
+            jdbcTemplate.registerMapper(TestRow.class, failingMapper);
             
             assertThrows(DataAccessException.class,
                 () -> jdbcTemplate.queryForList("SELECT * FROM t", TestRow.class));
@@ -182,7 +179,7 @@ class JdbcTemplateTest {
             RowMapper<TestRow> failingMapper = (rs, rowNum) -> {
                 throw new IllegalStateException("Bad state");
             };
-            registry.put(TestRow.class, failingMapper);
+            jdbcTemplate.registerMapper(TestRow.class, failingMapper);
             
             assertThrows(IllegalStateException.class,
                 () -> jdbcTemplate.queryForList("SELECT * FROM t", TestRow.class));

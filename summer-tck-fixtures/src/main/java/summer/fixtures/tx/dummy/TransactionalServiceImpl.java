@@ -4,7 +4,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import summer.core.Component;
-import summer.tx.ThreadLocalTransactionContext;
+import summer.data.jdbc.tx.ThreadLocalTransactionContext;
 import summer.tx.Transactional;
 
 @Component

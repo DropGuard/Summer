@@ -1,4 +1,4 @@
-package summer.tx;
+package summer.data.jdbc.tx;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -8,6 +8,8 @@ import java.sql.SQLException;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import summer.tx.SummerTransactionException;
+import summer.tx.TransactionStatus;
 
 /**
  * Unit tests for {@link SimpleJdbcTransactionManager}.

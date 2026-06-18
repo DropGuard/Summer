@@ -45,7 +45,7 @@ public class SummerExtension
         } else if (entryBeans != null && entryBeans.length > 0) {
             container = RuntimeApplicationContext.containing(entryBeans);
         } else {
-            container = RuntimeApplicationContext.create();
+            container = RuntimeApplicationContext.createRuntime();
         }
 
         ctx.getStore(NS).put(KEY, container);

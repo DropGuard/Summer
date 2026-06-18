@@ -1,4 +1,4 @@
-package summer.tx;
+package summer.data.jdbc.tx;
 
 import java.io.PrintWriter;
 import java.sql.Connection;
@@ -14,7 +14,7 @@ import javax.sql.DataSource;
  * <p>
  * When a transaction is active, the returned connection is wrapped to suppress
  * {@code close()}, {@code commit()}, and {@code rollback()} calls — these are
- * managed by the {@link TransactionInterceptor}.
+ * managed by the {@code TransactionInterceptor}.
  * </p>
  */
 public class TransactionAwareDataSourceProxy implements DataSource {

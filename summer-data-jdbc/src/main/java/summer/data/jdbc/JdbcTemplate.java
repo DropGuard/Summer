@@ -5,7 +5,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.sql.DataSource;
 import summer.core.exception.DataAccessException;
 
@@ -16,11 +18,18 @@ import summer.core.exception.DataAccessException;
 public class JdbcTemplate {
 
 	private final DataSource dataSource;
-	private final RowMapperRegistry mappers;
+	private final Map<Class<?>, RowMapper<?>> mappers = new HashMap<>();
 
-	public JdbcTemplate(DataSource dataSource, RowMapperRegistry mappers) {
+	public JdbcTemplate(DataSource dataSource) {
 		this.dataSource = dataSource;
-		this.mappers = mappers;
+	}
+
+	/**
+	 * Registers a {@code RowMapper} for the given row type.
+	 * Called by the DI engine at startup; not part of the public API.
+	 */
+	public void registerMapper(Class<?> rowType, RowMapper<?> mapper) {
+		mappers.put(rowType, mapper);
 	}
 
 	public int update(String sql, Object... args) {
@@ -44,8 +53,13 @@ public class JdbcTemplate {
 		}
 	}
 
+	@SuppressWarnings("unchecked")
 	public <T> List<T> queryForList(String sql, Class<T> rowType, Object... args) {
-		RowMapper<T> mapper = mappers.get(rowType);
+		RowMapper<T> mapper = (RowMapper<T>) mappers.get(rowType);
+		if (mapper == null) {
+			throw new DataAccessException("No RowMapper registered for " + rowType.getName()
+					+ ". Ensure the class is annotated with @RowModel and summer-maven-plugin is configured.");
+		}
 		List<T> results = new ArrayList<>();
 		try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 			setParameters(ps, args);

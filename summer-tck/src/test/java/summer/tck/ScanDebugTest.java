@@ -7,7 +7,7 @@ import summer.runtime.RuntimeApplicationContext;
 class ScanDebugTest {
     @Test
     void testScan() {
-        BeanContainer ctx = RuntimeApplicationContext.create();
+        BeanContainer ctx = RuntimeApplicationContext.createRuntime();
         System.out.println("=== Components ===");
         for (Class<?> c : ctx.componentTypes()) {
             System.out.println("  " + c.getName() + " isInterface=" + c.isInterface());

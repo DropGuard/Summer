@@ -11,6 +11,6 @@ public class RuntimeInterfaceInheritanceTest extends AbstractInterfaceInheritanc
 
 	@Override
 	protected BeanContainer createContext() {
-		return RuntimeApplicationContext.create();
+		return RuntimeApplicationContext.createRuntime();
 	}
 }

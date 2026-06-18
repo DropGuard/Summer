@@ -94,11 +94,11 @@ public final class AotContextGenerator {
                 "INSTANCE");
         method.addCode("\n");
 
-        // Infrastructure: RowMapper registry (full scan — all mappers)
-        new WireMethodGenerator(this).emitRowMapperRegistry(method, this.index, null);
-
         // Wire all beans
         new WireMethodGenerator(this).generateWireMethod(method, sortedBeans);
+        // Register @RowModel mappers with JdbcTemplate (must run after
+        // generateWireMethod so the JdbcTemplate singleton exists)
+        new WireMethodGenerator(this).emitRowMapperRegistrations(method, this.index, null, sortedBeans);
 
         method.addCode("\n");
         method.addStatement("return $T.create(registry, $T.AOT)", BEAN_CONTAINER, ENGINE);

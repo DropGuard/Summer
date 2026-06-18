@@ -28,16 +28,6 @@ class WebLayerTest {
 			return org.mockito.Mockito.mock(io.lettuce.core.api.sync.RedisCommands.class);
 		}
 
-		@summer.core.annotation.Bean
-		@summer.core.annotation.Replaces(summer.data.jdbc.RowMapperRegistry.class)
-		public summer.data.jdbc.RowMapperRegistry rowMapperRegistry() {
-			summer.data.jdbc.RowMapperRegistry registry = new summer.data.jdbc.RowMapperRegistry();
-			registry.put(summer.example.User.class, (java.sql.ResultSet rs, int rowNum) -> new summer.example.User(
-					rs.getString("id"),
-					rs.getString("name"),
-					rs.getString("email")));
-			return registry;
-		}
 	}
 
 	private static BeanContainer context;

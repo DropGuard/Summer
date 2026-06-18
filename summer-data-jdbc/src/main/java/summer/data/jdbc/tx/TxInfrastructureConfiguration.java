@@ -1,9 +1,11 @@
-package summer.tx;
+package summer.data.jdbc.tx;
 
 import javax.sql.DataSource;
 import summer.core.annotation.Bean;
 import summer.core.annotation.ConditionalOnBean;
 import summer.core.annotation.Configuration;
+import summer.tx.TransactionInterceptor;
+import summer.tx.TransactionManager;
 
 /**
  * Configuration for transaction infrastructure beans.

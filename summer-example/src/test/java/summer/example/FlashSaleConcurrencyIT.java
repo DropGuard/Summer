@@ -11,7 +11,7 @@ public class FlashSaleConcurrencyIT {
 
 	@Test
 	void shouldNotOversell() throws Exception {
-		var ctx = RuntimeApplicationContext.create();
+		var ctx = RuntimeApplicationContext.createRuntime();
 
 		FlashSaleService service = ctx.getBean(FlashSaleService.class);
 

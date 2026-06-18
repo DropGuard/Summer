@@ -10,6 +10,6 @@ public class RuntimeMethodReplacesTest extends AbstractMethodReplacesTCK {
 
 	@Override
 	protected BeanContainer createContext() {
-		return RuntimeApplicationContext.create();
+		return RuntimeApplicationContext.createRuntime();
 	}
 }

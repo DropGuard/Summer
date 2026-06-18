@@ -19,8 +19,7 @@ import org.jboss.jandex.IndexView;
  */
 final class WireMethodGenerator {
 
-    private static final ClassName ROW_MAPPER_REGISTRY = ClassName.get("summer.data.jdbc",
-            "RowMapperRegistry");
+    private static final ClassName JDBC_TEMPLATE = ClassName.get("summer.data.jdbc", "JdbcTemplate");
 
     private final AotContextGenerator context;
 
@@ -76,16 +75,21 @@ final class WireMethodGenerator {
     }
 
     /**
-     * Emits inline {@code RowMapper} lambdas for all {@code @RowModel}
-     * records in the index. No separate RowMapper classes are generated.
+     * Emits inline {@code RowMapper} lambda registrations for all
+     * {@code @RowModel} records in the index. Mappers are registered
+     * directly on the {@code JdbcTemplate} singleton via
+     * {@code registerMapper()}.
      */
-    void emitRowMapperRegistry(MethodSpec.Builder wire, IndexView index,
-            java.util.Set<String> activeClassNames) {
+    void emitRowMapperRegistrations(MethodSpec.Builder wire, IndexView index,
+            java.util.Set<String> activeClassNames, List<BeanDefinition> sortedBeans) {
+
+        if (index == null) {
+            return;
+        }
 
         List<summer.data.jdbc.RowMapperFactory.RowModelMeta> metas = summer.data.jdbc.RowMapperFactory
                 .scanJandex(index);
 
-        // Filter to active scope (for TestGraph)
         if (activeClassNames != null) {
             metas = metas.stream()
                     .filter(m -> activeClassNames.contains(m.modelClassName()))
@@ -97,9 +101,9 @@ final class WireMethodGenerator {
         }
 
         wire.addCode("\n");
-        wire.addComment("RowMapper Registry");
-        wire.addStatement("$T rowMapperRegistry = new $T()", ROW_MAPPER_REGISTRY,
-                ROW_MAPPER_REGISTRY);
+        wire.addComment("Register @RowModel mappers with JdbcTemplate");
+        wire.addStatement("$T _jt = ($T) registry.peek($T.class)", JDBC_TEMPLATE, JDBC_TEMPLATE, JDBC_TEMPLATE);
+        wire.beginControlFlow("if (_jt != null)");
 
         for (var meta : metas) {
             ClassName modelClass = safeClassName(meta.modelClassName());
@@ -115,7 +119,6 @@ final class WireMethodGenerator {
                 wire.addStatement("    $T $N = $L", fieldType, field.name(),
                         field.jdbcGetter().replace("rs.", "rs."));
             }
-            // Build constructor call
             StringBuilder ctorArgs = new StringBuilder();
             for (int i = 0; i < meta.fields().size(); i++) {
                 if (i > 0)
@@ -124,11 +127,10 @@ final class WireMethodGenerator {
             }
             wire.addStatement("    return new $T($L)", modelClass, ctorArgs.toString());
             wire.addStatement("}");
-            wire.addStatement("rowMapperRegistry.put($T.class, $N)", modelClass, mapperVar);
+            wire.addStatement("_jt.registerMapper($T.class, $N)", modelClass, mapperVar);
         }
 
-        wire.addStatement("registry.registerSingleton($T.class, rowMapperRegistry)",
-                ROW_MAPPER_REGISTRY);
+        wire.endControlFlow();
     }
 
     private static com.palantir.javapoet.TypeName toTypeName(String typeName) {

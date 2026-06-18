@@ -20,5 +20,4 @@ import summer.aop.InterceptorBinding;
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Transactional {
-	TransactionPropagation propagation() default TransactionPropagation.REQUIRED;
 }

@@ -8,6 +8,6 @@ public class RuntimeMiddlewareTest extends AbstractMiddlewareTCK {
 
 	@Override
 	protected BeanContainer createContext() {
-		return RuntimeApplicationContext.create();
+		return RuntimeApplicationContext.createRuntime();
 	}
 }

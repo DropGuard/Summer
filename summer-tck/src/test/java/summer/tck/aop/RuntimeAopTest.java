@@ -13,6 +13,6 @@ public class RuntimeAopTest extends AbstractAopTCK {
 
 	@Override
 	protected BeanContainer createContext() {
-		return RuntimeApplicationContext.create();
+		return RuntimeApplicationContext.createRuntime();
 	}
 }

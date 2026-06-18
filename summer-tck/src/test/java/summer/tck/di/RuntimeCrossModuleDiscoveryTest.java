@@ -8,6 +8,6 @@ public class RuntimeCrossModuleDiscoveryTest extends AbstractCrossModuleDiscover
 
 	@Override
 	protected BeanContainer createContext() {
-		return RuntimeApplicationContext.create();
+		return RuntimeApplicationContext.createRuntime();
 	}
 }

@@ -17,18 +17,6 @@ class TransactionalAnnotationTest {
 	}
 
 	@Test
-	void shouldHaveDefaultPropagation() {
-		Transactional annotation = getTransactionalAnnotation();
-		assertEquals(TransactionPropagation.REQUIRED, annotation.propagation());
-	}
-
-	@Test
-	void shouldSupportCustomPropagation() {
-		Transactional annotation = getCustomTransactionalAnnotation();
-		assertEquals(TransactionPropagation.REQUIRES_NEW, annotation.propagation());
-	}
-
-	@Test
 	void shouldSupportTransactionalOnMethod() {
 		assertTrue(isTransactionalMethodPresent());
 	}
@@ -38,20 +26,9 @@ class TransactionalAnnotationTest {
 		assertFalse(isTransactionalClassPresent());
 	}
 
-	// Helper methods
 	private Transactional getTransactionalAnnotation() {
 		try {
 			Method method = TestService.class.getMethod("transactionalMethod");
-			return method.getAnnotation(Transactional.class);
-		} catch (NoSuchMethodException e) {
-			fail("Method not found");
-			return null;
-		}
-	}
-
-	private Transactional getCustomTransactionalAnnotation() {
-		try {
-			Method method = TestService.class.getMethod("customTransactionalMethod");
 			return method.getAnnotation(Transactional.class);
 		} catch (NoSuchMethodException e) {
 			fail("Method not found");
@@ -72,13 +49,9 @@ class TransactionalAnnotationTest {
 		return TestService.class.isAnnotationPresent(Transactional.class);
 	}
 
-	// Test interface
 	public interface TestService {
 		@Transactional
 		String transactionalMethod();
-
-		@Transactional(propagation = TransactionPropagation.REQUIRES_NEW)
-		String customTransactionalMethod();
 
 		String nonTransactionalMethod();
 	}

@@ -12,11 +12,11 @@ public class RuntimeReplacesTest extends AbstractReplacesTCK {
 
 	@Override
 	protected BeanContainer createContext() {
-		return RuntimeApplicationContext.create();
+		return RuntimeApplicationContext.createRuntime();
 	}
 
 	@Override
 	protected BeanContainer createConditionalReplacesContext() {
-		return RuntimeApplicationContext.create();
+		return RuntimeApplicationContext.createRuntime();
 	}
 }

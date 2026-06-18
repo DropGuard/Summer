@@ -69,14 +69,34 @@ public final class RuntimeApplicationContext {
     }
 
     /**
-     * Builds a {@link BeanContainer} by scanning the classpath via Jandex and
-     * initializing all discovered beans. This is the default production entry
-     * point.
+     * Creates a {@link BeanContainer}: AOT bootstrap if the generated
+     * {@code GeneratedAotContext} is present on the classpath, otherwise
+     * falls back to runtime Jandex scanning.
+     *
+     * <p>
+     * This is the default production entry point called by
+     * {@link summer.boot.SummerApplication#run(Class, String[])}.
+     * Use {@link #createRuntime()} when you explicitly need the runtime
+     * path (e.g. in tests).
      */
     public static BeanContainer create() {
-        return builder().build();
+        try {
+            Class<?> aotClass = Class.forName("summer.core.aot.GeneratedAotContext");
+            java.lang.reflect.Method createMethod = aotClass.getMethod("create");
+            return (BeanContainer) createMethod.invoke(null);
+        } catch (Exception e) {
+            log.debug("No AOT context, falling back to runtime: {}", e.getMessage());
+            return createRuntime();
+        }
     }
 
+    /**
+     * Creates a {@link BeanContainer} using runtime Jandex classpath
+     * scanning and DI — the pure runtime path. No AOT detection.
+     */
+    public static BeanContainer createRuntime() {
+        return builder().build();
+    }
     /**
      * Builds a {@link BeanContainer} containing only the given beans and their
      * transitive dependency closure. No Jandex classpath scanning is performed.
@@ -161,9 +181,6 @@ public final class RuntimeApplicationContext {
 
             IndexView index = JandexIndexLoader.buildIndex();
 
-            // Infrastructure: RowMapper registry
-            registerRowMappers(registry, index);
-
             // Full classpath scan (production / integration test mode)
             Set<Class<?>> componentClasses = discoverComponents(index);
             // Also include @ConfigurationProperties beans that are not
@@ -229,6 +246,9 @@ public final class RuntimeApplicationContext {
                     instantiator.invokeBeanProducer(method);
                 }
             }
+
+            // Register @RowModel reflective mappers with JdbcTemplate
+            registerRowMappers(registry, index);
 
             // Phase 4: validation
             runValidators(registry);
@@ -364,7 +384,6 @@ public final class RuntimeApplicationContext {
         @SuppressWarnings({ "unchecked", "rawtypes" })
         private static void registerRowMappers(BeanRegistry registry, IndexView index) {
             try {
-                // Reflection to avoid hard dependency on summer-data-jdbc
                 Class<?> factoryClass = Class.forName("summer.data.jdbc.RowMapperFactory");
                 var metas = (java.util.List<?>) factoryClass.getMethod("scanJandex", IndexView.class)
                         .invoke(null, index);
@@ -372,9 +391,21 @@ public final class RuntimeApplicationContext {
                     return;
                 }
 
-                Class<?> registryClass = Class.forName("summer.data.jdbc.RowMapperRegistry");
-                Object mapperRegistry = registryClass.getDeclaredConstructor().newInstance();
-                java.lang.reflect.Method putMethod = registryClass.getMethod("put", Class.class,
+                // JdbcTemplate may not be on classpath — guard with Class.forName
+                Class<?> jdbcTemplateClass;
+                try {
+                    jdbcTemplateClass = Class.forName("summer.data.jdbc.JdbcTemplate");
+                } catch (ClassNotFoundException e) {
+                    return;
+                }
+
+                Object jdbcTemplate = registry.peek(jdbcTemplateClass);
+                if (jdbcTemplate == null) {
+                    return;
+                }
+
+                java.lang.reflect.Method registerMethod = jdbcTemplateClass.getMethod(
+                        "registerMapper", Class.class,
                         Class.forName("summer.data.jdbc.RowMapper"));
 
                 for (Object meta : metas) {
@@ -384,12 +415,11 @@ public final class RuntimeApplicationContext {
                         Class<?> modelClass = Class.forName(modelClassName);
                         Object mapper = factoryClass.getMethod("createReflective", Class.class, meta.getClass())
                                 .invoke(null, modelClass, meta);
-                        putMethod.invoke(mapperRegistry, modelClass, mapper);
+                        registerMethod.invoke(jdbcTemplate, modelClass, mapper);
                     } catch (ClassNotFoundException e) {
                         log.debug("[Summer] Could not load @RowModel class", e);
                     }
                 }
-                registry.registerSingleton((Class) registryClass, mapperRegistry);
             } catch (ClassNotFoundException e) {
                 // summer-data-jdbc not on classpath — nothing to do
             } catch (Exception e) {
@@ -505,9 +535,6 @@ public final class RuntimeApplicationContext {
 
             IndexView index = JandexIndexLoader.buildIndex();
 
-            // Infrastructure: RowMapper registry
-            registerRowMappers(registry, index);
-
             Set<Class<?>> seeds = new LinkedHashSet<>();
             for (Class<?> c : components) {
                 seeds.add(c);
@@ -552,6 +579,9 @@ public final class RuntimeApplicationContext {
                     instantiator.invokeBeanProducer(method);
                 }
             }
+
+            // Register @RowModel reflective mappers with JdbcTemplate
+            registerRowMappers(registry, index);
 
             // Phase 4: validation
             runValidators(registry);

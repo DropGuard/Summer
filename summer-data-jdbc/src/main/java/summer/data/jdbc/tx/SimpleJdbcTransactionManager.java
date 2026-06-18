@@ -1,10 +1,13 @@
-package summer.tx;
+package summer.data.jdbc.tx;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 import javax.sql.DataSource;
 import summer.core.ErrorCode;
 import summer.core.annotation.ConditionalOnBean;
+import summer.tx.SummerTransactionException;
+import summer.tx.TransactionManager;
+import summer.tx.TransactionStatus;
 
 /**
  * Simple JDBC transaction manager that manages transactions using a DataSource.

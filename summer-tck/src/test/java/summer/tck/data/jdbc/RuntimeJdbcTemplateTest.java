@@ -1,20 +1,20 @@
 package summer.tck.data.jdbc;
 
-import summer.data.jdbc.RowMapperRegistry;
+import javax.sql.DataSource;
+import summer.data.jdbc.JdbcTemplate;
 import summer.fixtures.data.jdbc.User;
 import summer.fixtures.data.jdbc.User_RowMapper;
-
 /**
- * Runtime engine JdbcTemplate TCK. Simulates the RowMapperRegistry produced by
- * Runtime-discovered {@code RowMapperConfiguration}: same generated mappers,
- * instantiated via reflection.
+ * Runtime engine JdbcTemplate TCK. Simulates JdbcTemplate configuration
+ * produced by Runtime-discovered {@code RowMapperConfiguration}:
+ * same generated mappers, registered via {@code registerMapper}.
  */
 public class RuntimeJdbcTemplateTest extends AbstractJdbcTemplateTCK {
 
 	@Override
-	protected RowMapperRegistry createRegistry() {
-		RowMapperRegistry registry = new RowMapperRegistry();
-		registry.put(User.class, new User_RowMapper());
-		return registry;
+	protected JdbcTemplate createJdbcTemplate(DataSource dataSource) {
+		JdbcTemplate jt = new JdbcTemplate(dataSource);
+		jt.registerMapper(User.class, new User_RowMapper());
+		return jt;
 	}
 }

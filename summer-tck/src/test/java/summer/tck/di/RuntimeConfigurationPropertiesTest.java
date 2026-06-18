@@ -11,7 +11,7 @@ public class RuntimeConfigurationPropertiesTest extends AbstractConfigurationPro
 
 	@Override
 	protected BeanContainer createContext() {
-		return RuntimeApplicationContext.create();
+		return RuntimeApplicationContext.createRuntime();
 	}
 
 	@Override

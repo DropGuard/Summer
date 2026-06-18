@@ -11,7 +11,7 @@ public class RuntimeValidationTest extends AbstractValidationTCK {
 
 	@Override
 	protected BeanContainer createContext() {
-		return RuntimeApplicationContext.create();
+		return RuntimeApplicationContext.createRuntime();
 	}
 
 	@Override

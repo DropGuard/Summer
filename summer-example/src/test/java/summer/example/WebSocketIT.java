@@ -37,7 +37,7 @@ class WebSocketIT {
 
 	@BeforeAll
 	static void startServer() throws Exception {
-		context = RuntimeApplicationContext.create();
+		context = RuntimeApplicationContext.createRuntime();
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);
 	}

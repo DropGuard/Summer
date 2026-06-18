@@ -11,6 +11,6 @@ public class RuntimeConditionalOnBeanTest extends AbstractConditionalOnBeanTCK {
 
 	@Override
 	protected BeanContainer createContext() {
-		return RuntimeApplicationContext.create();
+		return RuntimeApplicationContext.createRuntime();
 	}
 }

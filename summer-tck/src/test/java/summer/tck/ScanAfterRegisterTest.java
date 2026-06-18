@@ -7,7 +7,7 @@ import summer.runtime.RuntimeApplicationContext;
 class ScanAfterRegisterTest {
     @Test
     void testScanAfterRegister() {
-        BeanContainer ctx = RuntimeApplicationContext.create();
+        BeanContainer ctx = RuntimeApplicationContext.createRuntime();
         System.out.println("=== Components ===");
         for (Class<?> c : ctx.componentTypes()) {
             System.out.println("  " + c.getName());

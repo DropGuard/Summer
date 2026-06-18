@@ -11,6 +11,6 @@ public class RuntimeGenericInterfaceTest extends AbstractGenericInterfaceTCK {
 
 	@Override
 	protected BeanContainer createContext() {
-		return RuntimeApplicationContext.create();
+		return RuntimeApplicationContext.createRuntime();
 	}
 }

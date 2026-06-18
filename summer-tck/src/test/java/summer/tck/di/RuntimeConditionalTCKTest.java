@@ -11,7 +11,7 @@ public class RuntimeConditionalTCKTest extends AbstractConditionalTCK {
 
 	@BeforeEach
 	void setUp() {
-		context = RuntimeApplicationContext.create();
+		context = RuntimeApplicationContext.createRuntime();
 	}
 
 	@AfterEach

@@ -40,8 +40,7 @@ public class TransactionInterceptor implements MethodInterceptor {
 			boolean alreadyActive = interceptorActive.get();
 			try {
 				interceptorActive.set(true);
-				Transactional transactional = chain.getMethod().getAnnotation(Transactional.class);
-				return handleTransactional(chain, transactional.propagation());
+            return handleTransactional(chain);
 			} finally {
 				if (!alreadyActive) {
 					interceptorActive.remove();
@@ -52,7 +51,7 @@ public class TransactionInterceptor implements MethodInterceptor {
 		return chain.proceed();
 	}
 
-	private Object handleTransactional(InterceptorChain chain, TransactionPropagation propagation) throws Throwable {
+    private Object handleTransactional(InterceptorChain chain) throws Throwable {
 		TransactionStatus transaction = null;
 
 		try {
