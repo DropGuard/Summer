@@ -22,19 +22,16 @@ import summer.runtime.RuntimeApplicationContext;
  * SummerApplication.run(container, args);
  * }</pre>
  */
-public class SummerApplication {
+public final class SummerApplication {
 
     private static final Logger log = LoggerFactory.getLogger(SummerApplication.class);
-
-    private final BeanContainer context;
 
     static {
         SLF4JBridgeHandler.removeHandlersForRootLogger();
         SLF4JBridgeHandler.install();
     }
 
-    public SummerApplication(BeanContainer context) {
-        this.context = context;
+    private SummerApplication() {
     }
 
     /**
@@ -42,7 +39,7 @@ public class SummerApplication {
      * classpath, otherwise fall back to runtime Jandex scanning.
      */
     public static BeanContainer run(String[] args) throws Exception {
-        return new SummerApplication(RuntimeApplicationContext.create()).start(args);
+        return start(RuntimeApplicationContext.create(), args);
     }
 
     /**
@@ -55,17 +52,17 @@ public class SummerApplication {
         BeanContainer ctx = engine == Engine.AOT
                 ? RuntimeApplicationContext.createAot()
                 : RuntimeApplicationContext.createRuntime();
-        return new SummerApplication(ctx).start(args);
+        return start(ctx, args);
     }
 
     /**
      * Run with a pre-built {@link BeanContainer}.
      */
     public static BeanContainer run(BeanContainer context, String[] args) throws Exception {
-        return new SummerApplication(context).start(args);
+        return start(context, args);
     }
 
-    public BeanContainer start(String[] args) throws Exception {
+    private static BeanContainer start(BeanContainer context, String[] args) throws Exception {
         System.out.println(Banner.format());
         log.info("Starting Summer Application...");
 
