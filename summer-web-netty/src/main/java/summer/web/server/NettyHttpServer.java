@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.core.exception.NoSuchBeanException;
 import summer.web.BodyConverter;
 import summer.web.HttpRouter;
@@ -45,7 +45,7 @@ public class NettyHttpServer {
 	 * Creates a NettyHttpServer by assembling components from the application
 	 * context.
 	 */
-	public static NettyHttpServer create(ApplicationContext context, ServerConfig config, HttpRouter httpRouter,
+	public static NettyHttpServer create(BeanContainer context, ServerConfig config, HttpRouter httpRouter,
 			WsRouter wsRouter, summer.web.ExceptionRegistry exceptionRegistry) {
 		List<Middleware> globalMiddlewares = getGlobalMiddlewares(context);
 		List<Middleware> middlewares = new java.util.ArrayList<>(globalMiddlewares);
@@ -67,12 +67,12 @@ public class NettyHttpServer {
 	 * Discovers all global middlewares from the application context. A middleware
 	 * is global if its class is annotated with {@link GlobalMiddleware}.
 	 */
-	private static List<Middleware> getGlobalMiddlewares(ApplicationContext context) {
+	private static List<Middleware> getGlobalMiddlewares(BeanContainer context) {
 		return context.getBeans(Middleware.class).stream()
 				.filter(m -> m.getClass().isAnnotationPresent(GlobalMiddleware.class)).toList();
 	}
 
-	private static <T> T findOptionalBean(ApplicationContext context, Class<T> type) {
+	private static <T> T findOptionalBean(BeanContainer context, Class<T> type) {
 		try {
 			return context.getBean(type);
 		} catch (NoSuchBeanException e) {

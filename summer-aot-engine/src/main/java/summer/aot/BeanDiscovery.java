@@ -1,4 +1,4 @@
-package summer.plugin;
+package summer.aot;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -78,10 +78,45 @@ public final class BeanDiscovery {
 		// Phase 3: Enrich remaining metadata
 		new BeanEnrichment(index).enrich(beans);
 
-		return beans;
-	}
+			return beans;
+		}
 
-	// ── Phase 1: Discovery ────────────────────────────────────────────
+		/**
+		 * Scoped discovery: only processes classes whose names are in the
+		 * given closure set. Used by {@link TestGraphGenerator} to build a
+		 * minimal BeanDefinition list for a test graph.
+		 */
+		public List<BeanDefinition> discoverScoped(Set<String> closureNames) {
+			List<BeanDefinition> beans = new ArrayList<>();
+			Set<String> collected = new HashSet<>();
+
+			for (String name : closureNames) {
+				ClassInfo ci = index.getClassByName(DotName.createSimple(name));
+				if (ci == null || ci.isAnnotation()) {
+					continue;
+				}
+				if (ci.isInterface() || ci.isAbstract()) {
+					if (hasMetaComponentAnnotation(ci, new HashSet<>())) {
+						throw new summer.core.exception.BeanCreationException(
+								summer.core.ErrorCode.BEAN_CREATION_FAILED,
+								"@Component cannot be placed on an interface or abstract class: "
+										+ ci.name()
+										+ ". Annotate the concrete implementation instead.");
+					}
+					continue;
+				}
+				discoverClass(ci, beans, collected);
+				if (ci.hasAnnotation(CONFIG_DOT)) {
+					discoverBeanFactoryMethods(ci, beans, collected);
+				}
+			}
+
+			resolveConditions(beans);
+			new BeanEnrichment(index).enrich(beans);
+			return beans;
+		}
+
+		// ── Phase 1: Discovery ────────────────────────────────────────────
 
 	private void discoverClass(ClassInfo ci, List<BeanDefinition> beans, Set<String> collected) {
 		String name = ci.name().toString();

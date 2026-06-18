@@ -20,7 +20,6 @@ import org.jboss.jandex.IndexView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import summer.aop.MethodInterceptor;
-import summer.core.ApplicationContext;
 import summer.core.BeanContainer;
 import summer.core.BeanRegistry;
 import summer.core.Component;
@@ -162,6 +161,9 @@ public final class RuntimeApplicationContext {
 
             IndexView index = JandexIndexLoader.buildIndex();
 
+            // Infrastructure: RowMapper registry
+            registerRowMappers(registry, index);
+
             // Full classpath scan (production / integration test mode)
             Set<Class<?>> componentClasses = discoverComponents(index);
             // Also include @ConfigurationProperties beans that are not
@@ -194,7 +196,7 @@ public final class RuntimeApplicationContext {
 
             // Build the full node set (component classes + @Bean methods + programmatic singletons)
             Set<Object> allNodes = new LinkedHashSet<>(componentClasses);
-            allNodes.addAll(registry.getRegisteredTypes());
+            allNodes.addAll(registry.singletons().keySet());
             for (Class<?> clazz : componentClasses) {
                 if (clazz.isAnnotationPresent(Configuration.class)) {
                     for (Method method : clazz.getDeclaredMethods()) {
@@ -309,7 +311,7 @@ public final class RuntimeApplicationContext {
                 }
                 Constructor<?> ctor = constructors[0];
                 for (Class<?> paramType : ctor.getParameterTypes()) {
-                    if (paramType == ApplicationContext.class) {
+                    if (paramType == BeanContainer.class) {
                         continue;
                     }
 
@@ -355,6 +357,44 @@ public final class RuntimeApplicationContext {
                 }
             }
             return result;
+        }
+
+        // ---- Infrastructure ----
+
+        @SuppressWarnings({ "unchecked", "rawtypes" })
+        private static void registerRowMappers(BeanRegistry registry, IndexView index) {
+            try {
+                // Reflection to avoid hard dependency on summer-data-jdbc
+                Class<?> factoryClass = Class.forName("summer.data.jdbc.RowMapperFactory");
+                var metas = (java.util.List<?>) factoryClass.getMethod("scanJandex", IndexView.class)
+                        .invoke(null, index);
+                if (metas.isEmpty()) {
+                    return;
+                }
+
+                Class<?> registryClass = Class.forName("summer.data.jdbc.RowMapperRegistry");
+                Object mapperRegistry = registryClass.getDeclaredConstructor().newInstance();
+                java.lang.reflect.Method putMethod = registryClass.getMethod("put", Class.class,
+                        Class.forName("summer.data.jdbc.RowMapper"));
+
+                for (Object meta : metas) {
+                    try {
+                        String modelClassName = (String) meta.getClass().getMethod("modelClassName")
+                                .invoke(meta);
+                        Class<?> modelClass = Class.forName(modelClassName);
+                        Object mapper = factoryClass.getMethod("createReflective", Class.class, meta.getClass())
+                                .invoke(null, modelClass, meta);
+                        putMethod.invoke(mapperRegistry, modelClass, mapper);
+                    } catch (ClassNotFoundException e) {
+                        log.debug("[Summer] Could not load @RowModel class", e);
+                    }
+                }
+                registry.registerSingleton((Class) registryClass, mapperRegistry);
+            } catch (ClassNotFoundException e) {
+                // summer-data-jdbc not on classpath — nothing to do
+            } catch (Exception e) {
+                log.debug("[Summer] Failed to register RowMapper registry: {}", e.getMessage());
+            }
         }
 
         // ---- Discovery ----
@@ -465,6 +505,9 @@ public final class RuntimeApplicationContext {
 
             IndexView index = JandexIndexLoader.buildIndex();
 
+            // Infrastructure: RowMapper registry
+            registerRowMappers(registry, index);
+
             Set<Class<?>> seeds = new LinkedHashSet<>();
             for (Class<?> c : components) {
                 seeds.add(c);
@@ -476,7 +519,7 @@ public final class RuntimeApplicationContext {
 
             // Build the full node set
             Set<Object> allNodes = new LinkedHashSet<>(componentClasses);
-            allNodes.addAll(registry.getRegisteredTypes());
+            allNodes.addAll(registry.singletons().keySet());
             for (Class<?> clazz : componentClasses) {
                 if (clazz.isAnnotationPresent(Configuration.class)) {
                     for (Method method : clazz.getDeclaredMethods()) {
@@ -589,7 +632,7 @@ public final class RuntimeApplicationContext {
                 } else {
                     // ApplicationContext was injected before — now we don't have access to it here
                     // so we throw (no production code uses this in runtime engine anymore)
-                    if (paramType == summer.core.ApplicationContext.class) {
+                    if (paramType == summer.core.BeanContainer.class) {
                         throw new BeanCreationException(ErrorCode.BEAN_CREATION_FAILED,
                                 "ApplicationContext injection is not supported by the runtime engine. Use BeanContainer from caller.");
                     }

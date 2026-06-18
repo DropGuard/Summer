@@ -36,9 +36,11 @@ public final class TypeConverter {
 			return Long.parseLong(value);
 		if (targetType == Boolean.class)
 			return Boolean.parseBoolean(value);
-		if (targetType == Double.class)
-			return Double.parseDouble(value);
-		throw new ConfigurationException(ErrorCode.CONFIG_PARSE_ERROR,
+if (targetType == Double.class)
+            return Double.parseDouble(value);
+        if (targetType.isEnum())
+            return Enum.valueOf((Class<Enum>) targetType, value);
+        throw new ConfigurationException(ErrorCode.CONFIG_PARSE_ERROR,
 				"Unsupported type for conversion: " + targetType.getName());
 	}
 }

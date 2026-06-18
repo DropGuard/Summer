@@ -3,7 +3,7 @@ package summer.tck.di;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.fixtures.di.ConditionalBean;
 import summer.fixtures.di.TestMarker;
 import summer.tck.AbstractComponentTCK;
@@ -23,7 +23,7 @@ import summer.tck.AbstractComponentTCK;
  */
 public abstract class AbstractConditionalTCK extends AbstractComponentTCK {
 
-	protected ApplicationContext context;
+	protected BeanContainer context;
 
 	@Test
 	void conditionalBeanPresentWhenMarkerExists() {

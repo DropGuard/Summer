@@ -6,7 +6,9 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.maven.artifact.Artifact;
@@ -18,248 +20,271 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
+import org.jboss.jandex.AnnotationInstance;
+import org.jboss.jandex.AnnotationValue;
+import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.CompositeIndex;
+import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexReader;
 import org.jboss.jandex.IndexView;
+import summer.aot.AotContextGenerator;
+import summer.aot.AotProxyGenerator;
+import summer.aot.BeanDefinition;
+import summer.aot.BeanDiscovery;
+import summer.aot.DependencyResolver;
+import summer.aot.RouteAdapterGenerator;
+import summer.aot.TestGraphGenerator;
 
 /**
- * Maven plugin for Summer framework AOT code generation.
- *
- * <p>
- * This plugin reads Jandex indexes from all dependencies and generates AOT
- * context classes at compile time. It has full classpath access, solving the
- * annotation processor isolation problem.
- * </p>
+ * AOT code generation for Summer framework.
+ * Discovers beans from the Jandex index, resolves dependencies,
+ * and generates AOT context, proxies, and route adapters.
  */
-@Mojo(name = "generate-aot", defaultPhase = LifecyclePhase.PROCESS_CLASSES, requiresDependencyResolution = ResolutionScope.COMPILE, requiresProject = true)
+@Mojo(name = "generate-aot", defaultPhase = LifecyclePhase.PROCESS_CLASSES, requiresDependencyResolution = ResolutionScope.TEST, requiresProject = true)
 public class SummerMojo extends AbstractMojo {
 
-	@Parameter(defaultValue = "${project}", readonly = true, required = true)
-	private MavenProject project;
+    @Parameter(defaultValue = "${project}", readonly = true, required = true)
+    private MavenProject project;
 
-	@Parameter(defaultValue = "${project.build.outputDirectory}", readonly = true)
-	private File outputDirectory;
+    @Parameter(defaultValue = "${project.build.outputDirectory}", readonly = true)
+    private File outputDirectory;
 
-	private static final String BEANS_SUFFIX = " beans";
+    @Parameter(defaultValue = "${project.build.testOutputDirectory}", readonly = true)
+    private File testOutputDirectory;
 
-	@Override
-	public void execute() throws MojoExecutionException, MojoFailureException {
-		getLog().info("[Summer] Starting AOT code generation...");
+    @Parameter(property = "summer.aot.testPhase", defaultValue = "false")
+    private boolean testPhase;
 
-		try {
-			// 1. Load all Jandex indexes from dependencies
-			CompositeIndex index = loadIndexes();
-			if (index.getKnownClasses().isEmpty()) {
-				getLog().info("[Summer] No Jandex index found, skipping AOT generation");
-				return;
-			}
-			getLog().info("[Summer] Loaded Jandex index with " + index.getKnownClasses().size() + " classes");
+    @Override
+    public void execute() throws MojoExecutionException, MojoFailureException {
+        boolean isTestPhase = testPhase;
 
-			// 2. Clean stale generated sources to prevent stale class pollution
-			File generatedDir = new File(project.getBasedir(), "target/generated-sources/aot");
-			if (generatedDir.exists()) {
-				java.nio.file.Files.walk(generatedDir.toPath()).sorted(java.util.Comparator.reverseOrder())
-						.map(java.nio.file.Path::toFile).forEach(File::delete);
-				getLog().info("[Summer] Cleaned stale AOT generated sources");
-			}
-			generatedDir.mkdirs();
+        try {
+            CompositeIndex index = loadIndexes(isTestPhase);
+            if (index.getKnownClasses().isEmpty()) {
+                getLog().info("[Summer] No Jandex index found, skipping");
+                return;
+            }
 
-			// 3. Generate RowMapper classes (must happen before BeanDiscovery
-			// so the generated RowMapperConfiguration is in the index)
-			new RowMapperGenerator().generate(index, generatedDir);
+            // AOT code generation
+            getLog().info("[Summer] Starting AOT code generation");
+            getLog().debug("[Summer] Loaded Jandex index with " + index.getKnownClasses().size() + " classes");
 
-			// 4. Compile generated sources and re-index
-			compileGeneratedSources(generatedDir);
-			index = reloadIndex(index, generatedDir);
+            File generatedDir = prepareGeneratedDir(isTestPhase);
 
-			// 5. Discover beans from the index (includes condition evaluation)
-			List<BeanDefinition> beans = new BeanDiscovery(index).discover(null);
-			getLog().info("[Summer] Discovered " + beans.size() + BEANS_SUFFIX);
+            List<BeanDefinition> beans = new BeanDiscovery(index).discover(null);
+            getLog().debug("[Summer] Discovered " + beans.size() + " beans");
 
-			// 6. Resolve dependencies
-			DependencyResolver resolver = new DependencyResolver();
-			List<BeanDefinition> sorted = resolver.resolve(beans);
-			getLog().info("[Summer] Resolved dependencies for " + sorted.size() + BEANS_SUFFIX);
+            DependencyResolver resolver = new DependencyResolver();
+            List<BeanDefinition> sorted = resolver.resolve(beans);
+            getLog().debug("[Summer] Resolved " + sorted.size() + " beans");
 
-			// 7. Generate AOT context and proxies
-			new AotContextGenerator().generate(sorted, generatedDir, index);
-			new AotProxyGenerator().generate(sorted, index, generatedDir);
-			new RouteAdapterGenerator().generate(sorted, generatedDir);
+            new AotContextGenerator().generate(sorted, generatedDir, index);
+            new AotProxyGenerator().generate(sorted, index, generatedDir);
+            new RouteAdapterGenerator().generate(sorted, generatedDir);
 
-			// 8. Compile all generated sources
-			compileGeneratedSources(generatedDir);
+            generateTestGraphs(index, generatedDir);
 
-			getLog().info("[Summer] AOT code generation complete");
+            compileGeneratedSources(generatedDir, isTestPhase);
 
-		} catch (Exception e) {
-			throw new MojoExecutionException("[Summer] AOT generation failed: " + e.getMessage(), e);
-		}
-	}
+            getLog().info("[Summer] AOT generation complete");
 
-	/**
-	 * Compile generated Java source files using the project's classpath.
-	 */
-	private void compileGeneratedSources(File generatedDir) throws Exception {
-		java.util.List<File> sourceFiles = new java.util.ArrayList<>();
-		collectJavaFiles(generatedDir, sourceFiles);
-		if (sourceFiles.isEmpty()) {
-			return;
-		}
+        } catch (Exception e) {
+            throw new MojoExecutionException("[Summer] AOT generation failed: " + e.getMessage(), e);
+        }
+    }
 
-		getLog().info("[Summer] Compiling " + sourceFiles.size() + " generated source(s)");
+    // ---- TestGraph generation ----
 
-		javax.tools.JavaCompiler compiler = javax.tools.ToolProvider.getSystemJavaCompiler();
-		if (compiler == null) {
-			throw new MojoExecutionException("[Summer] No Java compiler available. Ensure a JDK is installed.");
-		}
+    private void generateTestGraphs(CompositeIndex index, File generatedDir) throws Exception {
 
-		// Build classpath from project dependencies
-		java.util.List<String> classpathEntries = new java.util.ArrayList<>();
-		classpathEntries.add(outputDirectory.getAbsolutePath());
-		for (Object obj : project.getArtifacts()) {
-			Artifact artifact = (Artifact) obj;
-			if (artifact.getFile() != null) {
-				classpathEntries.add(artifact.getFile().getAbsolutePath());
-			}
-		}
-		String classpath = String.join(System.getProperty("path.separator"), classpathEntries);
+        // Build a Jandex index from test class .class files directly.
+        // The jandex-maven-plugin doesn't support test-class indexing in 3.5.3.
+        if (!testPhase || !testOutputDirectory.exists()) {
+            getLog().debug("[Summer] Skipping TestGraph scan (not test phase or no test classes)");
+            return;
+        }
 
-		// Prepare output directory for compiled classes
-		File compileOutputDir = new File(project.getBuild().getDirectory(), "classes");
-		compileOutputDir.mkdirs();
+        org.jboss.jandex.Indexer testIndexer = new org.jboss.jandex.Indexer();
+        indexClassFiles(testOutputDirectory, testIndexer);
+        org.jboss.jandex.Index testIndex = testIndexer.complete();
 
-		// Collect source file paths
-		java.util.List<String> sourcePaths = sourceFiles.stream().map(File::getAbsolutePath).toList();
+        DotName summerTestDot = DotName.createSimple("summer.test.annotation.SummerTest");
+        DotName summerIntegrationTestDot = DotName.createSimple(
+                "summer.test.annotation.SummerIntegrationTest");
 
-		javax.tools.StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
-		Iterable<? extends javax.tools.JavaFileObject> compilationUnits = fileManager
-				.getJavaFileObjectsFromStrings(sourcePaths);
+        int count = 0;
+        for (ClassInfo ci : testIndex.getKnownClasses()) {
+            AnnotationInstance ann = ci.annotation(summerTestDot);
+            if (ann == null) {
+                ann = ci.annotation(summerIntegrationTestDot);
+            }
+            if (ann == null) {
+                continue;
+            }
 
-		java.util.List<String> options = java.util.List.of("-cp", classpath, "-d", compileOutputDir.getAbsolutePath());
+            // Check engine = AOT
+            AnnotationValue engineVal = ann.value("engine");
+            if (engineVal == null || !engineVal.asString().endsWith("AOT")) {
+                continue;
+            }
 
-		javax.tools.DiagnosticCollector<javax.tools.JavaFileObject> diagnostics = new javax.tools.DiagnosticCollector<>();
-		javax.tools.JavaCompiler.CompilationTask task = compiler.getTask(null, fileManager, diagnostics, options, null,
-				compilationUnits);
+            // Check value (entryBeans) non-empty
+            AnnotationValue valueVal = ann.value("value");
+            if (valueVal == null) {
+                continue;
+            }
+            org.jboss.jandex.Type[] classes = valueVal.asClassArray();
+            if (classes.length == 0) {
+                continue;
+            }
 
-		if (!task.call()) {
-			for (javax.tools.Diagnostic<? extends javax.tools.JavaFileObject> d : diagnostics.getDiagnostics()) {
-				getLog().error("[Summer] " + d.getMessage(null));
-			}
-			throw new MojoExecutionException("[Summer] Compilation of generated sources failed");
-		}
-		fileManager.close();
-	}
+            Set<String> entryNames = new LinkedHashSet<>();
+            for (org.jboss.jandex.Type t : classes) {
+                entryNames.add(t.name().toString());
+            }
 
-	private void collectJavaFiles(File dir, java.util.List<File> result) {
-		File[] files = dir.listFiles();
-		if (files == null)
-			return;
-		for (File f : files) {
-			if (f.isDirectory()) {
-				collectJavaFiles(f, result);
-			} else if (f.getName().endsWith(".java")) {
-				result.add(f);
-			}
-		}
-	}
+            String testClassName = ci.name().toString();
+            count++;
+            getLog().info("[Summer] Generating TestGraph for " + testClassName
+                    + " with entry beans: " + entryNames);
 
-	/**
-	 * Re-indexes compiled classes from the generated sources directory and merges
-	 * with the existing index so that newly generated classes (e.g.
-	 * RowMapperConfiguration) are visible to BeanDiscovery.
-	 */
-	private CompositeIndex reloadIndex(CompositeIndex existing, File generatedDir) throws IOException {
-		File compileOutputDir = new File(project.getBuild().getDirectory(), "classes");
-		org.jboss.jandex.Indexer indexer = new org.jboss.jandex.Indexer();
-		int count = 0;
-		if (compileOutputDir.isDirectory()) {
-			for (File classFile : collectClassFiles(compileOutputDir)) {
-				try (java.io.InputStream is = new java.io.FileInputStream(classFile)) {
-					indexer.index(is);
-					count++;
-				}
-			}
-		}
-		if (count == 0) {
-			return existing;
-		}
-		getLog().info("[Summer] Re-indexed " + count + " compiled class(es)");
-		List<IndexView> all = new ArrayList<>();
-		all.add(existing);
-		all.add(indexer.complete());
-		return CompositeIndex.create(all);
-	}
+            // 1. Transitive closure from seeds via Jandex BFS
+            Set<String> closureNames = TestGraphGenerator.transitiveClosure(entryNames, index);
 
-	private java.util.List<File> collectClassFiles(File dir) {
-		java.util.List<File> result = new java.util.ArrayList<>();
-		File[] files = dir.listFiles();
-		if (files == null)
-			return result;
-		for (File f : files) {
-			if (f.isDirectory()) {
-				result.addAll(collectClassFiles(f));
-			} else if (f.getName().endsWith(".class")) {
-				result.add(f);
-			}
-		}
-		return result;
-	}
+            // 2. Scoped bean discovery (only closures)
+            List<BeanDefinition> scopedBeans = new BeanDiscovery(index).discoverScoped(closureNames);
 
-	/**
-	 * Load Jandex indexes from all dependency JARs and the current project's
-	 * output.
-	 */
-	private CompositeIndex loadIndexes() throws IOException {
-		List<IndexView> indexes = new ArrayList<>();
-		Set<String> seen = new HashSet<>();
+            // 3. Dependency resolution (topological sort within closure)
+            DependencyResolver resolver = new DependencyResolver();
+            List<BeanDefinition> sorted = resolver.resolve(scopedBeans);
 
-		// 1. Load from current project's output directory
-		loadFromDirectory(outputDirectory, indexes, seen);
+            // 4. Generate TestGraph source
+            new TestGraphGenerator().generate(testClassName, sorted, index, generatedDir);
 
-		// 2. Load from all dependency JARs
-		for (Object obj : project.getArtifacts()) {
-			Artifact artifact = (Artifact) obj;
-			File file = artifact.getFile();
-			if (file == null || !file.exists()) {
-				continue;
-			}
+            getLog().debug("[Summer] TestGraph closure: " + entryNames.size()
+                    + " entry → " + closureNames.size() + " class names → "
+                    + sorted.size() + " beans");
+        }
 
-			if (file.isDirectory()) {
-				loadFromDirectory(file, indexes, seen);
-			} else if (file.getName().endsWith(".jar")) {
-				loadFromJar(file, indexes, seen);
-			}
-		}
+        getLog().info("[Summer] TestGraph scan complete: indexed "
+                + testIndex.getKnownClasses().size()
+                + " test classes, found " + count
+                + " @SummerTest(engine=AOT) with entryBeans");
+    }
 
-		if (indexes.isEmpty()) {
-			getLog().warn("[Summer] No Jandex indexes found. Ensure dependencies have jandex-maven-plugin configured.");
-			return CompositeIndex.create(new ArrayList<>());
-		}
+    private void indexClassFiles(File dir, org.jboss.jandex.Indexer indexer) throws IOException {
+        File[] files = dir.listFiles();
+        if (files == null)
+            return;
+        for (File f : files) {
+            if (f.isDirectory()) {
+                indexClassFiles(f, indexer);
+            } else if (f.getName().endsWith(".class")) {
+                try (InputStream is = new java.io.FileInputStream(f)) {
+                    indexer.index(is);
+                }
+            }
+        }
+    }
 
-		return CompositeIndex.create(indexes);
-	}
+    private File prepareGeneratedDir(boolean isTestPhase) throws IOException {
+        String name = isTestPhase ? "target/generated-test-sources/aot" : "target/generated-sources/aot";
+        File dir = new File(project.getBasedir(), name);
+        if (dir.exists()) {
+            Files.walk(dir.toPath()).sorted(java.util.Comparator.reverseOrder())
+                    .map(Path::toFile).forEach(File::delete);
+        }
+        dir.mkdirs();
+        return dir;
+    }
 
-	private void loadFromDirectory(File dir, List<IndexView> indexes, Set<String> seen) throws IOException {
-		Path indexPath = dir.toPath().resolve("META-INF").resolve("jandex.idx");
-		if (Files.exists(indexPath) && seen.add(indexPath.toString())) {
-			try (InputStream is = Files.newInputStream(indexPath)) {
-				indexes.add(new IndexReader(is).read());
-				getLog().debug("[Summer] Loaded index from directory: " + indexPath);
-			}
-		}
-	}
+    // ---- compilation, index loading ----
 
-	private void loadFromJar(File file, List<IndexView> indexes, Set<String> seen) {
-		try (java.util.jar.JarFile jar = new java.util.jar.JarFile(file)) {
-			java.util.jar.JarEntry entry = jar.getJarEntry("META-INF/jandex.idx");
-			if (entry != null && seen.add(file.getAbsolutePath())) {
-				try (InputStream is = jar.getInputStream(entry)) {
-					indexes.add(new IndexReader(is).read());
-					getLog().debug("[Summer] Loaded index from JAR: " + file.getName());
-				}
-			}
-		} catch (Exception e) {
-			getLog().warn("[Summer] Failed to read index from " + file.getName() + ": " + e.getMessage());
-		}
-	}
+    private String getCompileOutputDir(boolean isTestPhase) {
+        return isTestPhase ? testOutputDirectory.getAbsolutePath() : outputDirectory.getAbsolutePath();
+    }
+
+    private void compileGeneratedSources(File generatedDir, boolean isTestPhase) throws Exception {
+        List<File> sourceFiles = new ArrayList<>();
+        collectJavaFiles(generatedDir, sourceFiles);
+        if (sourceFiles.isEmpty()) return;
+
+        getLog().debug("[Summer] Compiling " + sourceFiles.size() + " generated source(s)");
+
+        var compiler = javax.tools.ToolProvider.getSystemJavaCompiler();
+        if (compiler == null) throw new MojoExecutionException("[Summer] No Java compiler available.");
+
+        List<String> cp = new ArrayList<>();
+        cp.add(outputDirectory.getAbsolutePath());
+        if (isTestPhase) cp.add(testOutputDirectory.getAbsolutePath());
+        for (Object obj : project.getArtifacts()) {
+            Artifact a = (Artifact) obj;
+            if (a.getFile() != null) cp.add(a.getFile().getAbsolutePath());
+        }
+
+        File out = new File(getCompileOutputDir(isTestPhase));
+        out.mkdirs();
+
+        var fm = compiler.getStandardFileManager(null, null, null);
+        var units = fm.getJavaFileObjectsFromStrings(
+                sourceFiles.stream().map(File::getAbsolutePath).toList());
+        var diags = new javax.tools.DiagnosticCollector<javax.tools.JavaFileObject>();
+        var task = compiler.getTask(null, fm, diags,
+                List.of("-cp", String.join(System.getProperty("path.separator"), cp),
+                        "-d", out.getAbsolutePath()),
+                null, units);
+
+if (!task.call()) {
+                throw new MojoExecutionException(
+                        "[Summer] Compilation of generated sources failed");
+            }
+        fm.close();
+    }
+
+    private void collectJavaFiles(File dir, List<File> result) {
+        File[] files = dir.listFiles();
+        if (files == null) return;
+        for (File f : files) {
+            if (f.isDirectory()) collectJavaFiles(f, result);
+            else if (f.getName().endsWith(".java")) result.add(f);
+        }
+    }
+
+    private CompositeIndex loadIndexes(boolean isTestPhase) throws IOException {
+        List<IndexView> indexes = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        loadFromDirectory(outputDirectory, indexes, seen);
+        if (isTestPhase && testOutputDirectory.exists())
+            loadFromDirectory(testOutputDirectory, indexes, seen);
+        for (Object obj : project.getArtifacts()) {
+            Artifact a = (Artifact) obj;
+            File f = a.getFile();
+            if (f == null || !f.exists()) continue;
+            if (f.isDirectory()) loadFromDirectory(f, indexes, seen);
+            else if (f.getName().endsWith(".jar")) loadFromJar(f, indexes, seen);
+        }
+        return indexes.isEmpty() ? CompositeIndex.create(new ArrayList<>()) : CompositeIndex.create(indexes);
+    }
+
+    private void loadFromDirectory(File dir, List<IndexView> indexes, Set<String> seen) throws IOException {
+        Path p = dir.toPath().resolve("META-INF").resolve("jandex.idx");
+        if (Files.exists(p) && seen.add(p.toString())) {
+            try (InputStream is = Files.newInputStream(p)) {
+                indexes.add(new IndexReader(is).read());
+            }
+        }
+    }
+
+    private void loadFromJar(File file, List<IndexView> indexes, Set<String> seen) {
+        try (var jar = new java.util.jar.JarFile(file)) {
+            var e = jar.getJarEntry("META-INF/jandex.idx");
+            if (e != null && seen.add(file.getAbsolutePath())) {
+                try (InputStream is = jar.getInputStream(e)) {
+                    indexes.add(new IndexReader(is).read());
+                }
+            }
+        } catch (Exception ignored) {
+        }
+    }
 }

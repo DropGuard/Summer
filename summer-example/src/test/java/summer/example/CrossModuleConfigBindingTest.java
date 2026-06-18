@@ -11,7 +11,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.core.config.DefaultValue;
 import summer.grpc.config.GrpcTlsConfig;
 import summer.runtime.RuntimeApplicationContext;
@@ -28,7 +28,7 @@ import summer.web.middleware.CorsConfig;
  */
 class CrossModuleConfigBindingTest {
 
-	private ApplicationContext context;
+	private BeanContainer context;
 
 	@AfterEach
 	void tearDown() {
@@ -37,7 +37,7 @@ class CrossModuleConfigBindingTest {
 		}
 	}
 
-	private ApplicationContext createContext(Class<?>... components) {
+	private BeanContainer createContext(Class<?>... components) {
 		context = RuntimeApplicationContext.containing(components);
 		return context;
 	}
@@ -78,7 +78,7 @@ class CrossModuleConfigBindingTest {
 
 		@Test
 		void corsConfigBindsWithDefaults() {
-			ApplicationContext ctx = createContext(CorsConfig.class);
+			BeanContainer ctx = createContext(CorsConfig.class);
 			CorsConfig config = ctx.getBean(CorsConfig.class);
 
 			assertNotNull(config, "CorsConfig should bind with defaults");
@@ -90,7 +90,7 @@ class CrossModuleConfigBindingTest {
 
 		@Test
 		void grpcTlsConfigBindsWithNulls() {
-			ApplicationContext ctx = createContext(GrpcTlsConfig.class);
+			BeanContainer ctx = createContext(GrpcTlsConfig.class);
 			GrpcTlsConfig config = ctx.getBean(GrpcTlsConfig.class);
 
 			assertNotNull(config, "GrpcTlsConfig should bind");

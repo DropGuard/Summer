@@ -1,4 +1,4 @@
-package summer.plugin;
+package summer.aot;
 
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
@@ -22,7 +22,7 @@ public final class RouteAdapterGenerator {
 	private static final String WEB_PACKAGE = "summer.web";
 	private static final String CORE_PACKAGE = "summer.core";
 
-	RouteAdapterGenerator() {
+	public RouteAdapterGenerator() {
 	}
 
 	/**
@@ -66,7 +66,7 @@ for (BeanDefinition controller : controllers) {
 				.addMethod(MethodSpec.methodBuilder("registerControllers").addAnnotation(Override.class)
 						.addModifiers(javax.lang.model.element.Modifier.PUBLIC)
 						.addParameter(ClassName.get(WEB_PACKAGE, "HttpRouter", "Builder"), "builder")
-						.addParameter(ClassName.get(CORE_PACKAGE, "ApplicationContext"), "context")
+						.addParameter(ClassName.get(CORE_PACKAGE, "BeanContainer"), "context")
 						.addCode(registerBody.build()).build())
 				.addMethod(buildParseIntOrDefault()).build();
 

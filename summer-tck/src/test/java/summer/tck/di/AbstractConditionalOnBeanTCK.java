@@ -3,7 +3,7 @@ package summer.tck.di;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.tck.AbstractContextTCK;
 import summer.fixtures.di.conditional.*;
 
@@ -20,12 +20,12 @@ public abstract class AbstractConditionalOnBeanTCK extends AbstractContextTCK {
 
 	@Test
 	void testContextStartsSuccessfully() {
-		assertNotNull(context(), "ApplicationContext should not be null");
+		assertNotNull(context(), "BeanContainer should not be null");
 	}
 
 	@Test
 	void testConditionalOnConcreteClass() {
-		ApplicationContext ctx = context();
+		BeanContainer ctx = context();
 		// RequiredComponent exists, so ConditionalOnComponent should be registered
 		RequiredComponent required = ctx.getBean(RequiredComponent.class);
 		assertNotNull(required, "RequiredComponent should be registered");
@@ -36,7 +36,7 @@ public abstract class AbstractConditionalOnBeanTCK extends AbstractContextTCK {
 
 	@Test
 	void testConditionalOnMissingComponent() {
-		ApplicationContext ctx = context();
+		BeanContainer ctx = context();
 		// MissingComponent does not exist, so ConditionalOnMissingComponent should NOT
 		// be registered
 		assertThrows(Exception.class, () -> ctx.getBean(ConditionalOnMissingComponent.class),
@@ -45,7 +45,7 @@ public abstract class AbstractConditionalOnBeanTCK extends AbstractContextTCK {
 
 	@Test
 	void testConditionalOnInterface() {
-		ApplicationContext ctx = context();
+		BeanContainer ctx = context();
 		// RequiredInterface exists (via RequiredInterfaceImpl), so
 		// ConditionalOnInterface should be registered
 		RequiredInterface required = ctx.getBean(RequiredInterface.class);

@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.tck.AbstractContextTCK;
 import summer.fixtures.di.configprops.*;
 import summer.fixtures.di.missing.StrictConfig;
@@ -39,7 +39,7 @@ public abstract class AbstractConfigurationPropertiesTCK extends AbstractContext
 	 * Creates a context with a specific entry point. Used by tests that need
 	 * different YAML sections or entry classes.
 	 */
-	protected abstract ApplicationContext createContext(Class<?> entryPoint);
+	protected abstract BeanContainer createContext(Class<?> entryPoint);
 
 	// ──────────────────────────────────────────────────────────────────────
 	// Scenario 0: Basic binding and injection (existing)
@@ -53,7 +53,7 @@ public abstract class AbstractConfigurationPropertiesTCK extends AbstractContext
 
 		@Test
 		void testPropertiesBeanRegistered() {
-			ApplicationContext ctx = context();
+			BeanContainer ctx = context();
 			AppProperties props = ctx.getBean(AppProperties.class);
 			assertNotNull(props, "@ConfigurationProperties record should be registered as a bean");
 		}
@@ -68,7 +68,7 @@ public abstract class AbstractConfigurationPropertiesTCK extends AbstractContext
 
 		@Test
 		void testInjectableIntoBeanMethod() {
-			ApplicationContext ctx = context();
+			BeanContainer ctx = context();
 			AppService service = ctx.getBean(AppService.class);
 			assertNotNull(service, "@Bean that depends on config properties should be created");
 			assertSame(ctx.getBean(AppProperties.class), service.getProperties(),
@@ -87,7 +87,7 @@ public abstract class AbstractConfigurationPropertiesTCK extends AbstractContext
 
 		@Test
 		void testNonBeanConstructorParamsResolved() {
-			ApplicationContext ctx = context();
+			BeanContainer ctx = context();
 			TlsProperties tls = ctx.getBean(TlsProperties.class);
 			assertNotNull(tls, "@ConfigurationProperties with non-bean params should be registered");
 			assertTrue(tls.enabled(), "Boolean value from YAML should be bound");
@@ -105,7 +105,7 @@ public abstract class AbstractConfigurationPropertiesTCK extends AbstractContext
 
 		@Test
 		void testMissingFieldIsNull() {
-			ApplicationContext ctx = createContext(StrictConfig.class);
+			BeanContainer ctx = createContext(StrictConfig.class);
 			assertNotNull(ctx, "Context should be created even with missing fields");
 			// StrictProperties.apiKey has no @DefaultValue, so it should be null
 			// when not in YAML. Validation Phase (if configured) catches business errors.
@@ -130,7 +130,7 @@ public abstract class AbstractConfigurationPropertiesTCK extends AbstractContext
 
 		@Test
 		void testComponentCanInjectConfigProperties() {
-			ApplicationContext ctx = context();
+			BeanContainer ctx = context();
 			PropertiesConsumer consumer = ctx.getBean(PropertiesConsumer.class);
 			assertNotNull(consumer, "@Component that depends on config properties should be created");
 			assertNotNull(consumer.getProperties(), "Injected config properties should not be null");
@@ -153,7 +153,7 @@ public abstract class AbstractConfigurationPropertiesTCK extends AbstractContext
 
 		@Test
 		void testConfigPropertiesAvailableAsDependency() {
-			ApplicationContext ctx = context();
+			BeanContainer ctx = context();
 			// PropertiesConsumer is a @Component with constructor(AppProperties).
 			// If binding happened AFTER graph construction, injecting AppProperties
 			// would throw NoSuchBeanException.
@@ -163,7 +163,7 @@ public abstract class AbstractConfigurationPropertiesTCK extends AbstractContext
 
 		@Test
 		void testServiceReceivesCorrectlyBoundProperties() {
-			ApplicationContext ctx = context();
+			BeanContainer ctx = context();
 			AppService service = ctx.getBean(AppService.class);
 			assertNotNull(service, "Service depending on config properties should be created");
 			assertEquals("summer-tck", service.getProperties().name(),
@@ -189,7 +189,7 @@ public abstract class AbstractConfigurationPropertiesTCK extends AbstractContext
 
 		@Test
 		void testMultiplePrefixesBoundIndependently() {
-			ApplicationContext ctx = context();
+			BeanContainer ctx = context();
 			AppProperties app = ctx.getBean(AppProperties.class);
 			TlsProperties tls = ctx.getBean(TlsProperties.class);
 
@@ -223,7 +223,7 @@ public abstract class AbstractConfigurationPropertiesTCK extends AbstractContext
 
 		@Test
 		void testEmptyPrefixBindsRootYaml() {
-			ApplicationContext ctx = createContext(RootConfig.class);
+			BeanContainer ctx = createContext(RootConfig.class);
 			RootService service = ctx.getBean(RootService.class);
 			assertNotNull(service, "Service depending on root config should be created");
 

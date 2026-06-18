@@ -3,7 +3,7 @@ package summer.tck.di;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.core.validation.ValidationException;
 import summer.fixtures.validation.*;
 import summer.tck.AbstractContextTCK;
@@ -25,12 +25,12 @@ public abstract class AbstractValidationTCK extends AbstractContextTCK {
 	/**
 	 * Creates a context with a specific entry point.
 	 */
-	protected abstract ApplicationContext createContext(Class<?> entryPoint);
+	protected abstract BeanContainer createContext(Class<?> entryPoint);
 
 	@Test
 	void testValidationPassesWhenTlsEnabledWithCerts() {
 		// application.yml has tls.enabled=true with cert-chain and private-key
-		ApplicationContext ctx = context();
+		BeanContainer ctx = context();
 		TlsService service = ctx.getBean(TlsService.class);
 		assertNotNull(service, "TlsService should be created when validation passes");
 		assertTrue(service.getConfig().enabled(), "TLS should be enabled");
@@ -41,13 +41,13 @@ public abstract class AbstractValidationTCK extends AbstractContextTCK {
 	void testValidationPassesWhenTlsDisabled() {
 		// TlsConfig has @DefaultValue("false") for enabled, so when TLS section is
 		// absent, enabled=false and validation skips the cert check.
-		ApplicationContext ctx = createContext(ValidationConfig.class);
+		BeanContainer ctx = createContext(ValidationConfig.class);
 		assertNotNull(ctx, "Context should be created even when TLS is disabled");
 	}
 
 	@Test
 	void testValidatorIsRegisteredAsBean() {
-		ApplicationContext ctx = context();
+		BeanContainer ctx = context();
 		TlsValidator validator = ctx.getBean(TlsValidator.class);
 		assertNotNull(validator, "Validator should be registered as a bean");
 	}

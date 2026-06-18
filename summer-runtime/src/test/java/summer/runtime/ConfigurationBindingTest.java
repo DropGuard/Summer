@@ -8,7 +8,7 @@ import java.lang.reflect.RecordComponent;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.core.config.DefaultValue;
 import summer.runtime.config.AllTypesConfig;
 import summer.runtime.config.EmptyDefaultsConfig;
@@ -19,7 +19,7 @@ import summer.runtime.config.PartialYamlConfig;
  */
 class ConfigurationBindingTest {
 
-	private ApplicationContext context;
+	private BeanContainer context;
 
 	@AfterEach
 	void tearDown() {
@@ -31,7 +31,7 @@ class ConfigurationBindingTest {
 		}
 	}
 
-	private ApplicationContext createContext(Class<?>... components) {
+	private BeanContainer createContext(Class<?>... components) {
 		var builder = RuntimeApplicationContext.builder();
 		for (Class<?> c : components) {
 			builder.registerComponent(c);
@@ -45,7 +45,7 @@ class ConfigurationBindingTest {
 
 		@Test
 		void bindsAllTypesFromYaml() {
-			ApplicationContext ctx = createContext(AllTypesConfig.class);
+			BeanContainer ctx = createContext(AllTypesConfig.class);
 			AllTypesConfig config = ctx.getBean(AllTypesConfig.class);
 
 			assertNotNull(config);
@@ -63,7 +63,7 @@ class ConfigurationBindingTest {
 
 		@Test
 		void fallsBackToDefaultsWhenSectionMissing() {
-			ApplicationContext ctx = createContext(EmptyDefaultsConfig.class);
+			BeanContainer ctx = createContext(EmptyDefaultsConfig.class);
 			EmptyDefaultsConfig config = ctx.getBean(EmptyDefaultsConfig.class);
 
 			assertNotNull(config);
@@ -80,7 +80,7 @@ class ConfigurationBindingTest {
 
 		@Test
 		void mergesYamlWithDefaults() {
-			ApplicationContext ctx = createContext(PartialYamlConfig.class);
+			BeanContainer ctx = createContext(PartialYamlConfig.class);
 			PartialYamlConfig config = ctx.getBean(PartialYamlConfig.class);
 
 			assertNotNull(config);

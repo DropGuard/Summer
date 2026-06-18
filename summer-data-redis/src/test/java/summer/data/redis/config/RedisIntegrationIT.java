@@ -9,7 +9,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.runtime.RuntimeApplicationContext;
 
 @Testcontainers
@@ -28,7 +28,7 @@ public class RedisIntegrationIT {
 		String redisUri = "redis://" + redis.getHost() + ":" + redis.getFirstMappedPort();
 		System.setProperty("summer.redis.uri", redisUri);
 
-		ApplicationContext context = RuntimeApplicationContext.create();
+		BeanContainer context = RuntimeApplicationContext.create();
 
 		try {
 

@@ -3,7 +3,7 @@ package summer.tck.di;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.fixtures.di.MethodReplacesBean;
 import summer.tck.AbstractContextTCK;
 
@@ -22,7 +22,7 @@ public abstract class AbstractMethodReplacesTCK extends AbstractContextTCK {
 
 	@Test
 	void methodLevelReplacesReplacesByReturnType() {
-		ApplicationContext ctx = context();
+		BeanContainer ctx = context();
 		MethodReplacesBean bean = ctx.getBean(MethodReplacesBean.class);
 		assertNotNull(bean, "MethodReplacesBean should be registered");
 		assertEquals("replaced", bean.getValue(), "MethodReplacesReplacementConfig should replace the bean");

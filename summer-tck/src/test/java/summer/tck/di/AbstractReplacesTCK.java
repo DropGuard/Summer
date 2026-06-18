@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.tck.AbstractContextTCK;
 import summer.fixtures.di.replaces.OriginalComponent;
 import summer.fixtures.di.replaces.ReplacableService;
@@ -25,18 +25,18 @@ import summer.fixtures.di.replaces.ServiceBean;
  */
 public abstract class AbstractReplacesTCK extends AbstractContextTCK {
 
-	private ApplicationContext conditionalContext;
+	private BeanContainer conditionalContext;
 
 	/**
 	 * Creates a fresh context that includes ReplacesWithConditionComponent but NOT
 	 * ReplacementComponent.
 	 */
-	protected abstract ApplicationContext createConditionalReplacesContext();
+	protected abstract BeanContainer createConditionalReplacesContext();
 
 	/**
 	 * Get the conditional replaces context (lazy initialization).
 	 */
-	protected ApplicationContext conditionalContext() {
+	protected BeanContainer conditionalContext() {
 		if (conditionalContext == null) {
 			conditionalContext = createConditionalReplacesContext();
 		}
@@ -68,7 +68,7 @@ public abstract class AbstractReplacesTCK extends AbstractContextTCK {
 
 	@Test
 	void testConditionalReplacesConditionUnmet() {
-		ApplicationContext ctx = conditionalContext();
+		BeanContainer ctx = conditionalContext();
 
 		// ReplacesWithConditionComponent has
 		// @ConditionalOnBean(NonExistentMarker.class)

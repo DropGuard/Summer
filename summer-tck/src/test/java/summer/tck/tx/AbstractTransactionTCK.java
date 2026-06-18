@@ -7,7 +7,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.tck.AbstractContextTCK;
 import summer.fixtures.tx.dummy.TransactionalService;
 import summer.fixtures.tx.dummy.TxTestConfiguration;
@@ -37,7 +37,7 @@ public abstract class AbstractTransactionTCK extends AbstractContextTCK {
 		connection = TxTestConfiguration.getMockConnection();
 
 		// Force context initialization
-		ApplicationContext ctx = context();
+		BeanContainer ctx = context();
 		service = ctx.getBean(TransactionalService.class);
 	}
 

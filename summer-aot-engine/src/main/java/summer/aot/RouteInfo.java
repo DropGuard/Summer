@@ -1,4 +1,4 @@
-package summer.plugin;
+package summer.aot;
 
 import java.util.ArrayList;
 import java.util.List;

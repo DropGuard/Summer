@@ -1,4 +1,4 @@
-package summer.plugin;
+package summer.aot;
 
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
@@ -37,7 +37,7 @@ public final class AotProxyGenerator {
 	private static final ClassName INVOCATION_TARGET_EX = ClassName.get("java.lang.reflect",
 			"InvocationTargetException");
 
-	AotProxyGenerator() {
+	public AotProxyGenerator() {
 	}
 
 	/**

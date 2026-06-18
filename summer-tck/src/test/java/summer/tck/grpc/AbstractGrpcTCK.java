@@ -4,7 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.grpc.client.GrpcChannelManager;
 import summer.grpc.server.GrpcServerRunner;
 import summer.tck.AbstractTCK;
@@ -25,7 +25,7 @@ import summer.tck.AbstractTCK;
  */
 public abstract class AbstractGrpcTCK extends AbstractTCK {
 
-	protected ApplicationContext context;
+	protected BeanContainer context;
 
 	/**
 	 * Create context with specified configuration classes.
@@ -41,7 +41,7 @@ public abstract class AbstractGrpcTCK extends AbstractTCK {
 	 * return ctx;
 	 * </pre>
 	 */
-	protected abstract ApplicationContext createContext(Class<?>... configClasses);
+	protected abstract BeanContainer createContext(Class<?>... configClasses);
 
 	@AfterEach
 	void cleanupContext() {

@@ -11,7 +11,7 @@ import io.grpc.BindableService;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.ServerInterceptor;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.core.ApplicationRunner;
 import summer.core.ErrorCode;
 import summer.grpc.config.GrpcServerConfig;
@@ -55,7 +55,7 @@ public class GrpcServerRunner implements ApplicationRunner, AutoCloseable {
 	}
 
 	@Override
-	public void run(ApplicationContext context) throws Exception {
+	public void run(BeanContainer context) throws Exception {
 		List<BindableService> services = context.getBeans(BindableService.class);
 
 		if (services.isEmpty()) {

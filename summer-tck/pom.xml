@@ -21,6 +21,7 @@
             <artifactId>summer-tck-fixtures</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency><groupId>summer</groupId><artifactId>summer-test</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>summer</groupId><artifactId>summer-core</artifactId></dependency>
         <dependency><groupId>summer</groupId><artifactId>summer-runtime</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>summer</groupId><artifactId>summer-aop</artifactId><version>${project.version}</version></dependency>
@@ -48,6 +49,9 @@
                 <version>${project.version}</version>
                 <executions>
                     <execution>
+                        <id>generate-aot-test</id>
+                        <phase>process-test-classes</phase>
+                        <configuration><testPhase>true</testPhase></configuration>
                         <goals><goal>generate-aot</goal></goals>
                     </execution>
                 </executions>

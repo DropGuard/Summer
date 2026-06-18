@@ -1,10 +1,11 @@
-package summer.plugin;
+package summer.aot;
 
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import java.util.ArrayList;
 import java.util.List;
+import org.jboss.jandex.IndexView;
 
 /**
  * Generates the bean instantiation body of the AOT-created {@code create()}
@@ -17,6 +18,9 @@ import java.util.List;
  * </p>
  */
 final class WireMethodGenerator {
+
+    private static final ClassName ROW_MAPPER_REGISTRY = ClassName.get("summer.data.jdbc",
+            "RowMapperRegistry");
 
     private final AotContextGenerator context;
 
@@ -71,6 +75,76 @@ final class WireMethodGenerator {
         wire.endControlFlow();
     }
 
+    /**
+     * Emits inline {@code RowMapper} lambdas for all {@code @RowModel}
+     * records in the index. No separate RowMapper classes are generated.
+     */
+    void emitRowMapperRegistry(MethodSpec.Builder wire, IndexView index,
+            java.util.Set<String> activeClassNames) {
+
+        List<summer.data.jdbc.RowMapperFactory.RowModelMeta> metas = summer.data.jdbc.RowMapperFactory
+                .scanJandex(index);
+
+        // Filter to active scope (for TestGraph)
+        if (activeClassNames != null) {
+            metas = metas.stream()
+                    .filter(m -> activeClassNames.contains(m.modelClassName()))
+                    .toList();
+        }
+
+        if (metas.isEmpty()) {
+            return;
+        }
+
+        wire.addCode("\n");
+        wire.addComment("RowMapper Registry");
+        wire.addStatement("$T rowMapperRegistry = new $T()", ROW_MAPPER_REGISTRY,
+                ROW_MAPPER_REGISTRY);
+
+        for (var meta : metas) {
+            ClassName modelClass = safeClassName(meta.modelClassName());
+            var mapperVar = meta.simpleName().toLowerCase(java.util.Locale.ROOT) + "Mapper";
+
+            wire.addCode("\n");
+            wire.addComment(meta.simpleName() + " RowMapper");
+            wire.addStatement("$T<$T> $N = ($N, $N) -> {",
+                    ClassName.get("summer.data.jdbc", "RowMapper"), modelClass, mapperVar,
+                    "rs", "rowNum");
+            for (var field : meta.fields()) {
+                var fieldType = toTypeName(field.typeName());
+                wire.addStatement("    $T $N = $L", fieldType, field.name(),
+                        field.jdbcGetter().replace("rs.", "rs."));
+            }
+            // Build constructor call
+            StringBuilder ctorArgs = new StringBuilder();
+            for (int i = 0; i < meta.fields().size(); i++) {
+                if (i > 0)
+                    ctorArgs.append(", ");
+                ctorArgs.append(meta.fields().get(i).name());
+            }
+            wire.addStatement("    return new $T($L)", modelClass, ctorArgs.toString());
+            wire.addStatement("}");
+            wire.addStatement("rowMapperRegistry.put($T.class, $N)", modelClass, mapperVar);
+        }
+
+        wire.addStatement("registry.registerSingleton($T.class, rowMapperRegistry)",
+                ROW_MAPPER_REGISTRY);
+    }
+
+    private static com.palantir.javapoet.TypeName toTypeName(String typeName) {
+        return switch (typeName) {
+            case "int" -> com.palantir.javapoet.TypeName.INT;
+            case "long" -> com.palantir.javapoet.TypeName.LONG;
+            case "double" -> com.palantir.javapoet.TypeName.DOUBLE;
+            case "boolean" -> com.palantir.javapoet.TypeName.BOOLEAN;
+            case "float" -> com.palantir.javapoet.TypeName.FLOAT;
+            case "short" -> com.palantir.javapoet.TypeName.SHORT;
+            case "byte" -> com.palantir.javapoet.TypeName.BYTE;
+            case "char" -> com.palantir.javapoet.TypeName.CHAR;
+            default -> ClassName.bestGuess(typeName);
+        };
+    }
+
     private void emitComponentInstantiation(MethodSpec.Builder wire, BeanDefinition bean, ClassName beanClass,
             String varName) {
         if (bean instanceof ComponentBean cb) {
@@ -119,12 +193,8 @@ final class WireMethodGenerator {
             if (i > 0)
                 args.add(", ");
             String type = paramTypes.get(i);
-            if (type.equals("summer.core.ApplicationContext")) {
-                // ApplicationContext is no longer passed to constructors by the
-                // unified container. Tests with @Bean methods that request the
-                // context will need to use the registry directly. For now, emit a
-                // null placeholder; production code rarely injects the context.
-                args.add("registry.getBean($T.class)", summer.core.ApplicationContext.class);
+            if (type.equals("summer.core.BeanContainer")) {
+                args.add("registry.getBean($T.class)", summer.core.BeanContainer.class);
             } else if (type.equals("java.util.List") && bean.listElementTypes.containsKey(i)) {
                 String elementType = bean.listElementTypes.get(i);
                 CodeBlock listExpr = buildListExpression(bean, elementType);

@@ -3,7 +3,7 @@ package summer.tck.di;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.tck.AbstractContextTCK;
 import summer.fixtures.di.generic.GenericService;
 import summer.fixtures.di.generic.GenericServiceClient;
@@ -25,12 +25,12 @@ public abstract class AbstractGenericInterfaceTCK extends AbstractContextTCK {
 
 	@Test
 	void testContextStartsSuccessfully() {
-		assertNotNull(context(), "ApplicationContext should not be null");
+		assertNotNull(context(), "BeanContainer should not be null");
 	}
 
 	@Test
 	void testCanResolveGenericService() {
-		ApplicationContext ctx = context();
+		BeanContainer ctx = context();
 		// Try to resolve by raw type
 		GenericService<?> service = ctx.getBean(GenericService.class);
 		assertNotNull(service, "Should be able to resolve GenericService (raw type)");
@@ -39,14 +39,14 @@ public abstract class AbstractGenericInterfaceTCK extends AbstractContextTCK {
 
 	@Test
 	void testCanResolveStringServiceImpl() {
-		ApplicationContext ctx = context();
+		BeanContainer ctx = context();
 		StringServiceImpl service = ctx.getBean(StringServiceImpl.class);
 		assertNotNull(service, "Should be able to resolve StringServiceImpl");
 	}
 
 	@Test
 	void testSingletonConsistency() {
-		ApplicationContext ctx = context();
+		BeanContainer ctx = context();
 		GenericService<?> genericService = ctx.getBean(GenericService.class);
 		StringServiceImpl stringService = ctx.getBean(StringServiceImpl.class);
 		assertSame(genericService, stringService,
@@ -55,7 +55,7 @@ public abstract class AbstractGenericInterfaceTCK extends AbstractContextTCK {
 
 	@Test
 	void testDependencyInjectionWithGenericInterface() {
-		ApplicationContext ctx = context();
+		BeanContainer ctx = context();
 		GenericServiceClient client = ctx.getBean(GenericServiceClient.class);
 		assertNotNull(client, "GenericServiceClient should be instantiated");
 		assertNotNull(client.getService(), "GenericServiceClient should have GenericService injected");

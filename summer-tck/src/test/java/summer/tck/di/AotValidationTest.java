@@ -1,6 +1,6 @@
 package summer.tck.di;
 
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 
 /**
  * AOT engine validation tests.
@@ -8,19 +8,19 @@ import summer.core.ApplicationContext;
 public class AotValidationTest extends AbstractValidationTCK {
 
 	@Override
-	protected ApplicationContext createContext() {
+	protected BeanContainer createContext() {
 		return aotContext();
 	}
 
 	@Override
-	protected ApplicationContext createContext(Class<?> entryPoint) {
+	protected BeanContainer createContext(Class<?> entryPoint) {
 		return aotContext();
 	}
 
-	private static ApplicationContext aotContext() {
+	private static BeanContainer aotContext() {
 		try {
 			Class<?> aotClass = Class.forName("summer.core.aot.GeneratedAotContext");
-			return (ApplicationContext) aotClass.getMethod("create").invoke(null);
+			return (BeanContainer) aotClass.getMethod("create").invoke(null);
 		} catch (Exception e) {
 			throw new RuntimeException("AOT context not available", e);
 		}

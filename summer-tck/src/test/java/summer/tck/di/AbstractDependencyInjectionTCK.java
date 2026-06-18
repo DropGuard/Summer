@@ -3,7 +3,7 @@ package summer.tck.di;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.tck.AbstractContextTCK;
 import summer.fixtures.dummy.ServiceA;
 import summer.fixtures.dummy.ServiceB;
@@ -24,12 +24,12 @@ public abstract class AbstractDependencyInjectionTCK extends AbstractContextTCK 
 
 	@Test
 	void testContextStartsSuccessfully() {
-		assertNotNull(context(), "ApplicationContext should not be null");
+		assertNotNull(context(), "BeanContainer should not be null");
 	}
 
 	@Test
 	void testSingletonUniqueness() {
-		ApplicationContext ctx = context();
+		BeanContainer ctx = context();
 		ServiceC c1 = ctx.getBean(ServiceC.class);
 		ServiceC c2 = ctx.getBean(ServiceC.class);
 		assertNotNull(c1);
@@ -38,7 +38,7 @@ public abstract class AbstractDependencyInjectionTCK extends AbstractContextTCK 
 
 	@Test
 	void testDependencyResolution() {
-		ApplicationContext ctx = context();
+		BeanContainer ctx = context();
 
 		ServiceA a = ctx.getBean(ServiceA.class);
 		ServiceB b = ctx.getBean(ServiceB.class);

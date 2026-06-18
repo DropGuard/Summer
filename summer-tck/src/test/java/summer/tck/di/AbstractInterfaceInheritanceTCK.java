@@ -3,7 +3,7 @@ package summer.tck.di;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.tck.AbstractContextTCK;
 import summer.fixtures.di.inheritance.BaseService;
 import summer.fixtures.di.inheritance.ExtendedService;
@@ -26,12 +26,12 @@ public abstract class AbstractInterfaceInheritanceTCK extends AbstractContextTCK
 
 	@Test
 	void testContextStartsSuccessfully() {
-		assertNotNull(context(), "ApplicationContext should not be null");
+		assertNotNull(context(), "BeanContainer should not be null");
 	}
 
 	@Test
 	void testCanResolveBaseService() {
-		ApplicationContext ctx = context();
+		BeanContainer ctx = context();
 		BaseService baseService = ctx.getBean(BaseService.class);
 		assertNotNull(baseService, "Should be able to resolve BaseService");
 		assertInstanceOf(ServiceImpl.class, baseService, "BaseService should be resolved to ServiceImpl");
@@ -39,7 +39,7 @@ public abstract class AbstractInterfaceInheritanceTCK extends AbstractContextTCK
 
 	@Test
 	void testCanResolveExtendedService() {
-		ApplicationContext ctx = context();
+		BeanContainer ctx = context();
 		ExtendedService extendedService = ctx.getBean(ExtendedService.class);
 		assertNotNull(extendedService, "Should be able to resolve ExtendedService");
 		assertInstanceOf(ServiceImpl.class, extendedService, "ExtendedService should be resolved to ServiceImpl");
@@ -47,7 +47,7 @@ public abstract class AbstractInterfaceInheritanceTCK extends AbstractContextTCK
 
 	@Test
 	void testSingletonConsistency() {
-		ApplicationContext ctx = context();
+		BeanContainer ctx = context();
 		BaseService baseService = ctx.getBean(BaseService.class);
 		ExtendedService extendedService = ctx.getBean(ExtendedService.class);
 		assertSame(baseService, extendedService,
@@ -56,7 +56,7 @@ public abstract class AbstractInterfaceInheritanceTCK extends AbstractContextTCK
 
 	@Test
 	void testDependencyInjectionWithInheritedInterface() {
-		ApplicationContext ctx = context();
+		BeanContainer ctx = context();
 		ServiceClient client = ctx.getBean(ServiceClient.class);
 		assertNotNull(client, "ServiceClient should be instantiated");
 		assertNotNull(client.getBaseService(), "ServiceClient should have BaseService injected");

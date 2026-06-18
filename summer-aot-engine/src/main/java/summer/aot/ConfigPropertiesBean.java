@@ -1,4 +1,4 @@
-package summer.plugin;
+package summer.aot;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

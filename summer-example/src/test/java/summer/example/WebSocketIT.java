@@ -15,7 +15,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.runtime.RuntimeApplicationContext;
 import summer.web.server.NettyServerRunner;
 
@@ -30,7 +30,7 @@ class WebSocketIT {
 		}
 	}
 
-	private static ApplicationContext context;
+	private static BeanContainer context;
 	private static NettyServerRunner serverRunner;
 
 	private final String baseUrl = "ws://localhost:" + NettyServerRunner.getActualPort();

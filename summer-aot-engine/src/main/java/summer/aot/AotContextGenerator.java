@@ -1,4 +1,4 @@
-package summer.plugin;
+package summer.aot;
 
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.FieldSpec;
@@ -93,6 +93,9 @@ public final class AotContextGenerator {
                 "summer.runtime.RuntimeDefaultValueResolver",
                 "INSTANCE");
         method.addCode("\n");
+
+        // Infrastructure: RowMapper registry (full scan — all mappers)
+        new WireMethodGenerator(this).emitRowMapperRegistry(method, this.index, null);
 
         // Wire all beans
         new WireMethodGenerator(this).generateWireMethod(method, sortedBeans);

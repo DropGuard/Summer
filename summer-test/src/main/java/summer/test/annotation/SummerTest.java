@@ -9,29 +9,35 @@ import summer.core.Engine;
 import summer.test.SummerExtension;
 
 /**
- * JUnit 5 annotation that manages the Summer {@code ApplicationContext}
- * lifecycle and automatically injects beans into test methods.
+ * JUnit 5 extension that manages a Summer {@code BeanContainer} for the
+ * annotated test class. The container is created once per test class and
+ * closed automatically.
  *
- * <pre>
- * {
- * 	&#64;code
- * 	&#64;SummerTest // defaults to AOT
- * 	class MyTest {
- * 		ApplicationContext context;
+ * <pre>{@code
+ * @SummerTest                    // full classpath scan
+ * @SummerTest({CorsConfig.class}) // local expansion (only these beans)
+ * @SummerTest(engine = AOT)      // use AOT-generated context (TCK)
+ * }</pre>
  *
- * 		@Test
- * 		void test(Foo foo) { // auto-resolved from context
- * 		}
- * 	}
- * }
- * </pre>
+ * <p>
+ * The container is injected via constructor parameter of type
+ * {@code BeanContainer}.
+ * </p>
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @ExtendWith(SummerExtension.class)
 public @interface SummerTest {
-	/**
-	 * DI engine to use. Defaults to {@link Engine#AOT}.
-	 */
-	Engine engine() default Engine.AOT;
+
+    /**
+     * Entry bean classes for local expansion. When non-empty,
+     * {@code RuntimeApplicationContext.containing(...)} is used instead of a
+     * full Jandex scan.
+     */
+    Class<?>[] value() default {};
+
+    /**
+     * DI engine to use. Defaults to {@link Engine#RUNTIME}.
+     */
+    Engine engine() default Engine.RUNTIME;
 }

@@ -5,7 +5,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.*;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.core.ErrorCode;
 import summer.core.exception.BeanCreationException;
 
@@ -85,7 +85,7 @@ public class DependencyGraph {
 
 	private void resolveParamDeps(Type[] paramTypes, Set<Object> allNodes, Set<Object> deps) {
 		for (Type paramType : paramTypes) {
-			if (paramType == ApplicationContext.class) {
+			if (paramType == BeanContainer.class) {
 				continue;
 			}
 			if (paramType instanceof ParameterizedType pt && pt.getRawType() == List.class) {

@@ -11,7 +11,7 @@ import java.util.List;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.runtime.RuntimeApplicationContext;
 import summer.web.*;
 import summer.web.annotation.Get;
@@ -39,7 +39,7 @@ class HttpMiddlewareIntegrationTest {
 		}
 	}
 
-	private static ApplicationContext context;
+	private static BeanContainer context;
 	private static NettyServerRunner serverRunner;
 
 	private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();

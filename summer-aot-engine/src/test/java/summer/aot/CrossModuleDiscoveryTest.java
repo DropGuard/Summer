@@ -1,4 +1,4 @@
-package summer.plugin;
+package summer.aot;
 
 import static org.junit.jupiter.api.Assertions.*;
 

@@ -1,10 +1,10 @@
 package summer.tck;
 
 import org.junit.jupiter.api.AfterEach;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 
 /**
- * Base class for TCK tests that require an {@link ApplicationContext}.
+ * Base class for TCK tests that require an {@link BeanContainer}.
  *
  * <p>
  * Provides:
@@ -35,7 +35,7 @@ import summer.core.ApplicationContext;
  * // Concrete implementation:
  * public class RuntimeMyTest extends AbstractMyTCK {
  * 	&#64;Override
- * 	protected ApplicationContext createContext() {
+ * 	protected BeanContainer createContext() {
  * 		var ctx = new RuntimeApplicationContext();
  * 		ctx.scan();
  * 		ctx.initializeBeans();
@@ -46,10 +46,10 @@ import summer.core.ApplicationContext;
  */
 public abstract class AbstractContextTCK extends AbstractTCK {
 
-	protected ApplicationContext context;
+	protected BeanContainer context;
 
 	/**
-	 * Create the ApplicationContext for testing.
+	 * Create the BeanContainer for testing.
 	 *
 	 * <p>
 	 * Implementations typically call:
@@ -61,7 +61,7 @@ public abstract class AbstractContextTCK extends AbstractTCK {
 	 * return ctx;
 	 * </pre>
 	 */
-	protected abstract ApplicationContext createContext();
+	protected abstract BeanContainer createContext();
 
 	/**
 	 * Entry components for context creation.
@@ -77,7 +77,7 @@ public abstract class AbstractContextTCK extends AbstractTCK {
 	/**
 	 * Get the application context (lazy initialization).
 	 */
-	protected ApplicationContext context() {
+	protected BeanContainer context() {
 		if (context == null) {
 			context = createContext();
 		}

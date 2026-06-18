@@ -15,14 +15,16 @@
     <description>Test infrastructure for Summer framework</description>
 
     <dependencies>
-        <!-- Summer Core -->
         <dependency>
             <groupId>summer</groupId>
             <artifactId>summer-core</artifactId>
             <version>${project.version}</version>
         </dependency>
-
-        <!-- JUnit 5 API -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-runtime</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>

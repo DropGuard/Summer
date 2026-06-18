@@ -29,7 +29,7 @@ import summer.aop.Interceptor;
 import summer.aop.InterceptorChain;
 import summer.aop.MethodInterceptor;
 import summer.aop.SummerAopException;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.core.Component;
 import summer.core.Provider;
 import summer.core.annotation.Bean;
@@ -56,7 +56,7 @@ import summer.web.http.RadixTreeHttpRouter;
 public class QaHandsOnIntegrationTest {
 
 	// Helper to create a context with explicit component registration
-	private static ApplicationContext createContext(Class<?>... components) {
+	private static BeanContainer createContext(Class<?>... components) {
 		var builder = RuntimeApplicationContext.builder();
 		for (Class<?> c : components) {
 			builder.registerComponent(c);
@@ -75,7 +75,7 @@ public class QaHandsOnIntegrationTest {
 		@Test
 		@DisplayName("P0-1: Context creation succeeds with explicit registration")
 		void contextCreationSucceeds() {
-			ApplicationContext ctx = createContext(SimpleService.class);
+			BeanContainer ctx = createContext(SimpleService.class);
 			assertNotNull(ctx);
 			try {
 				ctx.close();
@@ -87,7 +87,7 @@ public class QaHandsOnIntegrationTest {
 		@Test
 		@DisplayName("P0-2: Singleton beans return the same instance")
 		void singletonReturnsSameInstance() {
-			ApplicationContext ctx = createContext(SimpleService.class);
+			BeanContainer ctx = createContext(SimpleService.class);
 			SimpleService s1 = ctx.getBean(SimpleService.class);
 			SimpleService s2 = ctx.getBean(SimpleService.class);
 			assertSame(s1, s2, "Singleton must return identical instance");
@@ -101,7 +101,7 @@ public class QaHandsOnIntegrationTest {
 		@Test
 		@DisplayName("P0-3: Constructor injection resolves dependencies")
 		void constructorInjectionResolves() {
-			ApplicationContext ctx = createContext(SimpleService.class, ConsumerService.class);
+			BeanContainer ctx = createContext(SimpleService.class, ConsumerService.class);
 			ConsumerService consumer = ctx.getBean(ConsumerService.class);
 			assertNotNull(consumer);
 			assertNotNull(consumer.getDependency(), "Constructor-injected dependency must not be null");
@@ -116,7 +116,7 @@ public class QaHandsOnIntegrationTest {
 		@Test
 		@DisplayName("P0-4: Interface-to-implementation resolution")
 		void interfaceResolvesToImpl() {
-			ApplicationContext ctx = createContext(GreetingServiceImpl.class);
+			BeanContainer ctx = createContext(GreetingServiceImpl.class);
 			GreetingService greeting = ctx.getBean(GreetingService.class);
 			assertNotNull(greeting);
 			assertEquals("Hello, World", greeting.greet("World"));
@@ -130,7 +130,7 @@ public class QaHandsOnIntegrationTest {
 		@Test
 		@DisplayName("P0-5: Missing bean throws NoSuchBeanException")
 		void missingBeanThrows() {
-			ApplicationContext ctx = createContext(SimpleService.class);
+			BeanContainer ctx = createContext(SimpleService.class);
 			assertThrows(NoSuchBeanException.class, () -> ctx.getBean(UnregisteredService.class));
 			try {
 				ctx.close();
@@ -148,7 +148,7 @@ public class QaHandsOnIntegrationTest {
 		@Test
 		@DisplayName("P0-7: @Configuration + @Bean producer methods work")
 		void configurationBeanProducer() {
-			ApplicationContext ctx = createContext(ProducerConfig.class);
+			BeanContainer ctx = createContext(ProducerConfig.class);
 			ProducedBean bean = ctx.getBean(ProducedBean.class);
 			assertNotNull(bean);
 			assertEquals("produced-value", bean.getValue());
@@ -162,7 +162,7 @@ public class QaHandsOnIntegrationTest {
 		@Test
 		@DisplayName("P0-8: Provider<T> pattern works - implementing Provider<X> registers X")
 		void providerPattern() {
-			ApplicationContext ctx = createContext(StringProviderComponent.class);
+			BeanContainer ctx = createContext(StringProviderComponent.class);
 			// The StringProvider implements Provider<String>, so String should be
 			// resolvable
 			String provided = ctx.getBean(String.class);
@@ -177,7 +177,7 @@ public class QaHandsOnIntegrationTest {
 		@Test
 		@DisplayName("P0-9: getBeansOfType returns all implementations")
 		void getBeansOfType() {
-			ApplicationContext ctx = createContext(Dog.class, Cat.class);
+			BeanContainer ctx = createContext(Dog.class, Cat.class);
 			List<Animal> animals = ctx.getBeans(Animal.class);
 			assertFalse(animals.isEmpty(), "getBeansOfType must find implementations");
 			assertTrue(animals.size() >= 2, "Must find both Dog and Cat");
@@ -186,26 +186,12 @@ public class QaHandsOnIntegrationTest {
 			} catch (Exception e) {
 				throw new RuntimeException(e);
 			}
-		}
+}
 
-		@Test
-		@DisplayName("P0-10: getRegisteredTypes returns registered types")
-		void getRegisteredTypes() {
-			ApplicationContext ctx = createContext(SimpleService.class);
-			Set<Class<?>> classes = ctx.getRegisteredTypes();
-			assertFalse(classes.isEmpty());
-			assertTrue(classes.contains(SimpleService.class));
-			try {
-				ctx.close();
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-		}
-
-		@Test
+        @Test
 		@DisplayName("P0-11: Multiple implementations detected via getBeansOfType")
 		void multipleImplementationsDetected() {
-			ApplicationContext ctx = createContext(Dog.class, Cat.class);
+			BeanContainer ctx = createContext(Dog.class, Cat.class);
 			List<Animal> animals = ctx.getBeans(Animal.class);
 			assertTrue(animals.size() >= 2, "Must find both Dog and Cat implementations");
 			// Verify each implementation is distinct
@@ -232,7 +218,7 @@ public class QaHandsOnIntegrationTest {
 		@Test
 		@DisplayName("P1-1: Interface bean is returned as JDK proxy when interceptor registered")
 		void interfaceBeanIsProxy() {
-			ApplicationContext ctx = createContext(InterceptedServiceImpl.class, TestInterceptorComponent.class);
+			BeanContainer ctx = createContext(InterceptedServiceImpl.class, TestInterceptorComponent.class);
 			InterceptedService greeting = ctx.getBean(InterceptedService.class);
 			assertNotEquals(InterceptedServiceImpl.class, greeting.getClass(),
 					"Interface lookup must return proxy, not raw impl");
@@ -247,7 +233,7 @@ public class QaHandsOnIntegrationTest {
 		@Test
 		@DisplayName("P1-2: Concrete class lookup bypasses AOP even with interceptor registered")
 		void concreteClassBypassesAop() {
-			ApplicationContext ctx = createContext(InterceptedServiceImpl.class, TestInterceptorComponent.class);
+			BeanContainer ctx = createContext(InterceptedServiceImpl.class, TestInterceptorComponent.class);
 			InterceptedServiceImpl raw = ctx.getBean(InterceptedServiceImpl.class);
 			assertEquals(InterceptedServiceImpl.class, raw.getClass(),
 					"Concrete class lookup must return raw instance, not proxy");
@@ -570,7 +556,7 @@ public class QaHandsOnIntegrationTest {
 		@Test
 		@DisplayName("P2-1: Deep dependency chain resolves correctly (A->B->C->D)")
 		void deepDependencyChain() {
-			ApplicationContext ctx = createContext(ChainD.class, ChainC.class, ChainB.class, ChainA.class);
+			BeanContainer ctx = createContext(ChainD.class, ChainC.class, ChainB.class, ChainA.class);
 			ChainA a = ctx.getBean(ChainA.class);
 			assertNotNull(a);
 			assertNotNull(a.getB());
@@ -586,7 +572,7 @@ public class QaHandsOnIntegrationTest {
 		@Test
 		@DisplayName("P2-2: Thread-safe singleton access from multiple threads")
 		void threadSafeSingletonAccess() throws Exception {
-			ApplicationContext ctx = createContext(SimpleService.class);
+			BeanContainer ctx = createContext(SimpleService.class);
 			int threadCount = 20;
 			ExecutorService pool = Executors.newFixedThreadPool(threadCount);
 			CyclicBarrier barrier = new CyclicBarrier(threadCount);
@@ -630,7 +616,7 @@ public class QaHandsOnIntegrationTest {
 		@Test
 		@DisplayName("P2-4: Context close() is idempotent (no exception on double close)")
 		void contextCloseIsIdempotent() {
-			ApplicationContext ctx = createContext(SimpleService.class);
+			BeanContainer ctx = createContext(SimpleService.class);
 			assertDoesNotThrow(ctx::close);
 			assertDoesNotThrow(ctx::close, "Double close must not throw");
 		}
@@ -678,7 +664,7 @@ public class QaHandsOnIntegrationTest {
 		@Test
 		@DisplayName("P2-9: Context handles bean with no dependencies")
 		void beanWithNoDependencies() {
-			ApplicationContext ctx = createContext(StandaloneBean.class);
+			BeanContainer ctx = createContext(StandaloneBean.class);
 			StandaloneBean bean = ctx.getBean(StandaloneBean.class);
 			assertNotNull(bean);
 			assertEquals("standalone", bean.getValue());

@@ -82,13 +82,6 @@ public final class BeanRegistry {
     }
 
     /**
-     * Returns all registered type keys.
-     */
-    public Set<Class<?>> getRegisteredTypes() {
-        return Collections.unmodifiableSet(new LinkedHashSet<>(singletons.keySet()));
-    }
-
-    /**
      * Checks whether a bean of the given type is registered (exact key or
      * assignable).
      */

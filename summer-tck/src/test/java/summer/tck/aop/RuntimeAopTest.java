@@ -1,6 +1,6 @@
 package summer.tck.aop;
 
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.fixtures.aop.GreeterService;
 import summer.runtime.RuntimeApplicationContext;
 
@@ -12,7 +12,7 @@ import summer.runtime.RuntimeApplicationContext;
 public class RuntimeAopTest extends AbstractAopTCK {
 
 	@Override
-	protected ApplicationContext createContext() {
+	protected BeanContainer createContext() {
 		return RuntimeApplicationContext.create();
 	}
 }

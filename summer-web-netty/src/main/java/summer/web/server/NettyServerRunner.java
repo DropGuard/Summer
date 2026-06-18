@@ -2,7 +2,7 @@ package summer.web.server;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.core.ApplicationRunner;
 import summer.core.Engine;
 import summer.runtime.RuntimeWebConfiguration;
@@ -36,57 +36,51 @@ public class NettyServerRunner implements ApplicationRunner, AutoCloseable {
 		this.config = config;
 	}
 
-	@Override
-	public void run(ApplicationContext context) throws Exception {
-		Engine engine = context.engine();
+@Override
+        public void run(BeanContainer context) throws Exception {
+            ExceptionRegistry exceptionRegistry = buildExceptionRegistry(context);
+            HttpRouter httpRouter = buildHttpRouter(context);
+            WsRouter wsRouter = buildWsRouter(context);
+            runningServer = NettyHttpServer.create(context, config, httpRouter, wsRouter, exceptionRegistry);
+            runningServer.start();
+            actualPort = runningServer.getPort();
+        }
 
-		ExceptionRegistry exceptionRegistry = buildExceptionRegistry(context, engine);
-		HttpRouter httpRouter = buildHttpRouter(context, engine);
-		WsRouter wsRouter = buildWsRouter(context, engine);
-		runningServer = NettyHttpServer.create(context, config, httpRouter, wsRouter, exceptionRegistry);
-		runningServer.start();
-		actualPort = runningServer.getPort();
-	}
+        /**
+         * Returns the actual port the server bound to. Useful when {@code server.port}
+         * is 0 (random port).
+         */
+        public static int getActualPort() {
+            return actualPort;
+        }
 
-	/**
-	 * Returns the actual port the server bound to. Useful when {@code server.port}
-	 * is 0 (random port).
-	 */
-	public static int getActualPort() {
-		return actualPort;
-	}
+        private ExceptionRegistry buildExceptionRegistry(BeanContainer context) {
+            ExceptionRegistry registry = new ExceptionRegistry();
+            for (ExceptionHandlerRegistrar registrar : context.getBeans(ExceptionHandlerRegistrar.class)) {
+                registrar.registerHandlers(registry, context);
+            }
+            return registry;
+        }
 
-	private ExceptionRegistry buildExceptionRegistry(ApplicationContext context, Engine engine) {
-		ExceptionRegistry registry = new ExceptionRegistry();
-		for (ExceptionHandlerRegistrar registrar : context.getBeans(ExceptionHandlerRegistrar.class)) {
-			registrar.registerHandlers(registry, context);
-		}
-		return registry;
-	}
+private HttpRouter buildHttpRouter(BeanContainer context) {
+                var builder = new HttpRouter.Builder(config.routerType(), routerRegistry);
 
-	private HttpRouter buildHttpRouter(ApplicationContext context, Engine engine) {
-		// Runtime uses MAP (simple, easy to debug), AOT uses RADIX_TREE
-		RouterType routerType = engine == Engine.RUNTIME ? RouterType.MAP : RouterType.RADIX_TREE;
-		var builder = new HttpRouter.Builder(routerType, routerRegistry);
+            for (RouteRegistrar registrar : context.getBeans(RouteRegistrar.class)) {
+                registrar.registerControllers(builder, context);
+            }
 
-		for (RouteRegistrar registrar : context.getBeans(RouteRegistrar.class)) {
-			registrar.registerControllers(builder, context);
-		}
+            return builder.build();
+        }
 
-		return builder.build();
-	}
+        private WsRouter buildWsRouter(BeanContainer context) {
+            var builder = new WsRouter.Builder(config.routerType(), routerRegistry);
 
-	private WsRouter buildWsRouter(ApplicationContext context, Engine engine) {
-		// Runtime uses MAP (simple, easy to debug), AOT uses RADIX_TREE
-		RouterType routerType = engine == Engine.RUNTIME ? RouterType.MAP : RouterType.RADIX_TREE;
-		var builder = new WsRouter.Builder(routerType, routerRegistry);
+            for (summer.web.WsRouteProvider provider : context.getBeans(summer.web.WsRouteProvider.class)) {
+                provider.provide(builder);
+            }
 
-		for (summer.web.WsRouteProvider provider : context.getBeans(summer.web.WsRouteProvider.class)) {
-			provider.provide(builder);
-		}
-
-		return builder.build();
-	}
+            return builder.build();
+        }
 
 	@Override
 	public void close() throws Exception {

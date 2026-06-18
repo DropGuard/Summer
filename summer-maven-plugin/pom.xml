@@ -68,6 +68,13 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- Summer AOT Engine (core AOT logic) -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-aot-engine</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- Summer Web (test - for annotation fixtures) -->
         <dependency>
             <groupId>summer</groupId>

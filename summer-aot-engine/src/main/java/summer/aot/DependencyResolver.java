@@ -1,4 +1,4 @@
-package summer.plugin;
+package summer.aot;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -52,7 +52,7 @@ public final class DependencyResolver {
 		bean.resolvedDependencies.clear();
 		for (int i = 0; i < paramTypes.size(); i++) {
 			String paramType = paramTypes.get(i);
-			if (paramType.equals("summer.core.ApplicationContext"))
+			if (paramType.equals("summer.core.BeanContainer"))
 				continue;
 
 			// Handle List<T> parameters - collect all beans of type T
@@ -96,25 +96,32 @@ public final class DependencyResolver {
 				"Could not find @Configuration bean for factory product: " + factoryProduct.qualifiedName);
 	}
 
-	BeanDefinition findBean(String paramType, List<BeanDefinition> allBeans) {
-		for (BeanDefinition candidate : allBeans) {
-			if (candidate.qualifiedName.equals(paramType))
-				return candidate;
-		}
+BeanDefinition findBean(String paramType, List<BeanDefinition> allBeans) {
+            List<BeanDefinition> exactMatches = new ArrayList<>();
+            for (BeanDefinition candidate : allBeans) {
+                if (candidate.qualifiedName.equals(paramType))
+                    exactMatches.add(candidate);
+            }
+            if (exactMatches.size() == 1)
+                return exactMatches.get(0);
+            if (exactMatches.size() > 1) {
+                throw new AmbiguousBeanException("Multiple beans found for type: " + paramType + " -> "
+                        + exactMatches.stream().map(b -> b.qualifiedName).toList());
+            }
 
-		List<BeanDefinition> matches = new ArrayList<>();
-		for (BeanDefinition candidate : allBeans) {
-			if (candidate instanceof ComponentBean cb && cb.interfaceNames.contains(paramType))
-				matches.add(candidate);
-		}
-		if (matches.size() == 1)
-			return matches.get(0);
-		if (matches.size() > 1) {
-			throw new AmbiguousBeanException("Multiple beans found for type: " + paramType + " -> "
-					+ matches.stream().map(b -> b.qualifiedName).toList());
-		}
-		return null;
-	}
+            List<BeanDefinition> interfaceMatches = new ArrayList<>();
+            for (BeanDefinition candidate : allBeans) {
+                if (candidate instanceof ComponentBean cb && cb.interfaceNames.contains(paramType))
+                    interfaceMatches.add(candidate);
+            }
+            if (interfaceMatches.size() == 1)
+                return interfaceMatches.get(0);
+            if (interfaceMatches.size() > 1) {
+                throw new AmbiguousBeanException("Multiple beans found for type: " + paramType + " -> "
+                        + interfaceMatches.stream().map(b -> b.qualifiedName).toList());
+            }
+            return null;
+        }
 
 	private boolean hasCycle(List<BeanDefinition> beans) {
 		Set<BeanDefinition> visited = new HashSet<>();

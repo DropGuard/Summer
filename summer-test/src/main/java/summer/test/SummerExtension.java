@@ -1,179 +1,116 @@
 package summer.test;
 
 import java.lang.reflect.Field;
-import java.util.Map;
-import java.util.Set;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
-import org.junit.jupiter.api.extension.TestInstancePostProcessor;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.core.Engine;
+import summer.runtime.RuntimeApplicationContext;
+import summer.test.annotation.SummerIntegrationTest;
 import summer.test.annotation.SummerTest;
-import summer.test.annotation.TestProfile;
 
 public class SummerExtension
-		implements
-			BeforeAllCallback,
-			AfterAllCallback,
-			TestInstancePostProcessor,
-			ParameterResolver {
+        implements BeforeAllCallback, AfterAllCallback, ParameterResolver {
 
-	private static final ExtensionContext.Namespace NAMESPACE = ExtensionContext.Namespace
-			.create(SummerExtension.class);
-	private static final String CONTEXT_KEY = "ApplicationContext";
+    private static final ExtensionContext.Namespace NS = ExtensionContext.Namespace.create(SummerExtension.class);
+    private static final String KEY = "BeanContainer";
 
-	@Override
-	public void beforeAll(ExtensionContext extensionContext) throws Exception {
-		Class<?> testClass = extensionContext.getRequiredTestClass();
-		SummerTest summerTest = findSummerTest(testClass);
-		if (summerTest == null) {
-			return;
-		}
+    @Override
+    public void beforeAll(ExtensionContext ctx) throws Exception {
+        Class<?> testClass = ctx.getRequiredTestClass();
 
-		SummerTestProfile profile = resolveProfile(testClass);
-		ApplicationContext context = createContext(summerTest.engine(), profile);
-		extensionContext.getStore(NAMESPACE).put(CONTEXT_KEY, context);
-	}
+        Class<?>[] entryBeans = null;
+        Engine engine = Engine.RUNTIME;
 
-	@Override
-	public void postProcessTestInstance(Object testInstance, ExtensionContext extensionContext) throws Exception {
-		ApplicationContext context = getContext(extensionContext);
-		if (context != null) {
-			injectContext(testInstance, context);
-		}
-	}
+        SummerTest summerTest = testClass.getAnnotation(SummerTest.class);
+        SummerIntegrationTest summerIt = testClass.getAnnotation(SummerIntegrationTest.class);
 
-	private SummerTestProfile resolveProfile(Class<?> testClass) {
-		TestProfile ann = testClass.getAnnotation(TestProfile.class);
-		if (ann == null) {
-			return null;
-		}
-		try {
-			return ann.value().getDeclaredConstructor().newInstance();
-		} catch (Exception e) {
-			throw new IllegalStateException("Failed to create SummerTestProfile: " + ann.value().getName(), e);
-		}
-	}
+        if (summerTest != null) {
+            entryBeans = summerTest.value();
+            engine = summerTest.engine();
+        } else if (summerIt != null) {
+            entryBeans = summerIt.value();
+            engine = summerIt.engine();
+        } else {
+            return;
+        }
 
-	private ApplicationContext createContext(Engine engine, SummerTestProfile profile) {
-		try {
-			return switch (engine) {
-				case AOT -> {
-					try {
-						// AOT: try the new create() factory first, then fall back to old constructor
-						Class<?> aotClass = Class.forName("summer.core.aot.GeneratedAotContext");
-						try {
-							java.lang.reflect.Method createMethod = aotClass.getMethod("create");
-							yield (ApplicationContext) createMethod.invoke(null);
-						} catch (NoSuchMethodException e) {
-							yield (ApplicationContext) aotClass.getConstructor().newInstance();
-						}
-					} catch (ClassNotFoundException e) {
-						throw new IllegalStateException("AOT context not on classpath: " + e.getMessage());
-					}
-				}
-				case RUNTIME -> {
-					Class<?> runtimeCtx = Class.forName("summer.runtime.RuntimeApplicationContext");
-					java.lang.reflect.Method builderMethod = runtimeCtx.getMethod("builder");
-					Object builder = builderMethod.invoke(null);
-					Class<?> builderClass = builder.getClass();
-					if (profile != null) {
-						Set<Class<?>> enabledBeans = profile.getEnabledBeans();
-						if (!enabledBeans.isEmpty()) {
-							builderClass.getMethod("withEnabledBeans", Set.class).invoke(builder, enabledBeans);
-						}
-						Map<String, String> configOverrides = profile.getConfigOverrides();
-						if (!configOverrides.isEmpty()) {
-							builderClass.getMethod("withConfigOverrides", Map.class).invoke(builder, configOverrides);
-						}
-					}
-					yield (ApplicationContext) builderClass.getMethod("build").invoke(builder);
-				}
-			};
-		} catch (ClassNotFoundException e) {
-			throw new IllegalStateException("Engine class not on classpath: " + e.getMessage(), e);
-		} catch (Exception e) {
-			throw new IllegalStateException("Failed to create ApplicationContext", e);
-		}
-	}
+        BeanContainer container;
+        if (engine == Engine.AOT) {
+            container = createAotContext(testClass, entryBeans);
+        } else if (entryBeans != null && entryBeans.length > 0) {
+            container = RuntimeApplicationContext.containing(entryBeans);
+        } else {
+            container = RuntimeApplicationContext.create();
+        }
 
-	private void injectContext(Object testInstance, ApplicationContext context) throws IllegalAccessException {
-		Field contextField = findContextField(testInstance.getClass());
-		if (contextField != null) {
-			contextField.setAccessible(true);
-			contextField.set(testInstance, context);
-		}
-	}
+        ctx.getStore(NS).put(KEY, container);
+    }
 
-	private Field findContextField(Class<?> clazz) {
-		Class<?> current = clazz;
-		while (current != null) {
-			try {
-				Field f = current.getDeclaredField("context");
-				if (ApplicationContext.class.isAssignableFrom(f.getType())) {
-					return f;
-				}
-			} catch (NoSuchFieldException ignored) {
-			}
-			current = current.getSuperclass();
-		}
-		return null;
-	}
+    private static BeanContainer createAotContext(Class<?> testClass, Class<?>[] entryBeans) {
+        // If entry beans are specified, load the per-test TestGraph
+        if (entryBeans != null && entryBeans.length > 0) {
+            String testClassName = testClass.getName().replace('.', '_').replace('$', '_');
+            String aotClassName = "summer.core.aot.TestGraph_" + testClassName;
+            try {
+                Class<?> aotClass = Class.forName(aotClassName);
+                return (BeanContainer) aotClass.getMethod("create").invoke(null);
+            } catch (ClassNotFoundException e) {
+                throw new IllegalStateException(
+                        "AOT TestGraph not found for " + testClass.getName()
+                                + ". Ensure summer-maven-plugin is configured for the test phase.",
+                        e);
+            } catch (Exception e) {
+                throw new IllegalStateException("Failed to create AOT TestGraph context for "
+                        + testClass.getName(), e);
+            }
+        }
 
-	private SummerTest findSummerTest(Class<?> clazz) {
-		Class<?> current = clazz;
-		while (current != null) {
-			SummerTest ann = current.getAnnotation(SummerTest.class);
-			if (ann != null)
-				return ann;
-			current = current.getSuperclass();
-		}
-		return null;
-	}
+        // Full AOT context (no entry beans)
+        try {
+            Class<?> aotClass = Class.forName("summer.core.aot.GeneratedAotContext");
+            try {
+                return (BeanContainer) aotClass.getMethod("create").invoke(null);
+            } catch (NoSuchMethodException e) {
+                return (BeanContainer) aotClass.getConstructor().newInstance();
+            }
+        } catch (ClassNotFoundException e) {
+            throw new IllegalStateException("AOT context not on classpath", e);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to create AOT context", e);
+        }
+    }
 
-	@Override
-	public boolean supportsParameter(ParameterContext parameterContext, ExtensionContext extensionContext)
-			throws ParameterResolutionException {
-		return getContext(extensionContext) != null
-				&& parameterContext.getParameter().getType() == ApplicationContext.class;
-	}
+    @Override
+    public boolean supportsParameter(ParameterContext paramCtx, ExtensionContext extCtx) {
+        return getContext(extCtx) != null && paramCtx.getParameter().getType() == BeanContainer.class;
+    }
 
-	@Override
-	public Object resolveParameter(ParameterContext parameterContext, ExtensionContext extensionContext)
-			throws ParameterResolutionException {
-		ApplicationContext context = getContext(extensionContext);
-		if (context == null) {
-			throw new ParameterResolutionException("No Summer ApplicationContext found in test hierarchy");
-		}
-		return context;
-	}
+    @Override
+    public Object resolveParameter(ParameterContext paramCtx, ExtensionContext extCtx) {
+        BeanContainer container = getContext(extCtx);
+        if (container == null) throw new ParameterResolutionException("No BeanContainer");
+        return container;
+    }
 
-	private ApplicationContext getContext(ExtensionContext extensionContext) {
-		ExtensionContext current = extensionContext;
-		while (current != null) {
-			ApplicationContext context = current.getStore(NAMESPACE).get(CONTEXT_KEY, ApplicationContext.class);
-			if (context != null) {
-				return context;
-			}
-			current = current.getParent().orElse(null);
-		}
-		return null;
-	}
+    @Override
+    public void afterAll(ExtensionContext ctx) throws Exception {
+        BeanContainer container = getContext(ctx);
+        if (container != null) {
+            container.close();
+            ctx.getStore(NS).remove(KEY);
+        }
+    }
 
-	@Override
-	public void afterAll(ExtensionContext extensionContext) throws Exception {
-		ApplicationContext context = extensionContext.getStore(NAMESPACE).get(CONTEXT_KEY, ApplicationContext.class);
-		if (context != null) {
-			try {
-				context.close();
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-			extensionContext.getStore(NAMESPACE).remove(CONTEXT_KEY);
-		}
-	}
+    private BeanContainer getContext(ExtensionContext ctx) {
+        for (var current = ctx; current != null; current = current.getParent().orElse(null)) {
+            BeanContainer c = current.getStore(NS).get(KEY, BeanContainer.class);
+            if (c != null) return c;
+        }
+        return null;
+    }
 }

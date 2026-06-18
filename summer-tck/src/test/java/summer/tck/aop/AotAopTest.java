@@ -1,6 +1,6 @@
 package summer.tck.aop;
 
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 
 /**
  * AOT engine test for AOP interception.
@@ -13,10 +13,10 @@ import summer.core.ApplicationContext;
 public class AotAopTest extends AbstractAopTCK {
 
 	@Override
-	protected ApplicationContext createContext() {
+	protected BeanContainer createContext() {
 		try {
 			Class<?> aotClass = Class.forName("summer.core.aot.GeneratedAotContext");
-			return (ApplicationContext) aotClass.getMethod("create").invoke(null);
+			return (BeanContainer) aotClass.getMethod("create").invoke(null);
 		} catch (Exception e) {
 			throw new RuntimeException("AOT context not available", e);
 		}

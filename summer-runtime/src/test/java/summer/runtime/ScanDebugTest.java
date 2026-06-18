@@ -1,15 +1,17 @@
 package summer.runtime;
 
+import org.jboss.jandex.ClassInfo;
+import org.jboss.jandex.IndexView;
 import org.junit.jupiter.api.Test;
-import summer.core.ApplicationContext;
 
 class ScanDebugTest {
-	@Test
-	void testScan() {
-		ApplicationContext ctx = RuntimeApplicationContext.create();
-		System.out.println("Components: " + ctx.getRegisteredTypes().size());
-		for (Class<?> c : ctx.getRegisteredTypes()) {
-			System.out.println("  " + c.getName() + " isInterface=" + c.isInterface());
-		}
-	}
+    @Test
+    void testScan() {
+        RuntimeApplicationContext.create(); // ensure runtime context is ready
+        IndexView index = JandexIndexLoader.buildIndex();
+        System.out.println("Classes in index: " + index.getKnownClasses().size());
+        for (ClassInfo ci : index.getKnownClasses()) {
+            System.out.println("  " + ci.name() + " isInterface=" + ci.isInterface());
+        }
+    }
 }

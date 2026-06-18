@@ -6,5 +6,5 @@ package summer.web;
  * discovery and static AOT registration.
  */
 public interface ExceptionHandlerRegistrar {
-	void registerHandlers(ExceptionRegistry registry, summer.core.ApplicationContext context);
+	void registerHandlers(ExceptionRegistry registry, summer.core.BeanContainer context);
 }

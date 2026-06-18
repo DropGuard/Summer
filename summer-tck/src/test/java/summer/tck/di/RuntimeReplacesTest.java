@@ -1,6 +1,6 @@
 package summer.tck.di;
 
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.runtime.RuntimeApplicationContext;
 import summer.fixtures.di.replaces.ReplacesTestConfig;
 import summer.fixtures.di.replaces.conditional.ConditionalReplacesTestConfig;
@@ -11,12 +11,12 @@ import summer.fixtures.di.replaces.conditional.ConditionalReplacesTestConfig;
 public class RuntimeReplacesTest extends AbstractReplacesTCK {
 
 	@Override
-	protected ApplicationContext createContext() {
+	protected BeanContainer createContext() {
 		return RuntimeApplicationContext.create();
 	}
 
 	@Override
-	protected ApplicationContext createConditionalReplacesContext() {
+	protected BeanContainer createConditionalReplacesContext() {
 		return RuntimeApplicationContext.create();
 	}
 }

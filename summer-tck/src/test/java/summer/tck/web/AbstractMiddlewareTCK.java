@@ -7,7 +7,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.tck.AbstractContextTCK;
 import summer.web.HttpContext;
 import summer.web.HttpMethod;
@@ -46,7 +46,7 @@ public abstract class AbstractMiddlewareTCK extends AbstractContextTCK {
 	@BeforeEach
 	void setUpRouter() {
 		// Force context initialization (not lazy)
-		ApplicationContext ctx = context();
+		BeanContainer ctx = context();
 
 		summer.web.HttpRouter.Builder builder = new summer.web.HttpRouter.Builder(
 				summer.web.http.RadixTreeHttpRouter::new);

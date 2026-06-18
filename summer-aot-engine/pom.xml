@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>summer</groupId>
+        <artifactId>summer-framework</artifactId>
+        <version>0.1.0</version>
+    </parent>
+
+    <artifactId>summer-aot-engine</artifactId>
+    <name>Summer AOT Engine</name>
+    <description>Compile-time DI engine: bean discovery, dependency resolution, and AOT code generation</description>
+
+    <dependencies>
+        <!-- Jandex for class metadata indexing -->
+        <dependency>
+            <groupId>io.smallrye</groupId>
+            <artifactId>jandex</artifactId>
+        </dependency>
+
+        <!-- JavaPoet for source code generation -->
+        <dependency>
+            <groupId>com.palantir.javapoet</groupId>
+            <artifactId>javapoet</artifactId>
+        </dependency>
+
+        <!-- Summer Core (annotations, BeanContainer, exceptions) -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Summer AOP (for interceptor analysis) -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-aop</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Summer Web (for route/controller annotation constants) -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-web</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Summer Data JDBC (for RowMapperFactory) -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-data-jdbc</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+</project>

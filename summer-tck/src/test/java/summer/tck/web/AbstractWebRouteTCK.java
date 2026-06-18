@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.tck.AbstractContextTCK;
 import summer.web.ExceptionRegistry;
 import summer.web.Handler;
@@ -38,7 +38,7 @@ public abstract class AbstractWebRouteTCK extends AbstractContextTCK {
 	@BeforeEach
 	void setUpRouter() {
 		// Force context initialization (not lazy)
-		ApplicationContext ctx = context();
+		BeanContainer ctx = context();
 
 		summer.web.HttpRouter.Builder builder = new summer.web.HttpRouter.Builder(
 				summer.web.http.RadixTreeHttpRouter::new);

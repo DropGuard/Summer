@@ -8,7 +8,7 @@ import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
-import summer.core.ApplicationContext;
+import summer.core.BeanContainer;
 import summer.data.redis.codec.JsonRedisCodec;
 import summer.runtime.RuntimeApplicationContext;
 
@@ -26,7 +26,7 @@ public class RedisAutoConfigurationTest {
 		try (MockedStatic<RedisClient> mocked = mockStatic(RedisClient.class)) {
 			mocked.when(() -> RedisClient.create(anyString())).thenReturn(mockClient);
 
-			ApplicationContext context = RuntimeApplicationContext.create();
+			BeanContainer context = RuntimeApplicationContext.create();
 
 			// Then all beans should be created
 			RedisProperties props = context.getBean(RedisProperties.class);
