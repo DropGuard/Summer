@@ -43,7 +43,6 @@ public final class AotContextGenerator {
     private static final ClassName ROUTE_REGISTRAR = ClassName.get("summer.web", "RouteRegistrar");
 
     TypeName parseTypeName(String typeName) {
-        // void <init> etc. fall through to Object
         if (typeName.startsWith("["))
             return ClassName.get(Object.class);
         return switch (typeName) {
@@ -59,11 +58,6 @@ public final class AotContextGenerator {
         };
     }
 
-    /**
-     * Like {@link ClassName#bestGuess(String)} but replaces JVM-internal
-     * {@code $} nested-class separators with {@code .} so that the generated
-     * source code is valid Java.
-     */
     private static ClassName bestGuessWithoutDollar(String name) {
         return ClassName.bestGuess(name.replace('$', '.'));
     }
@@ -101,26 +95,9 @@ public final class AotContextGenerator {
                 "INSTANCE");
         method.addCode("\n");
 
-        // Wire all beans
         new WireMethodGenerator(this).generateWireMethod(method, sortedBeans);
 
-        addPostWireRegistrations(method, sortedBeans);
-
-        // RowMapper registration
-        new WireMethodGenerator(this).emitRowMapperRegistrations(method, this.index, null, sortedBeans);
-
-        method.addCode("\n");
-        method.addStatement("return $T.create(registry, $T.AOT)", BEAN_CONTAINER, ENGINE);
-
-        return method.build();
-    }
-
-    /**
-     * Shared helper that adds post-wire registrations (route adapter, etc.).
-     * Called by both {@code AotContextGenerator} and
-     * {@code TestGraphGenerator} so both contexts stay in sync.
-     */
-    static void addPostWireRegistrations(MethodSpec.Builder method, List<BeanDefinition> sortedBeans) {
+        // Route adapter
         boolean hasControllers = sortedBeans.stream().anyMatch(b -> !b.routes.isEmpty());
         if (hasControllers) {
             method.addCode("\n");
@@ -128,5 +105,12 @@ public final class AotContextGenerator {
             method.addStatement("$T _routeAdapter = new $T()", ROUTE_ADAPTER, ROUTE_ADAPTER);
             method.addStatement("registry.registerSingleton($T.class, _routeAdapter)", ROUTE_REGISTRAR);
         }
+
+        new WireMethodGenerator(this).emitRowMapperRegistrations(method, this.index, null, sortedBeans);
+
+        method.addCode("\n");
+        method.addStatement("return $T.create(registry, $T.AOT)", BEAN_CONTAINER, ENGINE);
+
+        return method.build();
     }
 }
