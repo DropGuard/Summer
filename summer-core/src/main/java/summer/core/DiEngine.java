@@ -3,52 +3,39 @@ package summer.core;
 import summer.core.exception.ConfigurationException;
 
 /**
- * Abstraction for DI engine startup. Each engine (Runtime, AOT) provides an
- * implementation.
+ * DI engine bootstrap. Resolves the engine implementation and creates a
+ * {@link BeanContainer}.
  *
- * <p>
- * Use {@link #resolve(Engine)} to obtain the engine for a given mode. This
- * eliminates duplicated if-else dispatch in {@code SummerApplication} and
- * {@code TestContainerBuilder}.
- * </p>
- *
- * <p>
- * AOT loading uses {@code Class.forName} because the generated class does not
- * exist at compile time — this is the only reflective path in the framework
- * outside {@code summer-runtime}, and is architecturally necessary.
- * </p>
+ * <pre>{@code
+ * BeanContainer ctx = DiEngine.create(Engine.AOT, args);
+ * BeanContainer ctx = DiEngine.create(Engine.RUNTIME, args);
+ * }</pre>
  */
-public interface DiEngine {
+public final class DiEngine {
+
+	private DiEngine() {
+	}
 
 	/**
-	 * Creates and returns a fully initialized {@link BeanContainer}.
-	 *
-	 * @return the bean container
-	 * @throws Exception
-	 *             if initialization fails
-	 */
-	BeanContainer create() throws Exception;
-
-	/**
-	 * Resolves the {@link DiEngine} for the given engine mode.
+	 * Creates a {@link BeanContainer} for the given engine mode.
 	 *
 	 * @param engine
 	 *            the engine mode
-	 * @return the engine implementation
+	 * @return the fully initialized bean container
 	 * @throws ConfigurationException
 	 *             if the engine cannot be loaded
 	 */
-	static DiEngine resolve(Engine engine) {
+	public static BeanContainer create(Engine engine) {
 		if (engine == Engine.AOT) {
-			return resolveEngine("summer.core.aot.GeneratedAotContext", ErrorCode.CONFIG_AOT_CONTEXT_NOT_FOUND);
+			return invokeBuild("summer.core.aot.GeneratedAotContext", ErrorCode.CONFIG_AOT_CONTEXT_NOT_FOUND);
 		}
-		return resolveEngine("summer.runtime.RuntimeBeanContainerBuilder", ErrorCode.CONFIG_RUNTIME_NOT_ON_CLASSPATH);
+		return invokeBuild("summer.runtime.RuntimeBeanContainerBuilder", ErrorCode.CONFIG_RUNTIME_NOT_ON_CLASSPATH);
 	}
 
-	private static DiEngine resolveEngine(String className, ErrorCode errorCode) {
+	private static BeanContainer invokeBuild(String className, ErrorCode errorCode) {
 		try {
 			Class<?> clazz = Class.forName(className);
-			return (DiEngine) clazz.getConstructor().newInstance();
+			return (BeanContainer) clazz.getMethod("build").invoke(null);
 		} catch (ClassNotFoundException e) {
 			throw new ConfigurationException(errorCode, className + " not found", e);
 		} catch (ReflectiveOperationException e) {

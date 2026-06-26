@@ -31,7 +31,7 @@ public final class SummerApplication {
 	}
 
 	public static BeanContainer run(Engine engine, String[] args) throws Exception {
-		BeanContainer context = DiEngine.resolve(engine).create();
+		BeanContainer context = DiEngine.create(engine);
 		System.out.println(Banner.format());
 		log.info("Starting Summer Application...");
 

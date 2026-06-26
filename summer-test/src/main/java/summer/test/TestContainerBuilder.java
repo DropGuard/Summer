@@ -50,7 +50,7 @@ public final class TestContainerBuilder {
 			return loadAotLocalContext(testClass);
 		}
 		try {
-			return DiEngine.resolve(Engine.AOT).create();
+			return DiEngine.create(Engine.AOT);
 		} catch (Exception e) {
 			throw new IllegalStateException("Failed to create AOT context", e);
 		}

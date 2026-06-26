@@ -111,7 +111,7 @@ Run `make arch` to verify. Key rules enforced in `summer-archunit`:
    - Test: `summer.test`, `summer.tck`, `summer.arch`
 2. **No circular dependencies** between `summer.*` packages
 3. **No CGLIB, ByteBuddy, or ClassGraph** dependencies anywhere
-4. **Reflection confined to `summer-runtime`** — `java.lang.reflect.*`, `java.lang.invoke.*`, and reflective `Class` methods (`forName`, `newInstance`, `getDeclaredMethods`, etc.) are banned outside `summer.runtime` and `summer.test`. `DiEngine.resolve()` is the single exception: it uses `Class.forName` to load AOT-generated classes that do not exist at compile time.
+4. **Reflection confined to `summer-runtime`** — `java.lang.reflect.*`, `java.lang.invoke.*`, and reflective `Class` methods (`forName`, `newInstance`, `getDeclaredMethods`, etc.) are banned outside `summer.runtime` and `summer.test`. `DiEngine.create()` is the single exception: it uses `Class.forName` to load AOT-generated classes that do not exist at compile time.
 5. **Comments must be ASCII** — no CJK characters in Java source comments
 
 ## Design Constraints (Intentional)
