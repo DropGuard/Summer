@@ -12,33 +12,12 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
+import summer.fixtures.HttpTestController;
+import summer.fixtures.HttpTestMiddleware;
 import summer.runtime.RuntimeBeanContainerBuilder;
 import summer.runtime.RuntimeWebConfiguration;
-import summer.web.*;
-import summer.web.annotation.Get;
-import summer.web.annotation.GlobalMiddleware;
-import summer.web.annotation.RestController;
 
 class HttpMiddlewareIntegrationTest {
-
-	@GlobalMiddleware
-	public static class TestMiddleware implements Middleware {
-		@Override
-		public Handler apply(Handler next) {
-			return ctx -> {
-				next.handle(ctx);
-				ctx.setHeader("X-Test-Middleware", "Active");
-			};
-		}
-	}
-
-	@RestController("/test")
-	public static class TestController {
-		@Get("/hello")
-		public void hello(HttpContext ctx) {
-			ctx.text(HttpStatus.OK, "world");
-		}
-	}
 
 	private static BeanContainer context;
 	private static NettyServerRunner serverRunner;
@@ -48,7 +27,7 @@ class HttpMiddlewareIntegrationTest {
 
 	@BeforeAll
 	static void startServer() throws Exception {
-		context = RuntimeBeanContainerBuilder.buildScoped(HttpMiddlewareIntegrationTest.class,
+		context = RuntimeBeanContainerBuilder.buildFromSeeds(HttpTestMiddleware.class, HttpTestController.class,
 				NettyServerConfiguration.class, RouterConfiguration.class, RuntimeWebConfiguration.class);
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);

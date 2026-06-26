@@ -15,57 +15,11 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
-import summer.core.annotation.Bean;
-import summer.core.annotation.Configuration;
+import summer.fixtures.WsInterceptorTestConfig;
 import summer.runtime.RuntimeBeanContainerBuilder;
 import summer.runtime.RuntimeWebConfiguration;
-import summer.web.*;
-import summer.web.websocket.WebSocketContext;
-import summer.web.websocket.WsFilterChain;
-import summer.web.websocket.WsInterceptor;
 
 class WebSocketInterceptorIntegrationTest {
-
-	public static class AuthMiddleware implements Middleware {
-		@Override
-		public Handler apply(Handler next) {
-			return ctx -> {
-				String auth = ctx.header("X-Auth");
-				if (!"Secret".equals(auth)) {
-					ctx.status(HttpStatus.FORBIDDEN);
-					ctx.text(HttpStatus.FORBIDDEN, "Unauthorized");
-					return;
-				}
-				next.handle(ctx);
-			};
-		}
-	}
-
-	@Configuration
-	public static class TestConfig {
-		public TestConfig() {
-		}
-
-		@Bean
-		public WsInterceptor testWsInterceptor() {
-			return new WsInterceptor() {
-				@Override
-				public void intercept(WebSocketContext ctx, String message, WsFilterChain chain) {
-					String modifiedMessage = "[INTERCEPTED] " + message;
-					chain.doFilter(ctx, modifiedMessage);
-				}
-			};
-		}
-
-		@Bean
-		public WsRouteProvider wsRouteProvider() {
-			return builder -> builder.ws("/ws-test", ctx -> {
-				ctx.onMessage(msg -> {
-					ctx.send(msg);
-				});
-			});
-		}
-	}
 
 	private static BeanContainer context;
 	private static NettyServerRunner serverRunner;
@@ -74,7 +28,7 @@ class WebSocketInterceptorIntegrationTest {
 
 	@BeforeAll
 	static void startServer() throws Exception {
-		context = RuntimeBeanContainerBuilder.buildScoped(WebSocketInterceptorIntegrationTest.class,
+		context = RuntimeBeanContainerBuilder.buildFromSeeds(WsInterceptorTestConfig.class,
 				NettyServerConfiguration.class, RouterConfiguration.class, RuntimeWebConfiguration.class);
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);

@@ -45,10 +45,10 @@ public abstract class AbstractContextTCK extends AbstractTCK {
 	 * Create the BeanContainer for testing.
 	 *
 	 * <p>
-	 * Automatically discovers inner {@code @Component} classes of the concrete
-	 * test class. If {@link WithFixtures} annotation is present, those classes
-	 * are added as additional seeds. Falls back to full classpath scan only if
-	 * no inner components and no fixtures are found.
+	 * Automatically discovers inner {@code @Component} classes of the concrete test
+	 * class. If {@link WithFixtures} annotation is present, those classes are added
+	 * as additional seeds. Falls back to full classpath scan only if no inner
+	 * components and no fixtures are found.
 	 */
 	protected BeanContainer createContext() {
 		Class<?> testClass = getClass();

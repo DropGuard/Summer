@@ -1,7 +1,6 @@
 package summer.runtime;
 
 import java.lang.annotation.Annotation;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -17,14 +16,12 @@ import summer.core.BeanRegistry;
 import summer.core.Component;
 import summer.core.DiEngine;
 import summer.core.Engine;
-import summer.core.ErrorCode;
 import summer.core.RuntimeDiMarker;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.SharedConditionEvaluator;
 import summer.core.bean.SharedDependencyResolver;
 import summer.core.config.ConfigBinder;
 import summer.core.config.ConfigurationProperties;
-import summer.core.exception.BeanCreationException;
 import summer.core.validation.Validator;
 
 /**
@@ -32,7 +29,6 @@ import summer.core.validation.Validator;
  *
  * <pre>{@code
  * BeanContainer ctx = RuntimeBeanContainerBuilder.build(); // full scan
- * BeanContainer ctx = RuntimeBeanContainerBuilder.buildScoped(TestClass.class, InfraConfig.class); // isolated
  * BeanContainer ctx = RuntimeBeanContainerBuilder.buildFromSeeds(A.class, B.class); // explicit seeds
  * }</pre>
  */
@@ -75,34 +71,6 @@ public final class RuntimeBeanContainerBuilder implements DiEngine {
 	}
 
 	/**
-	 * Builds a scoped {@link BeanContainer} by discovering {@code @Component} inner
-	 * classes of the given test class, combined with additional seed classes. Uses
-	 * transitive dependency expansion (no full classpath scanning).
-	 *
-	 * <pre>{@code
-	 * // Scanning behavior test: inner classes auto-discovered
-	 * buildScoped(HttpMiddlewareIntegrationTest.class, NettyServerConfiguration.class, RouterConfiguration.class);
-	 * }</pre>
-	 *
-	 * @param testClass
-	 *            test class whose inner {@code @Component} classes are
-	 *            auto-discovered
-	 * @param additionalSeeds
-	 *            extra seed component classes (e.g. infrastructure configs)
-	 * @return immutable bean container
-	 */
-	public static BeanContainer buildScoped(Class<?> testClass, Class<?>... additionalSeeds) {
-		List<Class<?>> allSeeds = new ArrayList<>(List.of(discoverInnerComponents(testClass)));
-		allSeeds.addAll(List.of(additionalSeeds));
-		if (allSeeds.isEmpty()) {
-			throw new BeanCreationException(ErrorCode.BEAN_CREATION_FAILED,
-					"No @Component inner classes found in " + testClass.getSimpleName()
-							+ ". Add inner static classes annotated with @Component or its meta-annotations.");
-		}
-		return buildFromSeeds(allSeeds.toArray(new Class<?>[0]));
-	}
-
-	/**
 	 * Builds a {@link BeanContainer} from explicit seed classes using transitive
 	 * dependency expansion (no full classpath scanning).
 	 *
@@ -122,20 +90,10 @@ public final class RuntimeBeanContainerBuilder implements DiEngine {
 		return initialize(index, componentClasses);
 	}
 
-	private static Class<?>[] discoverInnerComponents(Class<?> testClass) {
-		List<Class<?>> components = new ArrayList<>();
-		for (Class<?> inner : testClass.getDeclaredClasses()) {
-			if (isComponent(inner)) {
-				components.add(inner);
-			}
-		}
-		return components.toArray(new Class<?>[0]);
-	}
-
 	/**
 	 * Checks whether a class is annotated with {@code @Component} or a
-	 * meta-annotation that carries {@code @Component} (e.g.
-	 * {@code @Configuration}, {@code @RestController}, {@code @GlobalMiddleware}).
+	 * meta-annotation that carries {@code @Component} (e.g. {@code @Configuration},
+	 * {@code @RestController}, {@code @GlobalMiddleware}).
 	 *
 	 * @param clazz
 	 *            the class to check

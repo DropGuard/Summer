@@ -15,37 +15,11 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
-import summer.core.annotation.Bean;
-import summer.core.annotation.Configuration;
+import summer.fixtures.WsTestConfig;
 import summer.runtime.RuntimeBeanContainerBuilder;
 import summer.runtime.RuntimeWebConfiguration;
-import summer.web.WsRouteProvider;
 
 class WebSocketBroadcasterTest {
-
-	@Configuration
-	public static class TestConfig {
-		public TestConfig() {
-		}
-
-		@Bean
-		public WsRouteProvider wsRouteProvider(NettyWebSocketBroadcaster broadcaster) {
-			return builder -> builder.ws("/chat/{room}", ctx -> {
-				String room = ctx.pathParam("room");
-				broadcaster.join(room, ctx);
-
-				ctx.onMessage(msg -> {
-					if (msg.startsWith("BROADCAST:")) {
-						broadcaster.broadcast(room, msg.substring(10));
-					}
-				});
-
-				ctx.onClose(() -> {
-					broadcaster.leave(room, ctx);
-				});
-			});
-		}
-	}
 
 	private static BeanContainer context;
 	private static NettyServerRunner serverRunner;
@@ -54,8 +28,8 @@ class WebSocketBroadcasterTest {
 
 	@BeforeAll
 	static void startServer() throws Exception {
-		context = RuntimeBeanContainerBuilder.buildScoped(WebSocketBroadcasterTest.class,
-				NettyServerConfiguration.class, RouterConfiguration.class, RuntimeWebConfiguration.class);
+		context = RuntimeBeanContainerBuilder.buildFromSeeds(WsTestConfig.class, NettyServerConfiguration.class,
+				RouterConfiguration.class, RuntimeWebConfiguration.class);
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);
 	}

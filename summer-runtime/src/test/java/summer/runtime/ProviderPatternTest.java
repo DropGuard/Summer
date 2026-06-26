@@ -4,14 +4,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import org.junit.jupiter.api.Test;
-import summer.core.Component;
-import summer.core.Provider;
+import summer.core.BeanContainer;
+import summer.fixtures.StringProvider;
 
 public class ProviderPatternTest {
 
 	@Test
 	public void testProviderPatternRegistersCorrectType() {
-		var context = RuntimeBeanContainerBuilder.buildScoped(ProviderPatternTest.class);
+		BeanContainer context = RuntimeBeanContainerBuilder.buildFromSeeds(StringProvider.class);
 
 		// Should be able to get String directly
 		String provided = context.getBean(String.class);
@@ -21,13 +21,5 @@ public class ProviderPatternTest {
 		StringProvider provider = context.getBean(StringProvider.class);
 		assertNotNull(provider);
 		assertEquals("Hello Provider", provider.provide());
-	}
-
-	@Component
-	public static class StringProvider implements Provider<String> {
-		@Override
-		public String provide() {
-			return "Hello Provider";
-		}
 	}
 }
