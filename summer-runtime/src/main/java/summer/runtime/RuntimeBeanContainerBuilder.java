@@ -125,14 +125,23 @@ public final class RuntimeBeanContainerBuilder implements DiEngine {
 	private static Class<?>[] discoverInnerComponents(Class<?> testClass) {
 		List<Class<?>> components = new ArrayList<>();
 		for (Class<?> inner : testClass.getDeclaredClasses()) {
-			if (isComponentOrMeta(inner)) {
+			if (isComponent(inner)) {
 				components.add(inner);
 			}
 		}
 		return components.toArray(new Class<?>[0]);
 	}
 
-	private static boolean isComponentOrMeta(Class<?> clazz) {
+	/**
+	 * Checks whether a class is annotated with {@code @Component} or a
+	 * meta-annotation that carries {@code @Component} (e.g.
+	 * {@code @Configuration}, {@code @RestController}, {@code @GlobalMiddleware}).
+	 *
+	 * @param clazz
+	 *            the class to check
+	 * @return true if the class is a component
+	 */
+	public static boolean isComponent(Class<?> clazz) {
 		// Direct @Component
 		if (clazz.isAnnotationPresent(Component.class)) {
 			return true;

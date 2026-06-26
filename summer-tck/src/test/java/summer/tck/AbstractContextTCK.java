@@ -1,7 +1,10 @@
 package summer.tck;
 
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import summer.core.BeanContainer;
+import summer.runtime.RuntimeBeanContainerBuilder;
 import summer.test.TestContainerBuilder;
 import summer.test.annotation.WithFixtures;
 
@@ -42,13 +45,28 @@ public abstract class AbstractContextTCK extends AbstractTCK {
 	 * Create the BeanContainer for testing.
 	 *
 	 * <p>
-	 * Default: full classpath scan via {@code TestContainerBuilder}. If
-	 * {@link WithFixtures} annotation is present, uses entry beans for isolation.
+	 * Automatically discovers inner {@code @Component} classes of the concrete
+	 * test class. If {@link WithFixtures} annotation is present, those classes
+	 * are added as additional seeds. Falls back to full classpath scan only if
+	 * no inner components and no fixtures are found.
 	 */
 	protected BeanContainer createContext() {
-		WithFixtures annotation = getClass().getAnnotation(WithFixtures.class);
+		Class<?> testClass = getClass();
+		WithFixtures annotation = testClass.getAnnotation(WithFixtures.class);
+
+		// Collect seeds: inner @Component classes + @WithFixtures entries
+		List<Class<?>> seeds = new ArrayList<>();
+		for (Class<?> inner : testClass.getDeclaredClasses()) {
+			if (RuntimeBeanContainerBuilder.isComponent(inner)) {
+				seeds.add(inner);
+			}
+		}
 		if (annotation != null) {
-			return TestContainerBuilder.create().withEntryBeans(annotation.value()).build();
+			seeds.addAll(List.of(annotation.value()));
+		}
+
+		if (!seeds.isEmpty()) {
+			return RuntimeBeanContainerBuilder.buildFromSeeds(seeds.toArray(new Class<?>[0]));
 		}
 		return TestContainerBuilder.create().build();
 	}
