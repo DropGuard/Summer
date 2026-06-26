@@ -81,7 +81,7 @@ public class SummerMojo extends AbstractMojo {
 			BeanRegistry beanRegistry = new BeanRegistry();
 			beanRegistry.registerSingleton(BuildContext.class, ctx);
 			beanRegistry.registerSingleton(WireMethodGenerator.class, wireGen);
-			beanRegistry.registerSingleton(BeanDiscovery.class, new BeanDiscovery(ctx));
+			beanRegistry.registerSingleton(BeanDiscovery.class, new BeanDiscovery(index));
 			beanRegistry.registerSingleton(AotContextGenerator.class, new AotContextGenerator(ctx, wireGen));
 			beanRegistry.registerSingleton(AotProxyGenerator.class, new AotProxyGenerator());
 			beanRegistry.registerSingleton(RouteAdapterGenerator.class, new RouteAdapterGenerator());
@@ -128,7 +128,7 @@ public class SummerMojo extends AbstractMojo {
 		DotName summerTestDot = DotName.createSimple("summer.test.annotation.SummerTest");
 		DotName summerIntegrationTestDot = DotName.createSimple("summer.test.annotation.SummerIntegrationTest");
 
-		BeanDiscovery discovery = new BeanDiscovery(ctx);
+		BeanDiscovery discovery = new BeanDiscovery(ctx.index());
 		LocalContextGenerator localGen = new LocalContextGenerator(wireGen, ctx);
 
 		int count = 0;

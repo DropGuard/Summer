@@ -40,8 +40,8 @@ public final class BeanDiscovery {
 
 	private final IndexView index;
 
-	public BeanDiscovery(BuildContext ctx) {
-		this.index = ctx.index();
+	public BeanDiscovery(IndexView index) {
+		this.index = index;
 	}
 
 	/**
