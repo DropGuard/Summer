@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import summer.core.BeanContainer;
-import summer.runtime.RuntimeBeanContainerBuilder;
 import summer.test.TestContainerBuilder;
 import summer.test.annotation.WithFixtures;
 
@@ -57,7 +56,7 @@ public abstract class AbstractContextTCK extends AbstractTCK {
 		// Collect seeds: inner @Component classes + @WithFixtures entries
 		List<Class<?>> seeds = new ArrayList<>();
 		for (Class<?> inner : testClass.getDeclaredClasses()) {
-			if (RuntimeBeanContainerBuilder.isComponent(inner)) {
+			if (TestContainerBuilder.isComponent(inner)) {
 				seeds.add(inner);
 			}
 		}

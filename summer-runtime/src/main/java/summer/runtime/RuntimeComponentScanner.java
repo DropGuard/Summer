@@ -81,7 +81,7 @@ public final class RuntimeComponentScanner {
 	 * @throws BeanCreationException
 	 *             if the class is invalid
 	 */
-	public static void validateExtraComponent(Class<?> clazz) {
+	private static void validateExtraComponent(Class<?> clazz) {
 		if (clazz.isInterface() || Modifier.isAbstract(clazz.getModifiers())) {
 			if (isComponent(clazz)) {
 				throw new BeanCreationException(ErrorCode.BEAN_CREATION_FAILED,
@@ -212,7 +212,7 @@ public final class RuntimeComponentScanner {
 	 *            Jandex index for implementation lookup
 	 * @return list of concrete implementation classes
 	 */
-	public static List<Class<?>> findImplementations(Class<?> type, IndexView index) {
+	private static List<Class<?>> findImplementations(Class<?> type, IndexView index) {
 		if (!type.isInterface() && !Modifier.isAbstract(type.getModifiers())) {
 			// Concrete class — if it is a @Component or @ConfigurationProperties,
 			// use directly. Otherwise, find the @Configuration that produces it
@@ -278,7 +278,7 @@ public final class RuntimeComponentScanner {
 	 *            the class to check
 	 * @return true if the class is a component
 	 */
-	public static boolean isComponent(Class<?> clazz) {
+	private static boolean isComponent(Class<?> clazz) {
 		if (clazz.isAnnotationPresent(Component.class)) {
 			return true;
 		}
@@ -302,7 +302,7 @@ public final class RuntimeComponentScanner {
 	 *            cycle guard
 	 * @return true if the class has a component meta-annotation
 	 */
-	public static boolean hasMetaComponentAnnotation(ClassInfo classInfo, IndexView index, Set<DotName> visited) {
+	private static boolean hasMetaComponentAnnotation(ClassInfo classInfo, IndexView index, Set<DotName> visited) {
 		if (classInfo == null) {
 			return false;
 		}

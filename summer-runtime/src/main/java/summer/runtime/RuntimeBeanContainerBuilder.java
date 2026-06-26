@@ -1,6 +1,5 @@
 package summer.runtime;
 
-import java.lang.annotation.Annotation;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -13,7 +12,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import summer.core.BeanContainer;
 import summer.core.BeanRegistry;
-import summer.core.Component;
 import summer.core.Engine;
 import summer.core.RuntimeDiMarker;
 import summer.core.bean.BeanDefinition;
@@ -82,30 +80,6 @@ public final class RuntimeBeanContainerBuilder {
 		Set<Class<?>> componentClasses = RuntimeComponentScanner.transitiveExpand(new LinkedHashSet<>(List.of(seeds)),
 				index);
 		return initialize(index, componentClasses);
-	}
-
-	/**
-	 * Checks whether a class is annotated with {@code @Component} or a
-	 * meta-annotation that carries {@code @Component} (e.g. {@code @Configuration},
-	 * {@code @RestController}, {@code @GlobalMiddleware}).
-	 *
-	 * @param clazz
-	 *            the class to check
-	 * @return true if the class is a component
-	 */
-	public static boolean isComponent(Class<?> clazz) {
-		// Direct @Component
-		if (clazz.isAnnotationPresent(Component.class)) {
-			return true;
-		}
-		// Meta-annotations: @GlobalMiddleware → @Component,
-		// @RestController → @Component, @Configuration → @Component
-		for (Annotation ann : clazz.getAnnotations()) {
-			if (ann.annotationType().isAnnotationPresent(Component.class)) {
-				return true;
-			}
-		}
-		return false;
 	}
 
 	private static BeanContainer initialize(IndexView index, Set<Class<?>> componentClasses) {

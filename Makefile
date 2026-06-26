@@ -42,7 +42,7 @@ fmt:
 check:
 	mvn spotless:check -pl '!summer-dependencies,!summer-starter-parent,!summer-example,!summer-realworld'
 
-pre-commit: fmt check test
+pre-commit: fmt check clean test
 
 arch:
 	mvn test -pl summer-archunit

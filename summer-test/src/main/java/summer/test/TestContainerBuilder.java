@@ -1,6 +1,8 @@
 package summer.test;
 
+import java.lang.annotation.Annotation;
 import summer.core.BeanContainer;
+import summer.core.Component;
 import summer.core.DiEngine;
 import summer.core.Engine;
 import summer.runtime.RuntimeBeanContainerBuilder;
@@ -48,6 +50,27 @@ public final class TestContainerBuilder {
 	 *            the test class (used to locate the generated LocalContext), or
 	 *            {@code null} for the full AOT context
 	 */
+	/**
+	 * Checks whether a class has {@code @Component} or a meta-annotation that is
+	 * itself annotated with {@code @Component} (e.g. {@code @RestController},
+	 * {@code @GlobalMiddleware}).
+	 *
+	 * @param clazz
+	 *            the class to check
+	 * @return true if the class is a component
+	 */
+	public static boolean isComponent(Class<?> clazz) {
+		if (clazz.isAnnotationPresent(Component.class)) {
+			return true;
+		}
+		for (Annotation ann : clazz.getAnnotations()) {
+			if (ann.annotationType().isAnnotationPresent(Component.class)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	public static BeanContainer buildAot(Class<?> testClass) {
 		if (testClass != null) {
 			return loadAotLocalContext(testClass);
