@@ -2,7 +2,7 @@ package summer.tck.di;
 
 import summer.fixtures.di.circular.CircularA;
 import summer.fixtures.di.circular.CircularB;
-import summer.runtime.RuntimeBeanContainerBuilder;
+import summer.test.TestContainerBuilder;
 import summer.test.annotation.WithFixtures;
 
 /**
@@ -13,6 +13,6 @@ public class RuntimeCircularDependencyTest extends AbstractCircularDependencyTCK
 
 	@Override
 	protected void triggerFailure() {
-		RuntimeBeanContainerBuilder.buildFromSeeds(CircularA.class, CircularB.class);
+		TestContainerBuilder.create().withEntryBeans(CircularA.class, CircularB.class).build();
 	}
 }

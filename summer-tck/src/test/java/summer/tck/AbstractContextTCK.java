@@ -66,7 +66,7 @@ public abstract class AbstractContextTCK extends AbstractTCK {
 		}
 
 		if (!seeds.isEmpty()) {
-			return RuntimeBeanContainerBuilder.buildFromSeeds(seeds.toArray(new Class<?>[0]));
+			return TestContainerBuilder.create().withEntryBeans(seeds.toArray(new Class<?>[0])).build();
 		}
 		return TestContainerBuilder.create().build();
 	}

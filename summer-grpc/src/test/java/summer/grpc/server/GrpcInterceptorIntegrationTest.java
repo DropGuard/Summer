@@ -11,7 +11,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import summer.fixtures.GrpcTestConfig;
 import summer.grpc.GrpcInfrastructureConfiguration;
-import summer.runtime.RuntimeBeanContainerBuilder;
+import summer.test.TestContainerBuilder;
 
 public class GrpcInterceptorIntegrationTest {
 
@@ -22,8 +22,8 @@ public class GrpcInterceptorIntegrationTest {
 
 	@Test
 	public void testGrpcServerInterceptorDiscovery() throws Exception {
-		var ctx = RuntimeBeanContainerBuilder.buildFromSeeds(GrpcTestConfig.class,
-				GrpcInfrastructureConfiguration.class);
+		var ctx = TestContainerBuilder.create()
+				.withEntryBeans(GrpcTestConfig.class, GrpcInfrastructureConfiguration.class).build();
 
 		GrpcServerRunner serverRunner = ctx.getBean(GrpcServerRunner.class);
 		serverRunner.run(ctx);

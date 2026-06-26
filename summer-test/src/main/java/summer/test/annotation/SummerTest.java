@@ -32,9 +32,8 @@ import summer.test.SummerExtension;
 public @interface SummerTest {
 
 	/**
-	 * Entry bean classes for local expansion. When non-empty,
-	 * {@code RuntimeBeanContainerBuilder.buildFromSeeds(...)} is used instead of a
-	 * full Jandex scan.
+	 * Entry bean classes for local expansion. When non-empty, transitive dependency
+	 * expansion is used instead of a full Jandex scan.
 	 */
 	Class<?>[] value() default {};
 

@@ -29,7 +29,6 @@ import summer.core.validation.Validator;
  *
  * <pre>{@code
  * BeanContainer ctx = RuntimeBeanContainerBuilder.build(); // full scan
- * BeanContainer ctx = RuntimeBeanContainerBuilder.buildFromSeeds(A.class, B.class); // explicit seeds
  * }</pre>
  */
 public final class RuntimeBeanContainerBuilder implements DiEngine {
@@ -72,12 +71,8 @@ public final class RuntimeBeanContainerBuilder implements DiEngine {
 
 	/**
 	 * Builds a {@link BeanContainer} from explicit seed classes using transitive
-	 * dependency expansion (no full classpath scanning).
-	 *
-	 * <pre>{@code
-	 * // TCK test: explicit seeds
-	 * buildFromSeeds(CircularA.class, CircularB.class);
-	 * }</pre>
+	 * dependency expansion (no full classpath scanning). Called by
+	 * {@link summer.test.TestContainerBuilder}.
 	 *
 	 * @param seeds
 	 *            seed component classes

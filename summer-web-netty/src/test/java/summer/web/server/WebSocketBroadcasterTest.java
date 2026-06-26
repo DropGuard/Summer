@@ -16,8 +16,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
 import summer.fixtures.WsTestConfig;
-import summer.runtime.RuntimeBeanContainerBuilder;
 import summer.runtime.RuntimeWebConfiguration;
+import summer.test.TestContainerBuilder;
 
 class WebSocketBroadcasterTest {
 
@@ -28,8 +28,8 @@ class WebSocketBroadcasterTest {
 
 	@BeforeAll
 	static void startServer() throws Exception {
-		context = RuntimeBeanContainerBuilder.buildFromSeeds(WsTestConfig.class, NettyServerConfiguration.class,
-				RouterConfiguration.class, RuntimeWebConfiguration.class);
+		context = TestContainerBuilder.create().withEntryBeans(WsTestConfig.class, NettyServerConfiguration.class,
+				RouterConfiguration.class, RuntimeWebConfiguration.class).build();
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);
 	}
