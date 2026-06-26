@@ -4,8 +4,10 @@ import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeSpec;
+import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import org.jboss.jandex.IndexView;
 import summer.core.bean.BeanDefinition;
 
 /**
@@ -36,19 +38,21 @@ public final class AotContextGenerator {
 	private static final ClassName EXCEPTION_HANDLER_REGISTRAR = ClassName.get("summer.web",
 			"ExceptionHandlerRegistrar");
 
-	private final BuildContext ctx;
+	private final IndexView index;
+	private final File outputDir;
 	private final WireMethodGenerator wireGen;
 
-	public AotContextGenerator(BuildContext ctx, WireMethodGenerator wireGen) {
-		this.ctx = ctx;
+	public AotContextGenerator(IndexView index, File outputDir, WireMethodGenerator wireGen) {
+		this.index = index;
+		this.outputDir = outputDir;
 		this.wireGen = wireGen;
 	}
 
 	public void generate(List<BeanDefinition> sortedBeans) throws IOException {
-		new ExceptionHandlerAdapterGenerator().generate(sortedBeans, ctx.index(), ctx.outputDir());
+		new ExceptionHandlerAdapterGenerator().generate(sortedBeans, index, outputDir);
 
 		JavaFile javaFile = buildJavaFile(sortedBeans);
-		javaFile.writeTo(ctx.outputDir());
+		javaFile.writeTo(outputDir);
 	}
 
 	private JavaFile buildJavaFile(List<BeanDefinition> sortedBeans) {
@@ -90,7 +94,7 @@ public final class AotContextGenerator {
 		method.addStatement("$T _ehAdapter = new $T()", EXCEPTION_HANDLER_ADAPTER, EXCEPTION_HANDLER_ADAPTER);
 		method.addStatement("registry.registerSingleton($T.class, _ehAdapter)", EXCEPTION_HANDLER_REGISTRAR);
 
-		wireGen.emitRowMapperRegistrations(method, ctx.index(), null, sortedBeans);
+		wireGen.emitRowMapperRegistrations(method, index, null, sortedBeans);
 
 		method.addCode("\n");
 		method.addStatement("return $T.create(registry, $T.AOT)", BEAN_CONTAINER, ENGINE);

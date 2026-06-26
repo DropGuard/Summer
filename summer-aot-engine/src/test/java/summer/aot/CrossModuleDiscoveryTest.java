@@ -109,8 +109,7 @@ class CrossModuleDiscoveryTest {
 		BeanDefinition serviceC = new BeanDefinition("summer.fixtures.dummy.ServiceC", "ServiceC");
 
 		File outputDir = tempDir.toFile();
-		BuildContext ctx = new BuildContext(null, outputDir);
-		AotContextGenerator generator = new AotContextGenerator(ctx, new WireMethodGenerator());
+		AotContextGenerator generator = new AotContextGenerator(null, outputDir, new WireMethodGenerator());
 		generator.generate(List.of(serviceC));
 
 		File generatedFile = new File(outputDir, "summer/core/aot/GeneratedAotContext.java");

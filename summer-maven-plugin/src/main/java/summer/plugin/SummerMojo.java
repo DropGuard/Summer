@@ -29,7 +29,6 @@ import org.jboss.jandex.IndexView;
 import summer.aot.AotContextGenerator;
 import summer.aot.AotProxyGenerator;
 import summer.aot.BeanDiscovery;
-import summer.aot.BuildContext;
 import summer.aot.LocalContextGenerator;
 import summer.aot.RouteAdapterGenerator;
 import summer.aot.WireMethodGenerator;
@@ -76,13 +75,11 @@ public class SummerMojo extends AbstractMojo {
 			File generatedDir = prepareGeneratedDir(isTestPhase);
 
 			// Assemble the AOT pipeline via BeanRegistry (constructor injection)
-			BuildContext ctx = new BuildContext(index, generatedDir);
 			WireMethodGenerator wireGen = new WireMethodGenerator();
 			BeanRegistry beanRegistry = new BeanRegistry();
-			beanRegistry.registerSingleton(BuildContext.class, ctx);
 			beanRegistry.registerSingleton(WireMethodGenerator.class, wireGen);
 			beanRegistry.registerSingleton(BeanDiscovery.class, new BeanDiscovery(index));
-			beanRegistry.registerSingleton(AotContextGenerator.class, new AotContextGenerator(ctx, wireGen));
+			beanRegistry.registerSingleton(AotContextGenerator.class, new AotContextGenerator(index, generatedDir, wireGen));
 			beanRegistry.registerSingleton(AotProxyGenerator.class, new AotProxyGenerator());
 			beanRegistry.registerSingleton(RouteAdapterGenerator.class, new RouteAdapterGenerator());
 			BeanContainer pipeline = BeanContainer.create(beanRegistry);
@@ -98,7 +95,7 @@ public class SummerMojo extends AbstractMojo {
 			pipeline.getBean(AotProxyGenerator.class).generate(sorted, index, generatedDir);
 			pipeline.getBean(RouteAdapterGenerator.class).generate(sorted, generatedDir);
 
-			generateLocalContexts(ctx, wireGen, sorted);
+			generateLocalContexts(index, generatedDir, wireGen);
 
 			compileGeneratedSources(generatedDir, isTestPhase);
 
@@ -111,8 +108,7 @@ public class SummerMojo extends AbstractMojo {
 
 	// ---- LocalContext generation ----
 
-	private void generateLocalContexts(BuildContext ctx, WireMethodGenerator wireGen,
-			List<BeanDefinition> allSorted) throws Exception {
+	private void generateLocalContexts(IndexView index, File generatedDir, WireMethodGenerator wireGen) throws Exception {
 
 		// Build a Jandex index from test class .class files directly.
 		// The jandex-maven-plugin doesn't support test-class indexing in 3.5.3.
@@ -128,8 +124,8 @@ public class SummerMojo extends AbstractMojo {
 		DotName summerTestDot = DotName.createSimple("summer.test.annotation.SummerTest");
 		DotName summerIntegrationTestDot = DotName.createSimple("summer.test.annotation.SummerIntegrationTest");
 
-		BeanDiscovery discovery = new BeanDiscovery(ctx.index());
-		LocalContextGenerator localGen = new LocalContextGenerator(wireGen, ctx);
+		BeanDiscovery discovery = new BeanDiscovery(index);
+		LocalContextGenerator localGen = new LocalContextGenerator(wireGen, generatedDir);
 
 		int count = 0;
 		for (ClassInfo ci : testIndex.getKnownClasses()) {
@@ -167,7 +163,7 @@ public class SummerMojo extends AbstractMojo {
 			getLog().info("[Summer] Generating LocalContext for " + testClassName + " with entry beans: " + entryNames);
 
 			// 1. Transitive closure from seeds via Jandex BFS
-			Set<String> closureNames = LocalContextGenerator.transitiveClosure(entryNames, ctx.index());
+			Set<String> closureNames = LocalContextGenerator.transitiveClosure(entryNames, index);
 
 			// 2. Scoped bean discovery (only closures)
 			List<BeanDefinition> scopedBeans = discovery.discoverScoped(closureNames);
