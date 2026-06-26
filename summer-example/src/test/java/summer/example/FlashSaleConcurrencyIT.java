@@ -6,13 +6,13 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 import summer.core.Engine;
-import summer.runtime.RuntimeApplicationContext;
+import summer.runtime.RuntimeBeanContainerBuilder;
 
 public class FlashSaleConcurrencyIT {
 
 	@Test
 	void shouldNotOversell() throws Exception {
-		var ctx = RuntimeApplicationContext.create(summer.core.Engine.RUNTIME);
+		var ctx = RuntimeBeanContainerBuilder.build();
 
 		FlashSaleService service = ctx.getBean(FlashSaleService.class);
 

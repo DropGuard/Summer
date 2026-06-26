@@ -40,7 +40,7 @@ public class TransactionInterceptor implements MethodInterceptor {
 			boolean alreadyActive = interceptorActive.get();
 			try {
 				interceptorActive.set(true);
-            return handleTransactional(chain);
+				return handleTransactional(chain);
 			} finally {
 				if (!alreadyActive) {
 					interceptorActive.remove();
@@ -51,7 +51,7 @@ public class TransactionInterceptor implements MethodInterceptor {
 		return chain.proceed();
 	}
 
-    private Object handleTransactional(InterceptorChain chain) throws Throwable {
+	private Object handleTransactional(InterceptorChain chain) throws Throwable {
 		TransactionStatus transaction = null;
 
 		try {

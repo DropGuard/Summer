@@ -6,8 +6,8 @@ import summer.fixtures.data.jdbc.User;
 import summer.fixtures.data.jdbc.User_RowMapper;
 /**
  * Runtime engine JdbcTemplate TCK. Simulates JdbcTemplate configuration
- * produced by Runtime-discovered {@code RowMapperConfiguration}:
- * same generated mappers, registered via {@code registerMapper}.
+ * produced by Runtime-discovered {@code RowMapperConfiguration}: same generated
+ * mappers, registered via {@code registerMapper}.
  */
 public class RuntimeJdbcTemplateTest extends AbstractJdbcTemplateTCK {
 

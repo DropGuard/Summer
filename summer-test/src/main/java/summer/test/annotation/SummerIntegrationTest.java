@@ -14,9 +14,8 @@ import summer.test.SummerExtension;
  * databases, Redis, Docker containers, HTTP servers).
  *
  * <p>
- * Identical to {@link SummerTest} in behavior, but tagged
- * {@code "integration"} so Maven failsafe can pick it up separately
- * from unit tests.
+ * Identical to {@link SummerTest} in behavior, but tagged {@code "integration"}
+ * so Maven failsafe can pick it up separately from unit tests.
  * </p>
  */
 @Target(ElementType.TYPE)
@@ -25,7 +24,7 @@ import summer.test.SummerExtension;
 @Tag("integration")
 public @interface SummerIntegrationTest {
 
-    Class<?>[] value() default {};
+	Class<?>[] value() default {};
 
-    Engine engine() default Engine.RUNTIME;
+	Engine engine() default Engine.RUNTIME;
 }

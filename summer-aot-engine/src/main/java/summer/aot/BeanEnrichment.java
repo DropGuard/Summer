@@ -10,6 +10,9 @@ import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
 import org.jboss.jandex.MethodInfo;
+import summer.core.bean.BeanDefinition;
+import summer.core.bean.ConfigPropertiesBean;
+import summer.core.bean.RouteInfo;
 
 /**
  * Enriches discovered bean definitions with constructor params, interface
@@ -47,12 +50,14 @@ final class BeanEnrichment {
 	 */
 	void enrich(List<BeanDefinition> beans) {
 		for (BeanDefinition bean : beans) {
-			if (bean instanceof ComponentBean cb) {
-				ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
-				if (ci != null) {
-					collectConstructorParams(cb, ci);
-					collectInterfaces(cb, ci);
+			if (bean instanceof ConfigPropertiesBean)
+				continue;
+			ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
+			if (ci != null) {
+				if (!bean.isFactoryMethod()) {
+					collectConstructorParams(bean, ci);
 				}
+				collectInterfaces(bean, ci);
 			}
 		}
 		collectRouteMetadata(beans);
@@ -61,7 +66,7 @@ final class BeanEnrichment {
 
 	// ── Constructor Params ────────────────────────────────────────────
 
-	private void collectConstructorParams(ComponentBean bean, ClassInfo ci) {
+	private void collectConstructorParams(BeanDefinition bean, ClassInfo ci) {
 		List<MethodInfo> publicCtors = ci.methods().stream()
 				.filter(m -> m.name().equals("<init>") && (m.flags() & 0x0001) != 0).toList();
 		if (publicCtors.isEmpty()) {
@@ -90,11 +95,11 @@ final class BeanEnrichment {
 
 	// ── Interfaces ────────────────────────────────────────────────────
 
-	private void collectInterfaces(ComponentBean bean, ClassInfo ci) {
+	private void collectInterfaces(BeanDefinition bean, ClassInfo ci) {
 		collectInterfacesRecursive(bean, ci, new HashSet<>());
 	}
 
-	private void collectInterfacesRecursive(ComponentBean bean, ClassInfo ci, Set<String> visited) {
+	private void collectInterfacesRecursive(BeanDefinition bean, ClassInfo ci, Set<String> visited) {
 		for (org.jboss.jandex.Type iface : ci.interfaceTypes()) {
 			String ifaceName = iface.name().toString();
 			if (visited.add(ifaceName)) {
@@ -111,7 +116,7 @@ final class BeanEnrichment {
 
 	private void collectRouteMetadata(List<BeanDefinition> beans) {
 		for (BeanDefinition bean : beans) {
-			if (!(bean instanceof ComponentBean cb))
+			if (bean instanceof ConfigPropertiesBean)
 				continue;
 
 			ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
@@ -129,19 +134,18 @@ final class BeanEnrichment {
 				String fullPath = combinePaths(basePath, methodPath);
 				String returnType = method.returnType().name().toString();
 
-RouteInfo route = new RouteInfo(httpMethod, fullPath, bean.qualifiedName, method.name(), returnType);
-                    collectParameters(method, route);
+				RouteInfo route = new RouteInfo(httpMethod, fullPath, bean.qualifiedName, method.name(), returnType);
+				collectParameters(method, route);
 
-                    // Enforce Gin-style contract: first parameter MUST be HttpContext
-                    var params = method.parameters();
-                    if (params.isEmpty() || !params.get(0).type().name().toString().equals("summer.web.HttpContext")) {
-                        throw new IllegalStateException(bean.qualifiedName + "."
-                                + method.name() + "() must declare HttpContext as its first parameter. "
-                                + "All controller methods follow the Gin pattern: "
-                                + "first arg is always the context.");
-                    }
+				// Enforce Gin-style contract: first parameter MUST be HttpContext
+				var params = method.parameters();
+				if (params.isEmpty() || !params.get(0).type().name().toString().equals("summer.web.HttpContext")) {
+					throw new IllegalStateException(bean.qualifiedName + "." + method.name()
+							+ "() must declare HttpContext as its first parameter. "
+							+ "All controller methods follow the Gin pattern: " + "first arg is always the context.");
+				}
 
-                    cb.routes.add(route);
+				bean.routes.add(route);
 			}
 		}
 	}
@@ -185,9 +189,9 @@ RouteInfo route = new RouteInfo(httpMethod, fullPath, bean.qualifiedName, method
 						.add(new RouteInfo.ParamInfo(bindingName, paramType, RouteInfo.ParamBinding.QUERY, hasValid));
 			} else if (paramType.equals("summer.web.Pageable") || param.type().name().equals(PAGEABLE_DOT)) {
 				route.params.add(new RouteInfo.ParamInfo(paramName, paramType, RouteInfo.ParamBinding.PAGEABLE, false));
-} else if (!paramType.equals("summer.web.WebContext") && !paramType.equals("summer.web.HttpContext")) {
-                    route.params.add(new RouteInfo.ParamInfo(paramName, paramType, RouteInfo.ParamBinding.BODY, hasValid));
-                }
+			} else if (!paramType.equals("summer.web.WebContext") && !paramType.equals("summer.web.HttpContext")) {
+				route.params.add(new RouteInfo.ParamInfo(paramName, paramType, RouteInfo.ParamBinding.BODY, hasValid));
+			}
 		}
 	}
 
@@ -221,7 +225,7 @@ RouteInfo route = new RouteInfo(httpMethod, fullPath, bean.qualifiedName, method
 		// Step 2: Identify interceptor beans and their binding annotations
 		Map<BeanDefinition, Set<DotName>> interceptorBindings = new LinkedHashMap<>();
 		for (BeanDefinition bean : beans) {
-			if (!(bean instanceof ComponentBean))
+			if (bean instanceof ConfigPropertiesBean)
 				continue;
 			ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
 			if (ci == null || !ci.hasAnnotation(INTERCEPTOR_DOT))
@@ -237,10 +241,9 @@ RouteInfo route = new RouteInfo(httpMethod, fullPath, bean.qualifiedName, method
 			}
 		}
 
-		// Step 3: For each ComponentBean, check if it needs a proxy and match
-		// interceptors
+		// Step 3: For each bean, check if it needs a proxy and match interceptors
 		for (BeanDefinition bean : beans) {
-			if (!(bean instanceof ComponentBean cb))
+			if (bean instanceof ConfigPropertiesBean)
 				continue;
 
 			ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
@@ -256,31 +259,31 @@ RouteInfo route = new RouteInfo(httpMethod, fullPath, bean.qualifiedName, method
 			for (AnnotationInstance ann : ci.declaredAnnotations()) {
 				if (bindingAnnotations.contains(ann.name())) {
 					targetBindings.add(ann.name());
-					cb.needsProxy = true;
+					bean.needsProxy = true;
 				}
 			}
 
 			// Check method-level bindings
-			if (!cb.needsProxy) {
+			if (!bean.needsProxy) {
 				for (MethodInfo method : ci.methods()) {
 					for (AnnotationInstance ann : method.annotations()) {
 						if (bindingAnnotations.contains(ann.name())) {
 							targetBindings.add(ann.name());
-							cb.needsProxy = true;
+							bean.needsProxy = true;
 							break;
 						}
 					}
-					if (cb.needsProxy)
+					if (bean.needsProxy)
 						break;
 				}
 			}
 
 			// Match interceptors
-			if (cb.needsProxy) {
+			if (bean.needsProxy) {
 				for (var entry : interceptorBindings.entrySet()) {
 					for (DotName binding : entry.getValue()) {
 						if (targetBindings.contains(binding)) {
-							cb.interceptors.add(entry.getKey());
+							bean.interceptors.add(entry.getKey());
 							break;
 						}
 					}

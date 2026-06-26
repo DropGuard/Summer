@@ -60,11 +60,9 @@ public class WebSocketUpgradeHandler {
 
 		FullHttpRequest retainedReq = nettyReq.retain();
 		nettyCtx.executor().execute(() -> {
-			nettyCtx.pipeline().addLast(
-					new io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler(uri, null, true,
-							config.maxWebSocketFrameSize()));
-			nettyCtx.pipeline()
-					.addLast(new SummerWebSocketFrameHandler(wsContext, config.maxWebSocketFrameSize()));
+			nettyCtx.pipeline().addLast(new io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler(uri,
+					null, true, config.maxWebSocketFrameSize()));
+			nettyCtx.pipeline().addLast(new SummerWebSocketFrameHandler(wsContext, config.maxWebSocketFrameSize()));
 			nettyCtx.fireChannelRead(retainedReq);
 		});
 		return true;

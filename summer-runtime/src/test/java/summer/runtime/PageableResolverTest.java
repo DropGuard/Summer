@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.lang.reflect.Parameter;
 import org.junit.jupiter.api.Test;
+import summer.core.config.PageableProperties;
 import summer.web.*;
 
 /**
@@ -15,7 +16,7 @@ import summer.web.*;
  */
 class PageableResolverTest {
 
-	private final PageableResolver resolver = new PageableResolver(0, 20);
+	private final PageableResolver resolver = new PageableResolver(new PageableProperties(0, 20));
 
 	@Test
 	void shouldResolveWithExplicitParams() throws Exception {
@@ -90,7 +91,7 @@ class PageableResolverTest {
 
 	@Test
 	void shouldUseCustomDefaults() throws Exception {
-		PageableResolver customResolver = new PageableResolver(1, 50);
+		PageableResolver customResolver = new PageableResolver(new PageableProperties(1, 50));
 		Request request = new Request(HttpMethod.GET, "/articles", null, null, null);
 		HttpContext ctx = new HttpContext(request);
 

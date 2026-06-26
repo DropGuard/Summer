@@ -2,8 +2,7 @@ package summer.tck.di;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import summer.runtime.RuntimeApplicationContext;
-import summer.core.Engine;
+import summer.runtime.RuntimeBeanContainerBuilder;
 
 /**
  * Runtime (reflection-based) conditional assembly test.
@@ -12,7 +11,7 @@ public class RuntimeConditionalTCKTest extends AbstractConditionalTCK {
 
 	@BeforeEach
 	void setUp() {
-		context = RuntimeApplicationContext.create(summer.core.Engine.RUNTIME);
+		context = RuntimeBeanContainerBuilder.build();
 	}
 
 	@AfterEach

@@ -20,8 +20,7 @@ public final class AotMethodMetadata implements MethodMetadata {
 	private final Class<?> declaringClass;
 	private final Set<Class<? extends Annotation>> annotations;
 
-	public AotMethodMetadata(String name, Class<?> declaringClass,
-			Set<Class<? extends Annotation>> annotations) {
+	public AotMethodMetadata(String name, Class<?> declaringClass, Set<Class<? extends Annotation>> annotations) {
 		this.name = name;
 		this.declaringClass = declaringClass;
 		this.annotations = Collections.unmodifiableSet(annotations);

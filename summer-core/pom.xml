@@ -15,6 +15,12 @@
     <description>Core DI container and bean management module for Summer framework</description>
 
     <dependencies>
+        <!-- Jandex for class metadata indexing (shared condition evaluation) -->
+        <dependency>
+            <groupId>io.smallrye</groupId>
+            <artifactId>jandex</artifactId>
+        </dependency>
+
         <!-- Jackson YAML for configuration loading -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

@@ -1,15 +1,14 @@
 package summer.tck.data.jdbc;
 
+import javax.sql.DataSource;
+import summer.data.jdbc.JdbcTemplate;
 import summer.fixtures.data.jdbc.User;
 import summer.fixtures.data.jdbc.User_RowMapper;
-import summer.data.jdbc.JdbcTemplate;
-
-import javax.sql.DataSource;
 
 /**
- * AOT engine JdbcTemplate TCK. Simulates the JdbcTemplate registration
- * produced by AOT-generated code: mappers registered directly on the
- * JdbcTemplate via {@code registerMapper}.
+ * AOT engine JdbcTemplate TCK. Simulates the JdbcTemplate registration produced
+ * by AOT-generated code: mappers registered directly on the JdbcTemplate via
+ * {@code registerMapper}.
  */
 public class AotJdbcTemplateTest extends AbstractJdbcTemplateTCK {
 

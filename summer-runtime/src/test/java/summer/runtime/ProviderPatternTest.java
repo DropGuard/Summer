@@ -11,7 +11,7 @@ public class ProviderPatternTest {
 
 	@Test
 	public void testProviderPatternRegistersCorrectType() {
-		var context = RuntimeApplicationContext.builder().registerComponent(StringProvider.class).build();
+		var context = RuntimeBeanContainerBuilder.buildScoped(ProviderPatternTest.class);
 
 		// Should be able to get String directly
 		String provided = context.getBean(String.class);

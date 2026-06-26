@@ -2,16 +2,14 @@ package summer.web.server;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import summer.core.BeanContainer;
 import summer.core.ApplicationRunner;
-import summer.core.Engine;
+import summer.core.BeanContainer;
 import summer.runtime.RuntimeWebConfiguration;
 import summer.web.ExceptionHandlerRegistrar;
 import summer.web.ExceptionRegistry;
 import summer.web.HttpRouter;
 import summer.web.RouteRegistrar;
 import summer.web.RouterRegistry;
-import summer.web.RouterType;
 import summer.web.ServerConfig;
 import summer.web.WsRouter;
 
@@ -36,51 +34,51 @@ public class NettyServerRunner implements ApplicationRunner, AutoCloseable {
 		this.config = config;
 	}
 
-@Override
-        public void run(BeanContainer context) throws Exception {
-            ExceptionRegistry exceptionRegistry = buildExceptionRegistry(context);
-            HttpRouter httpRouter = buildHttpRouter(context);
-            WsRouter wsRouter = buildWsRouter(context);
-            runningServer = NettyHttpServer.create(context, config, httpRouter, wsRouter, exceptionRegistry);
-            runningServer.start();
-            actualPort = runningServer.getPort();
-        }
+	@Override
+	public void run(BeanContainer context) throws Exception {
+		ExceptionRegistry exceptionRegistry = buildExceptionRegistry(context);
+		HttpRouter httpRouter = buildHttpRouter(context);
+		WsRouter wsRouter = buildWsRouter(context);
+		runningServer = NettyHttpServer.create(context, config, httpRouter, wsRouter, exceptionRegistry);
+		runningServer.start();
+		actualPort = runningServer.getPort();
+	}
 
-        /**
-         * Returns the actual port the server bound to. Useful when {@code server.port}
-         * is 0 (random port).
-         */
-        public static int getActualPort() {
-            return actualPort;
-        }
+	/**
+	 * Returns the actual port the server bound to. Useful when {@code server.port}
+	 * is 0 (random port).
+	 */
+	public static int getActualPort() {
+		return actualPort;
+	}
 
-        private ExceptionRegistry buildExceptionRegistry(BeanContainer context) {
-            ExceptionRegistry registry = new ExceptionRegistry();
-            for (ExceptionHandlerRegistrar registrar : context.getBeans(ExceptionHandlerRegistrar.class)) {
-                registrar.registerHandlers(registry, context);
-            }
-            return registry;
-        }
+	private ExceptionRegistry buildExceptionRegistry(BeanContainer context) {
+		ExceptionRegistry registry = new ExceptionRegistry();
+		for (ExceptionHandlerRegistrar registrar : context.getBeans(ExceptionHandlerRegistrar.class)) {
+			registrar.registerHandlers(registry, context);
+		}
+		return registry;
+	}
 
-private HttpRouter buildHttpRouter(BeanContainer context) {
-                var builder = new HttpRouter.Builder(config.routerType(), routerRegistry);
+	private HttpRouter buildHttpRouter(BeanContainer context) {
+		var builder = new HttpRouter.Builder(config.routerType(), routerRegistry);
 
-            for (RouteRegistrar registrar : context.getBeans(RouteRegistrar.class)) {
-                registrar.registerControllers(builder, context);
-            }
+		for (RouteRegistrar registrar : context.getBeans(RouteRegistrar.class)) {
+			registrar.registerControllers(builder, context);
+		}
 
-            return builder.build();
-        }
+		return builder.build();
+	}
 
-        private WsRouter buildWsRouter(BeanContainer context) {
-            var builder = new WsRouter.Builder(config.routerType(), routerRegistry);
+	private WsRouter buildWsRouter(BeanContainer context) {
+		var builder = new WsRouter.Builder(config.routerType(), routerRegistry);
 
-            for (summer.web.WsRouteProvider provider : context.getBeans(summer.web.WsRouteProvider.class)) {
-                provider.provide(builder);
-            }
+		for (summer.web.WsRouteProvider provider : context.getBeans(summer.web.WsRouteProvider.class)) {
+			provider.provide(builder);
+		}
 
-            return builder.build();
-        }
+		return builder.build();
+	}
 
 	@Override
 	public void close() throws Exception {

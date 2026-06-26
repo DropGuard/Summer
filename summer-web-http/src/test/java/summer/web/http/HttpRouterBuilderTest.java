@@ -63,8 +63,11 @@ class HttpRouterBuilderTest {
 	void shouldSupportFluentChaining() {
 		HttpRouter.Builder builder = new HttpRouter.Builder(RadixTreeHttpRouter::new);
 
-		HttpRouter.Builder result = builder.get("/a", ctx -> {}).post("/b", ctx -> {}).put("/c", ctx -> {})
-				.delete("/d", ctx -> {});
+		HttpRouter.Builder result = builder.get("/a", ctx -> {
+		}).post("/b", ctx -> {
+		}).put("/c", ctx -> {
+		}).delete("/d", ctx -> {
+		});
 
 		assertSame(builder, result);
 	}

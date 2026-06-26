@@ -5,11 +5,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
-import summer.tck.AbstractContextTCK;
 import summer.fixtures.di.configprops.*;
-import summer.fixtures.di.missing.StrictConfig;
-import summer.fixtures.di.root.RootConfig;
 import summer.fixtures.di.root.RootService;
+import summer.tck.AbstractContextTCK;
 
 /**
  * TCK contract for {@code @ConfigurationProperties} auto-binding.
@@ -34,12 +32,6 @@ import summer.fixtures.di.root.RootService;
  * </p>
  */
 public abstract class AbstractConfigurationPropertiesTCK extends AbstractContextTCK {
-
-	/**
-	 * Creates a context with a specific entry point. Used by tests that need
-	 * different YAML sections or entry classes.
-	 */
-	protected abstract BeanContainer createContext(Class<?> entryPoint);
 
 	// ──────────────────────────────────────────────────────────────────────
 	// Scenario 0: Basic binding and injection (existing)
@@ -105,7 +97,7 @@ public abstract class AbstractConfigurationPropertiesTCK extends AbstractContext
 
 		@Test
 		void testMissingFieldIsNull() {
-			BeanContainer ctx = createContext(StrictConfig.class);
+			BeanContainer ctx = context();
 			assertNotNull(ctx, "Context should be created even with missing fields");
 			// StrictProperties.apiKey has no @DefaultValue, so it should be null
 			// when not in YAML. Validation Phase (if configured) catches business errors.
@@ -223,7 +215,7 @@ public abstract class AbstractConfigurationPropertiesTCK extends AbstractContext
 
 		@Test
 		void testEmptyPrefixBindsRootYaml() {
-			BeanContainer ctx = createContext(RootConfig.class);
+			BeanContainer ctx = context();
 			RootService service = ctx.getBean(RootService.class);
 			assertNotNull(service, "Service depending on root config should be created");
 

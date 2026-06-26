@@ -4,10 +4,10 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
-import summer.tck.AbstractContextTCK;
 import summer.fixtures.dummy.ServiceA;
 import summer.fixtures.dummy.ServiceB;
 import summer.fixtures.dummy.ServiceC;
+import summer.tck.AbstractContextTCK;
 
 /**
  * TCK for core dependency injection behavior.

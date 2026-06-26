@@ -6,7 +6,8 @@ import summer.aop.MethodInterceptor;
 
 /**
  * Applies AOP proxies to bean instances. Matching interceptors are pre-filtered
- * by {@link DependencyGraph} (the single source of truth for binding matches).
+ * by {@link BeanDefinitionFactory} (the single source of truth for binding
+ * matches).
  */
 final class RuntimeAopProcessor {
 
@@ -22,7 +23,7 @@ final class RuntimeAopProcessor {
 	 *            the bean class
 	 * @param matchingInterceptors
 	 *            pre-filtered interceptors that match this bean (queried from
-	 *            {@link DependencyGraph})
+	 *            {@link BeanDefinitionFactory})
 	 * @return the proxy, or the original instance if no interception is needed
 	 */
 	static Object applyProxy(Object instance, Class<?> clazz, List<MethodInterceptor> matchingInterceptors) {

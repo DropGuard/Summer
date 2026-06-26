@@ -68,7 +68,8 @@ public class ProxyFactory {
 		 * 
 		 * <p>
 		 * Note: Only checks direct annotations on the interceptor class, not inherited
-		 * ones. This matches the behavior of DependencyGraph and RuntimeAopProcessor.
+		 * ones. This matches the behavior of BeanDefinitionFactory and
+		 * RuntimeAopProcessor.
 		 * </p>
 		 */
 		private boolean shouldIntercept(Method targetMethod, List<MethodInterceptor> interceptors) {

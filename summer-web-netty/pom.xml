@@ -25,7 +25,7 @@
             <groupId>summer</groupId>
             <artifactId>summer-web-http</artifactId>
         </dependency>
-        <!-- Summer Runtime (for RuntimeApplicationContext) -->
+        <!-- Summer Runtime (for RuntimeBeanContainerBuilder) -->
         <dependency>
             <groupId>summer</groupId>
             <artifactId>summer-runtime</artifactId>
@@ -75,6 +75,10 @@
                         <id>make-test-index</id>
                         <phase>process-test-classes</phase>
                         <goals><goal>jandex</goal></goals>
+                        <configuration>
+                            <classesDir>${project.build.testOutputDirectory}</classesDir>
+                            <indexDir>${project.build.testOutputDirectory}/META-INF</indexDir>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

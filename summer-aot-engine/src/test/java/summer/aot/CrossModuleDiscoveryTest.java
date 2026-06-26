@@ -16,6 +16,9 @@ import org.jboss.jandex.Index;
 import org.jboss.jandex.Indexer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import summer.core.bean.BeanDefinition;
+import summer.core.bean.ConfigPropertiesBean;
+import summer.core.bean.RouteInfo;
 
 /**
  * Tests for cross-module bean discovery via Jandex indexes.
@@ -70,13 +73,13 @@ class CrossModuleDiscoveryTest {
 
 	@Test
 	void dependencyResolverFindsBeanByQualifiedName() {
-		ComponentBean serviceA = new ComponentBean("summer.fixtures.dummy.ServiceA", "ServiceA");
+		BeanDefinition serviceA = new BeanDefinition("summer.fixtures.dummy.ServiceA", "ServiceA");
 		serviceA.constructorParamTypes.add("summer.fixtures.dummy.ServiceB");
 
-		ComponentBean serviceB = new ComponentBean("summer.fixtures.dummy.ServiceB", "ServiceB");
+		BeanDefinition serviceB = new BeanDefinition("summer.fixtures.dummy.ServiceB", "ServiceB");
 		serviceB.constructorParamTypes.add("summer.fixtures.dummy.ServiceC");
 
-		ComponentBean serviceC = new ComponentBean("summer.fixtures.dummy.ServiceC", "ServiceC");
+		BeanDefinition serviceC = new BeanDefinition("summer.fixtures.dummy.ServiceC", "ServiceC");
 
 		List<BeanDefinition> beans = List.of(serviceA, serviceB, serviceC);
 		DependencyResolver resolver = new DependencyResolver();
@@ -88,10 +91,10 @@ class CrossModuleDiscoveryTest {
 
 	@Test
 	void dependencyResolverFindsBeanByInterface() {
-		ComponentBean impl = new ComponentBean("summer.fixtures.dummy.ServiceBImpl", "ServiceBImpl");
+		BeanDefinition impl = new BeanDefinition("summer.fixtures.dummy.ServiceBImpl", "ServiceBImpl");
 		impl.interfaceNames.add("summer.fixtures.dummy.ServiceB");
 
-		ComponentBean consumer = new ComponentBean("summer.fixtures.dummy.ServiceA", "ServiceA");
+		BeanDefinition consumer = new BeanDefinition("summer.fixtures.dummy.ServiceA", "ServiceA");
 		consumer.constructorParamTypes.add("summer.fixtures.dummy.ServiceB");
 
 		List<BeanDefinition> beans = List.of(impl, consumer);
@@ -103,7 +106,7 @@ class CrossModuleDiscoveryTest {
 
 	@Test
 	void aotContextGeneratorProducesValidCode() throws IOException {
-		ComponentBean serviceC = new ComponentBean("summer.fixtures.dummy.ServiceC", "ServiceC");
+		BeanDefinition serviceC = new BeanDefinition("summer.fixtures.dummy.ServiceC", "ServiceC");
 
 		AotContextGenerator generator = new AotContextGenerator();
 		File outputDir = tempDir.toFile();
@@ -196,14 +199,13 @@ class CrossModuleDiscoveryTest {
 		List<BeanDefinition> beans = new BeanDiscovery(index).discover(null);
 
 		// With null prefix, should discover ALL beans regardless of package
-		// @Configuration classes are now ComponentBeans (ConfigBean merged into
-		// ComponentBean)
-		long componentCount = beans.stream().filter(b -> b instanceof ComponentBean).count();
-		long factoryCount = beans.stream().filter(b -> b instanceof FactoryBean).count();
+		long componentCount = beans.stream().filter(b -> !b.isFactoryMethod() && !(b instanceof ConfigPropertiesBean))
+				.count();
+		long factoryCount = beans.stream().filter(b -> b.isFactoryMethod()).count();
 
 		assertTrue(componentCount >= 2,
-				"Should find ComponentBeans (ServiceA + MultiBeanConfiguration), found: " + componentCount);
-		assertTrue(factoryCount >= 2, "Should find FactoryBeans, found: " + factoryCount);
+				"Should find component beans (ServiceA + MultiBeanConfiguration), found: " + componentCount);
+		assertTrue(factoryCount >= 2, "Should find factory beans, found: " + factoryCount);
 	}
 
 	/**
@@ -219,17 +221,17 @@ class CrossModuleDiscoveryTest {
 
 		List<BeanDefinition> beans = new BeanDiscovery(index).discover("summer.fixtures.dummy");
 
-		long factoryCount = beans.stream().filter(b -> b instanceof FactoryBean).count();
+		long factoryCount = beans.stream().filter(b -> b.isFactoryMethod()).count();
 		assertEquals(2, factoryCount, "Should discover 2 @Bean factory products, found " + factoryCount + ": "
-				+ beans.stream().filter(b -> b instanceof FactoryBean).map(b -> b.qualifiedName).toList());
+				+ beans.stream().filter(b -> b.isFactoryMethod()).map(b -> b.qualifiedName).toList());
 
 		assertTrue(
 				beans.stream().anyMatch(
-						b -> b instanceof FactoryBean && b.qualifiedName.equals("summer.fixtures.dummy.PlainServiceA")),
-				"Should discover PlainServiceA as a FactoryBean");
+						b -> b.isFactoryMethod() && b.qualifiedName.equals("summer.fixtures.dummy.PlainServiceA")),
+				"Should discover PlainServiceA as a factory bean");
 		assertTrue(
 				beans.stream().anyMatch(
-						b -> b instanceof FactoryBean && b.qualifiedName.equals("summer.fixtures.dummy.PlainServiceB")),
-				"Should discover PlainServiceB as a FactoryBean");
+						b -> b.isFactoryMethod() && b.qualifiedName.equals("summer.fixtures.dummy.PlainServiceB")),
+				"Should discover PlainServiceB as a factory bean");
 	}
 }

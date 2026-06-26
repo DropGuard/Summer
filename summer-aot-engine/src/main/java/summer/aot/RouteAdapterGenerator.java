@@ -7,6 +7,8 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeSpec;
 import java.io.IOException;
 import java.util.List;
+import summer.core.bean.BeanDefinition;
+import summer.core.bean.RouteInfo;
 
 /**
  * Generates web route adapter for AOT mode.
@@ -44,12 +46,10 @@ public final class RouteAdapterGenerator {
 		// Generate the registerControllers method body
 		CodeBlock.Builder registerBody = CodeBlock.builder();
 
-for (BeanDefinition controller : controllers) {
-                String varName = controller.variableName;
-                ClassName controllerClass = safeClassName(controller.qualifiedName);
-                registerBody.addStatement("$T $N = context.getBean($T.class)",
-                        controllerClass, varName,
-                        controllerClass);
+		for (BeanDefinition controller : controllers) {
+			String varName = controller.variableName;
+			ClassName controllerClass = safeClassName(controller.qualifiedName);
+			registerBody.addStatement("$T $N = context.getBean($T.class)", controllerClass, varName, controllerClass);
 
 			for (RouteInfo route : controller.routes) {
 				CodeBlock handlerBody = generateHandlerBody(route, varName);
@@ -117,13 +117,13 @@ for (BeanDefinition controller : controllers) {
 			}
 		}
 
-// Controller methods require HttpContext as first parameter.
-            // Validation happens in BeanEnrichment.
-            StringBuilder args = new StringBuilder("ctx");
-            for (int i = 0; i < route.params.size(); i++) {
-                args.append(", ");
-                args.append(route.params.get(i).name);
-            }
+		// Controller methods require HttpContext as first parameter.
+		// Validation happens in BeanEnrichment.
+		StringBuilder args = new StringBuilder("ctx");
+		for (int i = 0; i < route.params.size(); i++) {
+			args.append(", ");
+			args.append(route.params.get(i).name);
+		}
 
 		if (route.returnType.equals("void")) {
 			body.add("$N.$L($N);\n", controllerVar, route.methodName, args.toString());
@@ -152,11 +152,11 @@ for (BeanDefinition controller : controllers) {
 			case "short" -> com.palantir.javapoet.TypeName.SHORT;
 			case "byte" -> com.palantir.javapoet.TypeName.BYTE;
 			case "char" -> com.palantir.javapoet.TypeName.CHAR;
-default -> ClassName.bestGuess(type);
-            };
-        }
+			default -> ClassName.bestGuess(type);
+		};
+	}
 
-        private static ClassName safeClassName(String qualifiedName) {
-            return ClassName.bestGuess(qualifiedName.replace('$', '.'));
-        }
-    }
+	private static ClassName safeClassName(String qualifiedName) {
+		return ClassName.bestGuess(qualifiedName.replace('$', '.'));
+	}
+}

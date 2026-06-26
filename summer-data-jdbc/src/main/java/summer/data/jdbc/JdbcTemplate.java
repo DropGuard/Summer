@@ -25,8 +25,8 @@ public class JdbcTemplate {
 	}
 
 	/**
-	 * Registers a {@code RowMapper} for the given row type.
-	 * Called by the DI engine at startup; not part of the public API.
+	 * Registers a {@code RowMapper} for the given row type. Called by the DI engine
+	 * at startup; not part of the public API.
 	 */
 	public void registerMapper(Class<?> rowType, RowMapper<?> mapper) {
 		mappers.put(rowType, mapper);

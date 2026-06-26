@@ -15,27 +15,31 @@ import summer.web.annotation.ExceptionHandler;
  */
 public class RuntimeExceptionHandlerRegistrar implements ExceptionHandlerRegistrar {
 
-    private final HttpParameterResolverChain resolverChain;
+	private final HttpParameterResolverChain resolverChain;
 
-    public RuntimeExceptionHandlerRegistrar(HttpParameterResolverChain resolverChain) {
-        this.resolverChain = resolverChain;
-    }
+	public RuntimeExceptionHandlerRegistrar(HttpParameterResolverChain resolverChain) {
+		this.resolverChain = resolverChain;
+	}
 
-    @Override
-    public void registerHandlers(ExceptionRegistry registry, BeanContainer context) {
-        IndexView index = JandexIndexLoader.buildIndex();
-        for (ClassInfo ci : index.getKnownClasses()) {
-            try {
-                Class<?> clazz = Class.forName(ci.name().toString());
-                for (Method method : clazz.getMethods()) {
-                    ExceptionHandler ann = method.getAnnotation(ExceptionHandler.class);
-                    if (ann != null) {
-                        Handler handler = HandlerFactory.create(context.getBean(clazz), method, resolverChain);
-                        registry.register(ann.value(), handler);
-                    }
-                }
-            } catch (ClassNotFoundException ignored) {
-            }
-        }
-    }
+	@Override
+	public void registerHandlers(ExceptionRegistry registry, BeanContainer context) {
+		IndexView index = JandexIndexLoader.buildIndex();
+		for (ClassInfo ci : index.getKnownClasses()) {
+			try {
+				Class<?> clazz = Class.forName(ci.name().toString());
+				if (!context.componentTypes().contains(clazz)) {
+					continue;
+				}
+				Object instance = context.getBean(clazz);
+				for (Method method : clazz.getMethods()) {
+					ExceptionHandler ann = method.getAnnotation(ExceptionHandler.class);
+					if (ann != null) {
+						Handler handler = HandlerFactory.create(instance, method, resolverChain);
+						registry.register(ann.value(), handler);
+					}
+				}
+			} catch (ClassNotFoundException ignored) {
+			}
+		}
+	}
 }

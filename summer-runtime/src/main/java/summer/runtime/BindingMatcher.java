@@ -7,7 +7,7 @@ import summer.aop.InterceptorBinding;
 
 /**
  * Discovers {@code @InterceptorBinding}-annotated annotations on an interceptor
- * class. Shared by {@link DependencyGraph} (class-level discovery) and
+ * class. Shared by {@link BeanDefinitionFactory} (class-level discovery) and
  * {@link ProxyFactory} (method-level filtering).
  */
 final class BindingMatcher {

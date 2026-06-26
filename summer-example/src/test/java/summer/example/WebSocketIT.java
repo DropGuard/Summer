@@ -17,7 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import summer.core.BeanContainer;
 import summer.core.Engine;
-import summer.runtime.RuntimeApplicationContext;
+import summer.runtime.RuntimeBeanContainerBuilder;
 import summer.web.server.NettyServerRunner;
 
 class WebSocketIT {
@@ -38,7 +38,7 @@ class WebSocketIT {
 
 	@BeforeAll
 	static void startServer() throws Exception {
-		context = RuntimeApplicationContext.create(summer.core.Engine.RUNTIME);
+		context = RuntimeBeanContainerBuilder.build();
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);
 	}

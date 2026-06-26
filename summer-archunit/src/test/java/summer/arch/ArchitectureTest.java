@@ -154,9 +154,8 @@ class ArchitectureTest {
 		String[] productionPackages = {"summer.core..", "summer.web..", "summer.aop..", "summer.tx..",
 				"summer.runtime..", "summer.plugin..", "summer.data..", "summer.boot..", "summer.web.netty..",
 				"summer.grpc..", "summer.validation.."};
-		ArchRule rule = noClasses().that().resideInAnyPackage(productionPackages).should()
-				.dependOnClassesThat().haveFullyQualifiedName("java.util.concurrent.ConcurrentHashMap")
-				.allowEmptyShould(true);
+		ArchRule rule = noClasses().that().resideInAnyPackage(productionPackages).should().dependOnClassesThat()
+				.haveFullyQualifiedName("java.util.concurrent.ConcurrentHashMap").allowEmptyShould(true);
 		rule.check(classes);
 	}
 

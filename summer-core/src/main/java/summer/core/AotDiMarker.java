@@ -11,9 +11,9 @@ package summer.core;
  * </p>
  *
  * <p>
- * Downstream configurations use
- * {@code @ConditionalOnBean(AotDiMarker.class)} to activate only when the AOT
- * engine is in use, as opposed to the runtime/reflection engine.
+ * Downstream configurations use {@code @ConditionalOnBean(AotDiMarker.class)}
+ * to activate only when the AOT engine is in use, as opposed to the
+ * runtime/reflection engine.
  * </p>
  */
 public class AotDiMarker {

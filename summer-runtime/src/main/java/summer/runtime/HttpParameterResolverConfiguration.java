@@ -11,13 +11,7 @@ import summer.core.annotation.Configuration;
  *
  * <p>
  * Provides the built-in {@link HttpParameterResolver} implementations and
- * assembles them into an {@link HttpParameterResolverChain}. The resolver order
- * matches the {@code @Bean} method declaration order.
- * </p>
- *
- * <p>
- * {@link PageableResolver} is provided by {@link PageableConfiguration} with
- * configurable defaults.
+ * assembles them into an {@link HttpParameterResolverChain}.
  * </p>
  *
  * <p>
@@ -25,18 +19,6 @@ import summer.core.annotation.Configuration;
  * {@link RuntimeDiMarker} is present). In AOT mode, parameter binding is
  * generated inline by {@code RouteAdapterGenerator}.
  * </p>
- *
- * <p>
- * Resolution order:
- * </p>
- * <ol>
- * <li>{@link ValidatingParameterResolver} — @Valid annotated parameters</li>
- * <li>{@link PageableResolver} — Pageable parameters</li>
- * <li>{@link TypeParameterResolver} — HttpContext, Request</li>
- * <li>{@link PathParamResolver} — @PathParam</li>
- * <li>{@link QueryParamResolver} — @QueryParam</li>
- * <li>{@link ThrowableResolver} — Throwable (for @ExceptionHandler)</li>
- * </ol>
  */
 @Configuration
 @ConditionalOnBean(RuntimeDiMarker.class)

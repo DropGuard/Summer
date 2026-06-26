@@ -1,6 +1,7 @@
 package summer.runtime;
 
 import java.lang.reflect.Parameter;
+import summer.core.config.PageableProperties;
 import summer.web.HttpContext;
 import summer.web.PageRequest;
 import summer.web.Pageable;
@@ -44,16 +45,14 @@ public class PageableResolver implements HttpParameterResolver {
 	private final int defaultSize;
 
 	/**
-	 * Creates a new PageableResolver with the given defaults.
+	 * Creates a new PageableResolver with defaults from {@link PageableProperties}.
 	 *
-	 * @param defaultPage
-	 *            zero-based page index to use when not specified in the request
-	 * @param defaultSize
-	 *            number of items per page to use when not specified in the request
+	 * @param props
+	 *            pagination configuration properties
 	 */
-	public PageableResolver(int defaultPage, int defaultSize) {
-		this.defaultPage = defaultPage;
-		this.defaultSize = defaultSize;
+	public PageableResolver(PageableProperties props) {
+		this.defaultPage = props.defaultPage();
+		this.defaultSize = props.defaultSize();
 	}
 
 	@Override

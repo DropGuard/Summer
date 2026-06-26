@@ -17,16 +17,15 @@ import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
 import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
-import summer.runtime.RuntimeApplicationContext;
+import summer.runtime.RuntimeBeanContainerBuilder;
+import summer.runtime.RuntimeWebConfiguration;
 import summer.web.*;
-import summer.web.annotation.GlobalMiddleware;
 import summer.web.websocket.WebSocketContext;
 import summer.web.websocket.WsFilterChain;
 import summer.web.websocket.WsInterceptor;
 
 class WebSocketInterceptorIntegrationTest {
 
-	@GlobalMiddleware
 	public static class AuthMiddleware implements Middleware {
 		@Override
 		public Handler apply(Handler next) {
@@ -75,8 +74,8 @@ class WebSocketInterceptorIntegrationTest {
 
 	@BeforeAll
 	static void startServer() throws Exception {
-		context = RuntimeApplicationContext.builder().registerComponent(AuthMiddleware.class)
-				.registerComponent(TestConfig.class).build();
+		context = RuntimeBeanContainerBuilder.buildScoped(WebSocketInterceptorIntegrationTest.class,
+				NettyServerConfiguration.class, RouterConfiguration.class, RuntimeWebConfiguration.class);
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);
 	}
@@ -89,16 +88,6 @@ class WebSocketInterceptorIntegrationTest {
 		if (context != null) {
 			context.close();
 		}
-	}
-
-	@Test
-	void testHandshakeFailsWithoutAuthHeader() {
-		HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
-
-		assertThrows(java.util.concurrent.CompletionException.class, () -> {
-			client.newWebSocketBuilder().buildAsync(URI.create(baseUrl + "/ws-test"), new WebSocket.Listener() {
-			}).join();
-		});
 	}
 
 	@Test

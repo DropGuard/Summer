@@ -50,8 +50,10 @@ class ExceptionRegistryTest {
 	@Test
 	void shouldMatchMostSpecificType() {
 		ExceptionRegistry registry = new ExceptionRegistry();
-		Handler generalHandler = ctx -> {};
-		Handler specificHandler = ctx -> {};
+		Handler generalHandler = ctx -> {
+		};
+		Handler specificHandler = ctx -> {
+		};
 
 		registry.register(Exception.class, generalHandler);
 		registry.register(IllegalArgumentException.class, specificHandler);
@@ -63,7 +65,8 @@ class ExceptionRegistryTest {
 	@Test
 	void shouldHandleDeepInheritance() {
 		ExceptionRegistry registry = new ExceptionRegistry();
-		Handler handler = ctx -> {};
+		Handler handler = ctx -> {
+		};
 
 		registry.register(Throwable.class, handler);
 

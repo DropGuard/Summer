@@ -9,8 +9,8 @@ import org.junit.jupiter.api.Test;
 import summer.tck.AbstractComponentTCK;
 import summer.web.HttpContext;
 import summer.web.HttpMethod;
-import summer.web.HttpStatus;
 import summer.web.HttpRouter;
+import summer.web.HttpStatus;
 import summer.web.Request;
 
 /**
@@ -59,29 +59,34 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
 
 	@Test
 	void testSinglePathParam() {
-		HttpRouter r = builder().get("/users/{id}", ctx -> ctx.text(HttpStatus.OK, "user-" + ctx.request().pathParam("id"))).build();
+		HttpRouter r = builder()
+				.get("/users/{id}", ctx -> ctx.text(HttpStatus.OK, "user-" + ctx.request().pathParam("id"))).build();
 
 		assertEquals("user-42", bodyAsString(r, HttpMethod.GET, "/users/42"));
 	}
 
 	@Test
 	void testMultiplePathParams() {
-		HttpRouter r = builder().get("/users/{userId}/posts/{postId}",
-				ctx -> ctx.text(HttpStatus.OK, ctx.request().pathParam("userId") + ":" + ctx.request().pathParam("postId"))).build();
+		HttpRouter r = builder().get("/users/{userId}/posts/{postId}", ctx -> ctx.text(HttpStatus.OK,
+				ctx.request().pathParam("userId") + ":" + ctx.request().pathParam("postId"))).build();
 
 		assertEquals("10:20", bodyAsString(r, HttpMethod.GET, "/users/10/posts/20"));
 	}
 
 	@Test
 	void testPathParamAtEnd() {
-		HttpRouter r = builder().get("/files/{name}", ctx -> ctx.text(HttpStatus.OK, "file-" + ctx.request().pathParam("name"))).build();
+		HttpRouter r = builder()
+				.get("/files/{name}", ctx -> ctx.text(HttpStatus.OK, "file-" + ctx.request().pathParam("name")))
+				.build();
 
 		assertEquals("file-report.pdf", bodyAsString(r, HttpMethod.GET, "/files/report.pdf"));
 	}
 
 	@Test
 	void testPathParamAtStart() {
-		HttpRouter r = builder().get("{tenant}/users", ctx -> ctx.text(HttpStatus.OK, "tenant-" + ctx.request().pathParam("tenant"))).build();
+		HttpRouter r = builder()
+				.get("{tenant}/users", ctx -> ctx.text(HttpStatus.OK, "tenant-" + ctx.request().pathParam("tenant")))
+				.build();
 
 		assertEquals("tenant-acme", bodyAsString(r, HttpMethod.GET, "acme/users"));
 	}
@@ -136,7 +141,8 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
 
 	@Test
 	void testDoubleSlashNormalization() {
-		HttpRouter r = builder().get("/users/{id}", ctx -> ctx.text(HttpStatus.OK, "user-" + ctx.request().pathParam("id"))).build();
+		HttpRouter r = builder()
+				.get("/users/{id}", ctx -> ctx.text(HttpStatus.OK, "user-" + ctx.request().pathParam("id"))).build();
 
 		assertEquals("user-42", bodyAsString(r, HttpMethod.GET, "//users//42"));
 	}
@@ -166,7 +172,8 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
 
 	@Test
 	void testPathParamWithSpecialChars() {
-		HttpRouter r = builder().get("/files/{name}", ctx -> ctx.text(HttpStatus.OK, ctx.request().pathParam("name"))).build();
+		HttpRouter r = builder().get("/files/{name}", ctx -> ctx.text(HttpStatus.OK, ctx.request().pathParam("name")))
+				.build();
 
 		String result = bodyAsString(r, HttpMethod.GET, "/files/my%20file.txt");
 		assertNotNull(result);

@@ -1,20 +1,17 @@
 package summer.grpc.client;
 
-import java.io.File;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder;
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslContext;
 import io.grpc.netty.shaded.io.netty.handler.ssl.SslContextBuilder;
+import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import summer.core.ErrorCode;
-import summer.grpc.config.GrpcTlsConfig;
 import summer.grpc.config.GrpcTlsConfig;
 import summer.grpc.exception.SummerGrpcException;
 
@@ -42,11 +39,11 @@ public class GrpcChannelManager implements AutoCloseable {
 	 * Gets or creates a ManagedChannel for the specified target.
 	 * 
 	 * @param target
-	 *               e.g. "localhost:9091"
+	 *            e.g. "localhost:9091"
 	 */
-public ManagedChannel getChannel(String target) {
-            return channels.computeIfAbsent(target, t -> {
-                if (tlsConfig.enabled() != null && tlsConfig.enabled() && tlsConfig.trustCert() != null) {
+	public ManagedChannel getChannel(String target) {
+		return channels.computeIfAbsent(target, t -> {
+			if (tlsConfig.enabled() != null && tlsConfig.enabled() && tlsConfig.trustCert() != null) {
 				// TLS enabled with CA certificate
 				try {
 					SslContext sslContext = SslContextBuilder.forClient().trustManager(new File(tlsConfig.trustCert()))

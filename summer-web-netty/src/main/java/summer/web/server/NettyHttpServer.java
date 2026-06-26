@@ -58,9 +58,8 @@ public class NettyHttpServer {
 		List<summer.web.websocket.WsInterceptor> wsInterceptors = context
 				.getBeans(summer.web.websocket.WsInterceptor.class);
 		WebSocketUpgradeHandler wsUpgradeHandler = new WebSocketUpgradeHandler(wsRouter, config, wsInterceptors);
-		return new NettyHttpServer(config,
-				new WebServerDependencies(httpRouter, wsRouter, middlewares, jsonConverter, exceptionRegistry,
-						wsInterceptors, wsUpgradeHandler));
+		return new NettyHttpServer(config, new WebServerDependencies(httpRouter, wsRouter, middlewares, jsonConverter,
+				exceptionRegistry, wsInterceptors, wsUpgradeHandler));
 	}
 
 	/**
@@ -105,8 +104,7 @@ public class NettyHttpServer {
 							ch.pipeline().addLast(new HttpServerCodec())
 									.addLast(new HttpObjectAggregator(config.maxBodySize())) // Combine HTTP parts into
 																								// FullHttpRequest
-									.addLast(
-											new NettyHttpServerHandler(NettyHttpServer.this, config, deps));
+									.addLast(new NettyHttpServerHandler(NettyHttpServer.this, config, deps));
 						}
 					}).option(ChannelOption.SO_BACKLOG, 1024).childOption(ChannelOption.TCP_NODELAY, true)
 					.childOption(ChannelOption.SO_KEEPALIVE, true);

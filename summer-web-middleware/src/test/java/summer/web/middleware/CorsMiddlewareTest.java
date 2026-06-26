@@ -74,7 +74,8 @@ class CorsMiddlewareTest {
 		CorsConfig config = new CorsConfig("https://example.com", "GET", "Authorization", 7200);
 		CorsMiddleware middleware = new CorsMiddleware(config);
 
-		Handler handler = middleware.apply(ctx -> {});
+		Handler handler = middleware.apply(ctx -> {
+		});
 
 		HttpContext ctx = ctx(HttpMethod.GET, "/api/test");
 		handler.handle(ctx);

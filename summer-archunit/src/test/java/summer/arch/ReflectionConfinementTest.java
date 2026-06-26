@@ -27,6 +27,12 @@ import org.junit.jupiter.api.Test;
  * metadata-inspection methods are allowed; loading / instantiating
  * ({@code forName}, {@code newInstance}) is blocked</li>
  * </ul>
+ *
+ * <p>
+ * {@code DiEngine} is exempted because {@code DiEngine.resolve()} loads
+ * AOT-generated classes via {@code Class.forName} — the single legitimate
+ * reflective path outside {@code summer-runtime}.
+ * </p>
  */
 class ReflectionConfinementTest {
 
@@ -60,6 +66,7 @@ class ReflectionConfinementTest {
         ArchRule rule = noClasses()
                 .that().resideOutsideOfPackage("..summer.runtime..")
                 .and().resideOutsideOfPackage("..summer.test..")
+                .and().doNotHaveSimpleName("DiEngine")
                 .should().dependOnClassesThat()
                     .resideInAnyPackage("java.lang.reflect..", "java.lang.invoke..")
                 .orShould().callMethodWhere(callBannedClassMethods);

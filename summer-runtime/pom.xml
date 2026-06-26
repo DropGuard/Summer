@@ -44,6 +44,14 @@
         </dependency>
 
 
+        <!-- Shared test fixtures -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-tck-fixtures</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Jandex for fast bean discovery -->
         <dependency>
             <groupId>io.smallrye</groupId>

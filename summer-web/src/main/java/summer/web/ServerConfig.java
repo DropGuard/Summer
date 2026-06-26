@@ -9,9 +9,9 @@ import summer.core.config.DefaultValue;
  */
 @ConfigurationProperties(prefix = "server")
 public record ServerConfig(@DefaultValue("8080") Integer port, @DefaultValue("30000") Integer connectionTimeout,
-        @DefaultValue("10485760") Integer maxBodySize, @DefaultValue("10000") Integer readTimeout,
-        List<String> allowedOrigins, @DefaultValue("65536") Integer maxWebSocketFrameSize,
-        @DefaultValue("MAP") RouterType routerType) {
+		@DefaultValue("10485760") Integer maxBodySize, @DefaultValue("10000") Integer readTimeout,
+		List<String> allowedOrigins, @DefaultValue("65536") Integer maxWebSocketFrameSize,
+		@DefaultValue("MAP") RouterType routerType) {
 
 	public boolean isOriginAllowed(String origin, String requestHost) {
 		if (allowedOrigins.isEmpty()) {

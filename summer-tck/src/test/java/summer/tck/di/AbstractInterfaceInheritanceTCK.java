@@ -4,11 +4,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
-import summer.tck.AbstractContextTCK;
 import summer.fixtures.di.inheritance.BaseService;
 import summer.fixtures.di.inheritance.ExtendedService;
 import summer.fixtures.di.inheritance.ServiceClient;
 import summer.fixtures.di.inheritance.ServiceImpl;
+import summer.tck.AbstractContextTCK;
 
 /**
  * TCK test for interface inheritance dependency resolution.

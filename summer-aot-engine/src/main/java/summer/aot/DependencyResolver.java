@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import summer.core.bean.BeanDefinition;
 import summer.core.exception.AmbiguousBeanException;
 import summer.core.exception.NoSuchBeanException;
 
@@ -28,8 +29,8 @@ public final class DependencyResolver {
 		}
 
 		for (BeanDefinition bean : beans) {
-			if (bean instanceof FactoryBean fb) {
-				linkConfigBean(fb, beans);
+			if (bean.isFactoryMethod()) {
+				linkConfigBean(bean, beans);
 			}
 		}
 
@@ -37,17 +38,11 @@ public final class DependencyResolver {
 	}
 
 	private void resolveDependencies(BeanDefinition bean, List<BeanDefinition> allBeans) {
-		List<String> paramTypes;
-		Map<Integer, String> listElementTypes;
-		if (bean instanceof FactoryBean fb) {
-			paramTypes = fb.producerParamTypes;
-			listElementTypes = Map.of();
-		} else if (bean instanceof ComponentBean cb) {
-			paramTypes = cb.constructorParamTypes;
-			listElementTypes = cb.listElementTypes;
-		} else {
+		if (bean instanceof summer.core.bean.ConfigPropertiesBean)
 			return;
-		}
+
+		List<String> paramTypes = bean.isFactoryMethod() ? bean.producerParamTypes : bean.constructorParamTypes;
+		Map<Integer, String> listElementTypes = bean.isFactoryMethod() ? Map.of() : bean.listElementTypes;
 
 		bean.resolvedDependencies.clear();
 		for (int i = 0; i < paramTypes.size(); i++) {
@@ -78,14 +73,14 @@ public final class DependencyResolver {
 		for (BeanDefinition candidate : allBeans) {
 			if (candidate.qualifiedName.equals(paramType)) {
 				matches.add(candidate);
-			} else if (candidate instanceof ComponentBean cb && cb.interfaceNames.contains(paramType)) {
+			} else if (candidate.interfaceNames.contains(paramType)) {
 				matches.add(candidate);
 			}
 		}
 		return matches;
 	}
 
-	private void linkConfigBean(FactoryBean factoryProduct, List<BeanDefinition> allBeans) {
+	private void linkConfigBean(BeanDefinition factoryProduct, List<BeanDefinition> allBeans) {
 		for (BeanDefinition candidate : allBeans) {
 			if (candidate.qualifiedName.equals(factoryProduct.configClassName)) {
 				factoryProduct.configBeanDefinition = candidate;
@@ -96,32 +91,32 @@ public final class DependencyResolver {
 				"Could not find @Configuration bean for factory product: " + factoryProduct.qualifiedName);
 	}
 
-BeanDefinition findBean(String paramType, List<BeanDefinition> allBeans) {
-            List<BeanDefinition> exactMatches = new ArrayList<>();
-            for (BeanDefinition candidate : allBeans) {
-                if (candidate.qualifiedName.equals(paramType))
-                    exactMatches.add(candidate);
-            }
-            if (exactMatches.size() == 1)
-                return exactMatches.get(0);
-            if (exactMatches.size() > 1) {
-                throw new AmbiguousBeanException("Multiple beans found for type: " + paramType + " -> "
-                        + exactMatches.stream().map(b -> b.qualifiedName).toList());
-            }
+	BeanDefinition findBean(String paramType, List<BeanDefinition> allBeans) {
+		List<BeanDefinition> exactMatches = new ArrayList<>();
+		for (BeanDefinition candidate : allBeans) {
+			if (candidate.qualifiedName.equals(paramType))
+				exactMatches.add(candidate);
+		}
+		if (exactMatches.size() == 1)
+			return exactMatches.get(0);
+		if (exactMatches.size() > 1) {
+			throw new AmbiguousBeanException("Multiple beans found for type: " + paramType + " -> "
+					+ exactMatches.stream().map(b -> b.qualifiedName).toList());
+		}
 
-            List<BeanDefinition> interfaceMatches = new ArrayList<>();
-            for (BeanDefinition candidate : allBeans) {
-                if (candidate instanceof ComponentBean cb && cb.interfaceNames.contains(paramType))
-                    interfaceMatches.add(candidate);
-            }
-            if (interfaceMatches.size() == 1)
-                return interfaceMatches.get(0);
-            if (interfaceMatches.size() > 1) {
-                throw new AmbiguousBeanException("Multiple beans found for type: " + paramType + " -> "
-                        + interfaceMatches.stream().map(b -> b.qualifiedName).toList());
-            }
-            return null;
-        }
+		List<BeanDefinition> interfaceMatches = new ArrayList<>();
+		for (BeanDefinition candidate : allBeans) {
+			if (candidate.interfaceNames.contains(paramType))
+				interfaceMatches.add(candidate);
+		}
+		if (interfaceMatches.size() == 1)
+			return interfaceMatches.get(0);
+		if (interfaceMatches.size() > 1) {
+			throw new AmbiguousBeanException("Multiple beans found for type: " + paramType + " -> "
+					+ interfaceMatches.stream().map(b -> b.qualifiedName).toList());
+		}
+		return null;
+	}
 
 	private boolean hasCycle(List<BeanDefinition> beans) {
 		Set<BeanDefinition> visited = new HashSet<>();
@@ -150,8 +145,8 @@ BeanDefinition findBean(String paramType, List<BeanDefinition> allBeans) {
 			if (hasCycleDfs(bean.configBeanDefinition, visited, stack))
 				return true;
 		}
-		if (bean instanceof ComponentBean cb && cb.needsProxy) {
-			for (BeanDefinition interceptor : cb.interceptors) {
+		if (bean.needsProxy) {
+			for (BeanDefinition interceptor : bean.interceptors) {
 				if (hasCycleDfs(interceptor, visited, stack))
 					return true;
 			}
@@ -199,8 +194,8 @@ BeanDefinition findBean(String paramType, List<BeanDefinition> allBeans) {
 			}
 			if (b.configBeanDefinition != null)
 				incoming.get(b).add(b.configBeanDefinition);
-			if (b instanceof ComponentBean cb && cb.needsProxy) {
-				for (BeanDefinition interceptor : cb.interceptors)
+			if (b.needsProxy) {
+				for (BeanDefinition interceptor : b.interceptors)
 					incoming.get(b).add(interceptor);
 			}
 		}

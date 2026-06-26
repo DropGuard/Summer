@@ -4,7 +4,6 @@ import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
 import summer.web.RouterRegistry;
 import summer.web.ServerConfig;
-import summer.web.websocket.WebSocketBroadcaster;
 
 /**
  * Configuration for Netty server infrastructure beans.
@@ -22,7 +21,7 @@ public class NettyServerConfiguration {
 	}
 
 	@Bean
-	public WebSocketBroadcaster webSocketBroadcaster() {
+	public NettyWebSocketBroadcaster webSocketBroadcaster() {
 		return new NettyWebSocketBroadcaster();
 	}
 }

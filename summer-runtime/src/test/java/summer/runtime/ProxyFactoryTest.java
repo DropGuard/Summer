@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import summer.aop.InterceptorChain;
 import summer.aop.MethodInterceptor;
 import summer.aop.SummerAopException;
+import summer.fixtures.di.runtime.TestIntercepted;
 
 /**
  * Tests for {@link ProxyFactory}.

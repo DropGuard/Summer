@@ -14,95 +14,93 @@ import org.jboss.jandex.RecordComponentInfo;
 import org.jboss.jandex.Type;
 
 /**
- * Shared RowMapper metadata extraction and construction.
- * Both the AOT engine and the runtime engine use this to discover
- * {@code @RowModel} records and create appropriate {@code RowMapper}
- * instances.
+ * Shared RowMapper metadata extraction and construction. Both the AOT engine
+ * and the runtime engine use this to discover {@code @RowModel} records and
+ * create appropriate {@code RowMapper} instances.
  */
 public final class RowMapperFactory {
 
-    private static final DotName ROW_MODEL_DOT = DotName.createSimple("summer.data.jdbc.annotation.RowModel");
+	private static final DotName ROW_MODEL_DOT = DotName.createSimple("summer.data.jdbc.annotation.RowModel");
 
-    private RowMapperFactory() {
-    }
+	private RowMapperFactory() {
+	}
 
-    /** Metadata for a single {@code @RowModel} record field. */
-    public record FieldMeta(String name, String typeName, String jdbcGetter) {
-    }
+	/** Metadata for a single {@code @RowModel} record field. */
+	public record FieldMeta(String name, String typeName, String jdbcGetter) {
+	}
 
-    /** Metadata for a {@code @RowModel} record. */
-    public record RowModelMeta(String modelClassName, String packageName, String simpleName,
-            List<FieldMeta> fields) {
-    }
+	/** Metadata for a {@code @RowModel} record. */
+	public record RowModelMeta(String modelClassName, String packageName, String simpleName, List<FieldMeta> fields) {
+	}
 
-    /**
-     * Scans a Jandex index for {@code @RowModel} records and extracts
-     * field metadata suitable for code generation or reflective mapping.
-     */
-    public static List<RowModelMeta> scanJandex(IndexView index) {
-        List<RowModelMeta> result = new ArrayList<>();
-        for (ClassInfo ci : index.getKnownClasses()) {
-            if (ci.isAnnotation() || ci.isInterface()) {
-                continue;
-            }
-            if (!ci.hasAnnotation(ROW_MODEL_DOT)) {
-                continue;
-            }
-            List<RecordComponentInfo> components = ci.recordComponents();
-            if (components == null || components.isEmpty()) {
-                continue;
-            }
+	/**
+	 * Scans a Jandex index for {@code @RowModel} records and extracts field
+	 * metadata suitable for code generation or reflective mapping.
+	 */
+	public static List<RowModelMeta> scanJandex(IndexView index) {
+		List<RowModelMeta> result = new ArrayList<>();
+		for (ClassInfo ci : index.getKnownClasses()) {
+			if (ci.isAnnotation() || ci.isInterface()) {
+				continue;
+			}
+			if (!ci.hasAnnotation(ROW_MODEL_DOT)) {
+				continue;
+			}
+			List<RecordComponentInfo> components = ci.recordComponents();
+			if (components == null || components.isEmpty()) {
+				continue;
+			}
 
-            List<FieldMeta> fields = new ArrayList<>();
-            for (RecordComponentInfo comp : components) {
-                fields.add(new FieldMeta(comp.name(), comp.type().name().toString(),
-                        jdbcGetter(comp.type(), comp.name())));
-            }
+			List<FieldMeta> fields = new ArrayList<>();
+			for (RecordComponentInfo comp : components) {
+				fields.add(new FieldMeta(comp.name(), comp.type().name().toString(),
+						jdbcGetter(comp.type(), comp.name())));
+			}
 
-            result.add(new RowModelMeta(ci.name().toString(), ci.name().packagePrefix(),
-                    ci.name().withoutPackagePrefix(), fields));
-        }
-        return result;
-    }
+			result.add(new RowModelMeta(ci.name().toString(), ci.name().packagePrefix(),
+					ci.name().withoutPackagePrefix(), fields));
+		}
+		return result;
+	}
 
-    /**
-     * Creates a reflective {@code RowMapper} at runtime using Jackson
-     * {@code ObjectMapper}. Used by the runtime DI engine when no
-     * code generation is available.
-     */
-    @SuppressWarnings("unchecked")
-    public static <T> RowMapper<T> createReflective(Class<T> modelClass, RowModelMeta meta) {
-        return new ReflectiveRowMapper<>(modelClass, meta);
-    }
+	/**
+	 * Creates a reflective {@code RowMapper} at runtime using Jackson
+	 * {@code ObjectMapper}. Used by the runtime DI engine when no code generation
+	 * is available.
+	 */
+	@SuppressWarnings("unchecked")
+	public static <T> RowMapper<T> createReflective(Class<T> modelClass, RowModelMeta meta) {
+		return new ReflectiveRowMapper<>(modelClass, meta);
+	}
 
-    private static String jdbcGetter(Type type, String columnName) {
-        return switch (type.name().toString()) {
-            case "int", "java.lang.Integer" -> "rs.getInt(\"" + columnName + "\")";
-            case "long", "java.lang.Long" -> "rs.getLong(\"" + columnName + "\")";
-            case "double", "java.lang.Double" -> "rs.getDouble(\"" + columnName + "\")";
-            case "boolean", "java.lang.Boolean" -> "rs.getBoolean(\"" + columnName + "\")";
-            case "java.lang.String" -> "rs.getString(\"" + columnName + "\")";
-            default -> "(" + type.name().toString() + ") rs.getObject(\"" + columnName + "\")";
-        };
-    }
+	private static String jdbcGetter(Type type, String columnName) {
+		return switch (type.name().toString()) {
+			case "int", "java.lang.Integer" -> "rs.getInt(\"" + columnName + "\")";
+			case "long", "java.lang.Long" -> "rs.getLong(\"" + columnName + "\")";
+			case "double", "java.lang.Double" -> "rs.getDouble(\"" + columnName + "\")";
+			case "boolean", "java.lang.Boolean" -> "rs.getBoolean(\"" + columnName + "\")";
+			case "java.lang.String" -> "rs.getString(\"" + columnName + "\")";
+			default -> "(" + type.name().toString() + ") rs.getObject(\"" + columnName + "\")";
+		};
+	}
 
-    private static final class ReflectiveRowMapper<T> implements RowMapper<T> {
-        private static final ObjectMapper MAPPER = new ObjectMapper();
-        private final Class<T> modelClass;
-        private final String[] fieldNames;
+	private static final class ReflectiveRowMapper<T> implements RowMapper<T> {
+		private static final ObjectMapper MAPPER = new ObjectMapper();
+		private final Class<T> modelClass;
+		private final String[] fieldNames;
 
-        ReflectiveRowMapper(Class<T> modelClass, RowModelMeta meta) {
-            this.modelClass = modelClass;
-            this.fieldNames = meta.fields().stream().map(FieldMeta::name).toArray(String[]::new);
-        }
+		ReflectiveRowMapper(Class<T> modelClass, RowModelMeta meta) {
+			this.modelClass = modelClass;
+			this.fieldNames = meta.fields().stream().map(FieldMeta::name).toArray(String[]::new);
+		}
 
-        @Override
-        public T mapRow(ResultSet rs, int rowNum) throws SQLException {
-            Map<String, Object> values = new HashMap<>();
-            for (String name : fieldNames) {
-                values.put(name, rs.getObject(name));
-            }
-            return MAPPER.convertValue(values, modelClass);
-        }
-    }
+		@Override
+		public T mapRow(ResultSet rs, int rowNum) throws SQLException {
+			Map<String, Object> values = new HashMap<>();
+			for (String name : fieldNames) {
+				values.put(name, rs.getObject(name));
+			}
+			return MAPPER.convertValue(values, modelClass);
+		}
+	}
 }

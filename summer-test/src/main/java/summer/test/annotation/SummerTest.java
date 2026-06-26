@@ -10,14 +10,16 @@ import summer.test.SummerExtension;
 
 /**
  * JUnit 5 extension that manages a Summer {@code BeanContainer} for the
- * annotated test class. The container is created once per test class and
- * closed automatically.
+ * annotated test class. The container is created once per test class and closed
+ * automatically.
  *
- * <pre>{@code
- * @SummerTest                    // full classpath scan
- * @SummerTest({CorsConfig.class}) // local expansion (only these beans)
- * @SummerTest(engine = AOT)      // use AOT-generated context (TCK)
- * }</pre>
+ * <pre>
+ * {@code
+ * &#64;SummerTest                    // full classpath scan
+ * &#64;SummerTest({CorsConfig.class}) // local expansion (only these beans)
+ * &#64;SummerTest(engine = AOT)      // use AOT-generated context (TCK)
+ * }
+ * </pre>
  *
  * <p>
  * The container is injected via constructor parameter of type
@@ -29,15 +31,15 @@ import summer.test.SummerExtension;
 @ExtendWith(SummerExtension.class)
 public @interface SummerTest {
 
-    /**
-     * Entry bean classes for local expansion. When non-empty,
-     * {@code RuntimeApplicationContext.containing(...)} is used instead of a
-     * full Jandex scan.
-     */
-    Class<?>[] value() default {};
+	/**
+	 * Entry bean classes for local expansion. When non-empty,
+	 * {@code RuntimeBeanContainerBuilder.buildFromSeeds(...)} is used instead of a
+	 * full Jandex scan.
+	 */
+	Class<?>[] value() default {};
 
-    /**
-     * DI engine to use. Defaults to {@link Engine#RUNTIME}.
-     */
-    Engine engine() default Engine.RUNTIME;
+	/**
+	 * DI engine to use. Defaults to {@link Engine#RUNTIME}.
+	 */
+	Engine engine() default Engine.RUNTIME;
 }

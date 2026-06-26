@@ -20,7 +20,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
-import summer.runtime.RuntimeApplicationContext;
+import summer.grpc.GrpcInfrastructureConfiguration;
+import summer.runtime.RuntimeBeanContainerBuilder;
 
 public class GrpcInterceptorIntegrationTest {
 
@@ -56,7 +57,8 @@ public class GrpcInterceptorIntegrationTest {
 
 	@Test
 	public void testGrpcServerInterceptorDiscovery() throws Exception {
-		var ctx = RuntimeApplicationContext.builder().registerComponent(TestGrpcConfiguration.class).build();
+		var ctx = RuntimeBeanContainerBuilder.buildScoped(GrpcInterceptorIntegrationTest.class,
+				GrpcInfrastructureConfiguration.class);
 
 		GrpcServerRunner serverRunner = ctx.getBean(GrpcServerRunner.class);
 		serverRunner.run(ctx);
@@ -116,6 +118,5 @@ public class GrpcInterceptorIntegrationTest {
 			};
 		}
 	}
-
 
 }

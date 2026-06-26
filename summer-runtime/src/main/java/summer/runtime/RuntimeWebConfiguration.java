@@ -13,7 +13,7 @@ public class RuntimeWebConfiguration {
 	@Bean
 	public RuntimeRouteRegistrar routeRegistrar(HttpParameterResolverChain resolverChain) {
 		// The Jandex index is loaded directly — it is the same index that the
-		// RuntimeApplicationContext used during bean discovery.
+		// RuntimeBeanContainerBuilder used during bean discovery.
 		IndexView index = JandexIndexLoader.buildIndex();
 		return new RuntimeRouteRegistrar(resolverChain, index);
 	}

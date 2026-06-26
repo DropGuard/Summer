@@ -31,12 +31,9 @@ class ConfigurationBindingTest {
 		}
 	}
 
-	private BeanContainer createContext(Class<?>... components) {
-		var builder = RuntimeApplicationContext.builder();
-		for (Class<?> c : components) {
-			builder.registerComponent(c);
-		}
-		context = builder.build();
+	private BeanContainer createContext() {
+		context = RuntimeBeanContainerBuilder.buildFromSeeds(AllTypesConfig.class, EmptyDefaultsConfig.class,
+				PartialYamlConfig.class);
 		return context;
 	}
 
@@ -45,7 +42,7 @@ class ConfigurationBindingTest {
 
 		@Test
 		void bindsAllTypesFromYaml() {
-			BeanContainer ctx = createContext(AllTypesConfig.class);
+			BeanContainer ctx = createContext();
 			AllTypesConfig config = ctx.getBean(AllTypesConfig.class);
 
 			assertNotNull(config);
@@ -63,7 +60,7 @@ class ConfigurationBindingTest {
 
 		@Test
 		void fallsBackToDefaultsWhenSectionMissing() {
-			BeanContainer ctx = createContext(EmptyDefaultsConfig.class);
+			BeanContainer ctx = createContext();
 			EmptyDefaultsConfig config = ctx.getBean(EmptyDefaultsConfig.class);
 
 			assertNotNull(config);
@@ -80,7 +77,7 @@ class ConfigurationBindingTest {
 
 		@Test
 		void mergesYamlWithDefaults() {
-			BeanContainer ctx = createContext(PartialYamlConfig.class);
+			BeanContainer ctx = createContext();
 			PartialYamlConfig config = ctx.getBean(PartialYamlConfig.class);
 
 			assertNotNull(config);

@@ -22,7 +22,8 @@ package summer.web;
 public interface Handler {
 	/**
 	 * Handles an HTTP request. Controllers must write responses explicitly via
-	 * {@link HttpContext} methods (e.g., {@code ctx.ok(data)}, {@code ctx.text(status, body)}).
+	 * {@link HttpContext} methods (e.g., {@code ctx.ok(data)},
+	 * {@code ctx.text(status, body)}).
 	 */
 	void handle(HttpContext ctx);
 }

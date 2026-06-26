@@ -12,6 +12,8 @@ import org.jboss.jandex.IndexReader;
 import org.jboss.jandex.IndexView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import summer.core.ErrorCode;
+import summer.core.exception.ConfigurationException;
 
 /**
  * Loads and merges pre-built Jandex indexes ({@code META-INF/jandex.idx}) from
@@ -39,9 +41,8 @@ final class JandexIndexLoader {
 	static IndexView buildIndex() {
 		List<Index> indexes = loadIndexes();
 		if (indexes.isEmpty()) {
-			log.warn("[Summer] No jandex.idx found on classpath. "
+			throw new ConfigurationException(ErrorCode.CONFIG_MISSING_INDEX, "No jandex.idx found on classpath. "
 					+ "Ensure jandex-maven-plugin is configured for modules that ship beans.");
-			return CompositeIndex.create(new ArrayList<>());
 		}
 		List<IndexView> indexViews = new ArrayList<>(indexes);
 		return CompositeIndex.create(indexViews);

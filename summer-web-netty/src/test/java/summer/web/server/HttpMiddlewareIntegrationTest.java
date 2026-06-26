@@ -12,7 +12,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
-import summer.runtime.RuntimeApplicationContext;
+import summer.runtime.RuntimeBeanContainerBuilder;
+import summer.runtime.RuntimeWebConfiguration;
 import summer.web.*;
 import summer.web.annotation.Get;
 import summer.web.annotation.GlobalMiddleware;
@@ -47,8 +48,8 @@ class HttpMiddlewareIntegrationTest {
 
 	@BeforeAll
 	static void startServer() throws Exception {
-		context = RuntimeApplicationContext.builder().registerComponent(TestMiddleware.class)
-				.registerComponent(TestController.class).build();
+		context = RuntimeBeanContainerBuilder.buildScoped(HttpMiddlewareIntegrationTest.class,
+				NettyServerConfiguration.class, RouterConfiguration.class, RuntimeWebConfiguration.class);
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);
 	}

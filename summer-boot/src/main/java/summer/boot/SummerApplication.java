@@ -4,8 +4,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 import summer.core.BeanContainer;
+import summer.core.DiEngine;
 import summer.core.Engine;
-import summer.runtime.RuntimeApplicationContext;
 
 /**
  * Single entry point for Summer applications.
@@ -20,35 +20,35 @@ import summer.runtime.RuntimeApplicationContext;
  */
 public final class SummerApplication {
 
-    private static final Logger log = LoggerFactory.getLogger(SummerApplication.class);
+	private static final Logger log = LoggerFactory.getLogger(SummerApplication.class);
 
-    static {
-        SLF4JBridgeHandler.removeHandlersForRootLogger();
-        SLF4JBridgeHandler.install();
-    }
+	static {
+		SLF4JBridgeHandler.removeHandlersForRootLogger();
+		SLF4JBridgeHandler.install();
+	}
 
-    private SummerApplication() {
-    }
+	private SummerApplication() {
+	}
 
-    public static BeanContainer run(Engine engine, String[] args) throws Exception {
-        BeanContainer context = RuntimeApplicationContext.create(engine);
-        System.out.println(Banner.format());
-        log.info("Starting Summer Application...");
+	public static BeanContainer run(Engine engine, String[] args) throws Exception {
+		BeanContainer context = DiEngine.resolve(engine).create();
+		System.out.println(Banner.format());
+		log.info("Starting Summer Application...");
 
-        for (var runner : context.getBeans(summer.core.ApplicationRunner.class)) {
-            runner.run(context);
-        }
+		for (var runner : context.getBeans(summer.core.ApplicationRunner.class)) {
+			runner.run(context);
+		}
 
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            log.info("Shutting down BeanContainer...");
-            try {
-                context.close();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }));
+		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+			log.info("Shutting down BeanContainer...");
+			try {
+				context.close();
+			} catch (Exception e) {
+				throw new RuntimeException(e);
+			}
+		}));
 
-        log.info("Summer application started.");
-        return context;
-    }
+		log.info("Summer application started.");
+		return context;
+	}
 }

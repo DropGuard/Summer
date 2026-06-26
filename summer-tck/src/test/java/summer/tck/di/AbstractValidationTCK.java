@@ -22,11 +22,6 @@ import summer.tck.AbstractContextTCK;
  */
 public abstract class AbstractValidationTCK extends AbstractContextTCK {
 
-	/**
-	 * Creates a context with a specific entry point.
-	 */
-	protected abstract BeanContainer createContext(Class<?> entryPoint);
-
 	@Test
 	void testValidationPassesWhenTlsEnabledWithCerts() {
 		// application.yml has tls.enabled=true with cert-chain and private-key
@@ -41,7 +36,7 @@ public abstract class AbstractValidationTCK extends AbstractContextTCK {
 	void testValidationPassesWhenTlsDisabled() {
 		// TlsConfig has @DefaultValue("false") for enabled, so when TLS section is
 		// absent, enabled=false and validation skips the cert check.
-		BeanContainer ctx = createContext(ValidationConfig.class);
+		BeanContainer ctx = context();
 		assertNotNull(ctx, "Context should be created even when TLS is disabled");
 	}
 

@@ -22,6 +22,7 @@ import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
 import org.jboss.jandex.MethodInfo;
 import org.jboss.jandex.MethodParameterInfo;
+import summer.core.bean.BeanDefinition;
 
 /**
  * Generates AOP proxy classes for beans that need interception.
@@ -48,8 +49,7 @@ public final class AotProxyGenerator {
 	 * Generate AOP proxy classes for beans that need interception.
 	 *
 	 * @param beans
-	 *            list of bean definitions (will be modified to mark proxied
-	 *            beans)
+	 *            list of bean definitions (will be modified to mark proxied beans)
 	 * @param index
 	 *            Jandex index for looking up interface method signatures
 	 * @param outputDir
@@ -64,13 +64,13 @@ public final class AotProxyGenerator {
 		}
 
 		for (BeanDefinition bean : beans) {
-			if (bean instanceof ComponentBean cb && cb.needsProxy && !cb.interfaceNames.isEmpty()) {
-				generateProxy(cb, index, outputDir, allBindingAnnotations);
+			if (bean.needsProxy && !bean.interfaceNames.isEmpty()) {
+				generateProxy(bean, index, outputDir, allBindingAnnotations);
 			}
 		}
 	}
 
-	private void generateProxy(ComponentBean bean, IndexView index, java.io.File outputDir,
+	private void generateProxy(BeanDefinition bean, IndexView index, java.io.File outputDir,
 			Set<DotName> bindingAnnotations) throws IOException {
 		String packageName = getPackageName(bean.qualifiedName);
 		String proxyClassName = bean.simpleName + "$$AotProxy";
@@ -163,8 +163,7 @@ public final class AotProxyGenerator {
 
 	// ── Metadata Field ────────────────────────────────────────────────
 
-	private FieldSpec buildMetaField(MethodInfo method, ClassName declaringIface,
-			Set<DotName> bindingAnnotations) {
+	private FieldSpec buildMetaField(MethodInfo method, ClassName declaringIface, Set<DotName> bindingAnnotations) {
 		Set<ClassName> annotationClasses = new HashSet<>();
 		for (AnnotationInstance ann : method.annotations()) {
 			if (bindingAnnotations.contains(ann.name())) {
@@ -189,7 +188,8 @@ public final class AotProxyGenerator {
 			init = cb.build();
 		}
 
-		return FieldSpec.builder(METHOD_METADATA, metaFieldName(method), Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
+		return FieldSpec
+				.builder(METHOD_METADATA, metaFieldName(method), Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
 				.initializer(init).build();
 	}
 

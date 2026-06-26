@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
 import summer.core.config.DefaultValue;
 import summer.grpc.config.GrpcTlsConfig;
-import summer.runtime.RuntimeApplicationContext;
+import summer.runtime.RuntimeBeanContainerBuilder;
 import summer.web.middleware.CorsConfig;
 
 /**
@@ -38,7 +38,7 @@ class CrossModuleConfigBindingTest {
 	}
 
 	private BeanContainer createContext(Class<?>... components) {
-		context = RuntimeApplicationContext.containing(components);
+		context = RuntimeBeanContainerBuilder.buildFromSeeds(components);
 		return context;
 	}
 

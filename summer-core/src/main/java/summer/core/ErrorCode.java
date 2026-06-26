@@ -13,9 +13,12 @@ public enum ErrorCode {
 							"Failed to create bean instance"),
 
 	// Configuration (2xxx)
-	CONFIG_PARSE_ERROR(2002, "Failed to parse configuration"), CONFIG_MISSING_FIELD(2003,
-			"Required configuration field is missing"), CONFIG_VALIDATION_FAILED(2004,
-					"Configuration validation failed"),
+	CONFIG_MISSING_INDEX(2001, "Jandex index not found on classpath"), CONFIG_PARSE_ERROR(2002,
+			"Failed to parse configuration"), CONFIG_MISSING_FIELD(2003,
+					"Required configuration field is missing"), CONFIG_VALIDATION_FAILED(2004,
+							"Configuration validation failed"), CONFIG_AOT_CONTEXT_NOT_FOUND(2005,
+									"AOT context not generated"), CONFIG_RUNTIME_NOT_ON_CLASSPATH(2006,
+											"Runtime engine not on classpath"),
 
 	// Web (3xxx)
 	VALIDATION_FAILED(3001, "Request validation failed"), BODY_PARSE_ERROR(3002,
