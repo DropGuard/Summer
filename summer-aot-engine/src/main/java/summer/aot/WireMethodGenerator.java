@@ -19,14 +19,11 @@ import summer.core.bean.ConfigPropertiesBean;
  * registration.
  * </p>
  */
-final class WireMethodGenerator {
+public final class WireMethodGenerator {
 
 	private static final ClassName JDBC_TEMPLATE = ClassName.get("summer.data.jdbc", "JdbcTemplate");
 
-	private final AotContextGenerator context;
-
-	WireMethodGenerator(AotContextGenerator context) {
-		this.context = context;
+	public WireMethodGenerator() {
 	}
 
 	void generateWireMethod(MethodSpec.Builder wire, List<BeanDefinition> sortedBeans) {
@@ -56,7 +53,7 @@ final class WireMethodGenerator {
 					wire.addStatement("registry.registerSingleton($T.class, $N)", beanClass, varName);
 				}
 				for (String iface : bean.interfaceNames) {
-					wire.addStatement("registry.registerInterface($T.class, $N)", context.parseTypeName(iface),
+					wire.addStatement("registry.registerInterface($T.class, $N)", parseTypeName(iface),
 							varName);
 				}
 			}
@@ -253,6 +250,26 @@ final class WireMethodGenerator {
 			args.add("$N", deps.get(i).variableName);
 		}
 		return args.build();
+	}
+
+	/**
+	 * Converts a JVM type name to a JavaPoet {@link com.palantir.javapoet.TypeName}.
+	 * Handles primitives and nested-class {@code $} separators.
+	 */
+	static com.palantir.javapoet.TypeName parseTypeName(String typeName) {
+		if (typeName.startsWith("["))
+			return ClassName.get(Object.class);
+		return switch (typeName) {
+			case "int" -> com.palantir.javapoet.TypeName.INT;
+			case "long" -> com.palantir.javapoet.TypeName.LONG;
+			case "double" -> com.palantir.javapoet.TypeName.DOUBLE;
+			case "boolean" -> com.palantir.javapoet.TypeName.BOOLEAN;
+			case "float" -> com.palantir.javapoet.TypeName.FLOAT;
+			case "short" -> com.palantir.javapoet.TypeName.SHORT;
+			case "byte" -> com.palantir.javapoet.TypeName.BYTE;
+			case "char" -> com.palantir.javapoet.TypeName.CHAR;
+			default -> ClassName.bestGuess(typeName.replace('$', '.'));
+		};
 	}
 
 	/**

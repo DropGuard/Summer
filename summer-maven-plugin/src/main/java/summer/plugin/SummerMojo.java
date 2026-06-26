@@ -29,8 +29,12 @@ import org.jboss.jandex.IndexView;
 import summer.aot.AotContextGenerator;
 import summer.aot.AotProxyGenerator;
 import summer.aot.BeanDiscovery;
+import summer.aot.BuildContext;
 import summer.aot.LocalContextGenerator;
 import summer.aot.RouteAdapterGenerator;
+import summer.aot.WireMethodGenerator;
+import summer.core.BeanContainer;
+import summer.core.BeanRegistry;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.SharedDependencyResolver;
 
@@ -71,18 +75,30 @@ public class SummerMojo extends AbstractMojo {
 
 			File generatedDir = prepareGeneratedDir(isTestPhase);
 
-			List<BeanDefinition> beans = new BeanDiscovery(index).discover();
+			// Assemble the AOT pipeline via BeanRegistry (constructor injection)
+			BuildContext ctx = new BuildContext(index, generatedDir);
+			WireMethodGenerator wireGen = new WireMethodGenerator();
+			BeanRegistry beanRegistry = new BeanRegistry();
+			beanRegistry.registerSingleton(BuildContext.class, ctx);
+			beanRegistry.registerSingleton(WireMethodGenerator.class, wireGen);
+			beanRegistry.registerSingleton(BeanDiscovery.class, new BeanDiscovery(ctx));
+			beanRegistry.registerSingleton(AotContextGenerator.class, new AotContextGenerator(ctx, wireGen));
+			beanRegistry.registerSingleton(AotProxyGenerator.class, new AotProxyGenerator());
+			beanRegistry.registerSingleton(RouteAdapterGenerator.class, new RouteAdapterGenerator());
+			BeanContainer pipeline = BeanContainer.create(beanRegistry);
+
+			List<BeanDefinition> beans = pipeline.getBean(BeanDiscovery.class).discover();
 			getLog().debug("[Summer] Discovered " + beans.size() + " beans");
 
 			SharedDependencyResolver resolver = new SharedDependencyResolver();
 			List<BeanDefinition> sorted = resolver.resolve(beans);
 			getLog().debug("[Summer] Resolved " + sorted.size() + " beans");
 
-			new AotContextGenerator().generate(sorted, generatedDir, index);
-			new AotProxyGenerator().generate(sorted, index, generatedDir);
-			new RouteAdapterGenerator().generate(sorted, generatedDir);
+			pipeline.getBean(AotContextGenerator.class).generate(sorted);
+			pipeline.getBean(AotProxyGenerator.class).generate(sorted, index, generatedDir);
+			pipeline.getBean(RouteAdapterGenerator.class).generate(sorted, generatedDir);
 
-			generateLocalContexts(index, generatedDir);
+			generateLocalContexts(ctx, wireGen, sorted);
 
 			compileGeneratedSources(generatedDir, isTestPhase);
 
@@ -95,7 +111,8 @@ public class SummerMojo extends AbstractMojo {
 
 	// ---- LocalContext generation ----
 
-	private void generateLocalContexts(CompositeIndex index, File generatedDir) throws Exception {
+	private void generateLocalContexts(BuildContext ctx, WireMethodGenerator wireGen,
+			List<BeanDefinition> allSorted) throws Exception {
 
 		// Build a Jandex index from test class .class files directly.
 		// The jandex-maven-plugin doesn't support test-class indexing in 3.5.3.
@@ -110,6 +127,9 @@ public class SummerMojo extends AbstractMojo {
 
 		DotName summerTestDot = DotName.createSimple("summer.test.annotation.SummerTest");
 		DotName summerIntegrationTestDot = DotName.createSimple("summer.test.annotation.SummerIntegrationTest");
+
+		BeanDiscovery discovery = new BeanDiscovery(ctx);
+		LocalContextGenerator localGen = new LocalContextGenerator(wireGen, ctx);
 
 		int count = 0;
 		for (ClassInfo ci : testIndex.getKnownClasses()) {
@@ -147,17 +167,17 @@ public class SummerMojo extends AbstractMojo {
 			getLog().info("[Summer] Generating LocalContext for " + testClassName + " with entry beans: " + entryNames);
 
 			// 1. Transitive closure from seeds via Jandex BFS
-			Set<String> closureNames = LocalContextGenerator.transitiveClosure(entryNames, index);
+			Set<String> closureNames = LocalContextGenerator.transitiveClosure(entryNames, ctx.index());
 
 			// 2. Scoped bean discovery (only closures)
-			List<BeanDefinition> scopedBeans = new BeanDiscovery(index).discoverScoped(closureNames);
+			List<BeanDefinition> scopedBeans = discovery.discoverScoped(closureNames);
 
 			// 3. Dependency resolution (topological sort within closure)
 			SharedDependencyResolver resolver = new SharedDependencyResolver();
 			List<BeanDefinition> sorted = resolver.resolve(scopedBeans);
 
 			// 4. Generate LocalContext source
-			new LocalContextGenerator().generate(testClassName, sorted, index, generatedDir);
+			localGen.generate(testClassName, sorted);
 
 			getLog().debug("[Summer] LocalContext closure: " + entryNames.size() + " entry → " + closureNames.size()
 					+ " class names → " + sorted.size() + " beans");

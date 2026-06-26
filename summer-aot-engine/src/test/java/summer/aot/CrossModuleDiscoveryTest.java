@@ -108,9 +108,10 @@ class CrossModuleDiscoveryTest {
 	void aotContextGeneratorProducesValidCode() throws IOException {
 		BeanDefinition serviceC = new BeanDefinition("summer.fixtures.dummy.ServiceC", "ServiceC");
 
-		AotContextGenerator generator = new AotContextGenerator();
 		File outputDir = tempDir.toFile();
-		generator.generate(List.of(serviceC), outputDir, null);
+		BuildContext ctx = new BuildContext(null, outputDir);
+		AotContextGenerator generator = new AotContextGenerator(ctx, new WireMethodGenerator());
+		generator.generate(List.of(serviceC));
 
 		File generatedFile = new File(outputDir, "summer/core/aot/GeneratedAotContext.java");
 		assertTrue(generatedFile.exists(), "Generated AOT context should exist");
@@ -130,7 +131,7 @@ class CrossModuleDiscoveryTest {
 		Index index = buildIndex("summer.fixtures.dummy.DummyController", "summer.web.annotation.RestController",
 				"summer.core.Component", "summer.web.annotation.Get", "summer.web.annotation.Put",
 				"summer.web.annotation.Delete", "summer.web.annotation.PathParam");
-		List<BeanDefinition> beans = new BeanDiscovery(index).discover("summer.fixtures.dummy");
+		List<BeanDefinition> beans = new BeanDiscovery(new BuildContext(index, null)).discover("summer.fixtures.dummy");
 
 		// Find the DummyController bean
 		BeanDefinition controller = beans.stream()
@@ -177,7 +178,7 @@ class CrossModuleDiscoveryTest {
 		Index index = buildIndex("summer.fixtures.dummy.DummyConfigProperties",
 				"summer.core.config.ConfigurationProperties");
 
-		List<BeanDefinition> beans = new BeanDiscovery(index).discover(null);
+		List<BeanDefinition> beans = new BeanDiscovery(new BuildContext(index, null)).discover(null);
 
 		assertTrue(
 				beans.stream()
@@ -196,7 +197,7 @@ class CrossModuleDiscoveryTest {
 				"summer.fixtures.dummy.PlainServiceA", "summer.fixtures.dummy.PlainServiceB", "summer.core.Component",
 				"summer.core.annotation.Configuration", "summer.core.annotation.Bean");
 
-		List<BeanDefinition> beans = new BeanDiscovery(index).discover(null);
+		List<BeanDefinition> beans = new BeanDiscovery(new BuildContext(index, null)).discover(null);
 
 		// With null prefix, should discover ALL beans regardless of package
 		long componentCount = beans.stream().filter(b -> !b.isFactoryMethod() && !(b instanceof ConfigPropertiesBean))
@@ -219,7 +220,7 @@ class CrossModuleDiscoveryTest {
 				"summer.core.annotation.Bean", "summer.fixtures.dummy.PlainServiceA",
 				"summer.fixtures.dummy.PlainServiceB");
 
-		List<BeanDefinition> beans = new BeanDiscovery(index).discover("summer.fixtures.dummy");
+		List<BeanDefinition> beans = new BeanDiscovery(new BuildContext(index, null)).discover("summer.fixtures.dummy");
 
 		long factoryCount = beans.stream().filter(b -> b.isFactoryMethod()).count();
 		assertEquals(2, factoryCount, "Should discover 2 @Bean factory products, found " + factoryCount + ": "
