@@ -10,6 +10,6 @@ public class RuntimeMultiModuleConflictTest extends AbstractMultiModuleConflictT
 
 	@Override
 	protected void triggerFailure() {
-		TestContainerBuilder.create().withEntryBeans(ConflictConfig.class).build();
+		TestContainerBuilder.build(ConflictConfig.class);
 	}
 }

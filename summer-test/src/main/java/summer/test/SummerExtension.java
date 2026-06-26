@@ -36,8 +36,12 @@ public class SummerExtension implements BeforeAllCallback, AfterAllCallback, Par
 			return;
 		}
 
-		BeanContainer container = TestContainerBuilder.create().withEngine(engine).withTestClass(testClass)
-				.withEntryBeans(entryBeans).build();
+		BeanContainer container;
+		if (engine == Engine.AOT) {
+			container = TestContainerBuilder.buildAot(testClass, entryBeans);
+		} else {
+			container = TestContainerBuilder.build(entryBeans);
+		}
 
 		ctx.getStore(NS).put(KEY, container);
 	}

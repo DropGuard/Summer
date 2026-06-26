@@ -28,8 +28,8 @@ class WebSocketBroadcasterTest {
 
 	@BeforeAll
 	static void startServer() throws Exception {
-		context = TestContainerBuilder.create().withEntryBeans(WsTestConfig.class, NettyServerConfiguration.class,
-				RouterConfiguration.class, RuntimeWebConfiguration.class).build();
+		context = TestContainerBuilder.build(WsTestConfig.class, NettyServerConfiguration.class,
+				RouterConfiguration.class, RuntimeWebConfiguration.class);
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);
 	}

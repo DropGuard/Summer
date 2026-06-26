@@ -38,7 +38,7 @@ class CrossModuleConfigBindingTest {
 	}
 
 	private BeanContainer createContext(Class<?>... components) {
-		context = TestContainerBuilder.create().withEntryBeans(components).build();
+		context = TestContainerBuilder.build(components);
 		return context;
 	}
 

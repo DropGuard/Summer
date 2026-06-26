@@ -13,6 +13,6 @@ public class RuntimeCircularDependencyTest extends AbstractCircularDependencyTCK
 
 	@Override
 	protected void triggerFailure() {
-		TestContainerBuilder.create().withEntryBeans(CircularA.class, CircularB.class).build();
+		TestContainerBuilder.build(CircularA.class, CircularB.class);
 	}
 }
