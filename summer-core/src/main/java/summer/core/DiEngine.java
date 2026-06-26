@@ -3,45 +3,37 @@ package summer.core;
 import summer.core.exception.ConfigurationException;
 
 /**
- * Abstraction for DI engine startup. Each engine (Runtime, AOT) provides an
- * implementation.
+ * DI engine bootstrap. Loads the engine implementation via
+ * {@code Class.forName} and invokes its static {@code build()} method.
  *
  * <pre>{@code
- * BeanContainer ctx = DiEngine.resolve(Engine.AOT).create();
- * BeanContainer ctx = DiEngine.resolve(Engine.RUNTIME).create();
+ * BeanContainer ctx = DiEngine.create(Engine.AOT);
+ * BeanContainer ctx = DiEngine.create(Engine.RUNTIME);
  * }</pre>
  */
-public interface DiEngine {
+public final class DiEngine {
+
+	private DiEngine() {
+	}
 
 	/**
-	 * Creates and returns a fully initialized {@link BeanContainer}.
-	 *
-	 * @return the bean container
-	 * @throws Exception
-	 *             if initialization fails
-	 */
-	BeanContainer create() throws Exception;
-
-	/**
-	 * Resolves the {@link DiEngine} for the given engine mode.
+	 * Creates a {@link BeanContainer} for the given engine mode.
 	 *
 	 * @param engine
 	 *            the engine mode
-	 * @return the engine implementation
-	 * @throws ConfigurationException
-	 *             if the engine cannot be loaded
+	 * @return the fully initialized bean container
 	 */
-	static DiEngine resolve(Engine engine) {
+	public static BeanContainer create(Engine engine) {
 		if (engine == Engine.AOT) {
-			return resolveEngine("summer.core.aot.GeneratedAotContext", ErrorCode.CONFIG_AOT_CONTEXT_NOT_FOUND);
+			return invokeBuild("summer.core.aot.GeneratedAotContext", ErrorCode.CONFIG_AOT_CONTEXT_NOT_FOUND);
 		}
-		return resolveEngine("summer.runtime.RuntimeBeanContainerBuilder", ErrorCode.CONFIG_RUNTIME_NOT_ON_CLASSPATH);
+		return invokeBuild("summer.runtime.RuntimeBeanContainerBuilder", ErrorCode.CONFIG_RUNTIME_NOT_ON_CLASSPATH);
 	}
 
-	private static DiEngine resolveEngine(String className, ErrorCode errorCode) {
+	private static BeanContainer invokeBuild(String className, ErrorCode errorCode) {
 		try {
 			Class<?> clazz = Class.forName(className);
-			return (DiEngine) clazz.getConstructor().newInstance();
+			return (BeanContainer) clazz.getMethod("build").invoke(null);
 		} catch (ClassNotFoundException e) {
 			throw new ConfigurationException(errorCode, className + " not found", e);
 		} catch (ReflectiveOperationException e) {

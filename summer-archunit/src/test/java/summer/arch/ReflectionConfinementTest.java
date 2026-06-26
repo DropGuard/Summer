@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
  * </ul>
  *
  * <p>
- * {@code DiEngine} is exempted because {@code DiEngine.resolve()} loads
+ * {@code DiEngine} is exempted because {@code DiEngine.create()} loads
  * AOT-generated classes via {@code Class.forName} — the single legitimate
  * reflective path outside {@code summer-runtime}.
  * </p>

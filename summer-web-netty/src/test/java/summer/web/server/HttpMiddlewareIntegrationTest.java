@@ -27,7 +27,7 @@ class HttpMiddlewareIntegrationTest {
 
 	@BeforeAll
 	static void startServer() throws Exception {
-		context = TestContainerBuilder.build(HttpTestMiddleware.class, HttpTestController.class,
+		context = TestContainerBuilder.buildRuntime(HttpTestMiddleware.class, HttpTestController.class,
 				NettyServerConfiguration.class, RouterConfiguration.class, RuntimeWebConfiguration.class);
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);

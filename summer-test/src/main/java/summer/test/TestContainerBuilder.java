@@ -9,10 +9,14 @@ import summer.runtime.RuntimeBeanContainerBuilder;
  * Unified test container builder for both AOT and Runtime engines.
  *
  * <pre>{@code
- * BeanContainer ctx = TestContainerBuilder.build(); // full scan
- * BeanContainer ctx = TestContainerBuilder.build(A.class, B.class); // isolated
- * BeanContainer ctx = TestContainerBuilder.buildAot(TestClass.class); // AOT full
- * BeanContainer ctx = TestContainerBuilder.buildAot(TestClass.class, A.class); // AOT isolated
+ * // Runtime — full classpath scan
+ * TestContainerBuilder.buildRuntime();
+ *
+ * // Runtime — isolated from seed classes
+ * TestContainerBuilder.buildRuntime(A.class, B.class);
+ *
+ * // AOT — loads pre-generated LocalContext for the test class
+ * TestContainerBuilder.buildAot(TestClass.class);
  * }</pre>
  */
 public final class TestContainerBuilder {
@@ -28,7 +32,7 @@ public final class TestContainerBuilder {
 	 * transitive dependency expansion (isolated).
 	 * </p>
 	 */
-	public static BeanContainer build(Class<?>... seeds) {
+	public static BeanContainer buildRuntime(Class<?>... seeds) {
 		if (seeds.length > 0) {
 			return RuntimeBeanContainerBuilder.buildFromSeeds(seeds);
 		}
@@ -36,21 +40,20 @@ public final class TestContainerBuilder {
 	}
 
 	/**
-	 * Builds a {@link BeanContainer} for the AOT engine. Loads a pre-generated
-	 * {@code LocalContext_<testClassName>} if seeds are provided; otherwise uses
-	 * the full AOT context.
+	 * Builds a {@link BeanContainer} for the AOT engine. Loads the pre-generated
+	 * {@code LocalContext_<testClassName>} for the given test class; falls back to
+	 * the full AOT context if no test class is provided.
 	 *
 	 * @param testClass
-	 *            the test class (used to locate the generated LocalContext)
-	 * @param seeds
-	 *            optional entry bean classes
+	 *            the test class (used to locate the generated LocalContext), or
+	 *            {@code null} for the full AOT context
 	 */
-	public static BeanContainer buildAot(Class<?> testClass, Class<?>... seeds) {
-		if (seeds.length > 0) {
+	public static BeanContainer buildAot(Class<?> testClass) {
+		if (testClass != null) {
 			return loadAotLocalContext(testClass);
 		}
 		try {
-			return DiEngine.resolve(Engine.AOT).create();
+			return DiEngine.create(Engine.AOT);
 		} catch (Exception e) {
 			throw new IllegalStateException("Failed to create AOT context", e);
 		}

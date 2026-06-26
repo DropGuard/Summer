@@ -28,7 +28,7 @@ class WebSocketInterceptorIntegrationTest {
 
 	@BeforeAll
 	static void startServer() throws Exception {
-		context = TestContainerBuilder.build(WsInterceptorTestConfig.class, NettyServerConfiguration.class,
+		context = TestContainerBuilder.buildRuntime(WsInterceptorTestConfig.class, NettyServerConfiguration.class,
 				RouterConfiguration.class, RuntimeWebConfiguration.class);
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);

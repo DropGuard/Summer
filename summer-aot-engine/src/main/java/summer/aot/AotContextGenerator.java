@@ -67,15 +67,11 @@ public final class AotContextGenerator {
 	}
 
 	private JavaFile buildJavaFile(List<BeanDefinition> sortedBeans) {
-		TypeSpec.Builder type = TypeSpec.classBuilder(CLASS_NAME)
-				.addModifiers(javax.lang.model.element.Modifier.PUBLIC, javax.lang.model.element.Modifier.FINAL)
-				.addSuperinterface(DI_ENGINE);
+		TypeSpec.Builder type = TypeSpec.classBuilder(CLASS_NAME).addModifiers(javax.lang.model.element.Modifier.PUBLIC,
+				javax.lang.model.element.Modifier.FINAL);
 
 		MethodSpec staticCreate = buildCreateMethod(sortedBeans);
-		MethodSpec instanceCreate = MethodSpec.methodBuilder("create").addAnnotation(Override.class)
-				.addModifiers(javax.lang.model.element.Modifier.PUBLIC).returns(BEAN_CONTAINER)
-				.addException(Exception.class).addStatement("return build()").build();
-		TypeSpec spec = type.addMethod(staticCreate).addMethod(instanceCreate).build();
+		TypeSpec spec = type.addMethod(staticCreate).build();
 		return JavaFile.builder(PACKAGE, spec).indent("    ").build();
 	}
 

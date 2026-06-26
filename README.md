@@ -80,7 +80,7 @@ SummerApplication.run(Engine.AOT, args);
 SummerApplication.run(Engine.RUNTIME, args);
 ```
 
-The AOT engine works by scanning Jandex indexes at build time via the `summer-maven-plugin`, resolving the dependency graph, and emitting a `GeneratedAotContext` class that wires all beans in a single `wire()` method. At runtime, `DiEngine.resolve()` loads this class via `Class.forName` — the only reflective call on the AOT path. All bean creation and wiring thereafter is direct instantiation.
+The AOT engine works by scanning Jandex indexes at build time via the `summer-maven-plugin`, resolving the dependency graph, and emitting a `GeneratedAotContext` class that wires all beans in a single `wire()` method. At runtime, `DiEngine.create()` loads this class via `Class.forName` — the only reflective call on the AOT path. All bean creation and wiring thereafter is direct instantiation.
 
 * * *
 ## 🎯 The Hypothesis (What Summer Tries to Prove)

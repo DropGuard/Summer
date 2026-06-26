@@ -13,6 +13,6 @@ public class RuntimeCircularDependencyTest extends AbstractCircularDependencyTCK
 
 	@Override
 	protected void triggerFailure() {
-		TestContainerBuilder.build(CircularA.class, CircularB.class);
+		TestContainerBuilder.buildRuntime(CircularA.class, CircularB.class);
 	}
 }

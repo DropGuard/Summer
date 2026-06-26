@@ -22,7 +22,7 @@ public class GrpcInterceptorIntegrationTest {
 
 	@Test
 	public void testGrpcServerInterceptorDiscovery() throws Exception {
-		var ctx = TestContainerBuilder.build(GrpcTestConfig.class, GrpcInfrastructureConfiguration.class);
+		var ctx = TestContainerBuilder.buildRuntime(GrpcTestConfig.class, GrpcInfrastructureConfiguration.class);
 
 		GrpcServerRunner serverRunner = ctx.getBean(GrpcServerRunner.class);
 		serverRunner.run(ctx);

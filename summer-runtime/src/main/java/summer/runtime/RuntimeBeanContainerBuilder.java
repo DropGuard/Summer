@@ -14,7 +14,6 @@ import org.slf4j.LoggerFactory;
 import summer.core.BeanContainer;
 import summer.core.BeanRegistry;
 import summer.core.Component;
-import summer.core.DiEngine;
 import summer.core.Engine;
 import summer.core.RuntimeDiMarker;
 import summer.core.bean.BeanDefinition;
@@ -28,26 +27,21 @@ import summer.core.validation.Validator;
  * Builds {@link BeanContainer} for the Runtime DI engine.
  *
  * <pre>{@code
- * BeanContainer ctx = DiEngine.resolve(Engine.RUNTIME).create();
+ * BeanContainer ctx = DiEngine.create(Engine.RUNTIME);
  * }</pre>
  *
  * <p>
  * For isolated builds (tests), use
- * {@code TestContainerBuilder.build(seeds...)}.
+ * {@code TestContainerBuilder.buildRuntime(seeds...)}.
  * </p>
  */
-public final class RuntimeBeanContainerBuilder implements DiEngine {
+public final class RuntimeBeanContainerBuilder {
 
 	private static final Logger log = LoggerFactory.getLogger(RuntimeBeanContainerBuilder.class);
 
 	private static final DotName CONFIGURATION_PROPERTIES = DotName.createSimple(ConfigurationProperties.class);
 
-	public RuntimeBeanContainerBuilder() {
-	}
-
-	@Override
-	public BeanContainer create() throws Exception {
-		return build();
+	private RuntimeBeanContainerBuilder() {
 	}
 
 	/**
