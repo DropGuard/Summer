@@ -87,26 +87,28 @@ public final class RuntimeBeanContainerBuilder {
 		BeanContainer.Builder builder = new BeanContainer.Builder();
 		builder.registerSingleton(RuntimeDiMarker.class, new RuntimeDiMarker());
 
-		bindConfigurationProperties(componentClasses, builder);
-
+		// ── Phase 1: Discovery ──────────────────────────────────────
+		// Build all candidate BeanDefinitions without filtering.
 		RuntimeBeanAdapter adapter = new RuntimeBeanAdapter(index);
-		List<BeanDefinition> allBeans = BeanDefinitionFactory.buildBeanDefinitions(componentClasses, builder, adapter);
+		List<BeanDefinition> candidates = BeanDefinitionFactory.buildBeanDefinitions(componentClasses, adapter);
+		candidates.add(new BeanDefinition(RuntimeDiMarker.class.getName(), "RuntimeDiMarker"));
 
-		// RuntimeDiMarker is not @Component — register explicitly for
-		// @ConditionalOnBean
-		allBeans.add(new BeanDefinition(RuntimeDiMarker.class.getName(), "RuntimeDiMarker"));
+		// ── Phase 2: Evaluation ─────────────────────────────────────
+		// Evaluate @ConditionalOnBean and @Replaces against the candidate set.
+		SharedConditionEvaluator evaluator = new SharedConditionEvaluator(index);
+		evaluator.evaluate(candidates);
 
-		SharedConditionEvaluator conditionEvaluator = new SharedConditionEvaluator(index);
-		conditionEvaluator.evaluate(allBeans);
-
-		BeanDefinitionFactory.populateInterceptors(allBeans);
+		// ── Phase 3: Resolution ─────────────────────────────────────
+		// Bind, sort, instantiate.
+		bindConfigurationProperties(componentClasses, builder);
+		BeanDefinitionFactory.populateInterceptors(candidates);
 
 		SharedDependencyResolver resolver = new SharedDependencyResolver();
-		List<BeanDefinition> sortedBeans = resolver.resolve(allBeans);
+		List<BeanDefinition> sorted = resolver.resolve(candidates);
 
-		Map<String, List<String>> interceptorMap = BeanDefinitionFactory.buildInterceptorMap(allBeans);
+		Map<String, List<String>> interceptorMap = BeanDefinitionFactory.buildInterceptorMap(candidates);
 		BeanInstantiator instantiator = new BeanInstantiator(builder, interceptorMap);
-		for (BeanDefinition beanDef : sortedBeans) {
+		for (BeanDefinition beanDef : sorted) {
 			instantiator.instantiateFromDefinition(beanDef);
 		}
 

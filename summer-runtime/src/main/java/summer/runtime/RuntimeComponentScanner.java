@@ -1,7 +1,5 @@
 package summer.runtime;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -14,6 +12,8 @@ import org.jboss.jandex.AnnotationInstance;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
+import org.jboss.jandex.MethodInfo;
+import org.jboss.jandex.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import summer.core.Component;
@@ -37,7 +37,11 @@ public final class RuntimeComponentScanner {
 	private static final Logger log = LoggerFactory.getLogger(RuntimeComponentScanner.class);
 
 	private static final DotName COMPONENT = DotName.createSimple(Component.class);
+	private static final DotName REPLACES = DotName.createSimple(Replaces.class);
+	private static final DotName CONFIGURATION = DotName.createSimple(Configuration.class);
+	private static final DotName BEAN = DotName.createSimple(Bean.class);
 	private static final DotName CONFIGURATION_PROPERTIES = DotName.createSimple(ConfigurationProperties.class);
+	private static final DotName BEANCONTAINER = DotName.createSimple("summer.core.BeanContainer");
 
 	private RuntimeComponentScanner() {
 	}
@@ -98,13 +102,13 @@ public final class RuntimeComponentScanner {
 
 	/**
 	 * Computes the transitive dependency closure starting from the given seed
-	 * classes. Uses the Jandex index to resolve interface/abstract dependencies to
-	 * their concrete implementations.
+	 * classes. Uses the Jandex index exclusively — no reflection on constructor or
+	 * method parameters.
 	 *
 	 * @param seeds
 	 *            initial set of classes
 	 * @param index
-	 *            Jandex index for implementation discovery
+	 *            Jandex index for dependency resolution
 	 * @return mutable set containing seeds + all transitive dependencies
 	 */
 	public static Set<Class<?>> transitiveExpand(Set<Class<?>> seeds, IndexView index) {
@@ -113,62 +117,73 @@ public final class RuntimeComponentScanner {
 			validateExtraComponent(clazz);
 		}
 
-		Set<Class<?>> closure = new LinkedHashSet<>(seeds);
-		Deque<Class<?>> queue = new ArrayDeque<>(seeds);
+		Set<DotName> visited = new LinkedHashSet<>();
+		Deque<DotName> queue = new ArrayDeque<>();
+
+		// Seed the BFS
+		for (Class<?> seed : seeds) {
+			DotName dn = DotName.createSimple(seed.getName());
+			if (visited.add(dn)) {
+				queue.addLast(dn);
+			}
+		}
 
 		while (!queue.isEmpty()) {
-			Class<?> current = queue.pollFirst();
+			DotName currentName = queue.pollFirst();
+			ClassInfo current = index.getClassByName(currentName);
+			if (current == null) {
+				continue;
+			}
 
 			// @Replaces target: the replaced class must be in the closure
 			// so that SharedConditionEvaluator can find and redirect it.
-			// If the target is an interface/abstract, also pull in its
-			// known implementations so they can be replaced.
-			Replaces replaces = current.getAnnotation(Replaces.class);
-			if (replaces != null) {
-				Class<?> target = replaces.value();
-				if (closure.add(target)) {
-					queue.addLast(target);
+			AnnotationInstance replacesAnn = current.annotation(REPLACES);
+			if (replacesAnn != null) {
+				DotName targetName = replacesAnn.value().asClass().name();
+				if (visited.add(targetName)) {
+					queue.addLast(targetName);
 				}
-				for (Class<?> impl : findImplementations(target, index)) {
-					if (closure.add(impl)) {
+				for (DotName impl : findImplementations(targetName, index)) {
+					if (visited.add(impl)) {
 						queue.addLast(impl);
 					}
 				}
 			}
 
 			// @ConfigurationProperties have no constructor dependencies
-			if (current.isAnnotationPresent(ConfigurationProperties.class)) {
+			if (current.hasAnnotation(CONFIGURATION_PROPERTIES)) {
 				continue;
 			}
 
 			// @Configuration: pull in @Bean method parameter dependencies.
 			// Return types are NOT added — they are factory products handled
 			// by BeanInstantiator via producerParamTypes.
-			if (current.isAnnotationPresent(Configuration.class)) {
-				for (Method method : current.getDeclaredMethods()) {
-					if (method.isAnnotationPresent(Bean.class)) {
-						for (Class<?> paramType : method.getParameterTypes()) {
-							if (paramType == summer.core.BeanContainer.class) {
-								continue;
-							}
-							List<Class<?>> paramImpls = findImplementations(paramType, index);
-							for (Class<?> impl : paramImpls) {
-								if (closure.add(impl)) {
-									queue.addLast(impl);
-								}
+			if (current.hasAnnotation(CONFIGURATION)) {
+				for (MethodInfo method : current.methods()) {
+					if (!method.hasAnnotation(BEAN)) {
+						continue;
+					}
+					for (Type paramType : method.parameterTypes()) {
+						DotName paramDn = paramType.name();
+						if (paramDn.equals(BEANCONTAINER)) {
+							continue;
+						}
+						for (DotName impl : findImplementations(paramDn, index)) {
+							if (visited.add(impl)) {
+								queue.addLast(impl);
 							}
 						}
-						// Also check method-level @Replaces
-						Replaces beanReplaces = method.getAnnotation(Replaces.class);
-						if (beanReplaces != null) {
-							Class<?> beanTarget = beanReplaces.value();
-							if (closure.add(beanTarget)) {
-								queue.addLast(beanTarget);
-							}
-							for (Class<?> impl : findImplementations(beanTarget, index)) {
-								if (closure.add(impl)) {
-									queue.addLast(impl);
-								}
+					}
+					// Also check method-level @Replaces
+					AnnotationInstance beanReplaces = method.annotation(REPLACES);
+					if (beanReplaces != null) {
+						DotName beanTargetDn = beanReplaces.value().asClass().name();
+						if (visited.add(beanTargetDn)) {
+							queue.addLast(beanTargetDn);
+						}
+						for (DotName impl : findImplementations(beanTargetDn, index)) {
+							if (visited.add(impl)) {
+								queue.addLast(impl);
 							}
 						}
 					}
@@ -176,28 +191,34 @@ public final class RuntimeComponentScanner {
 			}
 
 			// Examine constructor parameters for dependencies
-			Constructor<?>[] constructors = current.getConstructors();
-			if (constructors.length != 1) {
+			if (current.constructors().size() != 1) {
 				continue; // Let validateConstructor handle this
 			}
-			Constructor<?> ctor = constructors[0];
-			for (Class<?> paramType : ctor.getParameterTypes()) {
-				if (paramType == summer.core.BeanContainer.class) {
+			for (Type paramType : current.constructors().get(0).parameterTypes()) {
+				DotName paramDn = paramType.name();
+				if (paramDn.equals(BEANCONTAINER)) {
 					continue;
 				}
-
-				// Discover implementations from the Jandex index
-				List<Class<?>> impls = findImplementations(paramType, index);
-				for (Class<?> impl : impls) {
-					if (closure.add(impl)) {
+				for (DotName impl : findImplementations(paramDn, index)) {
+					if (visited.add(impl)) {
 						queue.addLast(impl);
 					}
 				}
 			}
 		}
 
-		log.debug("[Summer] Transitive expansion: {} seeds -> {} closure beans", seeds.size(), closure.size());
-		return closure;
+		// Convert DotNames to Class<?>
+		Set<Class<?>> result = new LinkedHashSet<>();
+		for (DotName dn : visited) {
+			try {
+				result.add(Class.forName(dn.toString()));
+			} catch (ClassNotFoundException e) {
+				log.debug("[Summer] Could not load indexed class: {}", dn);
+			}
+		}
+
+		log.debug("[Summer] Transitive expansion: {} seeds -> {} closure beans", seeds.size(), result.size());
+		return result;
 	}
 
 	/**
@@ -210,31 +231,28 @@ public final class RuntimeComponentScanner {
 	 *            the dependency type to resolve
 	 * @param index
 	 *            Jandex index for implementation lookup
-	 * @return list of concrete implementation classes
+	 * @return list of DotNames of concrete implementations
 	 */
-	private static List<Class<?>> findImplementations(Class<?> type, IndexView index) {
-		if (!type.isInterface() && !Modifier.isAbstract(type.getModifiers())) {
+	private static List<DotName> findImplementations(DotName type, IndexView index) {
+		ClassInfo ci = index.getClassByName(type);
+		if (ci != null && !ci.isInterface() && (ci.flags() & Modifier.ABSTRACT) == 0) {
 			// Concrete class — if it is a @Component or @ConfigurationProperties,
 			// use directly. Otherwise, find the @Configuration that produces it
 			// via @Bean.
-			if (isComponent(type) || type.isAnnotationPresent(ConfigurationProperties.class)) {
+			if (hasMetaComponentAnnotation(ci, index, new HashSet<>())
+					|| ci.hasAnnotation(CONFIGURATION_PROPERTIES)) {
 				return List.of(type);
 			}
 			return findBeanProducers(type, index);
 		}
 
-		List<Class<?>> result = new ArrayList<>();
-		DotName dotName = DotName.createSimple(type.getName());
-		for (ClassInfo ci : index.getKnownDirectImplementations(dotName)) {
-			if (ci.isInterface() || ci.isAbstract()) {
+		List<DotName> result = new ArrayList<>();
+		for (ClassInfo impl : index.getKnownDirectImplementations(type)) {
+			if (impl.isInterface() || (impl.flags() & Modifier.ABSTRACT) != 0) {
 				continue;
 			}
-			if (hasMetaComponentAnnotation(ci, index, new HashSet<>())) {
-				try {
-					result.add(Class.forName(ci.name().toString()));
-				} catch (ClassNotFoundException e) {
-					log.debug("[Summer] Could not load implementation: {}", ci.name());
-				}
+			if (hasMetaComponentAnnotation(impl, index, new HashSet<>())) {
+				result.add(impl.name());
 			}
 		}
 		// If no direct @Component implementations found, look for @Bean producers
@@ -248,22 +266,17 @@ public final class RuntimeComponentScanner {
 	 * Finds {@code @Configuration} classes that have a {@code @Bean} method
 	 * returning the given type.
 	 */
-	private static List<Class<?>> findBeanProducers(Class<?> type, IndexView index) {
-		List<Class<?>> result = new ArrayList<>();
-		DotName targetName = DotName.createSimple(type.getName());
-		for (AnnotationInstance beanAnn : index.getAnnotations(Bean.class)) {
+	private static List<DotName> findBeanProducers(DotName targetName, IndexView index) {
+		List<DotName> result = new ArrayList<>();
+		for (AnnotationInstance beanAnn : index.getAnnotations(BEAN)) {
 			if (beanAnn.target().kind() != org.jboss.jandex.AnnotationTarget.Kind.METHOD) {
 				continue;
 			}
-			org.jboss.jandex.MethodInfo method = beanAnn.target().asMethod();
+			MethodInfo method = beanAnn.target().asMethod();
 			if (method.returnType().name().equals(targetName)) {
 				ClassInfo configClass = method.declaringClass();
 				if (hasMetaComponentAnnotation(configClass, index, new HashSet<>())) {
-					try {
-						result.add(Class.forName(configClass.name().toString()));
-					} catch (ClassNotFoundException e) {
-						log.debug("[Summer] Could not load @Configuration class: {}", configClass.name());
-					}
+					result.add(configClass.name());
 				}
 			}
 		}

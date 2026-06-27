@@ -6,7 +6,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import summer.core.BeanContainer;
 import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
 import summer.core.bean.BeanDefinition;
@@ -28,18 +27,16 @@ public final class BeanDefinitionFactory {
 
 	/**
 	 * Converts discovered component classes and {@code @Bean} methods into a list
-	 * of {@link BeanDefinition} objects. Also includes singleton beans already
-	 * registered in the registry (e.g. {@code @ConfigurationProperties}).
+	 * of {@link BeanDefinition} objects. Pure discovery — no condition evaluation,
+	 * no side effects.
 	 *
 	 * @param componentClasses
 	 *            set of discovered component classes
-	 * @param builder
-	 *            bean container builder (for pre-bound singletons)
 	 * @param adapter
 	 *            runtime bean adapter for Jandex metadata
 	 * @return mutable list of bean definitions
 	 */
-	public static List<BeanDefinition> buildBeanDefinitions(Set<Class<?>> componentClasses, BeanContainer.Builder builder,
+	public static List<BeanDefinition> buildBeanDefinitions(Set<Class<?>> componentClasses,
 			RuntimeBeanAdapter adapter) {
 		return componentClasses.stream().flatMap(clazz -> toBeanDefinitions(clazz, adapter))
 				.collect(Collectors.toCollection(ArrayList::new));
