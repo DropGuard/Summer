@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import summer.aop.MethodInterceptor;
-import summer.core.BeanRegistry;
+import summer.core.BeanContainer;
 import summer.core.ErrorCode;
 import summer.core.Provider;
 import summer.core.bean.BeanDefinition;
@@ -33,11 +33,11 @@ import summer.core.exception.NoSuchBeanException;
  */
 final class BeanInstantiator {
 
-	private final BeanRegistry registry;
+	private final BeanContainer.Builder builder;
 	private final Map<String, List<String>> interceptorMap;
 
-	BeanInstantiator(BeanRegistry registry, Map<String, List<String>> interceptorMap) {
-		this.registry = registry;
+	BeanInstantiator(BeanContainer.Builder builder, Map<String, List<String>> interceptorMap) {
+		this.builder = builder;
 		this.interceptorMap = interceptorMap;
 	}
 
@@ -53,7 +53,7 @@ final class BeanInstantiator {
 	}
 
 	private void instantiateBean(BeanDefinition bean) {
-		if (registry.peek(loadClassForInstantiation(bean.qualifiedName)) != null) {
+		if (builder.peek(loadClassForInstantiation(bean.qualifiedName)) != null) {
 			return;
 		}
 		try {
@@ -74,7 +74,7 @@ final class BeanInstantiator {
 
 	private Object invokeFactoryMethod(BeanDefinition fb) throws ReflectiveOperationException {
 		Class<?> configClass = loadClassForInstantiation(fb.configClassName);
-		Object configBean = registry.getBean(configClass);
+		Object configBean = builder.getBean(configClass);
 		Class<?>[] paramTypes = fb.producerParamTypes.stream().map(cn -> loadClassForInstantiation(cn))
 				.toArray(Class[]::new);
 		Method producer = configClass.getMethod(fb.producerMethodName, paramTypes);
@@ -84,12 +84,12 @@ final class BeanInstantiator {
 
 	private void instantiateConfigPropertiesFromDefinition(ConfigPropertiesBean cpb) {
 		Class<?> clazz = loadClassForInstantiation(cpb.qualifiedName);
-		if (registry.peek(clazz) != null) {
+		if (builder.peek(clazz) != null) {
 			return;
 		}
 		Object instance = ConfigBinder.bind(cpb.configPropertiesPrefix != null ? cpb.configPropertiesPrefix : "",
 				clazz);
-		registry.registerSingleton(clazz, instance);
+		builder.registerSingleton(clazz, instance);
 	}
 
 	private Object createInstance(Class<?> clazz) throws ReflectiveOperationException {
@@ -115,16 +115,16 @@ final class BeanInstantiator {
 			if (paramType == List.class && genericType instanceof ParameterizedType pt) {
 				Type elementType = pt.getActualTypeArguments()[0];
 				if (elementType instanceof Class<?> elementClass) {
-					args[i] = registry.getBeans(elementClass);
+					args[i] = builder.getBeans(elementClass);
 				} else {
-					args[i] = registry.getBean(paramType);
+					args[i] = builder.getBean(paramType);
 				}
 			} else {
 				if (paramType == summer.core.BeanContainer.class) {
 					throw new BeanCreationException(ErrorCode.BEAN_CREATION_FAILED,
 							"ApplicationContext injection is not supported by the runtime engine. Use BeanContainer from caller.");
 				}
-				args[i] = registry.getBean(paramType);
+				args[i] = builder.getBean(paramType);
 			}
 		}
 		return args;
@@ -141,22 +141,22 @@ final class BeanInstantiator {
 	private void registerProvider(Class<?> clazz, Provider<?> provider) {
 		Object providedInstance = provider.provide();
 		Class<?> providedType = getProvidedType(clazz);
-		registry.registerSingleton(providedType, providedInstance);
-		registry.registerSingleton(clazz, provider);
+		builder.registerSingleton(providedType, providedInstance);
+		builder.registerSingleton(clazz, provider);
 	}
 
 	private void registerRegularBean(Class<?> clazz, Object instance) {
 		List<MethodInterceptor> matchingInterceptors = resolveMatchingInterceptors(clazz);
 		Object proxy = RuntimeAopProcessor.applyProxy(instance, clazz, matchingInterceptors);
 		// Concrete class key keeps the raw instance
-		registry.registerSingleton(clazz, instance);
+		builder.registerSingleton(clazz, instance);
 		// Interfaces get the proxy (first-wins)
 		registerAllInterfaces(clazz, proxy);
 	}
 
 	private void registerAllInterfaces(Class<?> clazz, Object instance) {
 		for (Class<?> iface : clazz.getInterfaces()) {
-			registry.registerInterface(iface, instance);
+			builder.registerInterface(iface, instance);
 			registerAllInterfaces(iface, instance);
 		}
 	}
@@ -169,7 +169,7 @@ final class BeanInstantiator {
 		List<MethodInterceptor> result = new ArrayList<>();
 		for (String interceptorName : interceptorNames) {
 			Class<?> interceptorClass = loadClassForInstantiation(interceptorName);
-			Object interceptor = registry.getBean(interceptorClass);
+			Object interceptor = builder.getBean(interceptorClass);
 			if (interceptor instanceof MethodInterceptor mi) {
 				result.add(mi);
 			}

@@ -33,7 +33,6 @@ import summer.aot.LocalContextGenerator;
 import summer.aot.RouteAdapterGenerator;
 import summer.aot.WireMethodGenerator;
 import summer.core.BeanContainer;
-import summer.core.BeanRegistry;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.SharedDependencyResolver;
 
@@ -74,15 +73,16 @@ public class SummerMojo extends AbstractMojo {
 
 			File generatedDir = prepareGeneratedDir(isTestPhase);
 
-			// Assemble the AOT pipeline via BeanRegistry (constructor injection)
+			// Assemble the AOT pipeline via BeanContainer.Builder (constructor injection)
 			WireMethodGenerator wireGen = new WireMethodGenerator();
-			BeanRegistry beanRegistry = new BeanRegistry();
-			beanRegistry.registerSingleton(WireMethodGenerator.class, wireGen);
-			beanRegistry.registerSingleton(BeanDiscovery.class, new BeanDiscovery(index));
-			beanRegistry.registerSingleton(AotContextGenerator.class, new AotContextGenerator(index, generatedDir, wireGen));
-			beanRegistry.registerSingleton(AotProxyGenerator.class, new AotProxyGenerator());
-			beanRegistry.registerSingleton(RouteAdapterGenerator.class, new RouteAdapterGenerator());
-			BeanContainer pipeline = BeanContainer.create(beanRegistry);
+			BeanContainer.Builder pipelineBuilder = new BeanContainer.Builder();
+			pipelineBuilder.registerSingleton(WireMethodGenerator.class, wireGen);
+			pipelineBuilder.registerSingleton(BeanDiscovery.class, new BeanDiscovery(index));
+			pipelineBuilder.registerSingleton(AotContextGenerator.class,
+					new AotContextGenerator(index, generatedDir, wireGen));
+			pipelineBuilder.registerSingleton(AotProxyGenerator.class, new AotProxyGenerator());
+			pipelineBuilder.registerSingleton(RouteAdapterGenerator.class, new RouteAdapterGenerator());
+			BeanContainer pipeline = pipelineBuilder.build();
 
 			List<BeanDefinition> beans = pipeline.getBean(BeanDiscovery.class).discover();
 			getLog().debug("[Summer] Discovered " + beans.size() + " beans");
@@ -108,7 +108,8 @@ public class SummerMojo extends AbstractMojo {
 
 	// ---- LocalContext generation ----
 
-	private void generateLocalContexts(IndexView index, File generatedDir, WireMethodGenerator wireGen) throws Exception {
+	private void generateLocalContexts(IndexView index, File generatedDir, WireMethodGenerator wireGen)
+			throws Exception {
 
 		// Build a Jandex index from test class .class files directly.
 		// The jandex-maven-plugin doesn't support test-class indexing in 3.5.3.

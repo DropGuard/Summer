@@ -27,7 +27,7 @@ class ArchitectureTest {
 
 	private static final String[] PACKAGES = {"summer.core", "summer.web", "summer.aop", "summer.tx", "summer.runtime",
 			"summer.plugin", "summer.data", "summer.boot", "summer.web.netty", "summer.grpc", "summer.validation",
-			"summer.test", "summer.tck", "summer.arch"};
+			"summer.aot", "summer.test", "summer.tck", "summer.arch"};
 
 	private static JavaClasses classes;
 
@@ -53,7 +53,7 @@ class ArchitectureTest {
 
 				// layer definitions
 				.layer("Core")         .definedBy("..summer.core..")
-				.layer("Infrastructure").definedBy("..summer.runtime..", "..summer.plugin..")
+				.layer("Infrastructure").definedBy("..summer.runtime..", "..summer.plugin..", "..summer.aot..")
 				.layer("Web")          .definedBy("..summer.web..", "..summer.boot..")
 				.layer("Data")         .definedBy("..summer.data..")
 				.layer("CrossCutting") .definedBy("..summer.aop..", "..summer.tx..", "..summer.validation..")

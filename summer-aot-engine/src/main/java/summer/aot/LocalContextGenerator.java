@@ -221,8 +221,8 @@ public final class LocalContextGenerator {
 	// ---- code generation (mirrors AotContextGenerator) ---------------------
 
 	private static final String CORE_PACKAGE = "summer.core";
-	private static final ClassName CN_BEAN_REGISTRY = ClassName.get(CORE_PACKAGE, "BeanRegistry");
 	private static final ClassName CN_BEAN_CONTAINER = ClassName.get(CORE_PACKAGE, "BeanContainer");
+	private static final ClassName CN_BEAN_CONTAINER_BUILDER = ClassName.get(CORE_PACKAGE, "BeanContainer", "Builder");
 	private static final ClassName CN_ENGINE = ClassName.get(CORE_PACKAGE, "Engine");
 	private static final ClassName CN_AOT_DI_MARKER = ClassName.get(CORE_PACKAGE, "AotDiMarker");
 	private static final ClassName CN_CONFIG_BINDER = ClassName.get("summer.core.config", "ConfigBinder");
@@ -258,8 +258,8 @@ public final class LocalContextGenerator {
 				.addModifiers(javax.lang.model.element.Modifier.PUBLIC, javax.lang.model.element.Modifier.STATIC)
 				.returns(CN_BEAN_CONTAINER).addException(Exception.class);
 
-		method.addStatement("$T registry = new $T()", CN_BEAN_REGISTRY, CN_BEAN_REGISTRY);
-		method.addStatement("registry.registerSingleton($T.class, new $T())", CN_AOT_DI_MARKER, CN_AOT_DI_MARKER);
+		method.addStatement("$T builder = new $T()", CN_BEAN_CONTAINER_BUILDER, CN_BEAN_CONTAINER_BUILDER);
+		method.addStatement("builder.registerSingleton($T.class, new $T())", CN_AOT_DI_MARKER, CN_AOT_DI_MARKER);
 
 		method.addCode("\n");
 		method.addComment("Setup @DefaultValue resolver");
@@ -276,7 +276,7 @@ public final class LocalContextGenerator {
 			method.addStatement("$T _routeAdapter = new $T()",
 					ClassName.get("summer.core.aot", "GeneratedAnnotationRouterAdapter"),
 					ClassName.get("summer.core.aot", "GeneratedAnnotationRouterAdapter"));
-			method.addStatement("registry.registerSingleton($T.class, _routeAdapter)",
+			method.addStatement("builder.registerSingleton($T.class, _routeAdapter)",
 					ClassName.get("summer.web", "RouteRegistrar"));
 		}
 
@@ -286,11 +286,11 @@ public final class LocalContextGenerator {
 		method.addStatement("$T _ehAdapter = new $T()",
 				ClassName.get("summer.core.aot", "GeneratedExceptionHandlerAdapter"),
 				ClassName.get("summer.core.aot", "GeneratedExceptionHandlerAdapter"));
-		method.addStatement("registry.registerSingleton($T.class, _ehAdapter)",
+		method.addStatement("builder.registerSingleton($T.class, _ehAdapter)",
 				ClassName.get("summer.web", "ExceptionHandlerRegistrar"));
 
 		method.addCode("\n");
-		method.addStatement("return $T.create(registry, $T.AOT)", CN_BEAN_CONTAINER, CN_ENGINE);
+		method.addStatement("return builder.build($T.AOT)", CN_ENGINE);
 
 		return method.build();
 	}

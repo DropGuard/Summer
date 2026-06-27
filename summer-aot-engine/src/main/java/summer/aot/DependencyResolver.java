@@ -24,6 +24,8 @@ public final class DependencyResolver {
 	private static final Logger log = LoggerFactory.getLogger(DependencyResolver.class);
 
 	public List<BeanDefinition> resolve(List<BeanDefinition> beans) {
+		validateUniqueBeanNames(beans);
+
 		for (BeanDefinition bean : beans) {
 			resolveDependencies(bean, beans);
 		}
@@ -35,6 +37,23 @@ public final class DependencyResolver {
 		}
 
 		return topologicalSort(beans);
+	}
+
+	private void validateUniqueBeanNames(List<BeanDefinition> beans) {
+		Map<String, String> nameToSource = new LinkedHashMap<>();
+		for (BeanDefinition bean : beans) {
+			String existing = nameToSource.get(bean.qualifiedName);
+			if (existing == null) {
+				nameToSource.put(bean.qualifiedName, bean.isFactoryMethod()
+						? bean.configClassName + "#" + bean.producerMethodName : bean.qualifiedName);
+			} else if (!existing.equals(bean.isFactoryMethod()
+					? bean.configClassName + "#" + bean.producerMethodName : bean.qualifiedName)) {
+				throw new AmbiguousBeanException("Multiple beans found for type: " + bean.qualifiedName
+						+ " is defined by both " + existing + " and "
+						+ (bean.isFactoryMethod()
+								? bean.configClassName + "#" + bean.producerMethodName : bean.qualifiedName));
+			}
+		}
 	}
 
 	private void resolveDependencies(BeanDefinition bean, List<BeanDefinition> allBeans) {

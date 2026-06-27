@@ -27,7 +27,7 @@ public class RuntimeExceptionHandlerRegistrar implements ExceptionHandlerRegistr
 		for (ClassInfo ci : index.getKnownClasses()) {
 			try {
 				Class<?> clazz = Class.forName(ci.name().toString());
-				if (!context.componentTypes().contains(clazz)) {
+				if (clazz.isInterface() || !context.componentTypes().contains(clazz)) {
 					continue;
 				}
 				Object instance = context.getBean(clazz);

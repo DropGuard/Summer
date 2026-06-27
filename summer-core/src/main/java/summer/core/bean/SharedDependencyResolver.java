@@ -43,6 +43,8 @@ public final class SharedDependencyResolver {
 	 *             if a cycle is detected
 	 */
 	public List<BeanDefinition> resolve(List<BeanDefinition> beans) {
+		validateUniqueBeanNames(beans);
+
 		for (BeanDefinition bean : beans) {
 			resolveDependencies(bean, beans);
 		}
@@ -54,6 +56,29 @@ public final class SharedDependencyResolver {
 		}
 
 		return topologicalSort(beans);
+	}
+
+	/**
+	 * Validates that no two bean definitions share the same qualified name. Two
+	 * {@code @Bean} methods returning the same type, or a {@code @Component} and
+	 * a {@code @Bean} producing the same type, is ambiguous and must be rejected
+	 * at build time.
+	 */
+	private void validateUniqueBeanNames(List<BeanDefinition> beans) {
+		Map<String, String> nameToSource = new LinkedHashMap<>();
+		for (BeanDefinition bean : beans) {
+			String existing = nameToSource.get(bean.qualifiedName);
+			if (existing == null) {
+				nameToSource.put(bean.qualifiedName, bean.isFactoryMethod()
+						? bean.configClassName + "#" + bean.producerMethodName : bean.qualifiedName);
+			} else if (!existing.equals(bean.isFactoryMethod()
+					? bean.configClassName + "#" + bean.producerMethodName : bean.qualifiedName)) {
+				throw new AmbiguousBeanException("Multiple beans found for type: " + bean.qualifiedName
+						+ " is defined by both " + existing + " and "
+						+ (bean.isFactoryMethod()
+								? bean.configClassName + "#" + bean.producerMethodName : bean.qualifiedName));
+			}
+		}
 	}
 
 	private void resolveDependencies(BeanDefinition bean, List<BeanDefinition> allBeans) {

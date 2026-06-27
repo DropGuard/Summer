@@ -11,7 +11,7 @@ import summer.core.bean.ConfigPropertiesBean;
 
 /**
  * Generates the bean instantiation body of the AOT-created {@code create()}
- * method. Emits {@code registry.registerSingleton(...)} calls for each bean.
+ * method. Emits {@code builder.registerSingleton(...)} calls for each bean.
  *
  * <p>
  * Handles constructor injection, {@code @Bean} method invocation,
@@ -45,16 +45,15 @@ public final class WireMethodGenerator {
 			}
 
 			if (bean instanceof ConfigPropertiesBean) {
-				wire.addStatement("registry.registerSingleton($T.class, $N)", beanClass, varName);
+				wire.addStatement("builder.registerSingleton($T.class, $N)", beanClass, varName);
 			} else {
 				if (bean.needsProxy) {
-					wire.addStatement("registry.registerSingleton($T.class, $N)", beanClass, varName + "_impl");
+					wire.addStatement("builder.registerSingleton($T.class, $N)", beanClass, varName + "_impl");
 				} else {
-					wire.addStatement("registry.registerSingleton($T.class, $N)", beanClass, varName);
+					wire.addStatement("builder.registerSingleton($T.class, $N)", beanClass, varName);
 				}
 				for (String iface : bean.interfaceNames) {
-					wire.addStatement("registry.registerInterface($T.class, $N)", parseTypeName(iface),
-							varName);
+					wire.addStatement("builder.registerInterface($T.class, $N)", parseTypeName(iface), varName);
 				}
 			}
 		}
@@ -62,10 +61,10 @@ public final class WireMethodGenerator {
 		// Validation Phase: run all Validator beans
 		wire.addCode("\n");
 		wire.addComment("Validation Phase");
-		wire.beginControlFlow("for ($T bean : registry.singletons().values())", Object.class);
+		wire.beginControlFlow("for ($T bean : builder.singletons().values())", Object.class);
 		wire.beginControlFlow("if (bean instanceof $T validator)",
 				ClassName.get("summer.core.validation", "Validator"));
-		wire.addStatement("$T target = registry.peek(validator.targetType())", Object.class);
+		wire.addStatement("$T target = builder.peek(validator.targetType())", Object.class);
 		wire.beginControlFlow("if (target != null)");
 		wire.addStatement("validator.validate(target)");
 		wire.endControlFlow();
@@ -98,7 +97,7 @@ public final class WireMethodGenerator {
 
 		wire.addCode("\n");
 		wire.addComment("Register @RowModel mappers with JdbcTemplate");
-		wire.addStatement("$T _jt = ($T) registry.peek($T.class)", JDBC_TEMPLATE, JDBC_TEMPLATE, JDBC_TEMPLATE);
+		wire.addStatement("$T _jt = ($T) builder.peek($T.class)", JDBC_TEMPLATE, JDBC_TEMPLATE, JDBC_TEMPLATE);
 		wire.beginControlFlow("if (_jt != null)");
 
 		for (var meta : metas) {
@@ -184,7 +183,8 @@ public final class WireMethodGenerator {
 				args.add(", ");
 			String type = paramTypes.get(i);
 			if (type.equals("summer.core.BeanContainer")) {
-				args.add("registry.getBean($T.class)", summer.core.BeanContainer.class);
+				// BeanContainer is not available during AOT build phase
+				args.add("null");
 			} else if (type.equals("java.util.List") && bean.listElementTypes.containsKey(i)) {
 				String elementType = bean.listElementTypes.get(i);
 				CodeBlock listExpr = buildListExpression(bean, elementType);
@@ -253,8 +253,9 @@ public final class WireMethodGenerator {
 	}
 
 	/**
-	 * Converts a JVM type name to a JavaPoet {@link com.palantir.javapoet.TypeName}.
-	 * Handles primitives and nested-class {@code $} separators.
+	 * Converts a JVM type name to a JavaPoet
+	 * {@link com.palantir.javapoet.TypeName}. Handles primitives and nested-class
+	 * {@code $} separators.
 	 */
 	static com.palantir.javapoet.TypeName parseTypeName(String typeName) {
 		if (typeName.startsWith("["))

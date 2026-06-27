@@ -11,7 +11,6 @@ import org.jboss.jandex.IndexView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import summer.core.BeanContainer;
-import summer.core.BeanRegistry;
 import summer.core.Engine;
 import summer.core.RuntimeDiMarker;
 import summer.core.bean.BeanDefinition;
@@ -85,13 +84,13 @@ public final class RuntimeBeanContainerBuilder {
 	private static BeanContainer initialize(IndexView index, Set<Class<?>> componentClasses) {
 		ConfigBinder.setDefaultValueResolver(RuntimeDefaultValueResolver.INSTANCE);
 
-		BeanRegistry registry = new BeanRegistry();
-		registry.registerSingleton(RuntimeDiMarker.class, new RuntimeDiMarker());
+		BeanContainer.Builder builder = new BeanContainer.Builder();
+		builder.registerSingleton(RuntimeDiMarker.class, new RuntimeDiMarker());
 
-		bindConfigurationProperties(componentClasses, registry);
+		bindConfigurationProperties(componentClasses, builder);
 
 		RuntimeBeanAdapter adapter = new RuntimeBeanAdapter(index);
-		List<BeanDefinition> allBeans = BeanDefinitionFactory.buildBeanDefinitions(componentClasses, registry, adapter);
+		List<BeanDefinition> allBeans = BeanDefinitionFactory.buildBeanDefinitions(componentClasses, builder, adapter);
 
 		// RuntimeDiMarker is not @Component — register explicitly for
 		// @ConditionalOnBean
@@ -106,25 +105,25 @@ public final class RuntimeBeanContainerBuilder {
 		List<BeanDefinition> sortedBeans = resolver.resolve(allBeans);
 
 		Map<String, List<String>> interceptorMap = BeanDefinitionFactory.buildInterceptorMap(allBeans);
-		BeanInstantiator instantiator = new BeanInstantiator(registry, interceptorMap);
+		BeanInstantiator instantiator = new BeanInstantiator(builder, interceptorMap);
 		for (BeanDefinition beanDef : sortedBeans) {
 			instantiator.instantiateFromDefinition(beanDef);
 		}
 
-		registerRowMappers(registry, index);
-		runValidators(registry);
+		registerRowMappers(builder, index);
+		runValidators(builder);
 
-		return BeanContainer.create(registry, Engine.RUNTIME);
+		return builder.build(Engine.RUNTIME);
 	}
 
 	// ---- @ConfigurationProperties binding ----
 
-	private static void bindConfigurationProperties(Set<Class<?>> componentClasses, BeanRegistry registry) {
+	private static void bindConfigurationProperties(Set<Class<?>> componentClasses, BeanContainer.Builder builder) {
 		for (Class<?> configClass : componentClasses) {
 			if (!configClass.isAnnotationPresent(ConfigurationProperties.class)) {
 				continue;
 			}
-			if (registry.peek(configClass) != null) {
+			if (builder.peek(configClass) != null) {
 				continue;
 			}
 			ConfigurationProperties props = configClass.getAnnotation(ConfigurationProperties.class);
@@ -132,7 +131,7 @@ public final class RuntimeBeanContainerBuilder {
 				continue;
 			}
 			Object instance = ConfigBinder.bind(props.prefix(), configClass);
-			registry.registerSingleton(configClass, instance);
+			builder.registerSingleton(configClass, instance);
 			log.debug("[Summer] Bound @ConfigurationProperties: {} (prefix='{}')", configClass.getSimpleName(),
 					props.prefix());
 		}
@@ -141,7 +140,7 @@ public final class RuntimeBeanContainerBuilder {
 	// ---- Infrastructure ----
 
 	@SuppressWarnings({"unchecked", "rawtypes"})
-	private static void registerRowMappers(BeanRegistry registry, IndexView index) {
+	private static void registerRowMappers(BeanContainer.Builder builder, IndexView index) {
 		try {
 			Class<?> factoryClass = Class.forName("summer.data.jdbc.RowMapperFactory");
 			var metas = (java.util.List<?>) factoryClass.getMethod("scanJandex", IndexView.class).invoke(null, index);
@@ -156,7 +155,7 @@ public final class RuntimeBeanContainerBuilder {
 				return;
 			}
 
-			Object jdbcTemplate = registry.peek(jdbcTemplateClass);
+			Object jdbcTemplate = builder.peek(jdbcTemplateClass);
 			if (jdbcTemplate == null) {
 				return;
 			}
@@ -185,11 +184,11 @@ public final class RuntimeBeanContainerBuilder {
 	// ---- Validation ----
 
 	@SuppressWarnings("unchecked")
-	private static void runValidators(BeanRegistry registry) {
-		for (Object bean : registry.singletons().values()) {
+	private static void runValidators(BeanContainer.Builder builder) {
+		for (Object bean : builder.singletons().values()) {
 			if (bean instanceof Validator<?> validator) {
 				Class<?> targetType = validator.targetType();
-				Object target = registry.peek(targetType);
+				Object target = builder.peek(targetType);
 				if (target != null) {
 					((Validator<Object>) validator).validate(target);
 				}

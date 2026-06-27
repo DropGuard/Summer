@@ -12,7 +12,7 @@ import summer.core.bean.BeanDefinition;
 
 /**
  * Generates a {@code GeneratedAotContext} class that uses the unified
- * {@link summer.core.BeanRegistry} / {@link summer.core.BeanContainer}
+ * {@link summer.core.BeanContainer}
  * abstractions.
  *
  * <p>
@@ -25,8 +25,8 @@ public final class AotContextGenerator {
 	public static final String CLASS_NAME = "GeneratedAotContext";
 
 	private static final String CORE_PACKAGE = "summer.core";
-	private static final ClassName BEAN_REGISTRY = ClassName.get(CORE_PACKAGE, "BeanRegistry");
 	private static final ClassName BEAN_CONTAINER = ClassName.get(CORE_PACKAGE, "BeanContainer");
+	private static final ClassName BEAN_CONTAINER_BUILDER = ClassName.get(CORE_PACKAGE, "BeanContainer", "Builder");
 	private static final ClassName ENGINE = ClassName.get(CORE_PACKAGE, "Engine");
 	private static final ClassName AOT_DI_MARKER = ClassName.get(CORE_PACKAGE, "AotDiMarker");
 	private static final ClassName CONFIG_BINDER = ClassName.get("summer.core.config", "ConfigBinder");
@@ -69,8 +69,8 @@ public final class AotContextGenerator {
 				.addModifiers(javax.lang.model.element.Modifier.PUBLIC, javax.lang.model.element.Modifier.STATIC)
 				.returns(BEAN_CONTAINER).addException(Exception.class);
 
-		method.addStatement("$T registry = new $T()", BEAN_REGISTRY, BEAN_REGISTRY);
-		method.addStatement("registry.registerSingleton($T.class, new $T())", AOT_DI_MARKER, AOT_DI_MARKER);
+		method.addStatement("$T builder = new $T()", BEAN_CONTAINER_BUILDER, BEAN_CONTAINER_BUILDER);
+		method.addStatement("builder.registerSingleton($T.class, new $T())", AOT_DI_MARKER, AOT_DI_MARKER);
 
 		method.addCode("\n");
 		method.addComment("Setup @DefaultValue resolver");
@@ -85,19 +85,19 @@ public final class AotContextGenerator {
 			method.addCode("\n");
 			method.addComment("Register route adapter");
 			method.addStatement("$T _routeAdapter = new $T()", ROUTE_ADAPTER, ROUTE_ADAPTER);
-			method.addStatement("registry.registerSingleton($T.class, _routeAdapter)", ROUTE_REGISTRAR);
+			method.addStatement("builder.registerSingleton($T.class, _routeAdapter)", ROUTE_REGISTRAR);
 		}
 
 		// Exception handler adapter — always present (empty if no handlers)
 		method.addCode("\n");
 		method.addComment("Register exception handler adapter");
 		method.addStatement("$T _ehAdapter = new $T()", EXCEPTION_HANDLER_ADAPTER, EXCEPTION_HANDLER_ADAPTER);
-		method.addStatement("registry.registerSingleton($T.class, _ehAdapter)", EXCEPTION_HANDLER_REGISTRAR);
+		method.addStatement("builder.registerSingleton($T.class, _ehAdapter)", EXCEPTION_HANDLER_REGISTRAR);
 
 		wireGen.emitRowMapperRegistrations(method, index, null, sortedBeans);
 
 		method.addCode("\n");
-		method.addStatement("return $T.create(registry, $T.AOT)", BEAN_CONTAINER, ENGINE);
+		method.addStatement("return builder.build($T.AOT)", ENGINE);
 
 		return method.build();
 	}
