@@ -70,7 +70,7 @@ public final class AotContextGenerator {
 				.returns(BEAN_CONTAINER).addException(Exception.class);
 
 		method.addStatement("$T builder = new $T()", BEAN_CONTAINER_BUILDER, BEAN_CONTAINER_BUILDER);
-		method.addStatement("builder.registerSingleton($T.class, new $T())", AOT_DI_MARKER, AOT_DI_MARKER);
+		method.addStatement("builder.register($T.class, new $T())", AOT_DI_MARKER, AOT_DI_MARKER);
 
 		method.addCode("\n");
 		method.addComment("Setup @DefaultValue resolver");
@@ -85,14 +85,14 @@ public final class AotContextGenerator {
 			method.addCode("\n");
 			method.addComment("Register route adapter");
 			method.addStatement("$T _routeAdapter = new $T()", ROUTE_ADAPTER, ROUTE_ADAPTER);
-			method.addStatement("builder.registerSingleton($T.class, _routeAdapter)", ROUTE_REGISTRAR);
+			method.addStatement("builder.register($T.class, _routeAdapter)", ROUTE_REGISTRAR);
 		}
 
 		// Exception handler adapter — always present (empty if no handlers)
 		method.addCode("\n");
 		method.addComment("Register exception handler adapter");
 		method.addStatement("$T _ehAdapter = new $T()", EXCEPTION_HANDLER_ADAPTER, EXCEPTION_HANDLER_ADAPTER);
-		method.addStatement("builder.registerSingleton($T.class, _ehAdapter)", EXCEPTION_HANDLER_REGISTRAR);
+		method.addStatement("builder.register($T.class, _ehAdapter)", EXCEPTION_HANDLER_REGISTRAR);
 
 		wireGen.emitRowMapperRegistrations(method, index, null, sortedBeans);
 

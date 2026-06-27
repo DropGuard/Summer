@@ -76,12 +76,12 @@ public class SummerMojo extends AbstractMojo {
 			// Assemble the AOT pipeline via BeanContainer.Builder (constructor injection)
 			WireMethodGenerator wireGen = new WireMethodGenerator();
 			BeanContainer.Builder pipelineBuilder = new BeanContainer.Builder();
-			pipelineBuilder.registerSingleton(WireMethodGenerator.class, wireGen);
-			pipelineBuilder.registerSingleton(BeanDiscovery.class, new BeanDiscovery(index));
-			pipelineBuilder.registerSingleton(AotContextGenerator.class,
+			pipelineBuilder.register(WireMethodGenerator.class, wireGen);
+			pipelineBuilder.register(BeanDiscovery.class, new BeanDiscovery(index));
+			pipelineBuilder.register(AotContextGenerator.class,
 					new AotContextGenerator(index, generatedDir, wireGen));
-			pipelineBuilder.registerSingleton(AotProxyGenerator.class, new AotProxyGenerator());
-			pipelineBuilder.registerSingleton(RouteAdapterGenerator.class, new RouteAdapterGenerator());
+			pipelineBuilder.register(AotProxyGenerator.class, new AotProxyGenerator());
+			pipelineBuilder.register(RouteAdapterGenerator.class, new RouteAdapterGenerator());
 			BeanContainer pipeline = pipelineBuilder.build();
 
 			List<BeanDefinition> beans = pipeline.getBean(BeanDiscovery.class).discover();

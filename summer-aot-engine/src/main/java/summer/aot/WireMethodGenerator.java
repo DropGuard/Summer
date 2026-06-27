@@ -11,7 +11,7 @@ import summer.core.bean.ConfigPropertiesBean;
 
 /**
  * Generates the bean instantiation body of the AOT-created {@code create()}
- * method. Emits {@code builder.registerSingleton(...)} calls for each bean.
+ * method. Emits {@code builder.register(...)} calls for each bean.
  *
  * <p>
  * Handles constructor injection, {@code @Bean} method invocation,
@@ -45,15 +45,15 @@ public final class WireMethodGenerator {
 			}
 
 			if (bean instanceof ConfigPropertiesBean) {
-				wire.addStatement("builder.registerSingleton($T.class, $N)", beanClass, varName);
+				wire.addStatement("builder.register($T.class, $N)", beanClass, varName);
 			} else {
 				if (bean.needsProxy) {
-					wire.addStatement("builder.registerSingleton($T.class, $N)", beanClass, varName + "_impl");
+					wire.addStatement("builder.register($T.class, $N)", beanClass, varName + "_impl");
 				} else {
-					wire.addStatement("builder.registerSingleton($T.class, $N)", beanClass, varName);
+					wire.addStatement("builder.register($T.class, $N)", beanClass, varName);
 				}
 				for (String iface : bean.interfaceNames) {
-					wire.addStatement("builder.registerInterface($T.class, $N)", parseTypeName(iface), varName);
+					wire.addStatement("builder.register($T.class, $N)", parseTypeName(iface), varName);
 				}
 			}
 		}

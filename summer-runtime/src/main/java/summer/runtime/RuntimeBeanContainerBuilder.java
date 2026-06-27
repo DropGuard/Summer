@@ -85,7 +85,7 @@ public final class RuntimeBeanContainerBuilder {
 		ConfigBinder.setDefaultValueResolver(RuntimeDefaultValueResolver.INSTANCE);
 
 		BeanContainer.Builder builder = new BeanContainer.Builder();
-		builder.registerSingleton(RuntimeDiMarker.class, new RuntimeDiMarker());
+		builder.register(RuntimeDiMarker.class, new RuntimeDiMarker());
 
 		// ── Phase 1: Discovery ──────────────────────────────────────
 		// Build all candidate BeanDefinitions without filtering.
@@ -133,7 +133,7 @@ public final class RuntimeBeanContainerBuilder {
 				continue;
 			}
 			Object instance = ConfigBinder.bind(props.prefix(), configClass);
-			builder.registerSingleton(configClass, instance);
+			builder.register(configClass, instance);
 			log.debug("[Summer] Bound @ConfigurationProperties: {} (prefix='{}')", configClass.getSimpleName(),
 					props.prefix());
 		}

@@ -259,7 +259,7 @@ public final class LocalContextGenerator {
 				.returns(CN_BEAN_CONTAINER).addException(Exception.class);
 
 		method.addStatement("$T builder = new $T()", CN_BEAN_CONTAINER_BUILDER, CN_BEAN_CONTAINER_BUILDER);
-		method.addStatement("builder.registerSingleton($T.class, new $T())", CN_AOT_DI_MARKER, CN_AOT_DI_MARKER);
+		method.addStatement("builder.register($T.class, new $T())", CN_AOT_DI_MARKER, CN_AOT_DI_MARKER);
 
 		method.addCode("\n");
 		method.addComment("Setup @DefaultValue resolver");
@@ -276,7 +276,7 @@ public final class LocalContextGenerator {
 			method.addStatement("$T _routeAdapter = new $T()",
 					ClassName.get("summer.core.aot", "GeneratedAnnotationRouterAdapter"),
 					ClassName.get("summer.core.aot", "GeneratedAnnotationRouterAdapter"));
-			method.addStatement("builder.registerSingleton($T.class, _routeAdapter)",
+			method.addStatement("builder.register($T.class, _routeAdapter)",
 					ClassName.get("summer.web", "RouteRegistrar"));
 		}
 
@@ -286,7 +286,7 @@ public final class LocalContextGenerator {
 		method.addStatement("$T _ehAdapter = new $T()",
 				ClassName.get("summer.core.aot", "GeneratedExceptionHandlerAdapter"),
 				ClassName.get("summer.core.aot", "GeneratedExceptionHandlerAdapter"));
-		method.addStatement("builder.registerSingleton($T.class, _ehAdapter)",
+		method.addStatement("builder.register($T.class, _ehAdapter)",
 				ClassName.get("summer.web", "ExceptionHandlerRegistrar"));
 
 		method.addCode("\n");

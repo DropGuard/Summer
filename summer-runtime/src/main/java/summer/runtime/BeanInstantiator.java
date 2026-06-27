@@ -89,7 +89,7 @@ final class BeanInstantiator {
 		}
 		Object instance = ConfigBinder.bind(cpb.configPropertiesPrefix != null ? cpb.configPropertiesPrefix : "",
 				clazz);
-		builder.registerSingleton(clazz, instance);
+		builder.register(clazz, instance);
 	}
 
 	private Object createInstance(Class<?> clazz) throws ReflectiveOperationException {
@@ -141,22 +141,22 @@ final class BeanInstantiator {
 	private void registerProvider(Class<?> clazz, Provider<?> provider) {
 		Object providedInstance = provider.provide();
 		Class<?> providedType = getProvidedType(clazz);
-		builder.registerSingleton(providedType, providedInstance);
-		builder.registerSingleton(clazz, provider);
+		builder.register(providedType, providedInstance);
+		builder.register(clazz, provider);
 	}
 
 	private void registerRegularBean(Class<?> clazz, Object instance) {
 		List<MethodInterceptor> matchingInterceptors = resolveMatchingInterceptors(clazz);
 		Object proxy = RuntimeAopProcessor.applyProxy(instance, clazz, matchingInterceptors);
 		// Concrete class key keeps the raw instance
-		builder.registerSingleton(clazz, instance);
+		builder.register(clazz, instance);
 		// Interfaces get the proxy (first-wins)
 		registerAllInterfaces(clazz, proxy);
 	}
 
 	private void registerAllInterfaces(Class<?> clazz, Object instance) {
 		for (Class<?> iface : clazz.getInterfaces()) {
-			builder.registerInterface(iface, instance);
+			builder.register(iface, instance);
 			registerAllInterfaces(iface, instance);
 		}
 	}

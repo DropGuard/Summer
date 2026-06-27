@@ -109,36 +109,17 @@ public final class BeanContainer implements AutoCloseable {
 
 	/**
 	 * Mutable builder for {@link BeanContainer}. Used during the context
-	 * construction phase to register singletons, interface bindings, and to peek
-	 * at already-registered beans.
-	 *
-	 * <p>
-	 * Once {@link #build()} is called, the builder is consumed and the resulting
-	 * container is immutable. The builder reference should be discarded.
-	 * </p>
+	 * construction phase to register beans and peek at already-registered beans.
 	 */
 	public static final class Builder {
 
 		private final Map<Class<?>, Object> singletons = new LinkedHashMap<>();
-		private boolean consumed;
 
 		/**
-		 * Registers a bean instance under the given type key (exact match).
+		 * Registers a bean instance under the given type key.
 		 */
-		public void registerSingleton(Class<?> type, Object instance) {
-			checkMutable();
+		public void register(Class<?> type, Object instance) {
 			singletons.put(type, instance);
-		}
-
-		/**
-		 * Registers a bean under an interface type, retaining the same instance. If the
-		 * interface key is already occupied, does nothing (first-wins). Multiple
-		 * implementations of the same interface are allowed for {@code List<T>}
-		 * injection; the first to register holds the key for single-bean lookup.
-		 */
-		public void registerInterface(Class<?> iface, Object instance) {
-			checkMutable();
-			singletons.putIfAbsent(iface, instance);
 		}
 
 		/**
@@ -195,27 +176,22 @@ public final class BeanContainer implements AutoCloseable {
 		 * instance, or null.
 		 */
 		public Object remove(Class<?> type) {
-			checkMutable();
 			return singletons.remove(type);
 		}
 
 		/**
 		 * Removes all entries whose value is {@code ==} to the given instance (identity
-		 * check). Returns the instance that was removed, or null.
+		 * check). Returns the instance that was removed.
 		 */
 		public Object removeByInstance(Object instance) {
-			checkMutable();
 			singletons.values().removeIf(v -> v == instance);
 			return instance;
 		}
 
 		/**
-		 * Consumes this builder and produces an immutable {@link BeanContainer}.
-		 * After this call, the builder cannot be used for further registration.
+		 * Produces an immutable {@link BeanContainer}.
 		 */
 		public BeanContainer build(Engine engine) {
-			checkMutable();
-			consumed = true;
 			return new BeanContainer(singletons, engine);
 		}
 
@@ -224,13 +200,6 @@ public final class BeanContainer implements AutoCloseable {
 		 */
 		public BeanContainer build() {
 			return build(Engine.RUNTIME);
-		}
-
-		private void checkMutable() {
-			if (consumed) {
-				throw new IllegalStateException(
-						"Builder already consumed — BeanContainer has been built");
-			}
 		}
 	}
 }
