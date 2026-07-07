@@ -2,6 +2,7 @@ package summer.runtime;
 
 import jakarta.validation.Valid;
 import java.lang.reflect.Parameter;
+import java.util.function.Function;
 import summer.web.HttpContext;
 
 /**
@@ -30,5 +31,11 @@ public class ValidatingParameterResolver implements HttpParameterResolver {
 	@Override
 	public Object resolve(HttpContext ctx, Parameter parameter) {
 		return ctx.validatedBody(parameter.getType());
+	}
+
+	@Override
+	public Function<HttpContext, Object> compile(Parameter parameter) {
+		Class<?> type = parameter.getType();
+		return ctx -> ctx.validatedBody(type);
 	}
 }

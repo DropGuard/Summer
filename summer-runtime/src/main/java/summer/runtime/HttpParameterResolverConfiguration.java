@@ -51,9 +51,9 @@ public class HttpParameterResolverConfiguration {
 
 	@Bean
 	public HttpParameterResolverChain resolverChain(ValidatingParameterResolver validatingResolver,
-			PageableResolver pageableResolver, TypeParameterResolver typeResolver, PathParamResolver pathParamResolver,
+			DefaultPageResolver defaultPageResolver, TypeParameterResolver typeResolver, PathParamResolver pathParamResolver,
 			QueryParamResolver queryParamResolver, ThrowableResolver throwableResolver) {
-		return new HttpParameterResolverChain(List.of(validatingResolver, pageableResolver, typeResolver,
+		return new HttpParameterResolverChain(List.of(validatingResolver, defaultPageResolver, typeResolver,
 				pathParamResolver, queryParamResolver, throwableResolver));
 	}
 }

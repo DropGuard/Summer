@@ -7,7 +7,7 @@ import summer.core.ErrorCode;
  */
 public class AotContextNotFoundException extends SummerException {
 	public AotContextNotFoundException() {
-		super(ErrorCode.INTERNAL_ERROR,
+		super(ErrorCode.CONFIG_AOT_CONTEXT_NOT_FOUND,
 				"AOT Context not found. Ensure summer-maven-plugin is configured and ran during build.");
 	}
 }

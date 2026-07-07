@@ -7,6 +7,8 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeSpec;
 import java.io.IOException;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.RouteInfo;
 
@@ -45,6 +47,7 @@ public final class RouteAdapterGenerator {
 
 		// Generate the registerControllers method body
 		CodeBlock.Builder registerBody = CodeBlock.builder();
+		Set<String> declaredResolvers = new HashSet<>();
 
 		for (BeanDefinition controller : controllers) {
 			String varName = controller.variableName;
@@ -52,6 +55,17 @@ public final class RouteAdapterGenerator {
 			registerBody.addStatement("$T $N = context.getBean($T.class)", controllerClass, varName, controllerClass);
 
 			for (RouteInfo route : controller.routes) {
+				for (RouteInfo.ParamInfo param : route.params) {
+					if (param.binding == RouteInfo.ParamBinding.PAGEABLE) {
+						String resolverVar = param.name + "_resolver";
+						if (declaredResolvers.add(resolverVar)) {
+							registerBody.add("$T $N = context.getBean($T.class).compileAot($T.class, $S);\n",
+									ClassName.bestGuess("java.util.function.Function"), resolverVar,
+									ClassName.bestGuess("summer.runtime.DefaultPageResolver"), ClassName.bestGuess(param.type), param.name);
+						}
+					}
+				}
+
 				CodeBlock handlerBody = generateHandlerBody(route, varName);
 
 				registerBody.add("builder.$L($S, ", route.httpMethod.toLowerCase(), route.path);
@@ -68,21 +82,11 @@ public final class RouteAdapterGenerator {
 						.addParameter(ClassName.get(WEB_PACKAGE, "HttpRouter", "Builder"), "builder")
 						.addParameter(ClassName.get(CORE_PACKAGE, "BeanContainer"), "context")
 						.addCode(registerBody.build()).build())
-				.addMethod(buildParseIntOrDefault()).build();
+				.build();
 
 		JavaFile.builder("summer.core.aot", routeRegistrar).build().writeTo(outputDir);
 	}
 
-	private MethodSpec buildParseIntOrDefault() {
-		return MethodSpec.methodBuilder("parseIntOrDefault")
-				.addModifiers(javax.lang.model.element.Modifier.PRIVATE, javax.lang.model.element.Modifier.STATIC)
-				.returns(int.class).addParameter(String.class, "value").addParameter(int.class, "defaultValue")
-				.beginControlFlow("if (value == null || value.isBlank())").addStatement("return defaultValue")
-				.endControlFlow().beginControlFlow("try")
-				.addStatement("return Math.max(0, Integer.parseInt(value.trim()))")
-				.nextControlFlow("catch ($T e)", NumberFormatException.class).addStatement("return defaultValue")
-				.endControlFlow().build();
-	}
 
 	/**
 	 * Generate handler lambda body for a route.
@@ -106,14 +110,8 @@ public final class RouteAdapterGenerator {
 				body.add("$T $N = ctx.$L($T.class);\n", resolveParamType(param.type), param.name, method,
 						ClassName.bestGuess(param.type));
 			} else if (param.binding == RouteInfo.ParamBinding.PAGEABLE) {
-				body.add("$T $N = $T.of(\n", ClassName.bestGuess("summer.web.Pageable"), param.name,
-						ClassName.bestGuess("summer.web.PageRequest"));
-				body.indent();
-				body.add("parseIntOrDefault(ctx.queryParam(\"page\"), 0),\n");
-				body.add("parseIntOrDefault(ctx.queryParam(\"size\"), 20),\n");
-				body.add("$T.parse(ctx.queryParam(\"sort\"))\n", ClassName.bestGuess("summer.web.Sort"));
-				body.unindent();
-				body.add(");\n");
+				body.add("$T $N = ($T) $N_resolver.apply(ctx);\n",
+						resolveParamType(param.type), param.name, ClassName.bestGuess(param.type), param.name);
 			}
 		}
 

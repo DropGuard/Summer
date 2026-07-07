@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>summer-framework</artifactId>
+        <groupId>summer</groupId>
+        <version>0.1.0</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+    <packaging>pom</packaging>
+
+    <artifactId>summer-coverage-report</artifactId>
+    <name>Summer Coverage Report</name>
+    <description>Aggregates JaCoCo coverage reports from all modules</description>
+
+    <dependencies>
+        <dependency><groupId>summer</groupId><artifactId>summer-core</artifactId></dependency>
+        <dependency><groupId>summer</groupId><artifactId>summer-web</artifactId></dependency>
+        <dependency><groupId>summer</groupId><artifactId>summer-web-http</artifactId></dependency>
+        <dependency><groupId>summer</groupId><artifactId>summer-web-netty</artifactId></dependency>
+        <dependency><groupId>summer</groupId><artifactId>summer-web-middleware</artifactId></dependency>
+        <dependency><groupId>summer</groupId><artifactId>summer-web-websocket</artifactId></dependency>
+        <dependency><groupId>summer</groupId><artifactId>summer-boot</artifactId></dependency>
+        <dependency><groupId>summer</groupId><artifactId>summer-aop</artifactId></dependency>
+        <dependency><groupId>summer</groupId><artifactId>summer-tx</artifactId></dependency>
+        <dependency><groupId>summer</groupId><artifactId>summer-runtime</artifactId></dependency>
+        <dependency><groupId>summer</groupId><artifactId>summer-grpc</artifactId></dependency>
+        <dependency><groupId>summer</groupId><artifactId>summer-data-redis</artifactId></dependency>
+        <dependency><groupId>summer</groupId><artifactId>summer-data-jdbc</artifactId></dependency>
+        <dependency><groupId>summer</groupId><artifactId>summer-test</artifactId></dependency>
+        <dependency><groupId>summer</groupId><artifactId>summer-tck</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>summer</groupId><artifactId>summer-tck-fixtures</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>summer</groupId><artifactId>summer-aot-engine</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>summer</groupId><artifactId>summer-archunit</artifactId><version>${project.version}</version></dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <id>report-aggregate</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report-aggregate</goal>
+                        </goals>
+                        <configuration>
+                            <excludes>
+                                <exclude>summer/aot/**/*</exclude>
+                                <exclude>summer/data/jdbc/tx/TransactionAwareConnectionWrapper.class</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

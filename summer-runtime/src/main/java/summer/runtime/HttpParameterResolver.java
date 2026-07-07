@@ -2,6 +2,7 @@ package summer.runtime;
 
 import java.lang.reflect.Parameter;
 import summer.web.HttpContext;
+import java.util.function.Function;
 
 /**
  * Resolves method parameters for HTTP request handlers.
@@ -37,4 +38,19 @@ public interface HttpParameterResolver {
 	 * @return the resolved value
 	 */
 	Object resolve(HttpContext ctx, Parameter parameter);
+
+	/**
+	 * Compiles the parameter resolution logic into a fast execution plan during cold start.
+	 * This prevents per-request reflection overhead.
+	 *
+	 * @param parameter the method parameter to compile
+	 * @return a pre-compiled execution function
+	 */
+	default Function<HttpContext, Object> compile(Parameter parameter) {
+		return ctx -> resolve(ctx, parameter);
+	}
+
+	default Function<HttpContext, Object> compileAot(Class<?> paramType, String paramName) {
+		throw new UnsupportedOperationException("AOT not supported by this resolver");
+	}
 }

@@ -57,7 +57,7 @@ public class NettyHttpServer {
 
 		List<summer.web.websocket.WsInterceptor> wsInterceptors = context
 				.getBeans(summer.web.websocket.WsInterceptor.class);
-		WebSocketUpgradeHandler wsUpgradeHandler = new WebSocketUpgradeHandler(wsRouter, config, wsInterceptors);
+		WebSocketUpgradeHandler wsUpgradeHandler = new WebSocketUpgradeHandler(wsRouter, config, wsInterceptors, jsonConverter);
 		return new NettyHttpServer(config, new WebServerDependencies(httpRouter, wsRouter, middlewares, jsonConverter,
 				exceptionRegistry, wsInterceptors, wsUpgradeHandler));
 	}

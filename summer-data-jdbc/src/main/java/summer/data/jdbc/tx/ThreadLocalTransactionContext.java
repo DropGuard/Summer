@@ -72,7 +72,7 @@ public class ThreadLocalTransactionContext implements TransactionStatus {
 					rawConnection.close();
 				}
 			} catch (SQLException e) {
-				throw new SummerTransactionException(ErrorCode.TRANSACTION_ERROR, "Failed to close connection", e);
+				throw new SummerTransactionException( "Failed to close connection", e);
 			}
 		}
 	}

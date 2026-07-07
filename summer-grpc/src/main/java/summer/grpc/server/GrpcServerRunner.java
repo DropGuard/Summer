@@ -100,7 +100,7 @@ public class GrpcServerRunner implements ApplicationRunner, AutoCloseable {
 				}
 			}));
 		} catch (IOException e) {
-			throw new SummerGrpcException(ErrorCode.GRPC_ERROR, "Failed to start gRPC Server on port " + port, e);
+			throw new SummerGrpcException("Failed to start gRPC Server on port " + port, e);
 		}
 	}
 

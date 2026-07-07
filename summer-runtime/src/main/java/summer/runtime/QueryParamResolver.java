@@ -3,6 +3,7 @@ package summer.runtime;
 import java.lang.reflect.Parameter;
 import summer.core.config.TypeConverter;
 import summer.web.HttpContext;
+import java.util.function.Function;
 import summer.web.annotation.QueryParam;
 
 /**
@@ -20,5 +21,12 @@ public class QueryParamResolver implements HttpParameterResolver {
 	public Object resolve(HttpContext ctx, Parameter parameter) {
 		String value = ctx.request().queryParam(parameter.getAnnotation(QueryParam.class).value());
 		return TypeConverter.convert(value, parameter.getType());
+	}
+
+	@Override
+	public Function<HttpContext, Object> compile(Parameter parameter) {
+		String paramName = parameter.getAnnotation(QueryParam.class).value();
+		Class<?> type = parameter.getType();
+		return ctx -> TypeConverter.convert(ctx.request().queryParam(paramName), type);
 	}
 }

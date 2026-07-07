@@ -1,0 +1,148 @@
+package summer.twitter.tweet;
+
+import summer.core.Component;
+import summer.twitter.infra.SnowflakeIdGenerator;
+import summer.twitter.user.User;
+import summer.twitter.user.UserRepository;
+
+import summer.twitter.timeline.TimelineService;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+@Component
+public class TweetService {
+
+    private final TweetRepository tweetRepository;
+    private final UserRepository userRepository;
+    private final SnowflakeIdGenerator idGenerator;
+    private final TimelineService timelineService;
+
+    private static final Pattern MENTION_PATTERN = Pattern.compile("@(\\w+)");
+
+    public TweetService(TweetRepository tweetRepository, UserRepository userRepository, SnowflakeIdGenerator idGenerator, TimelineService timelineService) {
+        this.tweetRepository = tweetRepository;
+        this.userRepository = userRepository;
+        this.idGenerator = idGenerator;
+        this.timelineService = timelineService;
+    }
+
+    public Tweet createTweet(Long authorId, String content, Long parentId) {
+        Long tweetId = idGenerator.nextId();
+        Tweet tweet = new Tweet(
+            tweetId,
+            authorId,
+            content,
+            "POST",
+            parentId,
+            0,
+            0,
+            0,
+            OffsetDateTime.now()
+        );
+
+        tweetRepository.insert(tweet);
+
+        if (parentId != null) {
+            tweetRepository.updateReplyCount(parentId, 1);
+        }
+
+        // Extract @mentions
+        Matcher matcher = MENTION_PATTERN.matcher(content);
+        List<User> mentionedUsers = new ArrayList<>();
+        while (matcher.find()) {
+            String username = matcher.group(1);
+            Optional<User> userOpt = userRepository.findByUsername(username);
+            userOpt.ifPresent(mentionedUsers::add);
+        }
+
+        // Fire and forget fan-out logic placeholder
+        Thread.startVirtualThread(() -> {
+            // TODO: Fan-out on write logic
+            // 1. Check if author followerCount < 5000
+            // 2. Fetch all followers
+            // 3. Batch ZADD timeline:{followerId} <timestamp> <tweetId>
+            // 4. WebSocket /ws/events push new_tweet to online followers
+            // 5. WebSocket /ws/events push mentioned to mentionedUsers
+        });
+
+        return tweet;
+    }
+
+    public Tweet retweet(Long originalId, Long userId) {
+        Tweet original = tweetRepository.findById(originalId);
+        if (original == null) {
+            throw new IllegalArgumentException("Original tweet not found");
+        }
+        
+        Long tweetId = idGenerator.nextId();
+        Tweet tweet = new Tweet(
+            tweetId,
+            userId,
+            "",
+            "RETWEET",
+            originalId,
+            0,
+            0,
+            0,
+            OffsetDateTime.now()
+        );
+        
+        tweetRepository.insert(tweet);
+        tweetRepository.incrementRetweetCount(originalId);
+        
+        User author = userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("User not found"));
+        timelineService.fanOut(tweet, author.followerCount() != null ? author.followerCount() : 0);
+        
+        return tweet;
+    }
+
+    public Tweet quoteTweet(Long originalId, Long userId, String content) {
+        Tweet original = tweetRepository.findById(originalId);
+        if (original == null) {
+            throw new IllegalArgumentException("Original tweet not found");
+        }
+        
+        Long tweetId = idGenerator.nextId();
+        Tweet tweet = new Tweet(
+            tweetId,
+            userId,
+            content,
+            "QUOTE",
+            originalId,
+            0,
+            0,
+            0,
+            OffsetDateTime.now()
+        );
+        
+        tweetRepository.insert(tweet);
+        tweetRepository.incrementRetweetCount(originalId);
+        
+        User author = userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("User not found"));
+        timelineService.fanOut(tweet, author.followerCount() != null ? author.followerCount() : 0);
+        
+        return tweet;
+    }
+
+    public Tweet getTweet(Long id) {
+        return tweetRepository.findById(id);
+    }
+
+    public void deleteTweet(Long id, Long requesterId) {
+        Tweet tweet = tweetRepository.findById(id);
+        if (tweet != null && tweet.authorId().equals(requesterId)) {
+            tweetRepository.delete(id);
+            if (tweet.parentId() != null) {
+                tweetRepository.updateReplyCount(tweet.parentId(), -1);
+            }
+        }
+    }
+
+    public List<Tweet> getReplies(Long parentId, Long cursor, int limit) {
+        return tweetRepository.getReplies(parentId, cursor, limit);
+    }
+}

@@ -11,24 +11,6 @@ import summer.core.ErrorCode;
 class SummerTransactionExceptionTest {
 
 	@Test
-	void shouldCreateExceptionWithErrorCode() {
-		SummerTransactionException ex = new SummerTransactionException(ErrorCode.TRANSACTION_ERROR,
-				"Transaction failed");
-		assertEquals("Transaction failed", ex.getMessage());
-		assertEquals(ErrorCode.TRANSACTION_ERROR, ex.errorCode());
-	}
-
-	@Test
-	void shouldCreateExceptionWithErrorCodeAndCause() {
-		Exception cause = new RuntimeException("Root cause");
-		SummerTransactionException ex = new SummerTransactionException(ErrorCode.TRANSACTION_ERROR,
-				"Transaction failed", cause);
-		assertEquals("Transaction failed", ex.getMessage());
-		assertEquals(ErrorCode.TRANSACTION_ERROR, ex.errorCode());
-		assertSame(cause, ex.getCause());
-	}
-
-	@Test
 	void shouldCreateExceptionWithMessage() {
 		SummerTransactionException ex = new SummerTransactionException("Transaction failed");
 		assertEquals("Transaction failed", ex.getMessage());

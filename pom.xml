@@ -41,11 +41,13 @@
         <module>summer-test</module>
         <module>summer-example</module>
         <module>summer-realworld</module>
+        <module>summer-twitter</module>
         <module>summer-tck</module>
         <module>summer-maven-plugin</module>
         <module>summer-aot-engine</module>
         <module>summer-tck-fixtures</module>
         <module>summer-archunit</module>
+        <module>summer-coverage-report</module>
     </modules>
 
     <dependencyManagement>
@@ -131,13 +133,6 @@
                             <id>prepare-agent</id>
                             <goals>
                                 <goal>prepare-agent</goal>
-                            </goals>
-                        </execution>
-                        <execution>
-                            <id>report</id>
-                            <phase>test</phase>
-                            <goals>
-                                <goal>report</goal>
                             </goals>
                         </execution>
                     </executions>

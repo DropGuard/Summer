@@ -64,7 +64,7 @@ public final class BeanDiscovery {
 				continue;
 			if (ci.isInterface() || ci.isAbstract()) {
 				if (hasMetaComponentAnnotation(ci, new HashSet<>())) {
-					throw new summer.core.exception.BeanCreationException(summer.core.ErrorCode.BEAN_CREATION_FAILED,
+					throw new summer.core.exception.BeanCreationException(
 							"@Component cannot be placed on an interface or abstract class: " + ci.name()
 									+ ". Annotate the concrete implementation instead.");
 				}
@@ -102,7 +102,7 @@ public final class BeanDiscovery {
 			}
 			if (ci.isInterface() || ci.isAbstract()) {
 				if (hasMetaComponentAnnotation(ci, new HashSet<>())) {
-					throw new summer.core.exception.BeanCreationException(summer.core.ErrorCode.BEAN_CREATION_FAILED,
+					throw new summer.core.exception.BeanCreationException(
 							"@Component cannot be placed on an interface or abstract class: " + ci.name()
 									+ ". Annotate the concrete implementation instead.");
 				}

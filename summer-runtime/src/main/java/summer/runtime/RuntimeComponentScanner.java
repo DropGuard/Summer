@@ -88,14 +88,14 @@ public final class RuntimeComponentScanner {
 	private static void validateExtraComponent(Class<?> clazz) {
 		if (clazz.isInterface() || Modifier.isAbstract(clazz.getModifiers())) {
 			if (isComponent(clazz)) {
-				throw new BeanCreationException(ErrorCode.BEAN_CREATION_FAILED,
+				throw new BeanCreationException(
 						"@Component cannot be placed on an interface or abstract class: " + clazz.getName()
 								+ ". Annotate the concrete implementation instead.");
 			}
 			return;
 		}
 		if (!isComponent(clazz) && !clazz.isAnnotationPresent(ConfigurationProperties.class)) {
-			throw new BeanCreationException(ErrorCode.BEAN_CREATION_FAILED,
+			throw new BeanCreationException(
 					"Class " + clazz.getName() + " is not annotated with @Component or @ConfigurationProperties");
 		}
 	}

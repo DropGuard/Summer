@@ -3,8 +3,10 @@ package summer.runtime;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.util.function.Function;
 import org.jboss.jandex.MethodInfo;
 import summer.web.Handler;
+import summer.web.HttpContext;
 
 /**
  * Creates {@link Handler}s from controller or exception-handler methods.
@@ -17,13 +19,28 @@ public final class HandlerFactory {
 	/**
 	 * Creates a Handler from a Java reflection method.
 	 */
+	@SuppressWarnings("unchecked")
 	public static Handler create(Object instance, Method method, HttpParameterResolverChain resolverChain) {
 		method.setAccessible(true);
 		Parameter[] params = method.getParameters();
+		
+		// Cold-start parsing: Pre-resolve the parameter providers once
+		Function<HttpContext, Object>[] paramProviders = new Function[params.length];
+		
+		for (int i = 0; i < params.length; i++) {
+			Parameter param = params[i];
+			HttpParameterResolver resolvedResolver = resolverChain.findResolver(param);
+			if (resolvedResolver != null) {
+				paramProviders[i] = resolvedResolver.compile(param);
+			} else {
+				paramProviders[i] = ctx -> ctx.body(param.getType());
+			}
+		}
+
 		return ctx -> {
 			Object[] args = new Object[params.length];
 			for (int i = 0; i < params.length; i++) {
-				args[i] = resolverChain.resolve(ctx, params[i]);
+				args[i] = paramProviders[i].apply(ctx);
 			}
 			try {
 				method.invoke(instance, args);

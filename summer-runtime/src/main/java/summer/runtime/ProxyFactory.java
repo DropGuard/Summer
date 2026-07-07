@@ -4,7 +4,9 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import summer.aop.MethodInterceptor;
 import summer.aop.ProxyInterceptorChain;
 import summer.aop.SummerAopException;
@@ -33,10 +35,37 @@ public class ProxyFactory {
 	private static class ProxyInvocationHandler implements InvocationHandler {
 		private final Object target;
 		private final List<MethodInterceptor> interceptors;
+		private final Map<Method, MethodCache> methodCache;
+
+		private static class MethodCache {
+			final Method targetMethod;
+			final boolean shouldIntercept;
+			final RuntimeMethodMetadata metadata;
+			
+			MethodCache(Method targetMethod, boolean shouldIntercept) {
+				this.targetMethod = targetMethod;
+				this.shouldIntercept = shouldIntercept;
+				this.metadata = shouldIntercept ? new RuntimeMethodMetadata(targetMethod) : null;
+			}
+		}
 
 		ProxyInvocationHandler(Object target, List<MethodInterceptor> interceptors) {
 			this.target = target;
 			this.interceptors = interceptors;
+			this.methodCache = new HashMap<>();
+			
+			// Pre-compile methods to avoid reflection lookup and annotation scanning on hot path
+			for (Class<?> iface : target.getClass().getInterfaces()) {
+				for (Method method : iface.getMethods()) {
+					try {
+						Method targetMethod = target.getClass().getMethod(method.getName(), method.getParameterTypes());
+						boolean shouldIntercept = shouldIntercept(targetMethod, interceptors);
+						methodCache.put(method, new MethodCache(targetMethod, shouldIntercept));
+					} catch (NoSuchMethodException e) {
+						// Ignore
+					}
+				}
+			}
 		}
 
 		@Override
@@ -46,15 +75,13 @@ public class ProxyFactory {
 				return method.invoke(target, args);
 			}
 
-			// Find the corresponding method on the implementation class (target)
-			Method targetMethod = target.getClass().getMethod(method.getName(), method.getParameterTypes());
-
-			if (!shouldIntercept(targetMethod, interceptors)) {
+			MethodCache cache = methodCache.get(method);
+			if (cache == null || !cache.shouldIntercept) {
 				return method.invoke(target, args);
 			}
 
 			try {
-				return new ProxyInterceptorChain(target, new RuntimeMethodMetadata(targetMethod), args, interceptors,
+				return new ProxyInterceptorChain(target, cache.metadata, args, interceptors,
 						() -> method.invoke(target, args)).proceed();
 			} catch (java.lang.reflect.InvocationTargetException e) {
 				throw e.getCause();
@@ -65,12 +92,6 @@ public class ProxyFactory {
 		 * Determines if a method should be intercepted by checking if any interceptor
 		 * has an {@code @InterceptorBinding} annotation that matches an annotation on
 		 * the target method.
-		 * 
-		 * <p>
-		 * Note: Only checks direct annotations on the interceptor class, not inherited
-		 * ones. This matches the behavior of BeanDefinitionFactory and
-		 * RuntimeAopProcessor.
-		 * </p>
 		 */
 		private boolean shouldIntercept(Method targetMethod, List<MethodInterceptor> interceptors) {
 			for (MethodInterceptor interceptor : interceptors) {

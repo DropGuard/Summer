@@ -54,20 +54,6 @@ class ExceptionTest {
 	}
 
 	@Test
-	void shouldCreateConfigurationExceptionWithMessage() {
-		ConfigurationException ex = new ConfigurationException("Config error");
-		assertEquals("Config error", ex.getMessage());
-	}
-
-	@Test
-	void shouldCreateConfigurationExceptionWithMessageAndCause() {
-		Exception cause = new RuntimeException("Parse error");
-		ConfigurationException ex = new ConfigurationException("Config error", cause);
-		assertEquals("Config error", ex.getMessage());
-		assertSame(cause, ex.getCause());
-	}
-
-	@Test
 	void shouldCreateDataAccessException() {
 		DataAccessException ex = new DataAccessException("Data access failed");
 		assertEquals("Data access failed", ex.getMessage());

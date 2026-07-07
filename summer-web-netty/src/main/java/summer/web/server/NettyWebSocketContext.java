@@ -5,6 +5,7 @@ import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import summer.web.BodyConverter;
 import summer.web.websocket.WebSocketContext;
 import summer.web.websocket.WsFilterChain;
 import summer.web.websocket.WsInterceptor;
@@ -13,15 +14,19 @@ public class NettyWebSocketContext implements WebSocketContext {
 
 	private final ChannelHandlerContext ctx;
 	private final Map<String, String> pathParams;
+	private final Map<String, String> headers;
 	private final List<WsInterceptor> wsInterceptors;
+	private final BodyConverter jsonConverter;
 	private Consumer<String> messageConsumer;
 	private Runnable closeHandler;
 
 	public NettyWebSocketContext(ChannelHandlerContext ctx, Map<String, String> pathParams,
-			List<WsInterceptor> wsInterceptors) {
+			Map<String, String> headers, List<WsInterceptor> wsInterceptors, BodyConverter jsonConverter) {
 		this.ctx = ctx;
 		this.pathParams = pathParams;
+		this.headers = headers;
 		this.wsInterceptors = wsInterceptors;
+		this.jsonConverter = jsonConverter;
 	}
 
 	public ChannelHandlerContext getChannelHandlerContext() {
@@ -31,6 +36,10 @@ public class NettyWebSocketContext implements WebSocketContext {
 	@Override
 	public String pathParam(String name) {
 		return pathParams.get(name);
+	}
+	@Override
+	public String header(String name) {
+		return headers.get(name.toLowerCase());
 	}
 
 	@Override
@@ -43,6 +52,32 @@ public class NettyWebSocketContext implements WebSocketContext {
 	@Override
 	public void onMessage(Consumer<String> consumer) {
 		this.messageConsumer = consumer;
+	}
+
+	@Override
+	public <T> void onMessageAs(Class<T> type, Consumer<T> consumer) {
+		this.messageConsumer = text -> {
+			try {
+				T obj = jsonConverter.read(text.getBytes(java.nio.charset.StandardCharsets.UTF_8), type);
+				consumer.accept(obj);
+			} catch (java.io.IOException e) {
+				ctx.channel().pipeline().fireExceptionCaught(e);
+			}
+		};
+	}
+
+	@Override
+	public void sendJson(Object payload) {
+		try {
+			byte[] jsonBytes = jsonConverter.write(payload);
+			send(new String(jsonBytes, java.nio.charset.StandardCharsets.UTF_8));
+		} catch (java.io.IOException e) {
+			throw new RuntimeException("Failed to serialize WebSocket message", e);
+		}
+	}
+	@Override
+	public void close() {
+		ctx.close();
 	}
 
 	@Override

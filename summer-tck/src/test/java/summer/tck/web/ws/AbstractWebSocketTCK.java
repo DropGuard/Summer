@@ -154,6 +154,16 @@ public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
 			public void onClose(Runnable onClose) {
 				// Mock: no-op
 			}
+
+			@Override
+			public <T> void onMessageAs(Class<T> type, Consumer<T> consumer) {
+				// Not needed for this test
+			}
+
+			@Override
+			public void sendJson(Object payload) {
+				// Not needed for this test
+			}
 		};
 	}
 }

@@ -28,7 +28,6 @@ final class BeanEnrichment {
 	private static final DotName PATH_PARAM_DOT = DotName.createSimple("summer.web.annotation.PathParam");
 	private static final DotName QUERY_PARAM_DOT = DotName.createSimple("summer.web.annotation.QueryParam");
 	private static final DotName VALID_DOT = DotName.createSimple("jakarta.validation.Valid");
-	private static final DotName PAGEABLE_DOT = DotName.createSimple("summer.web.Pageable");
 	private static final DotName INTERCEPTOR_BINDING_DOT = DotName.createSimple("summer.aop.InterceptorBinding");
 	private static final DotName INTERCEPTOR_DOT = DotName.createSimple("summer.aop.Interceptor");
 
@@ -70,11 +69,11 @@ final class BeanEnrichment {
 		List<MethodInfo> publicCtors = ci.methods().stream()
 				.filter(m -> m.name().equals("<init>") && (m.flags() & 0x0001) != 0).toList();
 		if (publicCtors.isEmpty()) {
-			throw new summer.core.exception.BeanCreationException(summer.core.ErrorCode.BEAN_CREATION_FAILED,
+			throw new summer.core.exception.BeanCreationException(
 					"Component " + bean.qualifiedName + " must have exactly ONE public constructor. Found: 0");
 		}
 		if (publicCtors.size() > 1) {
-			throw new summer.core.exception.BeanCreationException(summer.core.ErrorCode.BEAN_CREATION_FAILED,
+			throw new summer.core.exception.BeanCreationException(
 					"Component " + bean.qualifiedName + " must have exactly ONE public constructor. Found: "
 							+ publicCtors.size());
 		}
@@ -86,6 +85,10 @@ final class BeanEnrichment {
 			if (paramType.kind() == org.jboss.jandex.Type.Kind.PARAMETERIZED_TYPE) {
 				org.jboss.jandex.ParameterizedType pt = paramType.asParameterizedType();
 				if (pt.name().toString().equals("java.util.List") && pt.arguments().size() == 1) {
+					org.jboss.jandex.Type elementTypeObj = pt.arguments().get(0);
+					if (elementTypeObj.kind() == org.jboss.jandex.Type.Kind.PARAMETERIZED_TYPE) {
+						throw new summer.core.exception.UnsupportedInjectionException("Nested generic type injection is not supported: List<" + elementTypeObj.toString() + "> in " + bean.qualifiedName);
+					}
 					String elementType = pt.arguments().get(0).name().toString();
 					bean.listElementTypes.put(bean.constructorParamTypes.size() - 1, elementType);
 				}
@@ -173,6 +176,24 @@ final class BeanEnrichment {
 		return "";
 	}
 
+	private boolean isScrollRequest(String paramType) {
+		if (paramType.equals("summer.web.ScrollRequest") || paramType.equals("summer.realworld.common.LimitOffsetPageable") || paramType.equals("summer.twitter.common.CursorPageable")) {
+			return true;
+		}
+		ClassInfo ci = index.getClassByName(DotName.createSimple(paramType));
+		if (ci != null) {
+			for (DotName iface : ci.interfaceNames()) {
+				if (isScrollRequest(iface.toString())) {
+					return true;
+				}
+			}
+			if (ci.superName() != null && !ci.superName().toString().equals("java.lang.Object")) {
+				return isScrollRequest(ci.superName().toString());
+			}
+		}
+		return false;
+	}
+
 	private void collectParameters(MethodInfo method, RouteInfo route) {
 		for (org.jboss.jandex.MethodParameterInfo param : method.parameters()) {
 			String paramName = param.name();
@@ -187,7 +208,7 @@ final class BeanEnrichment {
 				String bindingName = extractBindingName(param, QUERY_PARAM_DOT, paramName);
 				route.params
 						.add(new RouteInfo.ParamInfo(bindingName, paramType, RouteInfo.ParamBinding.QUERY, hasValid));
-			} else if (paramType.equals("summer.web.Pageable") || param.type().name().equals(PAGEABLE_DOT)) {
+			} else if (isScrollRequest(paramType)) {
 				route.params.add(new RouteInfo.ParamInfo(paramName, paramType, RouteInfo.ParamBinding.PAGEABLE, false));
 			} else if (!paramType.equals("summer.web.WebContext") && !paramType.equals("summer.web.HttpContext")) {
 				route.params.add(new RouteInfo.ParamInfo(paramName, paramType, RouteInfo.ParamBinding.BODY, hasValid));

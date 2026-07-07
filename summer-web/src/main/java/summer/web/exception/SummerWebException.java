@@ -21,22 +21,6 @@ public class SummerWebException extends SummerException {
 		this.status = status;
 	}
 
-	/**
-	 * Backward-compatible constructor. Defaults to 500 status.
-	 */
-	public SummerWebException(String message) {
-		super(ErrorCode.INTERNAL_ERROR, message);
-		this.status = HttpStatus.INTERNAL_SERVER_ERROR;
-	}
-
-	/**
-	 * Backward-compatible constructor. Defaults to 500 status.
-	 */
-	public SummerWebException(String message, Throwable cause) {
-		super(ErrorCode.INTERNAL_ERROR, message, cause);
-		this.status = HttpStatus.INTERNAL_SERVER_ERROR;
-	}
-
 	public HttpStatus statusCode() {
 		return status;
 	}

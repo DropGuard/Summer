@@ -52,7 +52,7 @@ public class GrpcChannelManager implements AutoCloseable {
 					return NettyChannelBuilder.forTarget(t).sslContext(sslContext).build();
 				} catch (Exception e) {
 					log.error("Failed to configure TLS for gRPC client", e);
-					throw new SummerGrpcException(ErrorCode.GRPC_ERROR, "Failed to configure TLS", e);
+					throw new SummerGrpcException("Failed to configure TLS", e);
 				}
 			} else {
 				// Plaintext mode (development)

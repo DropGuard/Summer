@@ -7,13 +7,7 @@ import summer.core.ErrorCode;
  * ambiguity.
  */
 public class AmbiguousBeanException extends SummerException {
-	public AmbiguousBeanException(ErrorCode errorCode, String message) {
-		super(errorCode, message);
-	}
 
-	/**
-	 * Backward-compatible constructor.
-	 */
 	public AmbiguousBeanException(String message) {
 		super(ErrorCode.AMBIGUOUS_BEAN, message);
 	}

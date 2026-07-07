@@ -10,7 +10,7 @@ import summer.core.config.PageableProperties;
  * Configuration for pagination support.
  *
  * <p>
- * Provides {@link PageableResolver} with configurable defaults.
+ * Provides {@link DefaultPageResolver} with configurable defaults.
  * </p>
  */
 @Configuration
@@ -18,7 +18,7 @@ import summer.core.config.PageableProperties;
 public class PageableConfiguration {
 
 	@Bean
-	public PageableResolver pageableResolver(PageableProperties props) {
-		return new PageableResolver(props);
+	public DefaultPageResolver defaultPageResolver(PageableProperties props) {
+		return new DefaultPageResolver(props);
 	}
 }

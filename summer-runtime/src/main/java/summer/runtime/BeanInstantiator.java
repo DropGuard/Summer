@@ -101,7 +101,7 @@ final class BeanInstantiator {
 	private Constructor<?> findSinglePublicConstructor(Class<?> clazz) {
 		Constructor<?>[] ctors = clazz.getConstructors();
 		if (ctors.length != 1) {
-			throw new BeanCreationException(ErrorCode.BEAN_CREATION_FAILED, "Component " + clazz.getName()
+			throw new BeanCreationException("Component " + clazz.getName()
 					+ " must have exactly ONE public constructor. Found: " + ctors.length);
 		}
 		return ctors[0];
@@ -121,7 +121,7 @@ final class BeanInstantiator {
 				}
 			} else {
 				if (paramType == summer.core.BeanContainer.class) {
-					throw new BeanCreationException(ErrorCode.BEAN_CREATION_FAILED,
+					throw new BeanCreationException(
 							"ApplicationContext injection is not supported by the runtime engine. Use BeanContainer from caller.");
 				}
 				args[i] = builder.getBean(paramType);

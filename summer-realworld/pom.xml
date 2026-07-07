@@ -27,6 +27,10 @@
         </dependency>
         <dependency>
             <groupId>summer</groupId>
+            <artifactId>summer-web-netty</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>summer</groupId>
             <artifactId>summer-boot</artifactId>
         </dependency>
         <dependency>

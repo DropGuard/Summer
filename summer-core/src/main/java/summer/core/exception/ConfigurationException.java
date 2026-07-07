@@ -14,18 +14,4 @@ public class ConfigurationException extends SummerException {
 	public ConfigurationException(ErrorCode errorCode, String message, Throwable cause) {
 		super(errorCode, message, cause);
 	}
-
-	/**
-	 * Backward-compatible constructor.
-	 */
-	public ConfigurationException(String message) {
-		super(ErrorCode.CONFIG_PARSE_ERROR, message);
-	}
-
-	/**
-	 * Backward-compatible constructor.
-	 */
-	public ConfigurationException(String message, Throwable cause) {
-		super(ErrorCode.CONFIG_PARSE_ERROR, message, cause);
-	}
 }

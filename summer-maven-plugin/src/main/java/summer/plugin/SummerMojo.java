@@ -90,6 +90,14 @@ public class SummerMojo extends AbstractMojo {
 			SharedDependencyResolver resolver = new SharedDependencyResolver();
 			List<BeanDefinition> sorted = resolver.resolve(beans);
 			getLog().debug("[Summer] Resolved " + sorted.size() + " beans");
+			java.util.Set<String> usedNames = new java.util.HashSet<>();
+			for (summer.core.bean.BeanDefinition bean : sorted) {
+				String baseName = bean.variableName;
+				int suffix = 2;
+				while (!usedNames.add(bean.variableName)) {
+					bean.variableName = baseName + suffix++;
+				}
+			}
 
 			pipeline.getBean(AotContextGenerator.class).generate(sorted);
 			pipeline.getBean(AotProxyGenerator.class).generate(sorted, index, generatedDir);

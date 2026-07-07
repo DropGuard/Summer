@@ -29,7 +29,7 @@ public class SimpleJdbcTransactionManager implements TransactionManager {
 	public TransactionStatus begin() {
 		Connection existing = ThreadLocalTransactionContext.getCurrentConnection();
 		if (existing != null) {
-			throw new SummerTransactionException(ErrorCode.TRANSACTION_ERROR,
+			throw new SummerTransactionException(
 					"Nested transactions are not supported. A transaction is already active for the current thread.");
 		}
 
@@ -45,7 +45,7 @@ public class SimpleJdbcTransactionManager implements TransactionManager {
 				} catch (SQLException ignored) {
 				}
 			}
-			throw new SummerTransactionException(ErrorCode.TRANSACTION_ERROR, "Failed to begin transaction", e);
+			throw new SummerTransactionException( "Failed to begin transaction", e);
 		}
 	}
 
@@ -66,7 +66,7 @@ public class SimpleJdbcTransactionManager implements TransactionManager {
 				} catch (SQLException rollbackEx) {
 					e.addSuppressed(rollbackEx);
 				}
-				throw new SummerTransactionException(ErrorCode.TRANSACTION_ERROR, "Failed to commit transaction", e);
+				throw new SummerTransactionException( "Failed to commit transaction", e);
 			} finally {
 				txContext.close();
 			}
@@ -86,7 +86,7 @@ public class SimpleJdbcTransactionManager implements TransactionManager {
 					raw.rollback();
 				}
 			} catch (SQLException e) {
-				throw new SummerTransactionException(ErrorCode.TRANSACTION_ERROR, "Failed to rollback transaction", e);
+				throw new SummerTransactionException( "Failed to rollback transaction", e);
 			} finally {
 				txContext.close();
 			}

@@ -47,7 +47,7 @@ pre-commit: fmt check clean test
 arch:
 	mvn test -pl summer-archunit
 coverage:
-	mvn test jacoco:report
+	mvn clean test
 coverage-module:
 ifndef MODULE
 	$(error Usage: make coverage-module MODULE=summer-example)

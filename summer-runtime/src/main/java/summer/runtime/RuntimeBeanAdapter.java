@@ -123,6 +123,9 @@ public final class RuntimeBeanAdapter {
 				Type elementType = pt.getActualTypeArguments()[0];
 				if (elementType instanceof Class<?> ec) {
 					bean.listElementTypes.put(i, ec.getName());
+				} else if (elementType instanceof ParameterizedType) {
+					throw new summer.core.exception.UnsupportedInjectionException(
+							"Nested generic type injection is not supported: List<" + elementType.getTypeName() + "> in " + bean.qualifiedName);
 				}
 			}
 		}
@@ -245,7 +248,7 @@ public final class RuntimeBeanAdapter {
 				boolean validated = method.getParameters()[i].isAnnotationPresent(jakarta.validation.Valid.class);
 				route.params.add(new RouteInfo.ParamInfo(bindingName, paramType.getName(), RouteInfo.ParamBinding.QUERY,
 						validated));
-			} else if (paramType.getName().equals("summer.web.Pageable")) {
+			} else if (summer.web.ScrollRequest.class.isAssignableFrom(paramType)) {
 				route.params.add(new RouteInfo.ParamInfo(paramName, paramType.getName(),
 						RouteInfo.ParamBinding.PAGEABLE, false));
 			} else {

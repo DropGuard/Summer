@@ -2,6 +2,7 @@ package summer.runtime;
 
 import java.lang.reflect.Parameter;
 import summer.web.HttpContext;
+import java.util.function.Function;
 import summer.web.RequestAttributes;
 
 /**
@@ -18,5 +19,10 @@ public class ThrowableResolver implements HttpParameterResolver {
 	@Override
 	public Object resolve(HttpContext ctx, Parameter parameter) {
 		return ctx.request().getAttribute(RequestAttributes.LAST_EXCEPTION);
+	}
+
+	@Override
+	public Function<HttpContext, Object> compile(Parameter parameter) {
+		return ctx -> ctx.request().getAttribute(RequestAttributes.LAST_EXCEPTION);
 	}
 }

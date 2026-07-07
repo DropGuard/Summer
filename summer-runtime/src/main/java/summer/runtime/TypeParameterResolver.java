@@ -2,6 +2,7 @@ package summer.runtime;
 
 import java.lang.reflect.Parameter;
 import summer.web.HttpContext;
+import java.util.function.Function;
 import summer.web.Request;
 
 /**
@@ -18,5 +19,11 @@ public class TypeParameterResolver implements HttpParameterResolver {
 	@Override
 	public Object resolve(HttpContext ctx, Parameter parameter) {
 		return parameter.getType() == HttpContext.class ? ctx : ctx.request();
+	}
+
+	@Override
+	public Function<HttpContext, Object> compile(Parameter parameter) {
+		boolean isCtx = parameter.getType() == HttpContext.class;
+		return ctx -> isCtx ? ctx : ctx.request();
 	}
 }
