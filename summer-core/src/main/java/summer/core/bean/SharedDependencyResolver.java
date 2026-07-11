@@ -86,7 +86,7 @@ public final class SharedDependencyResolver {
 			return;
 
 		List<String> paramTypes = bean.isFactoryMethod() ? bean.producerParamTypes : bean.constructorParamTypes;
-		Map<Integer, String> listElementTypes = bean.isFactoryMethod() ? Map.of() : bean.listElementTypes;
+		Map<Integer, String> listElementTypes = bean.listElementTypes;
 
 		bean.resolvedDependencies.clear();
 		for (int i = 0; i < paramTypes.size(); i++) {

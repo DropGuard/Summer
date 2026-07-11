@@ -56,7 +56,8 @@ final class BeanEnrichment {
 				if (!bean.isFactoryMethod()) {
 					collectConstructorParams(bean, ci);
 				}
-				collectInterfaces(bean, ci);
+				// interfaces are now collected during BeanDiscovery.createBaseDefinition
+				// collectInterfaces(bean, ci);
 			}
 		}
 		collectRouteMetadata(beans);
@@ -97,23 +98,7 @@ final class BeanEnrichment {
 	}
 
 	// ── Interfaces ────────────────────────────────────────────────────
-
-	private void collectInterfaces(BeanDefinition bean, ClassInfo ci) {
-		collectInterfacesRecursive(bean, ci, new HashSet<>());
-	}
-
-	private void collectInterfacesRecursive(BeanDefinition bean, ClassInfo ci, Set<String> visited) {
-		for (org.jboss.jandex.Type iface : ci.interfaceTypes()) {
-			String ifaceName = iface.name().toString();
-			if (visited.add(ifaceName)) {
-				bean.interfaceNames.add(ifaceName);
-				ClassInfo ifaceCi = index.getClassByName(iface.name());
-				if (ifaceCi != null) {
-					collectInterfacesRecursive(bean, ifaceCi, visited);
-				}
-			}
-		}
-	}
+	// (Interfaces are collected natively in BeanDiscovery during creation)
 
 	// ── Route Metadata ────────────────────────────────────────────────
 

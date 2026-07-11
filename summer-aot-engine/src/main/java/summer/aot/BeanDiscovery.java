@@ -137,7 +137,7 @@ public final class BeanDiscovery {
 		} else if (ci.hasAnnotation(COMPONENT_DOT) || ci.hasAnnotation(CONFIG_DOT)
 				|| hasMetaComponentAnnotation(ci, new HashSet<>())) {
 			if (collected.add(name))
-				beans.add(new BeanDefinition(name, ci.simpleName()));
+				beans.add(createBaseDefinition(ci));
 		}
 	}
 
@@ -204,11 +204,35 @@ public final class BeanDiscovery {
 			}
 		}
 	}
+	private BeanDefinition createBaseDefinition(ClassInfo ci) {
+		BeanDefinition bean = new BeanDefinition(ci.name().toString(), ci.simpleName());
+		collectInterfacesRecursive(bean, ci, new HashSet<>());
+		return bean;
+	}
 
 	private BeanDefinition createFactoryBean(String returnTypeName, ClassInfo configCi, MethodInfo method) {
-		BeanDefinition fb = new BeanDefinition(returnTypeName, method.returnType().name().withoutPackagePrefix());
+		ClassInfo returnTypeCi = index.getClassByName(method.returnType().name());
+		BeanDefinition fb;
+		if (returnTypeCi != null) {
+			fb = createBaseDefinition(returnTypeCi);
+		} else {
+			fb = new BeanDefinition(returnTypeName, method.returnType().name().withoutPackagePrefix());
+		}
 		fillFactoryBean(fb, configCi, method);
 		return fb;
+	}
+
+	private void collectInterfacesRecursive(BeanDefinition bean, ClassInfo ci, Set<String> visited) {
+		for (org.jboss.jandex.Type iface : ci.interfaceTypes()) {
+			String ifaceName = iface.name().toString();
+			if (visited.add(ifaceName)) {
+				bean.interfaceNames.add(ifaceName);
+				ClassInfo ifaceCi = index.getClassByName(iface.name());
+				if (ifaceCi != null) {
+					collectInterfacesRecursive(bean, ifaceCi, visited);
+				}
+			}
+		}
 	}
 
 	private void fillFactoryBean(BeanDefinition fb, ClassInfo configCi, MethodInfo method) {

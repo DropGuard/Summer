@@ -46,7 +46,7 @@ public final class RuntimeBeanContainerBuilder {
 	 *
 	 * @return immutable bean container
 	 */
-	public static BeanContainer build() {
+	public static BeanContainer build(Object... externalBeans) {
 		IndexView index = JandexIndexLoader.buildIndex();
 
 		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(index);
@@ -62,7 +62,7 @@ public final class RuntimeBeanContainerBuilder {
 			}
 		}
 
-		return initialize(index, componentClasses);
+		return initialize(index, componentClasses, externalBeans);
 	}
 
 	/**
@@ -75,16 +75,26 @@ public final class RuntimeBeanContainerBuilder {
 	 * @return immutable bean container
 	 */
 	public static BeanContainer buildFromSeeds(Class<?>... seeds) {
+		return buildFromSeedsWithExternal(seeds, new Object[0]);
+	}
+	
+	public static BeanContainer buildFromSeedsWithExternal(Class<?>[] seeds, Object... externalBeans) {
 		IndexView index = JandexIndexLoader.buildIndex();
 		Set<Class<?>> componentClasses = RuntimeComponentScanner.transitiveExpand(new LinkedHashSet<>(List.of(seeds)),
 				index);
-		return initialize(index, componentClasses);
+		return initialize(index, componentClasses, externalBeans);
 	}
 
-	private static BeanContainer initialize(IndexView index, Set<Class<?>> componentClasses) {
+	private static BeanContainer initialize(IndexView index, Set<Class<?>> componentClasses, Object... externalBeans) {
 		ConfigBinder.setDefaultValueResolver(RuntimeDefaultValueResolver.INSTANCE);
-
 		BeanContainer.Builder builder = new BeanContainer.Builder();
+		
+		if (externalBeans != null) {
+			for (Object bean : externalBeans) {
+				builder.register(bean.getClass(), bean);
+			}
+		}
+
 		builder.register(RuntimeDiMarker.class, new RuntimeDiMarker());
 
 		// ── Phase 1: Discovery ──────────────────────────────────────

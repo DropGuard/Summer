@@ -50,10 +50,18 @@ public class HttpParameterResolverConfiguration {
 	}
 
 	@Bean
-	public HttpParameterResolverChain resolverChain(ValidatingParameterResolver validatingResolver,
-			DefaultPageResolver defaultPageResolver, TypeParameterResolver typeResolver, PathParamResolver pathParamResolver,
-			QueryParamResolver queryParamResolver, ThrowableResolver throwableResolver) {
-		return new HttpParameterResolverChain(List.of(validatingResolver, defaultPageResolver, typeResolver,
-				pathParamResolver, queryParamResolver, throwableResolver));
+	public HttpParameterResolverChain resolverChain(List<HttpParameterResolver> resolvers) {
+		// Sort resolvers to match original exact order required by framework
+		java.util.List<HttpParameterResolver> sorted = new java.util.ArrayList<>(resolvers);
+		sorted.sort(java.util.Comparator.comparingInt(r -> {
+			if (r instanceof ValidatingParameterResolver) return 1;
+			if (r instanceof DefaultPageResolver || r.getClass().getName().contains("Pageable")) return 2;
+			if (r instanceof TypeParameterResolver) return 3;
+			if (r instanceof PathParamResolver) return 4;
+			if (r instanceof QueryParamResolver) return 5;
+			if (r instanceof ThrowableResolver) return 6;
+			return 10;
+		}));
+		return new HttpParameterResolverChain(sorted);
 	}
 }

@@ -42,8 +42,14 @@ public final class RuntimeBeanAdapter {
 	/**
 	 * Adapts a @Component class to a BeanDefinition.
 	 */
+	private BeanDefinition createBaseDefinition(Class<?> beanType) {
+		BeanDefinition bean = new BeanDefinition(beanType.getName(), beanType.getSimpleName());
+		collectInterfaces(beanType, bean.interfaceNames, new HashSet<>());
+		return bean;
+	}
+
 	public BeanDefinition adaptComponent(Class<?> clazz) {
-		BeanDefinition bean = new BeanDefinition(clazz.getName(), clazz.getSimpleName());
+		BeanDefinition bean = createBaseDefinition(clazz);
 
 		// Constructor parameters
 		Constructor<?> ctor = findSinglePublicConstructor(clazz);
@@ -54,9 +60,6 @@ public final class RuntimeBeanAdapter {
 			// Detect List<T> parameters
 			detectListParameters(ctor, bean);
 		}
-
-		// Interfaces (recursive)
-		collectInterfaces(clazz, bean.interfaceNames, new HashSet<>());
 
 		// AOP binding flag
 		bean.needsProxy = detectAopBinding(clazz);
@@ -74,13 +77,24 @@ public final class RuntimeBeanAdapter {
 	 * Adapts a @Bean method to a BeanDefinition with factory method fields.
 	 */
 	public BeanDefinition adaptFactoryMethod(Method method) {
-		BeanDefinition bean = new BeanDefinition(method.getReturnType().getName(),
-				method.getReturnType().getSimpleName());
+		BeanDefinition bean = createBaseDefinition(method.getReturnType());
+
 		bean.configClassName = method.getDeclaringClass().getName();
 		bean.producerMethodName = method.getName();
-
-		for (Class<?> param : method.getParameterTypes()) {
+		java.lang.reflect.Type[] genericTypes = method.getGenericParameterTypes();
+		for (int i = 0; i < method.getParameterTypes().length; i++) {
+			Class<?> param = method.getParameterTypes()[i];
 			bean.producerParamTypes.add(param.getName());
+			
+			if (genericTypes[i] instanceof java.lang.reflect.ParameterizedType pt && pt.getRawType() == java.util.List.class) {
+				java.lang.reflect.Type elementType = pt.getActualTypeArguments()[0];
+				if (elementType instanceof Class<?> ec) {
+					bean.listElementTypes.put(i, ec.getName());
+				} else if (elementType instanceof java.lang.reflect.ParameterizedType) {
+					throw new summer.core.exception.UnsupportedInjectionException(
+							"Nested generic type injection is not supported: List<" + elementType.getTypeName() + "> in " + bean.qualifiedName);
+				}
+			}
 		}
 
 		log.debug("[Summer] Adapted factory method: {}.{}() -> {}", method.getDeclaringClass().getSimpleName(),

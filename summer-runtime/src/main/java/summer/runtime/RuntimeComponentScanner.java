@@ -165,6 +165,9 @@ public final class RuntimeComponentScanner {
 					}
 					for (Type paramType : method.parameterTypes()) {
 						DotName paramDn = paramType.name();
+						if (paramType.kind() == Type.Kind.PARAMETERIZED_TYPE && paramDn.toString().equals("java.util.List")) {
+							paramDn = paramType.asParameterizedType().arguments().get(0).name();
+						}
 						if (paramDn.equals(BEANCONTAINER)) {
 							continue;
 						}
@@ -196,6 +199,9 @@ public final class RuntimeComponentScanner {
 			}
 			for (Type paramType : current.constructors().get(0).parameterTypes()) {
 				DotName paramDn = paramType.name();
+				if (paramType.kind() == Type.Kind.PARAMETERIZED_TYPE && paramDn.toString().equals("java.util.List")) {
+					paramDn = paramType.asParameterizedType().arguments().get(0).name();
+				}
 				if (paramDn.equals(BEANCONTAINER)) {
 					continue;
 				}
