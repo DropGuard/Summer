@@ -10,8 +10,8 @@ public class AotWebRouteTest extends AbstractWebRouteTCK {
 	@Override
 	protected BeanContainer createContext() {
 		try {
-			Class<?> aotClass = Class.forName("summer.core.aot.GeneratedAotContext");
-			return (BeanContainer) aotClass.getMethod("build").invoke(null);
+			
+			return summer.test.TestContainerBuilder.buildAot(null);
 		} catch (Exception e) {
 			throw new RuntimeException("AOT context not available", e);
 		}

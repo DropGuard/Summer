@@ -10,8 +10,9 @@ public class AotMiddlewareTest extends AbstractMiddlewareTCK {
 	@Override
 	protected BeanContainer createContext() {
 		try {
-			Class<?> aotClass = Class.forName("summer.core.aot.GeneratedAotContext");
-			return (BeanContainer) aotClass.getMethod("build").invoke(null);
+			
+			summer.web.GlobalMiddlewareChain chain = new summer.web.GlobalMiddlewareChain(java.util.List.of(summer.fixtures.web.dummy.GlobalLoggingMiddleware.class));
+			return summer.test.TestContainerBuilder.buildAot(null, chain);
 		} catch (Exception e) {
 			throw new RuntimeException("AOT context not available", e);
 		}

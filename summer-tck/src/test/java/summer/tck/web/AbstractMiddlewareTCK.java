@@ -15,7 +15,7 @@ import summer.web.HttpRouter;
 import summer.web.HttpStatus;
 import summer.web.Middleware;
 import summer.web.Request;
-import summer.web.annotation.GlobalMiddleware;
+
 
 /**
  * TCK for middleware behavior via the DI engine.
@@ -74,9 +74,13 @@ public abstract class AbstractMiddlewareTCK extends AbstractContextTCK {
 
 		router = builder.build();
 
-		// Collect global middlewares
-		globalMiddlewares = ctx.getBeans(Middleware.class).stream()
-				.filter(m -> m.getClass().isAnnotationPresent(GlobalMiddleware.class)).toList();
+		// Collect global middlewares by manually resolving from MiddlewareRegistry 
+		// (since we don't start NettyServerRunner in this unit test)
+		summer.web.GlobalMiddlewareChain chain = ctx.getBean(summer.web.GlobalMiddlewareChain.class);
+		globalMiddlewares = new java.util.ArrayList<>();
+		for (Class<? extends summer.web.Middleware> c : chain.middlewares()) {
+			globalMiddlewares.add(ctx.getBean(c));
+		}
 	}
 
 	/**

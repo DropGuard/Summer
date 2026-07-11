@@ -141,6 +141,12 @@ public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
 			}
 
 			@Override
+			public void close() {}
+
+			@Override
+			public String header(String name) { return null; }
+
+			@Override
 			public void send(String text) {
 				// Mock: no-op
 			}

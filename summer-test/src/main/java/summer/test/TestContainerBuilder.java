@@ -35,26 +35,43 @@ public final class TestContainerBuilder {
 	 * </p>
 	 */
 	public static BeanContainer buildRuntime(Class<?>... seeds) {
-		if (seeds.length > 0) {
-			return RuntimeBeanContainerBuilder.buildFromSeeds(seeds);
-		}
-		return RuntimeBeanContainerBuilder.build();
+		return buildRuntimeWithExternal(seeds, new Object[0]);
 	}
 
-	/**
-	 * Builds a {@link BeanContainer} for the AOT engine. Loads the pre-generated
-	 * {@code LocalContext_<testClassName>} for the given test class; falls back to
-	 * the full AOT context if no test class is provided.
-	 *
-	 * @param testClass
-	 *            the test class (used to locate the generated LocalContext), or
-	 *            {@code null} for the full AOT context
-	 */
+	public static BeanContainer buildRuntimeWithExternal(Class<?>[] seeds, Object... externalBeans) {
+		if (seeds.length > 0) {
+			return summer.runtime.RuntimeBeanContainerBuilder.buildFromSeedsWithExternal(seeds, externalBeans);
+		}
+		return summer.runtime.RuntimeBeanContainerBuilder.build(externalBeans);
+	}
+	public static BeanContainer buildAot(Class<?> testClass, Object... externalBeans) {
+		if (testClass != null) {
+			return loadAotLocalContext(testClass, externalBeans);
+		}
+		try {
+			return DiEngine.create(Engine.AOT, externalBeans);
+		} catch (Exception e) {
+			throw new IllegalStateException("Failed to create AOT context", e);
+		}
+	}
+
+	private static BeanContainer loadAotLocalContext(Class<?> testClass, Object... externalBeans) {
+		String testClassName = testClass.getName().replace('.', '_').replace('$', '_');
+		String aotClassName = "summer.core.aot.LocalContext_" + testClassName;
+		try {
+			Class<?> aotClass = Class.forName(aotClassName);
+			return (BeanContainer) aotClass.getMethod("build", Object[].class).invoke(null, (Object) externalBeans);
+		} catch (ClassNotFoundException e) {
+			throw new IllegalStateException("AOT LocalContext not found for " + testClass.getName()
+					+ ". Ensure summer-maven-plugin is configured for the test phase.", e);
+		} catch (Exception e) {
+			throw new IllegalStateException("Failed to create AOT LocalContext context for " + testClass.getName(), e);
+		}
+	}
 	/**
 	 * Checks whether a class has {@code @Component} or a meta-annotation that is
 	 * itself annotated with {@code @Component} (e.g. {@code @RestController},
-	 * {@code @GlobalMiddleware}).
-	 *
+	 * {@code @Configuration}).
 	 * @param clazz
 	 *            the class to check
 	 * @return true if the class is a component
