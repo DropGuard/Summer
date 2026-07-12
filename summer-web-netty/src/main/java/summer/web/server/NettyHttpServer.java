@@ -74,12 +74,20 @@ public class NettyHttpServer {
 		return activeConnections;
 	}
 
+	private int getActualTargetPort() {
+		String devPort = System.getenv("SUMMER_DEV_PORT");
+		if (devPort != null) {
+			return Integer.parseInt(devPort);
+		}
+		return config.port();
+	}
+
 	public int getPort() {
 		if (serverChannelFuture != null
 				&& serverChannelFuture.channel().localAddress() instanceof java.net.InetSocketAddress) {
 			return ((java.net.InetSocketAddress) serverChannelFuture.channel().localAddress()).getPort();
 		}
-		return config.port();
+		return getActualTargetPort();
 	}
 
 	public void start() {
@@ -100,8 +108,13 @@ public class NettyHttpServer {
 					}).option(ChannelOption.SO_BACKLOG, 1024).childOption(ChannelOption.TCP_NODELAY, true)
 					.childOption(ChannelOption.SO_KEEPALIVE, true);
 
-			serverChannelFuture = b.bind(config.port()).sync();
-			log.info("Netty Server started on port {}", config.port());
+			int targetPort = getActualTargetPort();
+			serverChannelFuture = b.bind(targetPort).sync();
+			
+			if (System.getenv("SUMMER_DEV_PORT") != null) {
+				log.info("[Summer] Dev proxy detected, redirecting actual bind port from {} to {}", config.port(), targetPort);
+			}
+			log.info("Netty Server started on port {}", targetPort);
 
 		} catch (InterruptedException e) {
 			log.error("Netty server interrupted during startup", e);
