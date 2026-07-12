@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+        "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+        "https://checkstyle.org/dtds/configuration_1_3.dtd">
+<module name="Checker">
+    <property name="charset" value="UTF-8"/>
+    <module name="TreeWalker">
+        <!-- 核心防呆：禁止代码中出现非 ASCII 字符（但放行注释，允许开发者写中文注释） -->
+        <module name="RegexpSinglelineJava">
+            <property name="format" value="[^\x00-\x7F]"/>
+            <property name="message" value="Code smell: Non-ASCII characters (like emojis) are forbidden in code to prevent terminal mojibake."/>
+            <property name="ignoreComments" value="true"/>
+        </module>
+    </module>
+</module>
