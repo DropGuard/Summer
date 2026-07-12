@@ -46,7 +46,6 @@ public final class SummerApplication {
 		BeanContainer context = DiEngine.create(chain);
 
 		System.out.println(Banner.format(context.engine().name()));
-		log.info("Starting Summer Application... [engine={}]", context.engine());
 
 		for (var runner : context.getBeans(summer.core.ApplicationRunner.class)) {
 			runner.run(context);

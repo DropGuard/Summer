@@ -24,7 +24,8 @@ public final class BeanContainer implements AutoCloseable {
 	private final Engine engine;
 
 	private BeanContainer(Map<Class<?>, Object> singletons, Engine engine) {
-		this.singletons = Map.copyOf(singletons);
+		// MUST preserve insertion order for correct shutdown (reverse order of creation)
+		this.singletons = Collections.unmodifiableMap(new LinkedHashMap<>(singletons));
 		this.engine = engine;
 	}
 
