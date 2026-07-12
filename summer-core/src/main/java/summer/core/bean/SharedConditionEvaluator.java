@@ -161,17 +161,13 @@ public final class SharedConditionEvaluator {
 		List<BeanDefinition> replaced = new ArrayList<>();
 		for (BeanDefinition bean : beans) {
 			// Class-level: @Replaces on the replacement class itself
-			ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
-			if (ci != null) {
-				AnnotationInstance ann = ci.annotation(REPLACES_DOT);
-				if (ann != null && ann.target().kind() == org.jboss.jandex.AnnotationTarget.Kind.CLASS) {
-					String targetName = ann.value().asClass().name().toString();
-					BeanDefinition target = findBeanByName(beans, targetName);
-					if (target == null)
-						throw new NoSuchBeanException("@Replaces target not found: " + targetName);
-					log.debug("[Summer] Class-level @Replaces: {} replaces {}", bean.qualifiedName, targetName);
-					replaced.add(target);
-				}
+			String targetName = resolveClassLevelReplaces(bean);
+			if (targetName != null) {
+				BeanDefinition target = findBeanByName(beans, targetName);
+				if (target == null)
+					throw new NoSuchBeanException("@Replaces target not found: " + targetName);
+				log.debug("[Summer] Class-level @Replaces: {} replaces {}", bean.qualifiedName, targetName);
+				replaced.add(target);
 			}
 			// Method-level: @Replaces on @Bean method
 			if (bean.replacesReturnType != null) {
@@ -196,6 +192,15 @@ public final class SharedConditionEvaluator {
 		}
 		beans.removeAll(replaced);
 		log.debug("[Summer] Beans after resolveReplaces: {} remaining", beans.size());
+	}
+
+	/**
+	 * Resolves the class-level {@code @Replaces} target for a bean definition.
+	 * The target is set by {@code BeanDefinitionFactory.toBeanDefinitions()}
+	 * via reflection at build time — no Jandex lookup needed.
+	 */
+	private String resolveClassLevelReplaces(BeanDefinition bean) {
+		return bean.replacesTargetClass;
 	}
 
 	private String resolveMethodLevelReplaces(BeanDefinition fb) {

@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
+import summer.core.annotation.Replaces;
 import summer.core.bean.BeanDefinition;
 import summer.core.config.ConfigurationProperties;
 
@@ -43,17 +44,31 @@ public final class BeanDefinitionFactory {
 	}
 
 	private static Stream<BeanDefinition> toBeanDefinitions(Class<?> clazz, RuntimeBeanAdapter adapter) {
+		Stream<BeanDefinition> result;
 		if (clazz.isAnnotationPresent(ConfigurationProperties.class)) {
 			String prefix = clazz.getAnnotation(ConfigurationProperties.class).prefix();
-			return Stream.of(adapter.adaptConfigProperties(clazz, prefix));
-		}
-		if (clazz.isAnnotationPresent(Configuration.class)) {
+			result = Stream.of(adapter.adaptConfigProperties(clazz, prefix));
+		} else if (clazz.isAnnotationPresent(Configuration.class)) {
 			Stream<BeanDefinition> configBean = Stream.of(adapter.adaptComponent(clazz));
 			Stream<BeanDefinition> factoryBeans = Stream.of(clazz.getDeclaredMethods())
 					.filter(m -> m.isAnnotationPresent(Bean.class)).map(adapter::adaptFactoryMethod);
-			return Stream.concat(configBean, factoryBeans);
+			result = Stream.concat(configBean, factoryBeans);
+		} else {
+			result = Stream.of(adapter.adaptComponent(clazz));
 		}
-		return Stream.of(adapter.adaptComponent(clazz));
+		// Tag all BeanDefinitions from this class with its @Replaces target.
+		// SharedConditionEvaluator reads replacesTargetClass instead of
+		// querying the Jandex index — this ensures @Replaces works for
+		// any component source (indexed classes AND seeds from test sources).
+		Replaces replaces = clazz.getAnnotation(Replaces.class);
+		if (replaces != null) {
+			String targetName = replaces.value().getName();
+			result = result.map(bd -> {
+				bd.replacesTargetClass = targetName;
+				return bd;
+			});
+		}
+		return result;
 	}
 
 	/**
