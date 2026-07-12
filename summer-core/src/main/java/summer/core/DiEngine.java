@@ -33,28 +33,13 @@ public final class DiEngine {
 	 */
 	public static BeanContainer create(Object... externalBeans) {
 		if (detectEngine() == Engine.AOT) {
-			return createAot(externalBeans);
+			return invokeBuild(AOT_CLASS, ErrorCode.CONFIG_AOT_CONTEXT_NOT_FOUND, 
+					"AOT Context missing. Please ensure 'summer-maven-plugin' is configured for production builds.", 
+					externalBeans);
 		}
-		return invokeBuild(RUNTIME_CLASS, ErrorCode.CONFIG_RUNTIME_NOT_ON_CLASSPATH, externalBeans);
-	}
-
-	private static BeanContainer createAot(Object... externalBeans) {
-		try {
-			Class<?> aotClass = Class.forName(AOT_CLASS);
-			return (BeanContainer) aotClass.getMethod("build", Object[].class)
-					.invoke(null, (Object) externalBeans);
-		} catch (ClassNotFoundException e) {
-			throw new ConfigurationException(
-					ErrorCode.CONFIG_AOT_CONTEXT_NOT_FOUND,
-					"AOT Context missing. Please ensure 'summer-maven-plugin' is configured for production builds.", e);
-		} catch (java.lang.reflect.InvocationTargetException e) {
-			if (e.getCause() instanceof RuntimeException) {
-				throw (RuntimeException) e.getCause();
-			}
-			throw new ConfigurationException(ErrorCode.INTERNAL_ERROR, "AOT context initialization failed", e.getCause());
-		} catch (ReflectiveOperationException e) {
-			throw new ConfigurationException(ErrorCode.INTERNAL_ERROR, "Failed to instantiate AOT context", e);
-		}
+		return invokeBuild(RUNTIME_CLASS, ErrorCode.CONFIG_RUNTIME_NOT_ON_CLASSPATH, 
+				"Runtime engine not found: " + RUNTIME_CLASS, 
+				externalBeans);
 	}
 
 	private static boolean isDevMode() {
@@ -102,12 +87,12 @@ public final class DiEngine {
 		return false;
 	}
 
-	private static BeanContainer invokeBuild(String className, ErrorCode errorCode, Object... externalBeans) {
+	private static BeanContainer invokeBuild(String className, ErrorCode notFoundCode, String notFoundMsg, Object... externalBeans) {
 		try {
 			Class<?> clazz = Class.forName(className);
 			return (BeanContainer) clazz.getMethod("build", Object[].class).invoke(null, (Object) externalBeans);
 		} catch (ClassNotFoundException e) {
-			throw new ConfigurationException(errorCode, className + " not found", e);
+			throw new ConfigurationException(notFoundCode, notFoundMsg, e);
 		} catch (java.lang.reflect.InvocationTargetException e) {
 			if (e.getCause() instanceof RuntimeException) {
 				throw (RuntimeException) e.getCause();
