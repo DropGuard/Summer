@@ -73,32 +73,62 @@ public final class RowMapperFactory {
 		return new ReflectiveRowMapper<>(modelClass, meta);
 	}
 
-	private static String jdbcGetter(Type type, String columnName) {
+	private static String jdbcGetter(Type type, String fieldName) {
+		String colName = camelToSnake(fieldName);
 		return switch (type.name().toString()) {
-			case "int", "java.lang.Integer" -> "rs.getInt(\"" + columnName + "\")";
-			case "long", "java.lang.Long" -> "rs.getLong(\"" + columnName + "\")";
-			case "double", "java.lang.Double" -> "rs.getDouble(\"" + columnName + "\")";
-			case "boolean", "java.lang.Boolean" -> "rs.getBoolean(\"" + columnName + "\")";
-			case "java.lang.String" -> "rs.getString(\"" + columnName + "\")";
-			default -> "(" + type.name().toString() + ") rs.getObject(\"" + columnName + "\")";
+			case "int", "java.lang.Integer" -> "rs.getInt(\"" + colName + "\")";
+			case "long", "java.lang.Long" -> "rs.getLong(\"" + colName + "\")";
+			case "double", "java.lang.Double" -> "rs.getDouble(\"" + colName + "\")";
+			case "boolean", "java.lang.Boolean" -> "rs.getBoolean(\"" + colName + "\")";
+			case "java.lang.String" -> "rs.getString(\"" + colName + "\")";
+			default -> "(" + type.name().toString() + ") rs.getObject(\"" + colName + "\")";
 		};
 	}
 
+	/**
+	 * Converts a camelCase field name to a snake_case column name, the standard
+	 * SQL naming convention. Example: {@code createdAt} becomes {@code created_at}.
+	 */
+	static String camelToSnake(String camelCase) {
+		StringBuilder sb = new StringBuilder(camelCase.length() + 4);
+		for (int i = 0; i < camelCase.length(); i++) {
+			char ch = camelCase.charAt(i);
+			if (Character.isUpperCase(ch)) {
+				if (i > 0) {
+					sb.append('_');
+				}
+				sb.append(Character.toLowerCase(ch));
+			} else {
+				sb.append(ch);
+			}
+		}
+		return sb.toString();
+	}
+
 	private static final class ReflectiveRowMapper<T> implements RowMapper<T> {
-		private static final ObjectMapper MAPPER = new ObjectMapper();
+		private static final ObjectMapper MAPPER = new ObjectMapper()
+				.findAndRegisterModules();
 		private final Class<T> modelClass;
 		private final String[] fieldNames;
+		private final String[] columnNames;
 
 		ReflectiveRowMapper(Class<T> modelClass, RowModelMeta meta) {
 			this.modelClass = modelClass;
-			this.fieldNames = meta.fields().stream().map(FieldMeta::name).toArray(String[]::new);
+			List<String> fields = new ArrayList<>();
+			List<String> cols = new ArrayList<>();
+			for (FieldMeta f : meta.fields()) {
+				fields.add(f.name());
+				cols.add(camelToSnake(f.name()));
+			}
+			this.fieldNames = fields.toArray(String[]::new);
+			this.columnNames = cols.toArray(String[]::new);
 		}
 
 		@Override
 		public T mapRow(ResultSet rs, int rowNum) throws SQLException {
 			Map<String, Object> values = new HashMap<>();
-			for (String name : fieldNames) {
-				values.put(name, rs.getObject(name));
+			for (int i = 0; i < fieldNames.length; i++) {
+				values.put(fieldNames[i], rs.getObject(columnNames[i]));
 			}
 			return MAPPER.convertValue(values, modelClass);
 		}
