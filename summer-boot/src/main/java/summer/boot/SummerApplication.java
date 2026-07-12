@@ -24,24 +24,13 @@ public final class SummerApplication {
 		SLF4JBridgeHandler.install();
 	}
 
-	private Engine engine = null;
 	private java.util.List<Class<? extends summer.web.Middleware>> middlewareEntries = new java.util.ArrayList<>();
 
-	private SummerApplication() {
+	public SummerApplication() {
 	}
 
 	/**
-	 * @deprecated Environment detection is now automatic. Use {@link #run(String[])} or {@link #start(String[])}.
-	 */
-	@Deprecated
-	public static SummerApplication apply(Engine engine) {
-		SummerApplication app = new SummerApplication();
-		app.engine = engine;
-		return app;
-	}
-
-	/**
-	 * Main entry point. Automatically selects engine based on environment.
+	 * Main entry point.
 	 */
 	public static BeanContainer run(String[] args) throws Exception {
 		return new SummerApplication().start(args);
@@ -53,9 +42,8 @@ public final class SummerApplication {
 	}
 
 	public BeanContainer start(String[] args) throws Exception {
-		Engine activeEngine = this.engine != null ? this.engine : summer.core.DiEngine.detectEngine();
 		summer.web.GlobalMiddlewareChain chain = new summer.web.GlobalMiddlewareChain(this.middlewareEntries);
-		BeanContainer context = DiEngine.create(activeEngine, chain);
+		BeanContainer context = DiEngine.create(chain);
 
 		System.out.println(Banner.format(context.engine().name()));
 		log.info("Starting Summer Application... [engine={}]", context.engine());

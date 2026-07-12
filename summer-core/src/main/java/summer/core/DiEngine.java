@@ -29,29 +29,24 @@ public final class DiEngine {
 	}
 
 	/**
-	 * Creates a {@link BeanContainer} for the given engine mode.
+	 * Creates a {@link BeanContainer} by auto-detecting the environment.
 	 */
-	public static BeanContainer create(Engine engine, Object... externalBeans) {
-		if (engine == Engine.AOT) {
+	public static BeanContainer create(Object... externalBeans) {
+		if (detectEngine() == Engine.AOT) {
 			return createAot(externalBeans);
 		}
 		return invokeBuild(RUNTIME_CLASS, ErrorCode.CONFIG_RUNTIME_NOT_ON_CLASSPATH, externalBeans);
 	}
 
 	private static BeanContainer createAot(Object... externalBeans) {
-		// Production mode: require AOT context, fail fast if missing
 		try {
 			Class<?> aotClass = Class.forName(AOT_CLASS);
 			return (BeanContainer) aotClass.getMethod("build", Object[].class)
 					.invoke(null, (Object) externalBeans);
 		} catch (ClassNotFoundException e) {
-			throw new IllegalStateException(
-					"\n=======================================================\n" +
-					"❌ [Summer AOT] Fatal: GeneratedAotContext not found!\n\n" +
-					"You explicitly requested Engine.AOT, but the AOT wiring code has not been generated.\n\n" +
-					"👉 Solution: Please run 'mvn clean compile' first, OR start the application \n" +
-					"using SummerApplication.run(args) to enable auto-detection.\n" +
-					"=======================================================\n", e);
+			throw new ConfigurationException(
+					ErrorCode.CONFIG_AOT_CONTEXT_NOT_FOUND,
+					"AOT Context missing. Please ensure 'summer-maven-plugin' is configured for production builds.", e);
 		} catch (ReflectiveOperationException e) {
 			throw new ConfigurationException(ErrorCode.CONFIG_AOT_CONTEXT_NOT_FOUND, e.getMessage(), e);
 		}
