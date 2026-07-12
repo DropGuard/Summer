@@ -6,6 +6,8 @@ import java.util.Deque;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * HTTP request router with integrated builder.
@@ -54,6 +56,8 @@ public interface HttpRouter {
 		 */
 		public record Route(HttpMethod method, String path, Handler handler) {
 		}
+
+		private static final Pattern COLON_PARAM = Pattern.compile("(?<=/|^):([a-zA-Z_][a-zA-Z0-9_]*)");
 
 		private final Function<List<Route>, HttpRouter> routerFactory;
 		private final List<Route> routes = new ArrayList<>();
@@ -145,6 +149,7 @@ public interface HttpRouter {
 		private Builder route(HttpMethod method, String path, Handler handler) {
 			String currentBase = basePathStack.peekLast();
 			String fullPath = currentBase != null ? PathUtils.combinePaths(currentBase, path) : path;
+			String normalizedPath = normalizePathPattern(fullPath);
 
 			Handler wrappedHandler = handler;
 			List<Middleware> currentMiddlewares = middlewareStack.peekLast();
@@ -153,8 +158,28 @@ public interface HttpRouter {
 					wrappedHandler = currentMiddlewares.get(i).apply(wrappedHandler);
 				}
 			}
-			routes.add(new Route(method, fullPath, wrappedHandler));
+			routes.add(new Route(method, normalizedPath, wrappedHandler));
 			return this;
+		}
+
+		/**
+		 * Normalizes Express-style path parameters ({@code :param}) to the
+		 * canonical {@code {param}} syntax used by all router implementations.
+		 *
+		 * <p>
+		 * Both MapRouter and RadixTreeHttpRouter understand {@code {param}} but only
+		 * Express-style controllers may declare {@code :param}. This normalization
+		 * ensures both syntaxes work identically across all router engines.
+		 * </p>
+		 */
+		private static String normalizePathPattern(String path) {
+			Matcher m = COLON_PARAM.matcher(path);
+			StringBuffer sb = new StringBuffer(path.length());
+			while (m.find()) {
+				m.appendReplacement(sb, "{$1}");
+			}
+			m.appendTail(sb);
+			return sb.toString();
 		}
 
 		/**

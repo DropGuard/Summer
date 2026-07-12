@@ -91,6 +91,60 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
 		assertEquals("tenant-acme", bodyAsString(r, HttpMethod.GET, "acme/users"));
 	}
 
+	// --- Colon-style path parameters (:param) ---
+
+	@Test
+	void testSinglePathParamColon() {
+		HttpRouter r = builder()
+				.get("/users/:id", ctx -> ctx.text(HttpStatus.OK, "user-" + ctx.request().pathParam("id"))).build();
+
+		assertEquals("user-42", bodyAsString(r, HttpMethod.GET, "/users/42"));
+	}
+
+	@Test
+	void testMultiplePathParamsColon() {
+		HttpRouter r = builder().get("/users/:userId/posts/:postId", ctx -> ctx.text(HttpStatus.OK,
+				ctx.request().pathParam("userId") + ":" + ctx.request().pathParam("postId"))).build();
+
+		assertEquals("10:20", bodyAsString(r, HttpMethod.GET, "/users/10/posts/20"));
+	}
+
+	@Test
+	void testPathParamAtEndColon() {
+		HttpRouter r = builder()
+				.get("/files/:name", ctx -> ctx.text(HttpStatus.OK, "file-" + ctx.request().pathParam("name")))
+				.build();
+
+		assertEquals("file-report.pdf", bodyAsString(r, HttpMethod.GET, "/files/report.pdf"));
+	}
+
+	@Test
+	void testPathParamAtStartColon() {
+		HttpRouter r = builder()
+				.get(":tenant/users", ctx -> ctx.text(HttpStatus.OK, "tenant-" + ctx.request().pathParam("tenant")))
+				.build();
+
+		assertEquals("tenant-acme", bodyAsString(r, HttpMethod.GET, "acme/users"));
+	}
+
+	@Test
+	void testDoubleSlashNormalizationColon() {
+		HttpRouter r = builder()
+				.get("/users/:id", ctx -> ctx.text(HttpStatus.OK, "user-" + ctx.request().pathParam("id"))).build();
+
+		assertEquals("user-42", bodyAsString(r, HttpMethod.GET, "//users//42"));
+	}
+
+	@Test
+	void testPathParamWithSpecialCharsColon() {
+		HttpRouter r = builder().get("/files/:name", ctx -> ctx.text(HttpStatus.OK, ctx.request().pathParam("name")))
+				.build();
+
+		String result = bodyAsString(r, HttpMethod.GET, "/files/my%20file.txt");
+		assertNotNull(result);
+		assertEquals("my file.txt", result);
+	}
+
 	// --- HTTP method isolation ---
 
 	@Test
