@@ -8,7 +8,7 @@ import summer.web.annotation.Get;
 import summer.web.annotation.Put;
 import summer.web.annotation.RestController;
 
-import java.time.ZonedDateTime;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 @RestController
@@ -27,7 +27,7 @@ public class UserController {
         String bio,
         Integer followerCount,
         Integer followingCount,
-        ZonedDateTime createdAt
+        OffsetDateTime createdAt
     ) {
         public static UserResponse fromUser(User user) {
             return new UserResponse(

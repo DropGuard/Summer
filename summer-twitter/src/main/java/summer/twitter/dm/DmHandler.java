@@ -8,7 +8,7 @@ import summer.twitter.user.UserRepository;
 import summer.web.websocket.WebSocketContext;
 import summer.web.websocket.WebSocketHandler;
 
-import java.time.ZonedDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.Optional;
@@ -68,7 +68,7 @@ public class DmHandler implements WebSocketHandler {
         if (toUserOpt.isEmpty()) return;
         
         User toUser = toUserOpt.get();
-        ZonedDateTime now = ZonedDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now();
         
         DirectMessage msg = new DirectMessage(null, senderId, toUser.id(), text, null, now);
         msg = dmRepository.insertMessage(msg);
@@ -91,7 +91,7 @@ public class DmHandler implements WebSocketHandler {
         if (fromUserOpt.isEmpty()) return;
         
         User fromUser = fromUserOpt.get();
-        ZonedDateTime now = ZonedDateTime.now();
+        OffsetDateTime now = OffsetDateTime.now();
         
         dmRepository.markAsRead(fromUser.id(), receiverId, now);
         String timeStr = now.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);

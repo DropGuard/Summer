@@ -9,7 +9,7 @@ import summer.web.HttpStatus;
 import summer.web.annotation.Post;
 import summer.web.annotation.RestController;
 
-import java.time.ZonedDateTime;
+import java.time.OffsetDateTime;
 import java.util.Optional;
 
 @RestController
@@ -48,7 +48,7 @@ public class AuthController {
             "",
             0,
             0,
-            ZonedDateTime.now()
+            OffsetDateTime.now()
         );
         userRepository.insert(user);
 

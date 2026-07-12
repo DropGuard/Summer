@@ -1,7 +1,7 @@
 package summer.twitter.dm;
 
 import summer.data.jdbc.annotation.RowModel;
-import java.time.ZonedDateTime;
+import java.time.OffsetDateTime;
 
 @RowModel
 public record DirectMessage(
@@ -9,6 +9,6 @@ public record DirectMessage(
     Long senderId,
     Long receiverId,
     String text,
-    ZonedDateTime readAt,
-    ZonedDateTime createdAt
+    OffsetDateTime readAt,
+    OffsetDateTime createdAt
 ) {}

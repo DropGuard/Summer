@@ -1,7 +1,7 @@
 package summer.twitter.user;
 
 import summer.data.jdbc.annotation.RowModel;
-import java.time.ZonedDateTime;
+import java.time.OffsetDateTime;
 
 @RowModel
 public record User(
@@ -13,5 +13,5 @@ public record User(
     String bio,
     Integer followerCount,
     Integer followingCount,
-    ZonedDateTime createdAt
+    OffsetDateTime createdAt
 ) {}

@@ -4,7 +4,7 @@ import summer.core.Component;
 import summer.data.jdbc.JdbcTemplate;
 import summer.twitter.infra.SnowflakeIdGenerator;
 
-import java.time.ZonedDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,10 +38,10 @@ public class DmRepository {
         return toInsert;
     }
 
-    public void upsertConversation(Long userId1, Long userId2, ZonedDateTime lastMessageAt) {
+    public void upsertConversation(Long userId1, Long userId2, OffsetDateTime lastMessageAt) {
         Long userOneId = Math.min(userId1, userId2);
         Long userTwoId = Math.max(userId1, userId2);
-        ZonedDateTime now = lastMessageAt != null ? lastMessageAt : ZonedDateTime.now();
+        OffsetDateTime now = lastMessageAt != null ? lastMessageAt : OffsetDateTime.now();
 
         int updated = jdbcTemplate.update(
             "UPDATE conversations SET last_message_at = ? WHERE user_one_id = ? AND user_two_id = ?",
@@ -78,7 +78,7 @@ public class DmRepository {
         );
     }
     
-    public void markAsRead(Long senderId, Long receiverId, ZonedDateTime readAt) {
+    public void markAsRead(Long senderId, Long receiverId, OffsetDateTime readAt) {
         jdbcTemplate.update(
             "UPDATE direct_messages SET read_at = ? " +
             "WHERE sender_id = ? AND receiver_id = ? AND read_at IS NULL",
