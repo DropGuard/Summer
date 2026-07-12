@@ -104,8 +104,14 @@ public final class BeanDiscovery {
 			}
 		} else if (ci.hasAnnotation(COMPONENT_DOT) || ci.hasAnnotation(CONFIG_DOT)
 				|| hasMetaComponentAnnotation(ci, new HashSet<>())) {
-			if (collected.add(name))
-				beans.add(createBaseDefinition(ci));
+			if (collected.add(name)) {
+				BeanDefinition bean = createBaseDefinition(ci);
+				AnnotationInstance replacesAnn = ci.annotation(REPLACES_DOT);
+				if (replacesAnn != null) {
+					bean.replacesTargetClass = replacesAnn.value().asClass().name().toString();
+				}
+				beans.add(bean);
+			}
 		}
 	}
 
@@ -163,7 +169,7 @@ public final class BeanDiscovery {
 			if (collected.add(returnTypeName)) {
 				// First @Bean for this type — register it
 				beans.add(createFactoryBean(returnTypeName, configCi, method));
-			} else if (hasReplaces) {
+			} else if (hasReplaces || configCi.hasAnnotation(REPLACES_DOT)) {
 				// @Replaces — override the existing @Bean's producer
 				BeanDefinition existing = findBeanByClass(beans, returnTypeName);
 				if (existing != null && existing.isFactoryMethod()) {
@@ -187,6 +193,11 @@ public final class BeanDiscovery {
 			fb = new BeanDefinition(returnTypeName, method.returnType().name().withoutPackagePrefix());
 		}
 		fillFactoryBean(fb, configCi, method);
+		// Propagate class-level @Replaces from config class to factory product
+		AnnotationInstance replacesAnn = configCi.annotation(REPLACES_DOT);
+		if (replacesAnn != null) {
+			fb.replacesTargetClass = replacesAnn.value().asClass().name().toString();
+		}
 		return fb;
 	}
 
