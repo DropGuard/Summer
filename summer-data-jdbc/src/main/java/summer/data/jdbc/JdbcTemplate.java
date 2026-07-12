@@ -57,8 +57,23 @@ public class JdbcTemplate {
 	public <T> List<T> queryForList(String sql, Class<T> rowType, Object... args) {
 		RowMapper<T> mapper = (RowMapper<T>) mappers.get(rowType);
 		if (mapper == null) {
-			throw new DataAccessException("No RowMapper registered for " + rowType.getName()
-					+ ". Ensure the class is annotated with @RowModel and summer-maven-plugin is configured.");
+			mapper = switch (rowType.getName()) {
+				case "java.lang.Long" -> (rs, rowNum) -> {
+					long val = rs.getLong(1);
+					return rs.wasNull() ? null : (T) Long.valueOf(val);
+				};
+				case "java.lang.Integer" -> (rs, rowNum) -> {
+					int val = rs.getInt(1);
+					return rs.wasNull() ? null : (T) Integer.valueOf(val);
+				};
+				case "java.lang.String" -> (rs, rowNum) -> (T) rs.getString(1);
+				case "java.lang.Boolean" -> (rs, rowNum) -> {
+					boolean val = rs.getBoolean(1);
+					return rs.wasNull() ? null : (T) Boolean.valueOf(val);
+				};
+				default -> throw new DataAccessException("No RowMapper registered for " + rowType.getName()
+						+ ". Ensure the class is annotated with @RowModel and summer-maven-plugin is configured.");
+			};
 		}
 		List<T> results = new ArrayList<>();
 		try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {

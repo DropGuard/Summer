@@ -49,7 +49,7 @@ public final class TestContainerBuilder {
 			return loadAotLocalContext(testClass, externalBeans);
 		}
 		try {
-			return DiEngine.create(Engine.AOT, externalBeans);
+			return DiEngine.create(externalBeans);
 		} catch (Exception e) {
 			throw new IllegalStateException("Failed to create AOT context", e);
 		}
@@ -93,7 +93,7 @@ public final class TestContainerBuilder {
 			return loadAotLocalContext(testClass);
 		}
 		try {
-			return DiEngine.create(Engine.AOT);
+			return DiEngine.create();
 		} catch (Exception e) {
 			throw new IllegalStateException("Failed to create AOT context", e);
 		}

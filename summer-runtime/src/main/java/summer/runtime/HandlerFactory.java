@@ -60,11 +60,16 @@ public final class HandlerFactory {
 	 * reflection method at build time from the instance class.
 	 */
 	public static Handler create(Object instance, MethodInfo methodInfo, HttpParameterResolverChain resolverChain) {
-		try {
-			Method method = instance.getClass().getMethod(methodInfo.name());
-			return create(instance, method, resolverChain);
-		} catch (NoSuchMethodException e) {
-			throw new summer.aop.SummerAopException("Method not found: " + methodInfo.name(), e);
+		Method targetMethod = null;
+		for (Method m : instance.getClass().getMethods()) {
+			if (m.getName().equals(methodInfo.name()) && m.getParameterCount() == methodInfo.parameters().size()) {
+				targetMethod = m;
+				break;
+			}
 		}
+		if (targetMethod == null) {
+			throw new summer.aop.SummerAopException("Method not found: " + methodInfo.name());
+		}
+		return create(instance, targetMethod, resolverChain);
 	}
 }
