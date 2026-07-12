@@ -4,12 +4,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import summer.web.Handler;
 import summer.web.Middleware;
-import summer.web.annotation.GlobalMiddleware;
+
 
 /**
  * Logging middleware that logs request and response details.
  */
-@GlobalMiddleware
+
 public class LoggingMiddleware implements Middleware {
 	private static final Logger log = LoggerFactory.getLogger(LoggingMiddleware.class);
 

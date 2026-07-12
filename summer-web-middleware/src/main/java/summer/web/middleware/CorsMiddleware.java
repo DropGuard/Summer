@@ -4,7 +4,7 @@ import summer.web.Handler;
 import summer.web.HttpMethod;
 import summer.web.HttpStatus;
 import summer.web.Middleware;
-import summer.web.annotation.GlobalMiddleware;
+
 
 /**
  * CORS middleware that adds Cross-Origin Resource Sharing headers to responses.
@@ -27,7 +27,7 @@ import summer.web.annotation.GlobalMiddleware;
  *   max-age: 3600
  * }</pre>
  */
-@GlobalMiddleware
+
 public class CorsMiddleware implements Middleware {
 
 	private final CorsConfig config;

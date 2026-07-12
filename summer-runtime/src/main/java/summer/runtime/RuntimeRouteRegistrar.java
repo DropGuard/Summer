@@ -72,7 +72,7 @@ public class RuntimeRouteRegistrar implements RouteRegistrar {
 
 	private void register(HttpRouter.Builder builder, BeanContainer context, AnnotationInstance ann, MethodInfo method,
 			ClassInfo controllerClass, HttpMethod httpMethod) {
-		String controllerPath = controllerClass.annotation(REST_CONTROLLER).value().asString();
+		String controllerPath = annotationValue(controllerClass.annotation(REST_CONTROLLER));
 		String fullPath = PathUtils.combinePaths(controllerPath, annotationValue(ann));
 		try {
 			Class<?> clazz = Class.forName(controllerClass.name().toString());

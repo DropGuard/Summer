@@ -5,7 +5,7 @@ package summer.boot;
  */
 final class Banner {
 
-	static String format() {
+	static String format(String engineName) {
 		String version = Banner.class.getPackage().getImplementationVersion();
 		String versionSuffix = version != null ? " (v" + version + ")" : "";
 
@@ -17,8 +17,8 @@ final class Banner {
 				 ___/ / /_/ / / / / / / / / / / /  __/ /
 				/____/\\__,_/_/ /_/ /_/_/ /_/ /_/\\___/_/
 
-				 :: Summer Framework ::%s
-				""".formatted(versionSuffix);
+				 :: Summer Framework ::%s   [%s]
+				""".formatted(versionSuffix, engineName);
 	}
 
 	private Banner() {

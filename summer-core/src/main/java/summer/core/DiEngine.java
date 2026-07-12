@@ -47,8 +47,13 @@ public final class DiEngine {
 			throw new ConfigurationException(
 					ErrorCode.CONFIG_AOT_CONTEXT_NOT_FOUND,
 					"AOT Context missing. Please ensure 'summer-maven-plugin' is configured for production builds.", e);
+		} catch (java.lang.reflect.InvocationTargetException e) {
+			if (e.getCause() instanceof RuntimeException) {
+				throw (RuntimeException) e.getCause();
+			}
+			throw new ConfigurationException(ErrorCode.INTERNAL_ERROR, "AOT context initialization failed", e.getCause());
 		} catch (ReflectiveOperationException e) {
-			throw new ConfigurationException(ErrorCode.CONFIG_AOT_CONTEXT_NOT_FOUND, e.getMessage(), e);
+			throw new ConfigurationException(ErrorCode.INTERNAL_ERROR, "Failed to instantiate AOT context", e);
 		}
 	}
 
@@ -103,8 +108,13 @@ public final class DiEngine {
 			return (BeanContainer) clazz.getMethod("build", Object[].class).invoke(null, (Object) externalBeans);
 		} catch (ClassNotFoundException e) {
 			throw new ConfigurationException(errorCode, className + " not found", e);
+		} catch (java.lang.reflect.InvocationTargetException e) {
+			if (e.getCause() instanceof RuntimeException) {
+				throw (RuntimeException) e.getCause();
+			}
+			throw new ConfigurationException(ErrorCode.INTERNAL_ERROR, "Engine initialization failed", e.getCause());
 		} catch (ReflectiveOperationException e) {
-			throw new ConfigurationException(errorCode, e.getMessage(), e);
+			throw new ConfigurationException(ErrorCode.INTERNAL_ERROR, "Failed to instantiate engine: " + className, e);
 		}
 	}
 }

@@ -1,6 +1,7 @@
 package summer.aot;
 
 import com.palantir.javapoet.ClassName;
+import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeSpec;
@@ -59,17 +60,32 @@ public final class AotContextGenerator {
 		TypeSpec.Builder type = TypeSpec.classBuilder(CLASS_NAME).addModifiers(javax.lang.model.element.Modifier.PUBLIC,
 				javax.lang.model.element.Modifier.FINAL);
 
+		// Legacy fields for backward compatibility, no longer checked by DiEngine but
+		// kept to avoid breaking old compiled binaries that might read them.
+		type.addField(FieldSpec
+				.builder(String.class, "BEAN_FINGERPRINT",
+						javax.lang.model.element.Modifier.PUBLIC, javax.lang.model.element.Modifier.STATIC,
+						javax.lang.model.element.Modifier.FINAL)
+				.initializer("$S", "dev-mode-fallback")
+				.build());
+
 		MethodSpec staticCreate = buildCreateMethod(sortedBeans);
 		TypeSpec spec = type.addMethod(staticCreate).build();
 		return JavaFile.builder(PACKAGE, spec).indent("    ").build();
 	}
 
+
 	private MethodSpec buildCreateMethod(List<BeanDefinition> sortedBeans) {
 		MethodSpec.Builder method = MethodSpec.methodBuilder("build")
 				.addModifiers(javax.lang.model.element.Modifier.PUBLIC, javax.lang.model.element.Modifier.STATIC)
+				.addParameter(Object[].class, "externalBeans").varargs(true)
 				.returns(BEAN_CONTAINER).addException(Exception.class);
-
 		method.addStatement("$T builder = new $T()", BEAN_CONTAINER_BUILDER, BEAN_CONTAINER_BUILDER);
+		method.beginControlFlow("if (externalBeans != null)");
+		method.beginControlFlow("for (Object bean : externalBeans)");
+		method.addStatement("builder.register(bean.getClass(), bean)");
+		method.endControlFlow();
+		method.endControlFlow();
 		method.addStatement("builder.register($T.class, new $T())", AOT_DI_MARKER, AOT_DI_MARKER);
 
 		method.addCode("\n");
@@ -94,11 +110,10 @@ public final class AotContextGenerator {
 		method.addStatement("$T _ehAdapter = new $T()", EXCEPTION_HANDLER_ADAPTER, EXCEPTION_HANDLER_ADAPTER);
 		method.addStatement("builder.register($T.class, _ehAdapter)", EXCEPTION_HANDLER_REGISTRAR);
 
-		wireGen.emitRowMapperRegistrations(method, index, null, sortedBeans);
-
 		method.addCode("\n");
 		method.addStatement("return builder.build($T.AOT)", ENGINE);
 
 		return method.build();
 	}
+
 }

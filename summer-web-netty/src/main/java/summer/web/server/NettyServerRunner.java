@@ -39,7 +39,14 @@ public class NettyServerRunner implements ApplicationRunner, AutoCloseable {
 		ExceptionRegistry exceptionRegistry = buildExceptionRegistry(context);
 		HttpRouter httpRouter = buildHttpRouter(context);
 		WsRouter wsRouter = buildWsRouter(context);
-		runningServer = NettyHttpServer.create(context, config, httpRouter, wsRouter, exceptionRegistry);
+
+		summer.web.GlobalMiddlewareChain chain = context.getBean(summer.web.GlobalMiddlewareChain.class);
+		java.util.List<summer.web.Middleware> globalMiddlewares = new java.util.ArrayList<>();
+		for (Class<? extends summer.web.Middleware> c : chain.middlewares()) {
+			globalMiddlewares.add(context.getBean(c));
+		}
+
+		runningServer = NettyHttpServer.create(context, config, httpRouter, wsRouter, exceptionRegistry, globalMiddlewares);
 		runningServer.start();
 		actualPort = runningServer.getPort();
 	}

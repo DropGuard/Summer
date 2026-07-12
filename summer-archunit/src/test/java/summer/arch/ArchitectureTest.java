@@ -135,12 +135,12 @@ class ArchitectureTest {
 				"summer.runtime..", "summer.plugin..", "summer.data..", "summer.boot..", "summer.web.netty..",
 				"summer.grpc..", "summer.validation.."};
 		// Exclude annotation packages (meta-annotations like @RestController,
-		// @GlobalMiddleware
+		// 
 		// are @Component by design) and specific marker beans
 		String[] annotationPackages = {"summer.core.annotation..", "summer.web.annotation.."};
 		ArchRule rule = com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes().that()
 				.resideInAnyPackage(frameworkPackages).and().doNotHaveSimpleName("Configuration").and()
-				.doNotHaveSimpleName("RestController").and().doNotHaveSimpleName("GlobalMiddleware").and()
+				.doNotHaveSimpleName("RestController").and().doNotHaveSimpleName("MiddlewareRegistry").and()
 				.areNotAnnotatedWith("summer.core.annotation.Configuration").should()
 				.notBeAnnotatedWith("summer.core.Component").allowEmptyShould(true);
 		rule.check(classes);

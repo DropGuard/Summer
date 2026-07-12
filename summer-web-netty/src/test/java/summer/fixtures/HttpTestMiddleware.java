@@ -2,9 +2,9 @@ package summer.fixtures;
 
 import summer.web.Handler;
 import summer.web.Middleware;
-import summer.web.annotation.GlobalMiddleware;
+import summer.core.Component;
 
-@GlobalMiddleware
+@Component
 public class HttpTestMiddleware implements Middleware {
 	@Override
 	public Handler apply(Handler next) {

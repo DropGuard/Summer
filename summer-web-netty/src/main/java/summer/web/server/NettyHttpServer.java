@@ -22,7 +22,7 @@ import summer.web.JsonBodyConverter;
 import summer.web.Middleware;
 import summer.web.ServerConfig;
 import summer.web.WsRouter;
-import summer.web.annotation.GlobalMiddleware;
+
 
 public class NettyHttpServer {
 	private static final Logger log = LoggerFactory.getLogger(NettyHttpServer.class);
@@ -46,8 +46,7 @@ public class NettyHttpServer {
 	 * context.
 	 */
 	public static NettyHttpServer create(BeanContainer context, ServerConfig config, HttpRouter httpRouter,
-			WsRouter wsRouter, summer.web.ExceptionRegistry exceptionRegistry) {
-		List<Middleware> globalMiddlewares = getGlobalMiddlewares(context);
+			WsRouter wsRouter, summer.web.ExceptionRegistry exceptionRegistry, java.util.List<summer.web.Middleware> globalMiddlewares) {
 		List<Middleware> middlewares = new java.util.ArrayList<>(globalMiddlewares);
 
 		BodyConverter jsonConverter = findOptionalBean(context, BodyConverter.class);
@@ -62,14 +61,6 @@ public class NettyHttpServer {
 				exceptionRegistry, wsInterceptors, wsUpgradeHandler));
 	}
 
-	/**
-	 * Discovers all global middlewares from the application context. A middleware
-	 * is global if its class is annotated with {@link GlobalMiddleware}.
-	 */
-	private static List<Middleware> getGlobalMiddlewares(BeanContainer context) {
-		return context.getBeans(Middleware.class).stream()
-				.filter(m -> m.getClass().isAnnotationPresent(GlobalMiddleware.class)).toList();
-	}
 
 	private static <T> T findOptionalBean(BeanContainer context, Class<T> type) {
 		try {

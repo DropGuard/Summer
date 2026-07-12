@@ -8,7 +8,7 @@ import summer.boot.SummerApplication;
 @Configuration
 public class Application {
     public static void main(String[] args) throws Exception {
-        SummerApplication.run(Engine.AOT, args);
+        SummerApplication.apply(Engine.AOT).run(args);
     }
 
     @summer.core.annotation.Bean
