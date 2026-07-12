@@ -5,7 +5,6 @@ import org.slf4j.LoggerFactory;
 import summer.web.Handler;
 import summer.web.Middleware;
 
-
 /**
  * Logging middleware that logs request and response details.
  */

@@ -3,7 +3,6 @@ package summer.data.jdbc.tx;
 import java.sql.Connection;
 import java.sql.SQLException;
 import javax.sql.DataSource;
-import summer.core.ErrorCode;
 import summer.core.annotation.ConditionalOnBean;
 import summer.tx.SummerTransactionException;
 import summer.tx.TransactionManager;
@@ -45,7 +44,7 @@ public class SimpleJdbcTransactionManager implements TransactionManager {
 				} catch (SQLException ignored) {
 				}
 			}
-			throw new SummerTransactionException( "Failed to begin transaction", e);
+			throw new SummerTransactionException("Failed to begin transaction", e);
 		}
 	}
 
@@ -66,7 +65,7 @@ public class SimpleJdbcTransactionManager implements TransactionManager {
 				} catch (SQLException rollbackEx) {
 					e.addSuppressed(rollbackEx);
 				}
-				throw new SummerTransactionException( "Failed to commit transaction", e);
+				throw new SummerTransactionException("Failed to commit transaction", e);
 			} finally {
 				txContext.close();
 			}
@@ -86,7 +85,7 @@ public class SimpleJdbcTransactionManager implements TransactionManager {
 					raw.rollback();
 				}
 			} catch (SQLException e) {
-				throw new SummerTransactionException( "Failed to rollback transaction", e);
+				throw new SummerTransactionException("Failed to rollback transaction", e);
 			} finally {
 				txContext.close();
 			}

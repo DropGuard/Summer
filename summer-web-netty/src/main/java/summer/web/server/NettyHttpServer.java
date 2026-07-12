@@ -23,7 +23,6 @@ import summer.web.Middleware;
 import summer.web.ServerConfig;
 import summer.web.WsRouter;
 
-
 public class NettyHttpServer {
 	private static final Logger log = LoggerFactory.getLogger(NettyHttpServer.class);
 
@@ -46,7 +45,8 @@ public class NettyHttpServer {
 	 * context.
 	 */
 	public static NettyHttpServer create(BeanContainer context, ServerConfig config, HttpRouter httpRouter,
-			WsRouter wsRouter, summer.web.ExceptionRegistry exceptionRegistry, java.util.List<summer.web.Middleware> globalMiddlewares) {
+			WsRouter wsRouter, summer.web.ExceptionRegistry exceptionRegistry,
+			java.util.List<summer.web.Middleware> globalMiddlewares) {
 		List<Middleware> middlewares = new java.util.ArrayList<>(globalMiddlewares);
 
 		BodyConverter jsonConverter = findOptionalBean(context, BodyConverter.class);
@@ -56,11 +56,11 @@ public class NettyHttpServer {
 
 		List<summer.web.websocket.WsInterceptor> wsInterceptors = context
 				.getBeans(summer.web.websocket.WsInterceptor.class);
-		WebSocketUpgradeHandler wsUpgradeHandler = new WebSocketUpgradeHandler(wsRouter, config, wsInterceptors, jsonConverter);
+		WebSocketUpgradeHandler wsUpgradeHandler = new WebSocketUpgradeHandler(wsRouter, config, wsInterceptors,
+				jsonConverter);
 		return new NettyHttpServer(config, new WebServerDependencies(httpRouter, wsRouter, middlewares, jsonConverter,
 				exceptionRegistry, wsInterceptors, wsUpgradeHandler));
 	}
-
 
 	private static <T> T findOptionalBean(BeanContainer context, Class<T> type) {
 		try {
@@ -110,9 +110,10 @@ public class NettyHttpServer {
 
 			int targetPort = getActualTargetPort();
 			serverChannelFuture = b.bind(targetPort).sync();
-			
+
 			if (System.getenv("SUMMER_DEV_PORT") != null) {
-				log.info("[Summer] Dev proxy detected, redirecting actual bind port from {} to {}", config.port(), targetPort);
+				log.info("[Summer] Dev proxy detected, redirecting actual bind port from {} to {}", config.port(),
+						targetPort);
 			}
 			log.info("Netty Server started on port {}", targetPort);
 

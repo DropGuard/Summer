@@ -2,8 +2,6 @@ package summer.tck.di;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import summer.core.DiEngine;
-import summer.core.Engine;
 
 /**
  * AOT engine conditional assembly test.

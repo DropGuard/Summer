@@ -7,9 +7,9 @@ import io.netty.handler.codec.http.HttpHeaderValues;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import summer.web.BodyConverter;
 import summer.web.HttpContext;
 import summer.web.HttpStatus;
-import summer.web.BodyConverter;
 import summer.web.ServerConfig;
 import summer.web.WsRouter;
 import summer.web.websocket.WsInterceptor;
@@ -23,7 +23,8 @@ public class WebSocketUpgradeHandler {
 	private final List<WsInterceptor> wsInterceptors;
 	private final BodyConverter jsonConverter;
 
-	public WebSocketUpgradeHandler(WsRouter wsRouter, ServerConfig config, List<WsInterceptor> wsInterceptors, BodyConverter jsonConverter) {
+	public WebSocketUpgradeHandler(WsRouter wsRouter, ServerConfig config, List<WsInterceptor> wsInterceptors,
+			BodyConverter jsonConverter) {
 		this.wsRouter = wsRouter;
 		this.config = config;
 		this.wsInterceptors = wsInterceptors;
@@ -60,7 +61,8 @@ public class WebSocketUpgradeHandler {
 		for (java.util.Map.Entry<String, String> entry : nettyReq.headers()) {
 			headers.put(entry.getKey().toLowerCase(), entry.getValue());
 		}
-		NettyWebSocketContext wsContext = new NettyWebSocketContext(nettyCtx, wsMatch.pathParams(), headers, wsInterceptors, jsonConverter);
+		NettyWebSocketContext wsContext = new NettyWebSocketContext(nettyCtx, wsMatch.pathParams(), headers,
+				wsInterceptors, jsonConverter);
 		wsMatch.handler().handle(wsContext);
 
 		c.setHandled(true);

@@ -11,7 +11,6 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import summer.core.ErrorCode;
 import summer.grpc.config.GrpcTlsConfig;
 import summer.grpc.exception.SummerGrpcException;
 

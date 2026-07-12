@@ -44,14 +44,18 @@ public final class DependencyResolver {
 		for (BeanDefinition bean : beans) {
 			String existing = nameToSource.get(bean.qualifiedName);
 			if (existing == null) {
-				nameToSource.put(bean.qualifiedName, bean.isFactoryMethod()
-						? bean.configClassName + "#" + bean.producerMethodName : bean.qualifiedName);
+				nameToSource.put(bean.qualifiedName,
+						bean.isFactoryMethod()
+								? bean.configClassName + "#" + bean.producerMethodName
+								: bean.qualifiedName);
 			} else if (!existing.equals(bean.isFactoryMethod()
-					? bean.configClassName + "#" + bean.producerMethodName : bean.qualifiedName)) {
+					? bean.configClassName + "#" + bean.producerMethodName
+					: bean.qualifiedName)) {
 				throw new AmbiguousBeanException("Multiple beans found for type: " + bean.qualifiedName
 						+ " is defined by both " + existing + " and "
 						+ (bean.isFactoryMethod()
-								? bean.configClassName + "#" + bean.producerMethodName : bean.qualifiedName));
+								? bean.configClassName + "#" + bean.producerMethodName
+								: bean.qualifiedName));
 			}
 		}
 	}

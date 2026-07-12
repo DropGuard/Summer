@@ -23,10 +23,10 @@ public final class HandlerFactory {
 	public static Handler create(Object instance, Method method, HttpParameterResolverChain resolverChain) {
 		method.setAccessible(true);
 		Parameter[] params = method.getParameters();
-		
+
 		// Cold-start parsing: Pre-resolve the parameter providers once
 		Function<HttpContext, Object>[] paramProviders = new Function[params.length];
-		
+
 		for (int i = 0; i < params.length; i++) {
 			Parameter param = params[i];
 			HttpParameterResolver resolvedResolver = resolverChain.findResolver(param);

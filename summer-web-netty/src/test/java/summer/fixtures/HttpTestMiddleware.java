@@ -1,8 +1,8 @@
 package summer.fixtures;
 
+import summer.core.Component;
 import summer.web.Handler;
 import summer.web.Middleware;
-import summer.core.Component;
 
 @Component
 public class HttpTestMiddleware implements Middleware {

@@ -195,9 +195,9 @@ public final class SharedConditionEvaluator {
 	}
 
 	/**
-	 * Resolves the class-level {@code @Replaces} target for a bean definition.
-	 * The target is set by {@code BeanDefinitionFactory.toBeanDefinitions()}
-	 * via reflection at build time — no Jandex lookup needed.
+	 * Resolves the class-level {@code @Replaces} target for a bean definition. The
+	 * target is set by {@code BeanDefinitionFactory.toBeanDefinitions()} via
+	 * reflection at build time — no Jandex lookup needed.
 	 */
 	private String resolveClassLevelReplaces(BeanDefinition bean) {
 		return bean.replacesTargetClass;

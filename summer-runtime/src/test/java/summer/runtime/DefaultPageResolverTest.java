@@ -81,7 +81,9 @@ class DefaultPageResolverTest {
 
 	// Test controller for parameter reflection
 	static class TestController {
-		public void withPageable(DefaultPageRequest pageable) {}
-		public void withString(String str) {}
+		public void withPageable(DefaultPageRequest pageable) {
+		}
+		public void withString(String str) {
+		}
 	}
 }

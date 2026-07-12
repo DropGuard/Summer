@@ -7,7 +7,7 @@ import java.util.List;
  * This is the read-only structure produced at application startup.
  */
 public record GlobalMiddlewareChain(List<Class<? extends Middleware>> middlewares) {
-    public GlobalMiddlewareChain {
-        middlewares = List.copyOf(middlewares);
-    }
+	public GlobalMiddlewareChain {
+		middlewares = List.copyOf(middlewares);
+	}
 }

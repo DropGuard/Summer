@@ -14,7 +14,7 @@ public class AotValidationTest extends AbstractValidationTCK {
 
 	private static BeanContainer aotContext() {
 		try {
-			
+
 			return summer.test.TestContainerBuilder.buildAot(null);
 		} catch (Exception e) {
 			throw new RuntimeException("AOT context not available", e);

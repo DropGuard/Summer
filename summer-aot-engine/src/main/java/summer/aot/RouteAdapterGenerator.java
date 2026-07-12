@@ -6,8 +6,8 @@ import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeSpec;
 import java.io.IOException;
-import java.util.List;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.RouteInfo;
@@ -61,7 +61,8 @@ public final class RouteAdapterGenerator {
 						if (declaredResolvers.add(resolverVar)) {
 							registerBody.add("$T $N = context.getBean($T.class).compileAot($T.class, $S);\n",
 									ClassName.bestGuess("java.util.function.Function"), resolverVar,
-									ClassName.bestGuess("summer.runtime.DefaultPageResolver"), ClassName.bestGuess(param.type), param.name);
+									ClassName.bestGuess("summer.runtime.DefaultPageResolver"),
+									ClassName.bestGuess(param.type), param.name);
 						}
 					}
 				}
@@ -87,7 +88,6 @@ public final class RouteAdapterGenerator {
 		JavaFile.builder("summer.core.aot", routeRegistrar).build().writeTo(outputDir);
 	}
 
-
 	/**
 	 * Generate handler lambda body for a route.
 	 */
@@ -110,8 +110,8 @@ public final class RouteAdapterGenerator {
 				body.add("$T $N = ctx.$L($T.class);\n", resolveParamType(param.type), param.name, method,
 						ClassName.bestGuess(param.type));
 			} else if (param.binding == RouteInfo.ParamBinding.PAGEABLE) {
-				body.add("$T $N = ($T) $N_resolver.apply(ctx);\n",
-						resolveParamType(param.type), param.name, ClassName.bestGuess(param.type), param.name);
+				body.add("$T $N = ($T) $N_resolver.apply(ctx);\n", resolveParamType(param.type), param.name,
+						ClassName.bestGuess(param.type), param.name);
 			}
 		}
 

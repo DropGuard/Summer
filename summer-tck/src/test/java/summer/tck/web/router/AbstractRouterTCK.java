@@ -112,8 +112,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
 	@Test
 	void testPathParamAtEndColon() {
 		HttpRouter r = builder()
-				.get("/files/:name", ctx -> ctx.text(HttpStatus.OK, "file-" + ctx.request().pathParam("name")))
-				.build();
+				.get("/files/:name", ctx -> ctx.text(HttpStatus.OK, "file-" + ctx.request().pathParam("name"))).build();
 
 		assertEquals("file-report.pdf", bodyAsString(r, HttpMethod.GET, "/files/report.pdf"));
 	}

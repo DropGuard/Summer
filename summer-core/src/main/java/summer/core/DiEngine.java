@@ -33,13 +33,12 @@ public final class DiEngine {
 	 */
 	public static BeanContainer create(Object... externalBeans) {
 		if (detectEngine() == Engine.AOT) {
-			return invokeBuild(AOT_CLASS, ErrorCode.CONFIG_AOT_CONTEXT_NOT_FOUND, 
-					"AOT Context missing. Please ensure 'summer-maven-plugin' is configured for production builds.", 
+			return invokeBuild(AOT_CLASS, ErrorCode.CONFIG_AOT_CONTEXT_NOT_FOUND,
+					"AOT Context missing. Please ensure 'summer-maven-plugin' is configured for production builds.",
 					externalBeans);
 		}
-		return invokeBuild(RUNTIME_CLASS, ErrorCode.CONFIG_RUNTIME_NOT_ON_CLASSPATH, 
-				"Runtime engine not found: " + RUNTIME_CLASS, 
-				externalBeans);
+		return invokeBuild(RUNTIME_CLASS, ErrorCode.CONFIG_RUNTIME_NOT_ON_CLASSPATH,
+				"Runtime engine not found: " + RUNTIME_CLASS, externalBeans);
 	}
 
 	private static boolean isDevMode() {
@@ -50,8 +49,7 @@ public final class DiEngine {
 		}
 
 		// 2. Debugger attach detection (IDE Run/Debug)
-		if (java.lang.management.ManagementFactory.getRuntimeMXBean()
-				.getInputArguments().stream()
+		if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().stream()
 				.anyMatch(arg -> arg.startsWith("-agentlib:jdwp"))) {
 			return true;
 		}
@@ -80,14 +78,15 @@ public final class DiEngine {
 		}
 
 		// 4. Fallback IDE environment detection
-		if (System.getenv("IDEA_INITIAL_DIRECTORY") != null || 
-		    System.getProperty("idea.test.cyclic.buffer.size") != null) {
+		if (System.getenv("IDEA_INITIAL_DIRECTORY") != null
+				|| System.getProperty("idea.test.cyclic.buffer.size") != null) {
 			return true;
 		}
 		return false;
 	}
 
-	private static BeanContainer invokeBuild(String className, ErrorCode notFoundCode, String notFoundMsg, Object... externalBeans) {
+	private static BeanContainer invokeBuild(String className, ErrorCode notFoundCode, String notFoundMsg,
+			Object... externalBeans) {
 		try {
 			Class<?> clazz = Class.forName(className);
 			return (BeanContainer) clazz.getMethod("build", Object[].class).invoke(null, (Object) externalBeans);

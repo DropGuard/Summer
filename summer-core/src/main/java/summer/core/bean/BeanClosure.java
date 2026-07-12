@@ -33,8 +33,8 @@ import summer.core.exception.BeanCreationException;
  * </p>
  * <ul>
  * <li>Constructor parameters</li>
- * <li>{@code @Bean} method parameter dependencies (not return types — those
- * are factory products discovered from the {@code @Configuration} class)</li>
+ * <li>{@code @Bean} method parameter dependencies (not return types — those are
+ * factory products discovered from the {@code @Configuration} class)</li>
  * <li>{@code @Replaces} targets (class-level and method-level)</li>
  * <li>{@code List<T>} element types</li>
  * </ul>
@@ -45,15 +45,16 @@ public final class BeanClosure {
 	private static final DotName REPLACES = DotName.createSimple("summer.core.annotation.Replaces");
 	private static final DotName CONFIGURATION = DotName.createSimple("summer.core.annotation.Configuration");
 	private static final DotName BEAN = DotName.createSimple("summer.core.annotation.Bean");
-	private static final DotName CONFIGURATION_PROPERTIES = DotName.createSimple("summer.core.config.ConfigurationProperties");
+	private static final DotName CONFIGURATION_PROPERTIES = DotName
+			.createSimple("summer.core.config.ConfigurationProperties");
 	private static final DotName BEAN_CONTAINER = DotName.createSimple("summer.core.BeanContainer");
 
 	private BeanClosure() {
 	}
 
 	/**
-	 * Computes the transitive dependency closure starting from the given seed
-	 * class names.
+	 * Computes the transitive dependency closure starting from the given seed class
+	 * names.
 	 *
 	 * @param seeds
 	 *            fully-qualified class names of the entry beans
@@ -180,9 +181,8 @@ public final class BeanClosure {
 			}
 			if (ci.isInterface() || ci.isAbstract()) {
 				if (hasMetaComponentAnnotation(ci, index, new HashSet<>())) {
-					throw new BeanCreationException(
-							"@Component cannot be placed on an interface or abstract class: " + seedName
-									+ ". Annotate the concrete implementation instead.");
+					throw new BeanCreationException("@Component cannot be placed on an interface or abstract class: "
+							+ seedName + ". Annotate the concrete implementation instead.");
 				}
 				continue;
 			}
@@ -197,11 +197,11 @@ public final class BeanClosure {
 	// ── Implementation resolution ────────────────────────────────────
 
 	/**
-	 * Finds concrete implementations of a dependency type from the Jandex index.
-	 * If the type is already a concrete class, returns it directly. If it's an
-	 * interface or abstract class, returns all known concrete implementors that
-	 * are annotated with {@code @Component} (or a meta-annotation). If no
-	 * component implementations are found, falls back to {@code @Bean} producers.
+	 * Finds concrete implementations of a dependency type from the Jandex index. If
+	 * the type is already a concrete class, returns it directly. If it's an
+	 * interface or abstract class, returns all known concrete implementors that are
+	 * annotated with {@code @Component} (or a meta-annotation). If no component
+	 * implementations are found, falls back to {@code @Bean} producers.
 	 */
 	private static List<DotName> findImplementations(DotName type, IndexView index) {
 		ClassInfo ci = index.getClassByName(type);
@@ -209,8 +209,7 @@ public final class BeanClosure {
 			// Concrete class — if it is a @Component or @ConfigurationProperties,
 			// use directly. Otherwise, find the @Configuration that produces it
 			// via @Bean.
-			if (hasMetaComponentAnnotation(ci, index, new HashSet<>())
-					|| ci.hasAnnotation(CONFIGURATION_PROPERTIES)) {
+			if (hasMetaComponentAnnotation(ci, index, new HashSet<>()) || ci.hasAnnotation(CONFIGURATION_PROPERTIES)) {
 				return List.of(type);
 			}
 			return findBeanProducers(type, index);
@@ -256,9 +255,8 @@ public final class BeanClosure {
 	// ── Annotation helpers ───────────────────────────────────────────
 
 	/**
-	 * Recursively checks whether a Jandex {@link ClassInfo} has
-	 * {@code @Component} on itself or on any of its annotation types
-	 * (meta-annotation detection).
+	 * Recursively checks whether a Jandex {@link ClassInfo} has {@code @Component}
+	 * on itself or on any of its annotation types (meta-annotation detection).
 	 */
 	static boolean hasMetaComponentAnnotation(ClassInfo classInfo, IndexView index, Set<DotName> visited) {
 		if (classInfo == null) {

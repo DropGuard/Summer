@@ -16,8 +16,8 @@ import summer.core.bean.BeanDefinition;
  *
  * <p>
  * Transitive dependency closure is computed by
- * {@link summer.core.bean.BeanClosure}; this class focuses solely on
- * generating the {@code LocalContext_<testClassName>} source file.
+ * {@link summer.core.bean.BeanClosure}; this class focuses solely on generating
+ * the {@code LocalContext_<testClassName>} source file.
  * </p>
  */
 public final class LocalContextGenerator {

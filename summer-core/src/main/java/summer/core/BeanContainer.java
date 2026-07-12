@@ -13,9 +13,9 @@ import summer.core.exception.NoSuchBeanException;
  * Immutable bean container that serves as the DI engine's output.
  *
  * <p>
- * Use {@link Builder} during the construction phase to register beans, then call
- * {@link Builder#build()} to produce an immutable container. The builder is
- * discarded after that — no further mutation is possible.
+ * Use {@link Builder} during the construction phase to register beans, then
+ * call {@link Builder#build()} to produce an immutable container. The builder
+ * is discarded after that — no further mutation is possible.
  * </p>
  */
 public final class BeanContainer implements AutoCloseable {
@@ -24,7 +24,8 @@ public final class BeanContainer implements AutoCloseable {
 	private final Engine engine;
 
 	private BeanContainer(Map<Class<?>, Object> singletons, Engine engine) {
-		// MUST preserve insertion order for correct shutdown (reverse order of creation)
+		// MUST preserve insertion order for correct shutdown (reverse order of
+		// creation)
 		this.singletons = Collections.unmodifiableMap(new LinkedHashMap<>(singletons));
 		this.engine = engine;
 	}
@@ -95,11 +96,13 @@ public final class BeanContainer implements AutoCloseable {
 	public void close() throws Exception {
 		List<Object> reversed = new ArrayList<>(singletons.values());
 		Collections.reverse(reversed);
-		
+
 		java.util.Set<Object> closedBeans = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
-		// Pass 1: Input Drivers (ApplicationRunner implementations that are AutoCloseable)
-		// Stop receiving new external requests and wait for in-flight requests to drain.
+		// Pass 1: Input Drivers (ApplicationRunner implementations that are
+		// AutoCloseable)
+		// Stop receiving new external requests and wait for in-flight requests to
+		// drain.
 		for (Object bean : reversed) {
 			if (bean instanceof ApplicationRunner && bean instanceof AutoCloseable) {
 				try {
@@ -112,7 +115,8 @@ public final class BeanContainer implements AutoCloseable {
 		}
 
 		// Pass 2: Reverse Topological Destruction
-		// Safely destroy internal beans, services, and databases now that no traffic is flowing.
+		// Safely destroy internal beans, services, and databases now that no traffic is
+		// flowing.
 		for (Object bean : reversed) {
 			if (bean instanceof AutoCloseable && !closedBeans.contains(bean)) {
 				try {

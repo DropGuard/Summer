@@ -41,7 +41,7 @@ public class ProxyFactory {
 			final Method targetMethod;
 			final boolean shouldIntercept;
 			final RuntimeMethodMetadata metadata;
-			
+
 			MethodCache(Method targetMethod, boolean shouldIntercept) {
 				this.targetMethod = targetMethod;
 				this.shouldIntercept = shouldIntercept;
@@ -53,8 +53,9 @@ public class ProxyFactory {
 			this.target = target;
 			this.interceptors = interceptors;
 			this.methodCache = new HashMap<>();
-			
-			// Pre-compile methods to avoid reflection lookup and annotation scanning on hot path
+
+			// Pre-compile methods to avoid reflection lookup and annotation scanning on hot
+			// path
 			for (Class<?> iface : target.getClass().getInterfaces()) {
 				for (Method method : iface.getMethods()) {
 					try {

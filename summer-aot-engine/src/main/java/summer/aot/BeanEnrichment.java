@@ -74,9 +74,8 @@ final class BeanEnrichment {
 					"Component " + bean.qualifiedName + " must have exactly ONE public constructor. Found: 0");
 		}
 		if (publicCtors.size() > 1) {
-			throw new summer.core.exception.BeanCreationException(
-					"Component " + bean.qualifiedName + " must have exactly ONE public constructor. Found: "
-							+ publicCtors.size());
+			throw new summer.core.exception.BeanCreationException("Component " + bean.qualifiedName
+					+ " must have exactly ONE public constructor. Found: " + publicCtors.size());
 		}
 		MethodInfo ctor = publicCtors.get(0);
 		for (int i = 0; i < ctor.parametersCount(); i++) {
@@ -88,7 +87,9 @@ final class BeanEnrichment {
 				if (pt.name().toString().equals("java.util.List") && pt.arguments().size() == 1) {
 					org.jboss.jandex.Type elementTypeObj = pt.arguments().get(0);
 					if (elementTypeObj.kind() == org.jboss.jandex.Type.Kind.PARAMETERIZED_TYPE) {
-						throw new summer.core.exception.UnsupportedInjectionException("Nested generic type injection is not supported: List<" + elementTypeObj.toString() + "> in " + bean.qualifiedName);
+						throw new summer.core.exception.UnsupportedInjectionException(
+								"Nested generic type injection is not supported: List<" + elementTypeObj.toString()
+										+ "> in " + bean.qualifiedName);
 					}
 					String elementType = pt.arguments().get(0).name().toString();
 					bean.listElementTypes.put(bean.constructorParamTypes.size() - 1, elementType);
@@ -162,7 +163,9 @@ final class BeanEnrichment {
 	}
 
 	private boolean isScrollRequest(String paramType) {
-		if (paramType.equals("summer.web.ScrollRequest") || paramType.equals("summer.realworld.common.LimitOffsetPageable") || paramType.equals("summer.twitter.common.CursorPageable")) {
+		if (paramType.equals("summer.web.ScrollRequest")
+				|| paramType.equals("summer.realworld.common.LimitOffsetPageable")
+				|| paramType.equals("summer.twitter.common.CursorPageable")) {
 			return true;
 		}
 		ClassInfo ci = index.getClassByName(DotName.createSimple(paramType));

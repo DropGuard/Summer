@@ -60,23 +60,27 @@ public final class SharedDependencyResolver {
 
 	/**
 	 * Validates that no two bean definitions share the same qualified name. Two
-	 * {@code @Bean} methods returning the same type, or a {@code @Component} and
-	 * a {@code @Bean} producing the same type, is ambiguous and must be rejected
-	 * at build time.
+	 * {@code @Bean} methods returning the same type, or a {@code @Component} and a
+	 * {@code @Bean} producing the same type, is ambiguous and must be rejected at
+	 * build time.
 	 */
 	private void validateUniqueBeanNames(List<BeanDefinition> beans) {
 		Map<String, String> nameToSource = new LinkedHashMap<>();
 		for (BeanDefinition bean : beans) {
 			String existing = nameToSource.get(bean.qualifiedName);
 			if (existing == null) {
-				nameToSource.put(bean.qualifiedName, bean.isFactoryMethod()
-						? bean.configClassName + "#" + bean.producerMethodName : bean.qualifiedName);
+				nameToSource.put(bean.qualifiedName,
+						bean.isFactoryMethod()
+								? bean.configClassName + "#" + bean.producerMethodName
+								: bean.qualifiedName);
 			} else if (!existing.equals(bean.isFactoryMethod()
-					? bean.configClassName + "#" + bean.producerMethodName : bean.qualifiedName)) {
+					? bean.configClassName + "#" + bean.producerMethodName
+					: bean.qualifiedName)) {
 				throw new AmbiguousBeanException("Multiple beans found for type: " + bean.qualifiedName
 						+ " is defined by both " + existing + " and "
 						+ (bean.isFactoryMethod()
-								? bean.configClassName + "#" + bean.producerMethodName : bean.qualifiedName));
+								? bean.configClassName + "#" + bean.producerMethodName
+								: bean.qualifiedName));
 			}
 		}
 	}

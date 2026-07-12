@@ -276,11 +276,11 @@ class RadixTrieTest {
 	void shouldThrowExceptionOnParamConflict() {
 		RadixTrie<String> trie = new RadixTrie<>();
 		trie.insert("/users/{id}", "user-by-id");
-		
+
 		// Attempting to insert a different parameter name at the same position
-		summer.web.exception.RouteConflictException ex = assertThrows(summer.web.exception.RouteConflictException.class, 
-			() -> trie.insert("/users/{userId}", "user-by-userid"));
-		
+		summer.web.exception.RouteConflictException ex = assertThrows(summer.web.exception.RouteConflictException.class,
+				() -> trie.insert("/users/{userId}", "user-by-userid"));
+
 		assertTrue(ex.getMessage().contains("/users/{userId}"));
 	}
 
@@ -289,13 +289,13 @@ class RadixTrieTest {
 		RadixTrie<String> trie = new RadixTrie<>();
 		trie.insert("/api/**", "api-catch-all");
 
-		// The path "/api" exactly matches the parent node. 
+		// The path "/api" exactly matches the parent node.
 		// Since the parent node has no handler, it should fallback to the ** child.
 		RadixTrie.MatchResult<String> result = trie.match("/api".getBytes());
 		assertNotNull(result);
 		assertEquals("api-catch-all", result.handler());
 	}
-	
+
 	@Test
 	void shouldNotFallbackToCatchAllIfParentHasExactHandler() {
 		RadixTrie<String> trie = new RadixTrie<>();

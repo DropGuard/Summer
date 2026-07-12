@@ -16,10 +16,10 @@ class BeanInstantiatorTest {
 		BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of());
 
 		BeanDefinition def = new BeanDefinition(CrashingComponent.class.getName(), "crashingComponent");
-		
-		BeanCreationException ex = assertThrows(BeanCreationException.class, 
-			() -> instantiator.instantiateFromDefinition(def));
-			
+
+		BeanCreationException ex = assertThrows(BeanCreationException.class,
+				() -> instantiator.instantiateFromDefinition(def));
+
 		assertTrue(ex.getMessage().contains("Failed to instantiate bean"));
 		assertNotNull(ex.getCause());
 		assertEquals("Crash", ex.getCause().getCause().getMessage());
@@ -30,12 +30,13 @@ class BeanInstantiatorTest {
 		BeanContainer.Builder builder = new BeanContainer.Builder();
 		BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of());
 
-		BeanDefinition def = new BeanDefinition(ContainerInjectingComponent.class.getName(), "containerInjectingComponent");
+		BeanDefinition def = new BeanDefinition(ContainerInjectingComponent.class.getName(),
+				"containerInjectingComponent");
 		def.constructorParamTypes.add(BeanContainer.class.getName());
-		
-		BeanCreationException ex = assertThrows(BeanCreationException.class, 
-			() -> instantiator.instantiateFromDefinition(def));
-			
+
+		BeanCreationException ex = assertThrows(BeanCreationException.class,
+				() -> instantiator.instantiateFromDefinition(def));
+
 		assertTrue(ex.getCause().getMessage().contains("ApplicationContext injection is not supported"));
 	}
 
@@ -45,10 +46,10 @@ class BeanInstantiatorTest {
 		BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of());
 
 		BeanDefinition def = new BeanDefinition("com.example.NonExistentClass", "missing");
-		
-		BeanCreationException ex = assertThrows(BeanCreationException.class, 
-			() -> instantiator.instantiateFromDefinition(def));
-			
+
+		BeanCreationException ex = assertThrows(BeanCreationException.class,
+				() -> instantiator.instantiateFromDefinition(def));
+
 		assertTrue(ex.getMessage().contains("Class not found: com.example.NonExistentClass"));
 		assertTrue(ex.getCause() instanceof ClassNotFoundException);
 	}

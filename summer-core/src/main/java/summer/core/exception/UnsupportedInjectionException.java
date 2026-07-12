@@ -3,8 +3,9 @@ package summer.core.exception;
 import summer.core.ErrorCode;
 
 /**
- * Thrown when attempting to inject a type that is currently not supported by the framework,
- * such as nested generic collections (e.g. List<Strategy<String>>).
+ * Thrown when attempting to inject a type that is currently not supported by
+ * the framework, such as nested generic collections (e.g.
+ * List<Strategy<String>>).
  */
 public class UnsupportedInjectionException extends SummerException {
 	public UnsupportedInjectionException(String message) {

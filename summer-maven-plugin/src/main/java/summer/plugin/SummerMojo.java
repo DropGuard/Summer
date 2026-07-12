@@ -79,8 +79,7 @@ public class SummerMojo extends AbstractMojo {
 			BeanContainer.Builder pipelineBuilder = new BeanContainer.Builder();
 			pipelineBuilder.register(WireMethodGenerator.class, wireGen);
 			pipelineBuilder.register(BeanDiscovery.class, new BeanDiscovery(index));
-			pipelineBuilder.register(AotContextGenerator.class,
-					new AotContextGenerator(index, generatedDir, wireGen));
+			pipelineBuilder.register(AotContextGenerator.class, new AotContextGenerator(index, generatedDir, wireGen));
 			pipelineBuilder.register(AotProxyGenerator.class, new AotProxyGenerator());
 			pipelineBuilder.register(RouteAdapterGenerator.class, new RouteAdapterGenerator());
 			BeanContainer pipeline = pipelineBuilder.build();
@@ -185,8 +184,8 @@ public class SummerMojo extends AbstractMojo {
 			// 4. Generate LocalContext source
 			localGen.generate(testClassName, sorted);
 
-			getLog().debug("[Summer] LocalContext: " + entryNames.size() + " entry -> "
-					+ scopedBeans.size() + " beans");
+			getLog().debug(
+					"[Summer] LocalContext: " + entryNames.size() + " entry -> " + scopedBeans.size() + " beans");
 		}
 
 		getLog().info("[Summer] LocalContext scan complete: indexed " + testIndex.getKnownClasses().size()

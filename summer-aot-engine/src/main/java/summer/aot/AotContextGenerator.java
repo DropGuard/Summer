@@ -13,8 +13,7 @@ import summer.core.bean.BeanDefinition;
 
 /**
  * Generates a {@code GeneratedAotContext} class that uses the unified
- * {@link summer.core.BeanContainer}
- * abstractions.
+ * {@link summer.core.BeanContainer} abstractions.
  *
  * <p>
  * Dependencies are injected via constructor — no mutable state.
@@ -63,23 +62,20 @@ public final class AotContextGenerator {
 		// Legacy fields for backward compatibility, no longer checked by DiEngine but
 		// kept to avoid breaking old compiled binaries that might read them.
 		type.addField(FieldSpec
-				.builder(String.class, "BEAN_FINGERPRINT",
-						javax.lang.model.element.Modifier.PUBLIC, javax.lang.model.element.Modifier.STATIC,
-						javax.lang.model.element.Modifier.FINAL)
-				.initializer("$S", "dev-mode-fallback")
-				.build());
+				.builder(String.class, "BEAN_FINGERPRINT", javax.lang.model.element.Modifier.PUBLIC,
+						javax.lang.model.element.Modifier.STATIC, javax.lang.model.element.Modifier.FINAL)
+				.initializer("$S", "dev-mode-fallback").build());
 
 		MethodSpec staticCreate = buildCreateMethod(sortedBeans);
 		TypeSpec spec = type.addMethod(staticCreate).build();
 		return JavaFile.builder(PACKAGE, spec).indent("    ").build();
 	}
 
-
 	private MethodSpec buildCreateMethod(List<BeanDefinition> sortedBeans) {
 		MethodSpec.Builder method = MethodSpec.methodBuilder("build")
 				.addModifiers(javax.lang.model.element.Modifier.PUBLIC, javax.lang.model.element.Modifier.STATIC)
-				.addParameter(Object[].class, "externalBeans").varargs(true)
-				.returns(BEAN_CONTAINER).addException(Exception.class);
+				.addParameter(Object[].class, "externalBeans").varargs(true).returns(BEAN_CONTAINER)
+				.addException(Exception.class);
 		method.addStatement("$T builder = new $T()", BEAN_CONTAINER_BUILDER, BEAN_CONTAINER_BUILDER);
 		method.beginControlFlow("if (externalBeans != null)");
 		method.beginControlFlow("for (Object bean : externalBeans)");

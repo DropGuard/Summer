@@ -16,13 +16,14 @@ import org.jboss.jandex.IndexView;
  * <p>
  * The framework accepts beans through two independent channels:
  * <ul>
- *   <li><b>Index</b> — the Jandex index drives BFS discovery and component scanning.</li>
- *   <li><b>Seeds</b> — the caller's explicit declaration of intent.
- *       Seeds are authoritative and always included regardless of index coverage.
- *       {@code BeanDefinitionFactory} resolves unindexed seeds via reflection.</li>
+ * <li><b>Index</b> — the Jandex index drives BFS discovery and component
+ * scanning.</li>
+ * <li><b>Seeds</b> — the caller's explicit declaration of intent. Seeds are
+ * authoritative and always included regardless of index coverage.
+ * {@code BeanDefinitionFactory} resolves unindexed seeds via reflection.</li>
  * </ul>
- * Production uses only the index channel ({@link #classpath()}).
- * Tests use both ({@link #reachableFrom} + explicit seed inclusion).
+ * Production uses only the index channel ({@link #classpath()}). Tests use both
+ * ({@link #reachableFrom} + explicit seed inclusion).
  * </p>
  *
  * <pre>{@code
@@ -58,8 +59,8 @@ public interface Scope {
 	 *
 	 * <p>
 	 * Validates that all seeds are eligible components, then walks constructor
-	 * parameters, {@code @Bean} method parameters, and {@code @Replaces} targets
-	 * to determine the reachable set.
+	 * parameters, {@code @Bean} method parameters, and {@code @Replaces} targets to
+	 * determine the reachable set.
 	 * </p>
 	 *
 	 * @param seeds

@@ -20,8 +20,8 @@ public class NettyWebSocketContext implements WebSocketContext {
 	private Consumer<String> messageConsumer;
 	private Runnable closeHandler;
 
-	public NettyWebSocketContext(ChannelHandlerContext ctx, Map<String, String> pathParams,
-			Map<String, String> headers, List<WsInterceptor> wsInterceptors, BodyConverter jsonConverter) {
+	public NettyWebSocketContext(ChannelHandlerContext ctx, Map<String, String> pathParams, Map<String, String> headers,
+			List<WsInterceptor> wsInterceptors, BodyConverter jsonConverter) {
 		this.ctx = ctx;
 		this.pathParams = pathParams;
 		this.headers = headers;

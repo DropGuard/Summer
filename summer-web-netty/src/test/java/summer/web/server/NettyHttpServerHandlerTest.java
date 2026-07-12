@@ -6,11 +6,11 @@ import static org.mockito.Mockito.*;
 
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
+import io.netty.handler.codec.http.DefaultHttpHeaders;
 import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.HttpHeaders;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpVersion;
-import io.netty.handler.codec.http.HttpHeaders;
-import io.netty.handler.codec.http.DefaultHttpHeaders;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,13 +37,13 @@ class NettyHttpServerHandlerTest {
 		MockitoAnnotations.openMocks(this);
 		when(server.getActiveConnections()).thenReturn(new AtomicInteger(0));
 		when(ctx.writeAndFlush(any())).thenReturn(channelFuture);
-		
+
 		HttpHeaders headers = new DefaultHttpHeaders();
 		when(request.headers()).thenReturn(headers);
 		when(request.protocolVersion()).thenReturn(HttpVersion.HTTP_1_1);
 		when(request.method()).thenReturn(HttpMethod.GET);
 		when(request.uri()).thenReturn("/test");
-		
+
 		handler = new NettyHttpServerHandler(server, null, deps);
 	}
 
@@ -51,9 +51,9 @@ class NettyHttpServerHandlerTest {
 	void shouldHandleExceptionCaught() throws Exception {
 		Throwable cause = new RuntimeException("Test exception");
 		when(ctx.close()).thenReturn(channelFuture);
-		
+
 		handler.exceptionCaught(ctx, cause);
-		
+
 		verify(ctx, times(1)).close();
 	}
 
@@ -61,7 +61,7 @@ class NettyHttpServerHandlerTest {
 	void shouldRethrowWhenCloseFails() {
 		Throwable cause = new RuntimeException("Test exception");
 		when(ctx.close()).thenThrow(new RuntimeException("Close failed"));
-		
+
 		assertThrows(RuntimeException.class, () -> handler.exceptionCaught(ctx, cause));
 	}
 }

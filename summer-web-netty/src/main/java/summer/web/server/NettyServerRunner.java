@@ -30,7 +30,8 @@ public class NettyServerRunner implements ApplicationRunner, AutoCloseable {
 	private NettyHttpServer runningServer;
 	private static volatile int actualPort = -1;
 
-	public NettyServerRunner(RouterRegistry routerRegistry, ServerConfig config, summer.core.config.ShutdownConfig shutdownConfig) {
+	public NettyServerRunner(RouterRegistry routerRegistry, ServerConfig config,
+			summer.core.config.ShutdownConfig shutdownConfig) {
 		this.routerRegistry = routerRegistry;
 		this.config = config;
 		this.shutdownConfig = shutdownConfig;
@@ -48,7 +49,8 @@ public class NettyServerRunner implements ApplicationRunner, AutoCloseable {
 			globalMiddlewares.add(context.getBean(c));
 		}
 
-		runningServer = NettyHttpServer.create(context, config, httpRouter, wsRouter, exceptionRegistry, globalMiddlewares);
+		runningServer = NettyHttpServer.create(context, config, httpRouter, wsRouter, exceptionRegistry,
+				globalMiddlewares);
 		runningServer.start();
 		actualPort = runningServer.getPort();
 	}
@@ -93,7 +95,8 @@ public class NettyServerRunner implements ApplicationRunner, AutoCloseable {
 	public void close() throws Exception {
 		if (runningServer != null) {
 			log.info("Shutting down Netty Server...");
-			runningServer.stop(java.time.Duration.ofMillis(shutdownConfig.timeoutMs() != null ? shutdownConfig.timeoutMs() : 30000L));
+			runningServer.stop(java.time.Duration
+					.ofMillis(shutdownConfig.timeoutMs() != null ? shutdownConfig.timeoutMs() : 30000L));
 			runningServer = null;
 		}
 	}

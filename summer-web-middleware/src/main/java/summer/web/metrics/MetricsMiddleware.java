@@ -4,7 +4,6 @@ import summer.web.Handler;
 import summer.web.HttpStatus;
 import summer.web.Middleware;
 
-
 /**
  * Middleware that tracks request counts, errors, and active connections. This
  * should be placed early in the middleware chain for accurate metrics.

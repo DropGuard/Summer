@@ -62,7 +62,7 @@ public final class RuntimeBeanContainerBuilder {
 	public static BeanContainer buildFromSeeds(Class<?>... seeds) {
 		return buildFromSeedsWithExternal(seeds, new Object[0]);
 	}
-	
+
 	public static BeanContainer buildFromSeedsWithExternal(Class<?>[] seeds, Object... externalBeans) {
 		IndexView index = JandexIndexLoader.buildIndex();
 		Set<String> seedNames = new LinkedHashSet<>();
@@ -71,7 +71,8 @@ public final class RuntimeBeanContainerBuilder {
 		}
 		Scope scope = Scope.reachableFrom(seedNames, index);
 		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(index, scope);
-		// Seeds are an authoritative input — always included regardless of index coverage.
+		// Seeds are an authoritative input — always included regardless of index
+		// coverage.
 		// The index drives BFS discovery and component scanning;
 		// seeds represent the caller's explicit declaration of intent.
 		for (Class<?> seed : seeds) {
@@ -83,7 +84,7 @@ public final class RuntimeBeanContainerBuilder {
 	private static BeanContainer initialize(IndexView index, Set<Class<?>> componentClasses, Object... externalBeans) {
 		ConfigBinder.setDefaultValueResolver(RuntimeDefaultValueResolver.INSTANCE);
 		BeanContainer.Builder builder = new BeanContainer.Builder();
-		
+
 		if (externalBeans != null) {
 			for (Object bean : externalBeans) {
 				builder.register(bean.getClass(), bean);

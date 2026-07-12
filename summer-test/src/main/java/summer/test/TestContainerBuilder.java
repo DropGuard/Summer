@@ -4,8 +4,6 @@ import java.lang.annotation.Annotation;
 import summer.core.BeanContainer;
 import summer.core.Component;
 import summer.core.DiEngine;
-import summer.core.Engine;
-import summer.runtime.RuntimeBeanContainerBuilder;
 
 /**
  * Unified test container builder for both AOT and Runtime engines.
@@ -72,6 +70,7 @@ public final class TestContainerBuilder {
 	 * Checks whether a class has {@code @Component} or a meta-annotation that is
 	 * itself annotated with {@code @Component} (e.g. {@code @RestController},
 	 * {@code @Configuration}).
+	 * 
 	 * @param clazz
 	 *            the class to check
 	 * @return true if the class is a component

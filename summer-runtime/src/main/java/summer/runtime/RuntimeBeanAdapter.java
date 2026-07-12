@@ -85,14 +85,16 @@ public final class RuntimeBeanAdapter {
 		for (int i = 0; i < method.getParameterTypes().length; i++) {
 			Class<?> param = method.getParameterTypes()[i];
 			bean.producerParamTypes.add(param.getName());
-			
-			if (genericTypes[i] instanceof java.lang.reflect.ParameterizedType pt && pt.getRawType() == java.util.List.class) {
+
+			if (genericTypes[i] instanceof java.lang.reflect.ParameterizedType pt
+					&& pt.getRawType() == java.util.List.class) {
 				java.lang.reflect.Type elementType = pt.getActualTypeArguments()[0];
 				if (elementType instanceof Class<?> ec) {
 					bean.listElementTypes.put(i, ec.getName());
 				} else if (elementType instanceof java.lang.reflect.ParameterizedType) {
 					throw new summer.core.exception.UnsupportedInjectionException(
-							"Nested generic type injection is not supported: List<" + elementType.getTypeName() + "> in " + bean.qualifiedName);
+							"Nested generic type injection is not supported: List<" + elementType.getTypeName()
+									+ "> in " + bean.qualifiedName);
 				}
 			}
 		}
@@ -139,7 +141,8 @@ public final class RuntimeBeanAdapter {
 					bean.listElementTypes.put(i, ec.getName());
 				} else if (elementType instanceof ParameterizedType) {
 					throw new summer.core.exception.UnsupportedInjectionException(
-							"Nested generic type injection is not supported: List<" + elementType.getTypeName() + "> in " + bean.qualifiedName);
+							"Nested generic type injection is not supported: List<" + elementType.getTypeName()
+									+ "> in " + bean.qualifiedName);
 				}
 			}
 		}

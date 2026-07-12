@@ -1,9 +1,9 @@
 package summer.runtime;
 
 import java.lang.reflect.Parameter;
+import java.util.function.Function;
 import summer.core.config.PageableProperties;
 import summer.web.HttpContext;
-import java.util.function.Function;
 
 public class DefaultPageResolver implements HttpParameterResolver {
 

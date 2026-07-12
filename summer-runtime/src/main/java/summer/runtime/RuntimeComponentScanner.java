@@ -10,8 +10,8 @@ import org.jboss.jandex.IndexView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import summer.core.Component;
-import summer.core.config.ConfigurationProperties;
 import summer.core.bean.Scope;
+import summer.core.config.ConfigurationProperties;
 
 /**
  * Runtime component scanner. Discovers annotated classes from the Jandex index

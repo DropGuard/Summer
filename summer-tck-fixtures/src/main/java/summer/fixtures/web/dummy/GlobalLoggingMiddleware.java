@@ -5,7 +5,6 @@ import summer.core.Component;
 import summer.web.Handler;
 import summer.web.Middleware;
 
-
 @Component
 
 public class GlobalLoggingMiddleware implements Middleware {

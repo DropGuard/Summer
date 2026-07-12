@@ -12,9 +12,9 @@ class RuntimeBeanAdapterTest {
 
 	@Test
 	void shouldRejectNestedGenericListInjection() throws Exception {
-		UnsupportedInjectionException ex = assertThrows(UnsupportedInjectionException.class, 
-			() -> new RuntimeBeanAdapter(Index.of(Object.class)).adaptComponent(NestedGenericComponent.class));
-			
+		UnsupportedInjectionException ex = assertThrows(UnsupportedInjectionException.class,
+				() -> new RuntimeBeanAdapter(Index.of(Object.class)).adaptComponent(NestedGenericComponent.class));
+
 		assertTrue(ex.getMessage().contains("Nested generic type injection is not supported"));
 		assertTrue(ex.getMessage().contains("List<"));
 	}

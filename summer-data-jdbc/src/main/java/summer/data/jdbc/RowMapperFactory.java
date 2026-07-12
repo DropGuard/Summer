@@ -86,8 +86,8 @@ public final class RowMapperFactory {
 	}
 
 	/**
-	 * Converts a camelCase field name to a snake_case column name, the standard
-	 * SQL naming convention. Example: {@code createdAt} becomes {@code created_at}.
+	 * Converts a camelCase field name to a snake_case column name, the standard SQL
+	 * naming convention. Example: {@code createdAt} becomes {@code created_at}.
 	 */
 	static String camelToSnake(String camelCase) {
 		StringBuilder sb = new StringBuilder(camelCase.length() + 4);
@@ -106,8 +106,7 @@ public final class RowMapperFactory {
 	}
 
 	private static final class ReflectiveRowMapper<T> implements RowMapper<T> {
-		private static final ObjectMapper MAPPER = new ObjectMapper()
-				.findAndRegisterModules();
+		private static final ObjectMapper MAPPER = new ObjectMapper().findAndRegisterModules();
 		private final Class<T> modelClass;
 		private final String[] fieldNames;
 		private final String[] columnNames;

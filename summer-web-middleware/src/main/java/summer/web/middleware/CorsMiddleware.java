@@ -5,7 +5,6 @@ import summer.web.HttpMethod;
 import summer.web.HttpStatus;
 import summer.web.Middleware;
 
-
 /**
  * CORS middleware that adds Cross-Origin Resource Sharing headers to responses.
  *

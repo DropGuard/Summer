@@ -7,22 +7,23 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class ApplicationState {
 
-    private static final AtomicBoolean shuttingDown = new AtomicBoolean(false);
+	private static final AtomicBoolean shuttingDown = new AtomicBoolean(false);
 
-    private ApplicationState() {}
+	private ApplicationState() {
+	}
 
-    /**
-     * Marks the application as shutting down.
-     * After this is called, readiness probes should return 503.
-     */
-    public static void beginShutdown() {
-        shuttingDown.set(true);
-    }
+	/**
+	 * Marks the application as shutting down. After this is called, readiness
+	 * probes should return 503.
+	 */
+	public static void beginShutdown() {
+		shuttingDown.set(true);
+	}
 
-    /**
-     * @return true if the application has received a termination signal.
-     */
-    public static boolean isShuttingDown() {
-        return shuttingDown.get();
-    }
+	/**
+	 * @return true if the application has received a termination signal.
+	 */
+	public static boolean isShuttingDown() {
+		return shuttingDown.get();
+	}
 }

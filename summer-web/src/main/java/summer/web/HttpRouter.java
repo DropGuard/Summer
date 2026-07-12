@@ -163,8 +163,8 @@ public interface HttpRouter {
 		}
 
 		/**
-		 * Normalizes Express-style path parameters ({@code :param}) to the
-		 * canonical {@code {param}} syntax used by all router implementations.
+		 * Normalizes Express-style path parameters ({@code :param}) to the canonical
+		 * {@code {param}} syntax used by all router implementations.
 		 *
 		 * <p>
 		 * Both MapRouter and RadixTreeHttpRouter understand {@code {param}} but only

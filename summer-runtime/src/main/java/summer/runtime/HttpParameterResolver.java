@@ -1,8 +1,8 @@
 package summer.runtime;
 
 import java.lang.reflect.Parameter;
-import summer.web.HttpContext;
 import java.util.function.Function;
+import summer.web.HttpContext;
 
 /**
  * Resolves method parameters for HTTP request handlers.
@@ -40,10 +40,11 @@ public interface HttpParameterResolver {
 	Object resolve(HttpContext ctx, Parameter parameter);
 
 	/**
-	 * Compiles the parameter resolution logic into a fast execution plan during cold start.
-	 * This prevents per-request reflection overhead.
+	 * Compiles the parameter resolution logic into a fast execution plan during
+	 * cold start. This prevents per-request reflection overhead.
 	 *
-	 * @param parameter the method parameter to compile
+	 * @param parameter
+	 *            the method parameter to compile
 	 * @return a pre-compiled execution function
 	 */
 	default Function<HttpContext, Object> compile(Parameter parameter) {

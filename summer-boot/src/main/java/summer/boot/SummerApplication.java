@@ -5,7 +5,6 @@ import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
 import summer.core.BeanContainer;
 import summer.core.DiEngine;
-import summer.core.Engine;
 
 /**
  * Single entry point for Summer applications.
@@ -71,7 +70,8 @@ public final class SummerApplication {
 			}
 
 			log.info("Shutting down BeanContainer...");
-			java.util.concurrent.ExecutorService shutdownExecutor = java.util.concurrent.Executors.newSingleThreadExecutor();
+			java.util.concurrent.ExecutorService shutdownExecutor = java.util.concurrent.Executors
+					.newSingleThreadExecutor();
 			try {
 				long timeoutMs = shutdownConfig.timeoutMs() != null ? shutdownConfig.timeoutMs() : 30000L;
 				shutdownExecutor.submit(() -> {

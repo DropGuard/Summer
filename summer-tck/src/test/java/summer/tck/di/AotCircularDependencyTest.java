@@ -23,8 +23,7 @@ public class AotCircularDependencyTest extends AbstractCircularDependencyTCK {
 		//
 		// A true AOT test would require running the maven plugin, but the shared
 		// resolver is the single code path for both engines.
-		TestContainerBuilder.buildRuntime(
-				summer.fixtures.di.circular.CircularA.class,
+		TestContainerBuilder.buildRuntime(summer.fixtures.di.circular.CircularA.class,
 				summer.fixtures.di.circular.CircularB.class);
 	}
 }
