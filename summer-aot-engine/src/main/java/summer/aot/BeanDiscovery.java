@@ -74,7 +74,7 @@ public final class BeanDiscovery {
 			boolean isNew = !collected.contains(ci.name().toString());
 			discoverClass(ci, beans, collected);
 			if (isNew && ci.hasAnnotation(CONFIG_DOT)) {
-				discoverBeanFactoryMethods(ci, beans, collected);
+				discoverBeanFactoryMethods(ci, beans);
 			}
 		}
 
@@ -148,7 +148,19 @@ public final class BeanDiscovery {
 		return false;
 	}
 
-	private void discoverBeanFactoryMethods(ClassInfo configCi, List<BeanDefinition> beans, Set<String> collected) {
+	/**
+	 * Discovers {@code @Bean} factory methods from a {@code @Configuration} class.
+	 *
+	 * <p>
+	 * Every {@code @Bean} product is added to the bean list unconditionally.
+	 * Duplicate return types are resolved downstream by
+	 * {@link summer.core.bean.SharedConditionEvaluator} (@Replaces) and
+	 * {@link summer.core.bean.SharedDependencyResolver} (unique name validation).
+	 * This aligns with the Runtime engine's behavior, where all factory products
+	 * are registered first and then filtered.
+	 * </p>
+	 */
+	private void discoverBeanFactoryMethods(ClassInfo configCi, List<BeanDefinition> beans) {
 		for (MethodInfo method : configCi.methods()) {
 			if (!method.hasAnnotation(BEAN_DOT))
 				continue;
@@ -158,26 +170,14 @@ public final class BeanDiscovery {
 				continue;
 
 			String returnTypeName = returnType.name().toString();
-			boolean hasReplaces = method.hasAnnotation(REPLACES_DOT);
 
-			// A non-replacing @Bean takes priority over @ConfigurationProperties
-			if (!hasReplaces) {
-				beans.removeIf(b -> b instanceof ConfigPropertiesBean && b.qualifiedName.equals(returnTypeName));
-				collected.remove(returnTypeName);
-			}
+			// A @Bean takes priority over @ConfigurationProperties
+			beans.removeIf(b -> b instanceof ConfigPropertiesBean && b.qualifiedName.equals(returnTypeName));
 
-			if (collected.add(returnTypeName)) {
-				// First @Bean for this type — register it
-				beans.add(createFactoryBean(returnTypeName, configCi, method));
-			} else if (hasReplaces || configCi.hasAnnotation(REPLACES_DOT)) {
-				// @Replaces — override the existing @Bean's producer
-				BeanDefinition existing = findBeanByClass(beans, returnTypeName);
-				if (existing != null && existing.isFactoryMethod()) {
-					fillFactoryBean(existing, configCi, method);
-				}
-			}
+			beans.add(createFactoryBean(returnTypeName, configCi, method));
 		}
 	}
+
 	private BeanDefinition createBaseDefinition(ClassInfo ci) {
 		BeanDefinition bean = new BeanDefinition(ci.name().toString(), ci.simpleName());
 		collectInterfacesRecursive(bean, ci, new HashSet<>());
@@ -221,15 +221,5 @@ public final class BeanDiscovery {
 		for (int i = 0; i < method.parametersCount(); i++) {
 			fb.producerParamTypes.add(method.parameterType(i).name().toString());
 		}
-	}
-
-	// ── Helpers ───────────────────────────────────────────────────────
-
-	private BeanDefinition findBeanByClass(List<BeanDefinition> beans, String qualifiedName) {
-		for (BeanDefinition bean : beans) {
-			if (bean.qualifiedName.equals(qualifiedName))
-				return bean;
-		}
-		return null;
 	}
 }
