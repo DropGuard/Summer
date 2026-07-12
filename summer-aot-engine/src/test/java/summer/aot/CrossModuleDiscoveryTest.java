@@ -19,6 +19,7 @@ import org.junit.jupiter.api.io.TempDir;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.ConfigPropertiesBean;
 import summer.core.bean.RouteInfo;
+import summer.core.bean.Scope;
 
 /**
  * Tests for cross-module bean discovery via Jandex indexes.
@@ -130,7 +131,8 @@ class CrossModuleDiscoveryTest {
 		Index index = buildIndex("summer.fixtures.dummy.DummyController", "summer.web.annotation.RestController",
 				"summer.core.Component", "summer.web.annotation.Get", "summer.web.annotation.Put",
 				"summer.web.annotation.Delete", "summer.web.annotation.PathParam");
-		List<BeanDefinition> beans = new BeanDiscovery(index).discover("summer.fixtures.dummy");
+		List<BeanDefinition> beans = new BeanDiscovery(index).discover(
+				name -> name.startsWith("summer.fixtures.dummy"));
 
 		// Find the DummyController bean
 		BeanDefinition controller = beans.stream()
@@ -177,7 +179,7 @@ class CrossModuleDiscoveryTest {
 		Index index = buildIndex("summer.fixtures.dummy.DummyConfigProperties",
 				"summer.core.config.ConfigurationProperties");
 
-		List<BeanDefinition> beans = new BeanDiscovery(index).discover(null);
+		List<BeanDefinition> beans = new BeanDiscovery(index).discover();
 
 		assertTrue(
 				beans.stream()
@@ -196,9 +198,9 @@ class CrossModuleDiscoveryTest {
 				"summer.fixtures.dummy.PlainServiceA", "summer.fixtures.dummy.PlainServiceB", "summer.core.Component",
 				"summer.core.annotation.Configuration", "summer.core.annotation.Bean");
 
-		List<BeanDefinition> beans = new BeanDiscovery(index).discover(null);
+		List<BeanDefinition> beans = new BeanDiscovery(index).discover();
 
-		// With null prefix, should discover ALL beans regardless of package
+		// With classpath scope, should discover ALL beans regardless of package
 		long componentCount = beans.stream().filter(b -> !b.isFactoryMethod() && !(b instanceof ConfigPropertiesBean))
 				.count();
 		long factoryCount = beans.stream().filter(b -> b.isFactoryMethod()).count();
@@ -219,7 +221,8 @@ class CrossModuleDiscoveryTest {
 				"summer.core.annotation.Bean", "summer.fixtures.dummy.PlainServiceA",
 				"summer.fixtures.dummy.PlainServiceB");
 
-		List<BeanDefinition> beans = new BeanDiscovery(index).discover("summer.fixtures.dummy");
+		List<BeanDefinition> beans = new BeanDiscovery(index).discover(
+				name -> name.startsWith("summer.fixtures.dummy"));
 
 		long factoryCount = beans.stream().filter(b -> b.isFactoryMethod()).count();
 		assertEquals(2, factoryCount, "Should discover 2 @Bean factory products, found " + factoryCount + ": "

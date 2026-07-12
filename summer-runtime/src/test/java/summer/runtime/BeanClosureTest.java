@@ -6,28 +6,38 @@ import java.util.Set;
 import org.jboss.jandex.Index;
 import org.junit.jupiter.api.Test;
 import summer.core.Component;
+import summer.core.bean.BeanClosure;
 import summer.core.exception.BeanCreationException;
 
-class RuntimeComponentScannerTest {
+/**
+ * Tests for {@link BeanClosure} seed validation and closure computation.
+ */
+class BeanClosureTest {
 
 	@Test
-	void shouldRejectComponentOnInterface() throws Exception {
+	void shouldRejectComponentOnInterface() {
 		BeanCreationException ex = assertThrows(BeanCreationException.class,
-				() -> RuntimeComponentScanner.transitiveExpand(Set.of(InvalidInterfaceComponent.class), Index.of(Object.class)));
+				() -> BeanClosure.validateSeeds(
+						Set.of(InvalidInterfaceComponent.class.getName()),
+						Index.of(InvalidInterfaceComponent.class)));
 		assertTrue(ex.getMessage().contains("cannot be placed on an interface or abstract class"));
 	}
 
 	@Test
-	void shouldRejectComponentOnAbstractClass() throws Exception {
+	void shouldRejectComponentOnAbstractClass() {
 		BeanCreationException ex = assertThrows(BeanCreationException.class,
-				() -> RuntimeComponentScanner.transitiveExpand(Set.of(InvalidAbstractComponent.class), Index.of(Object.class)));
+				() -> BeanClosure.validateSeeds(
+						Set.of(InvalidAbstractComponent.class.getName()),
+						Index.of(InvalidAbstractComponent.class)));
 		assertTrue(ex.getMessage().contains("cannot be placed on an interface or abstract class"));
 	}
 
 	@Test
-	void shouldRejectClassWithoutComponentAnnotation() throws Exception {
+	void shouldRejectClassWithoutComponentAnnotation() {
 		BeanCreationException ex = assertThrows(BeanCreationException.class,
-				() -> RuntimeComponentScanner.transitiveExpand(Set.of(MissingAnnotationClass.class), Index.of(Object.class)));
+				() -> BeanClosure.validateSeeds(
+						Set.of(MissingAnnotationClass.class.getName()),
+						Index.of(MissingAnnotationClass.class)));
 		assertTrue(ex.getMessage().contains("is not annotated with @Component or @ConfigurationProperties"));
 	}
 

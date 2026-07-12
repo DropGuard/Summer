@@ -11,6 +11,7 @@ import org.jboss.jandex.IndexView;
 import org.jboss.jandex.MethodInfo;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.ConfigPropertiesBean;
+import summer.core.bean.Scope;
 
 /**
  * Discovers beans from a Jandex index and evaluates conditions.
@@ -48,10 +49,10 @@ public final class BeanDiscovery {
 	 * Full discovery pipeline: discover → condition evaluation → enrichment.
 	 */
 	public List<BeanDefinition> discover() {
-		return discover(null);
+		return discover(Scope.classpath());
 	}
 
-	public List<BeanDefinition> discover(String packagePrefix) {
+	public List<BeanDefinition> discover(Scope scope) {
 		List<BeanDefinition> beans = new ArrayList<>();
 		Set<String> collected = new HashSet<>();
 
@@ -60,7 +61,7 @@ public final class BeanDiscovery {
 		beans.add(new BeanDefinition(summer.core.AotDiMarker.class.getName(), "AotDiMarker"));
 
 		for (ClassInfo ci : index.getKnownClasses()) {
-			if (ci.isAnnotation() || !matchesPackage(ci, packagePrefix))
+			if (ci.isAnnotation() || !scope.includes(ci.name().toString()))
 				continue;
 			if (ci.isInterface() || ci.isAbstract()) {
 				if (hasMetaComponentAnnotation(ci, new HashSet<>())) {
@@ -83,39 +84,6 @@ public final class BeanDiscovery {
 		// Phase 3: Enrich remaining metadata
 		new BeanEnrichment(index).enrich(beans);
 
-		return beans;
-	}
-
-	/**
-	 * Scoped discovery: only processes classes whose names are in the given closure
-	 * set. Used by {@link LocalContextGenerator} to build a minimal BeanDefinition
-	 * list for a test graph.
-	 */
-	public List<BeanDefinition> discoverScoped(Set<String> closureNames) {
-		List<BeanDefinition> beans = new ArrayList<>();
-		Set<String> collected = new HashSet<>();
-
-		for (String name : closureNames) {
-			ClassInfo ci = index.getClassByName(DotName.createSimple(name));
-			if (ci == null || ci.isAnnotation()) {
-				continue;
-			}
-			if (ci.isInterface() || ci.isAbstract()) {
-				if (hasMetaComponentAnnotation(ci, new HashSet<>())) {
-					throw new summer.core.exception.BeanCreationException(
-							"@Component cannot be placed on an interface or abstract class: " + ci.name()
-									+ ". Annotate the concrete implementation instead.");
-				}
-				continue;
-			}
-			discoverClass(ci, beans, collected);
-			if (ci.hasAnnotation(CONFIG_DOT)) {
-				discoverBeanFactoryMethods(ci, beans, collected);
-			}
-		}
-
-		new summer.core.bean.SharedConditionEvaluator(index).evaluate(beans);
-		new BeanEnrichment(index).enrich(beans);
 		return beans;
 	}
 
@@ -245,10 +213,6 @@ public final class BeanDiscovery {
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────
-
-	private boolean matchesPackage(ClassInfo ci, String packagePrefix) {
-		return packagePrefix == null || ci.name().toString().startsWith(packagePrefix);
-	}
 
 	private BeanDefinition findBeanByClass(List<BeanDefinition> beans, String qualifiedName) {
 		for (BeanDefinition bean : beans) {

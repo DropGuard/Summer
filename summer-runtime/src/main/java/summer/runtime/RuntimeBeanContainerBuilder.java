@@ -4,9 +4,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.jboss.jandex.AnnotationInstance;
-import org.jboss.jandex.ClassInfo;
-import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +11,7 @@ import summer.core.BeanContainer;
 import summer.core.Engine;
 import summer.core.RuntimeDiMarker;
 import summer.core.bean.BeanDefinition;
+import summer.core.bean.Scope;
 import summer.core.bean.SharedConditionEvaluator;
 import summer.core.bean.SharedDependencyResolver;
 import summer.core.config.ConfigBinder;
@@ -36,8 +34,6 @@ public final class RuntimeBeanContainerBuilder {
 
 	private static final Logger log = LoggerFactory.getLogger(RuntimeBeanContainerBuilder.class);
 
-	private static final DotName CONFIGURATION_PROPERTIES = DotName.createSimple(ConfigurationProperties.class);
-
 	private RuntimeBeanContainerBuilder() {
 	}
 
@@ -49,18 +45,7 @@ public final class RuntimeBeanContainerBuilder {
 	public static BeanContainer build(Object... externalBeans) {
 		IndexView index = JandexIndexLoader.buildIndex();
 
-		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(index);
-		for (AnnotationInstance ann : index.getAnnotations(ConfigurationProperties.class)) {
-			ClassInfo ci = ann.target().asClass();
-			if (ci.isInterface() || ci.isAbstract()) {
-				continue;
-			}
-			try {
-				componentClasses.add(Class.forName(ci.name().toString()));
-			} catch (ClassNotFoundException e) {
-				log.debug("[Summer] Could not load @ConfigurationProperties class: {}", ci.name());
-			}
-		}
+		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(index, Scope.classpath());
 
 		return initialize(index, componentClasses, externalBeans);
 	}
@@ -80,8 +65,18 @@ public final class RuntimeBeanContainerBuilder {
 	
 	public static BeanContainer buildFromSeedsWithExternal(Class<?>[] seeds, Object... externalBeans) {
 		IndexView index = JandexIndexLoader.buildIndex();
-		Set<Class<?>> componentClasses = RuntimeComponentScanner.transitiveExpand(new LinkedHashSet<>(List.of(seeds)),
-				index);
+		Set<String> seedNames = new LinkedHashSet<>();
+		for (Class<?> seed : seeds) {
+			seedNames.add(seed.getName());
+		}
+		Scope scope = Scope.reachableFrom(seedNames, index);
+		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(index, scope);
+		// Seeds are an authoritative input — always included regardless of index coverage.
+		// The index drives BFS discovery and component scanning;
+		// seeds represent the caller's explicit declaration of intent.
+		for (Class<?> seed : seeds) {
+			componentClasses.add(seed);
+		}
 		return initialize(index, componentClasses, externalBeans);
 	}
 

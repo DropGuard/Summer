@@ -34,6 +34,7 @@ import summer.aot.RouteAdapterGenerator;
 import summer.aot.WireMethodGenerator;
 import summer.core.BeanContainer;
 import summer.core.bean.BeanDefinition;
+import summer.core.bean.Scope;
 import summer.core.bean.SharedDependencyResolver;
 
 /**
@@ -171,11 +172,11 @@ public class SummerMojo extends AbstractMojo {
 			count++;
 			getLog().info("[Summer] Generating LocalContext for " + testClassName + " with entry beans: " + entryNames);
 
-			// 1. Transitive closure from seeds via Jandex BFS
-			Set<String> closureNames = LocalContextGenerator.transitiveClosure(entryNames, index);
+			// 1. Compute scope from seeds via transitive closure
+			Scope scope = Scope.reachableFrom(entryNames, index);
 
-			// 2. Scoped bean discovery (only closures)
-			List<BeanDefinition> scopedBeans = discovery.discoverScoped(closureNames);
+			// 2. Scoped bean discovery
+			List<BeanDefinition> scopedBeans = discovery.discover(scope);
 
 			// 3. Dependency resolution (topological sort within closure)
 			SharedDependencyResolver resolver = new SharedDependencyResolver();
@@ -184,8 +185,8 @@ public class SummerMojo extends AbstractMojo {
 			// 4. Generate LocalContext source
 			localGen.generate(testClassName, sorted);
 
-			getLog().debug("[Summer] LocalContext closure: " + entryNames.size() + " entry -> " + closureNames.size()
-					+ " class names -> " + sorted.size() + " beans");
+			getLog().debug("[Summer] LocalContext: " + entryNames.size() + " entry -> "
+					+ scopedBeans.size() + " beans");
 		}
 
 		getLog().info("[Summer] LocalContext scan complete: indexed " + testIndex.getKnownClasses().size()
