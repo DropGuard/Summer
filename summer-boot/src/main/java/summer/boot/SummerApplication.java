@@ -52,11 +52,41 @@ public final class SummerApplication {
 		}
 
 		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-			log.info("Shutting down BeanContainer...");
+			summer.core.ApplicationState.beginShutdown();
+			summer.core.config.ShutdownConfig shutdownConfig;
 			try {
-				context.close();
+				shutdownConfig = context.getBean(summer.core.config.ShutdownConfig.class);
 			} catch (Exception e) {
-				throw new RuntimeException(e);
+				shutdownConfig = new summer.core.config.ShutdownConfig(0L, 30000L);
+			}
+
+			long sleepMs = shutdownConfig.sleepMs() != null ? shutdownConfig.sleepMs() : 0L;
+			if (sleepMs > 0) {
+				log.info("Shutdown initiated. Sleeping for {} ms for traffic isolation...", sleepMs);
+				try {
+					Thread.sleep(sleepMs);
+				} catch (InterruptedException e) {
+					Thread.currentThread().interrupt();
+				}
+			}
+
+			log.info("Shutting down BeanContainer...");
+			java.util.concurrent.ExecutorService shutdownExecutor = java.util.concurrent.Executors.newSingleThreadExecutor();
+			try {
+				long timeoutMs = shutdownConfig.timeoutMs() != null ? shutdownConfig.timeoutMs() : 30000L;
+				shutdownExecutor.submit(() -> {
+					try {
+						context.close();
+					} catch (Exception e) {
+						log.error("Error during BeanContainer shutdown", e);
+					}
+				}).get(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+			} catch (java.util.concurrent.TimeoutException e) {
+				log.warn("Shutdown grace period ({} ms) exceeded, forcing exit.", shutdownConfig.timeoutMs());
+			} catch (Exception e) {
+				log.error("Error waiting for shutdown", e);
+			} finally {
+				shutdownExecutor.shutdownNow();
 			}
 		}));
 

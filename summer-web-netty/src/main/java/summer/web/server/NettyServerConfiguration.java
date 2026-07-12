@@ -16,8 +16,8 @@ import summer.web.ServerConfig;
 public class NettyServerConfiguration {
 
 	@Bean
-	public NettyServerRunner nettyServerRunner(RouterRegistry routerRegistry, ServerConfig config) {
-		return new NettyServerRunner(routerRegistry, config);
+	public NettyServerRunner nettyServerRunner(RouterRegistry routerRegistry, ServerConfig config, summer.core.config.ShutdownConfig shutdownConfig) {
+		return new NettyServerRunner(routerRegistry, config, shutdownConfig);
 	}
 
 	@Bean

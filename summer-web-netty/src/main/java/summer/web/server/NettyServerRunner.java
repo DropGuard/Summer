@@ -26,12 +26,14 @@ public class NettyServerRunner implements ApplicationRunner, AutoCloseable {
 	private static final Logger log = LoggerFactory.getLogger(NettyServerRunner.class);
 	private final RouterRegistry routerRegistry;
 	private final ServerConfig config;
+	private final summer.core.config.ShutdownConfig shutdownConfig;
 	private NettyHttpServer runningServer;
 	private static volatile int actualPort = -1;
 
-	public NettyServerRunner(RouterRegistry routerRegistry, ServerConfig config) {
+	public NettyServerRunner(RouterRegistry routerRegistry, ServerConfig config, summer.core.config.ShutdownConfig shutdownConfig) {
 		this.routerRegistry = routerRegistry;
 		this.config = config;
+		this.shutdownConfig = shutdownConfig;
 	}
 
 	@Override
@@ -91,7 +93,7 @@ public class NettyServerRunner implements ApplicationRunner, AutoCloseable {
 	public void close() throws Exception {
 		if (runningServer != null) {
 			log.info("Shutting down Netty Server...");
-			runningServer.stop(java.time.Duration.ofSeconds(5));
+			runningServer.stop(java.time.Duration.ofMillis(shutdownConfig.timeoutMs() != null ? shutdownConfig.timeoutMs() : 30000L));
 			runningServer = null;
 		}
 	}

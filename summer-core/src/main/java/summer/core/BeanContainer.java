@@ -95,12 +95,31 @@ public final class BeanContainer implements AutoCloseable {
 	public void close() throws Exception {
 		List<Object> reversed = new ArrayList<>(singletons.values());
 		Collections.reverse(reversed);
+		
+		java.util.Set<Object> closedBeans = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+
+		// Pass 1: Input Drivers (ApplicationRunner implementations that are AutoCloseable)
+		// Stop receiving new external requests and wait for in-flight requests to drain.
 		for (Object bean : reversed) {
-			if (bean instanceof AutoCloseable) {
+			if (bean instanceof ApplicationRunner && bean instanceof AutoCloseable) {
 				try {
 					((AutoCloseable) bean).close();
+					closedBeans.add(bean);
 				} catch (Exception e) {
-					System.err.println("[Summer] Error closing: " + e);
+					System.err.println("[Summer] Error closing input driver " + bean.getClass().getName() + ": " + e);
+				}
+			}
+		}
+
+		// Pass 2: Reverse Topological Destruction
+		// Safely destroy internal beans, services, and databases now that no traffic is flowing.
+		for (Object bean : reversed) {
+			if (bean instanceof AutoCloseable && !closedBeans.contains(bean)) {
+				try {
+					((AutoCloseable) bean).close();
+					closedBeans.add(bean);
+				} catch (Exception e) {
+					System.err.println("[Summer] Error closing bean " + bean.getClass().getName() + ": " + e);
 				}
 			}
 		}
