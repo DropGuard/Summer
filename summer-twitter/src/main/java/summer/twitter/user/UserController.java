@@ -65,7 +65,7 @@ public class UserController {
             return;
         }
 
-        UpdateProfileRequest req = ctx.validatedBody(UpdateProfileRequest.class);
+        UpdateProfileRequest req = ctx.body(UpdateProfileRequest.class);
         userRepository.updateProfile(userId, req.displayName(), req.bio());
 
         // Return updated user
