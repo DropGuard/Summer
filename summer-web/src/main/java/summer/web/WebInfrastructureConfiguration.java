@@ -18,4 +18,9 @@ public class WebInfrastructureConfiguration {
 	public JsonBodyConverter jsonBodyConverter() {
 		return new JsonBodyConverter();
 	}
+
+	@Bean
+	public summer.web.health.HealthRouteRegistrar healthRouteRegistrar() {
+		return new summer.web.health.HealthRouteRegistrar();
+	}
 }

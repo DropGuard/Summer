@@ -21,10 +21,10 @@ public final class DiEngine {
 
 	public static Engine detectEngine() {
 		if (isDevMode()) {
-			log.info("💻 Dev mode detected (file protocol): using RUNTIME engine.");
+			log.info("[Summer] Dev mode detected (file protocol): using RUNTIME engine.");
 			return Engine.RUNTIME;
 		}
-		log.info("🚀 Production mode detected (jar protocol): using AOT engine.");
+		log.info("[Summer] Production mode detected (jar protocol): using AOT engine.");
 		return Engine.AOT;
 	}
 

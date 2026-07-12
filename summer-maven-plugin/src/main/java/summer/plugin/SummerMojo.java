@@ -184,8 +184,8 @@ public class SummerMojo extends AbstractMojo {
 			// 4. Generate LocalContext source
 			localGen.generate(testClassName, sorted);
 
-			getLog().debug("[Summer] LocalContext closure: " + entryNames.size() + " entry → " + closureNames.size()
-					+ " class names → " + sorted.size() + " beans");
+			getLog().debug("[Summer] LocalContext closure: " + entryNames.size() + " entry -> " + closureNames.size()
+					+ " class names -> " + sorted.size() + " beans");
 		}
 
 		getLog().info("[Summer] LocalContext scan complete: indexed " + testIndex.getKnownClasses().size()

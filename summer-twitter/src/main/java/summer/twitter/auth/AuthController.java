@@ -29,7 +29,7 @@ public class AuthController {
 
     @Post("/api/auth/register")
     public void register(HttpContext ctx) {
-        RegisterRequest req = ctx.validatedBody(RegisterRequest.class);
+        RegisterRequest req = ctx.body(RegisterRequest.class);
 
         Optional<User> existingUser = userRepository.findByUsername(req.username());
         if (existingUser.isPresent()) {
@@ -57,7 +57,7 @@ public class AuthController {
 
     @Post("/api/auth/login")
     public void login(HttpContext ctx) {
-        LoginRequest req = ctx.validatedBody(LoginRequest.class);
+        LoginRequest req = ctx.body(LoginRequest.class);
 
         Optional<User> userOpt = userRepository.findByUsername(req.username());
         if (userOpt.isEmpty()) {

@@ -156,7 +156,7 @@ public final class LocalContextGenerator {
 			}
 		}
 
-		log.debug("[Summer] transitiveClosure: {} seeds → {} closure beans", entryNames.size(), closure.size());
+		log.debug("[Summer] transitiveClosure: {} seeds -> {} closure beans", entryNames.size(), closure.size());
 		return closure;
 	}
 

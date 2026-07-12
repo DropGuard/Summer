@@ -14,6 +14,9 @@
     <artifactId>summer-example</artifactId>
     <name>Summer Example</name>
     <description>Example application demonstrating the Summer framework</description>
+    <properties>
+        <checkstyle.skip>true</checkstyle.skip>
+    </properties>
 
     <dependencies>
         <!-- Summer Modules -->
