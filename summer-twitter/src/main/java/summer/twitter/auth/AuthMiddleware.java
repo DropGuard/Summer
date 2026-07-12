@@ -20,6 +20,11 @@ public class AuthMiddleware implements Middleware {
     @Override
     public Handler apply(Handler next) {
         return (HttpContext ctx) -> {
+            if (isPublicRequest(ctx)) {
+                next.handle(ctx);
+                return;
+            }
+
             String authHeader = ctx.header("Authorization");
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
                 ctx.text(HttpStatus.UNAUTHORIZED, "Missing or invalid Authorization header");
@@ -36,5 +41,33 @@ public class AuthMiddleware implements Middleware {
                 ctx.text(HttpStatus.UNAUTHORIZED, "Invalid token");
             }
         };
+    }
+
+    /**
+     * Routes that must be reachable without authentication:
+     * - Bootstrap auth (register, login)
+     * - Health probes (liveness, readiness)
+     * - WebSocket upgrades (handlers authenticate via subprotocol)
+     */
+    private static boolean isPublicRequest(HttpContext ctx) {
+        String method = ctx.method().name();
+        String path = ctx.path();
+
+        // Bootstrap auth
+        if ("POST".equals(method) && ("/api/auth/register".equals(path) || "/api/auth/login".equals(path))) {
+            return true;
+        }
+
+        // Health probes
+        if ("GET".equals(method) && ("/health/live".equals(path) || "/health/ready".equals(path))) {
+            return true;
+        }
+
+        // WebSocket upgrades — authenticated via Sec-WebSocket-Protocol in handlers
+        if ("websocket".equalsIgnoreCase(ctx.header("Upgrade"))) {
+            return true;
+        }
+
+        return false;
     }
 }
