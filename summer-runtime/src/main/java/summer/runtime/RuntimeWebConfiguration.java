@@ -1,7 +1,7 @@
 package summer.runtime;
 
-import org.jboss.jandex.IndexView;
 import summer.core.RuntimeDiMarker;
+import org.jboss.jandex.IndexView;
 import summer.core.annotation.Bean;
 import summer.core.annotation.ConditionalOnBean;
 import summer.core.annotation.Configuration;
@@ -16,8 +16,8 @@ public class RuntimeWebConfiguration {
 	}
 
 	@Bean
-	public RuntimeExceptionHandlerRegistrar exceptionHandlerRegistrar(IndexView index,
+	public RuntimeExceptionHandlerRegistrar exceptionHandlerRegistrar(
 			HttpParameterResolverChain resolverChain) {
-		return new RuntimeExceptionHandlerRegistrar(resolverChain, index);
+		return new RuntimeExceptionHandlerRegistrar(resolverChain);
 	}
 }
