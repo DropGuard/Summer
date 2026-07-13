@@ -174,8 +174,7 @@ public final class BeanDefinitionFactory {
 	}
 
 	private static boolean isInterceptor(BeanDefinition bean) {
-		Class<?> clazz = loadClass(bean.qualifiedName);
-		return clazz != null && clazz.isAnnotationPresent(summer.aop.Interceptor.class);
+		return !bean.interceptorBindingAnnotations.isEmpty();
 	}
 
 	/**

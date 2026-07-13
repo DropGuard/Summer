@@ -6,6 +6,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import summer.core.bean.RouteInfo;
 import summer.core.exception.AmbiguousBeanException;
 import summer.core.exception.NoSuchBeanException;
 
@@ -22,12 +23,14 @@ public final class BeanContainer implements AutoCloseable {
 
 	private final Map<Class<?>, Object> singletons;
 	private final Engine engine;
+	private final List<RouteInfo> routes;
 
-	private BeanContainer(Map<Class<?>, Object> singletons, Engine engine) {
+	private BeanContainer(Map<Class<?>, Object> singletons, Engine engine, List<RouteInfo> routes) {
 		// MUST preserve insertion order for correct shutdown (reverse order of
 		// creation)
 		this.singletons = Collections.unmodifiableMap(new LinkedHashMap<>(singletons));
 		this.engine = engine;
+		this.routes = routes;
 	}
 
 	/** Returns which engine produced this container. */
@@ -38,6 +41,11 @@ public final class BeanContainer implements AutoCloseable {
 	/** Returns all type keys registered in the container (interfaces included). */
 	public Set<Class<?>> componentTypes() {
 		return singletons.keySet();
+	}
+
+	/** Returns route metadata collected during container construction. */
+	public List<RouteInfo> routes() {
+		return routes;
 	}
 
 	// ---- Read-only bean lookup ----
@@ -138,12 +146,20 @@ public final class BeanContainer implements AutoCloseable {
 	public static final class Builder {
 
 		private final Map<Class<?>, Object> singletons = new LinkedHashMap<>();
+		private List<RouteInfo> routes = List.of();
 
 		/**
 		 * Registers a bean instance under the given type key.
 		 */
 		public void register(Class<?> type, Object instance) {
 			singletons.put(type, instance);
+		}
+
+		/**
+		 * Sets route metadata collected during container construction.
+		 */
+		public void routes(List<RouteInfo> routes) {
+			this.routes = List.copyOf(routes);
 		}
 
 		/**
@@ -216,7 +232,7 @@ public final class BeanContainer implements AutoCloseable {
 		 * Produces an immutable {@link BeanContainer}.
 		 */
 		public BeanContainer build(Engine engine) {
-			return new BeanContainer(singletons, engine);
+			return new BeanContainer(singletons, engine, routes);
 		}
 
 		/**

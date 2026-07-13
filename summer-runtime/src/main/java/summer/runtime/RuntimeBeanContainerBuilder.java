@@ -12,6 +12,7 @@ import summer.core.BeanContainer;
 import summer.core.Engine;
 import summer.core.RuntimeDiMarker;
 import summer.core.bean.BeanDefinition;
+import summer.core.bean.RouteInfo;
 import summer.core.bean.Scope;
 import summer.core.bean.SharedConditionEvaluator;
 import summer.core.bean.SharedDependencyResolver;
@@ -128,6 +129,11 @@ public final class RuntimeBeanContainerBuilder {
 		for (BeanDefinition beanDef : sorted) {
 			instantiator.instantiateFromDefinition(beanDef);
 		}
+			// Collect route metadata from candidates for route registration
+			List<RouteInfo> allRoutes = candidates.stream()
+					.flatMap(bd -> bd.routes.stream())
+					.toList();
+			builder.routes(allRoutes);
 
 		registerRowMappers(builder, index);
 		runValidators(builder);

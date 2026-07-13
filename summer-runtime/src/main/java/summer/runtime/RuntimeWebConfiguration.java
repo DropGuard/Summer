@@ -1,7 +1,6 @@
 package summer.runtime;
 
 import summer.core.RuntimeDiMarker;
-import org.jboss.jandex.IndexView;
 import summer.core.annotation.Bean;
 import summer.core.annotation.ConditionalOnBean;
 import summer.core.annotation.Configuration;
@@ -11,8 +10,8 @@ import summer.core.annotation.Configuration;
 public class RuntimeWebConfiguration {
 
 	@Bean
-	public RuntimeRouteRegistrar routeRegistrar(IndexView index, HttpParameterResolverChain resolverChain) {
-		return new RuntimeRouteRegistrar(resolverChain, index);
+	public RuntimeRouteRegistrar routeRegistrar(HttpParameterResolverChain resolverChain) {
+		return new RuntimeRouteRegistrar(resolverChain);
 	}
 
 	@Bean
