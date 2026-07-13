@@ -29,6 +29,14 @@ import summer.core.exception.NoSuchBeanException;
  * <li>Interface registration</li>
  * <li>AOP proxy wrapping</li>
  * </ul>
+ *
+ * <p>
+ * Parameter type information is read from {@link BeanDefinition} fields
+ * ({@code constructorParamTypes}, {@code producerParamTypes},
+ * {@code listElementTypes}) rather than re-derived via reflection. This ensures
+ * that once {@link RuntimeBeanAdapter} populates a {@link BeanDefinition}, it
+ * becomes the single source of truth.
+ * </p>
  */
 final class BeanInstantiator {
 
@@ -52,7 +60,8 @@ final class BeanInstantiator {
 	}
 
 	private void instantiateBean(BeanDefinition bean) {
-		if (builder.peek(loadClassForInstantiation(bean.qualifiedName)) != null) {
+		Class<?> clazz = loadClassForInstantiation(bean.qualifiedName);
+		if (builder.peek(clazz) != null) {
 			return;
 		}
 		try {
@@ -60,9 +69,9 @@ final class BeanInstantiator {
 			if (bean.isFactoryMethod()) {
 				instance = invokeFactoryMethod(bean);
 			} else {
-				instance = createInstance(loadClassForInstantiation(bean.qualifiedName));
+				instance = createInstance(bean);
 			}
-			registerBean(loadClassForInstantiation(bean.qualifiedName), instance);
+			registerBean(clazz, instance);
 		} catch (Exception e) {
 			if (e instanceof NoSuchBeanException nse) {
 				throw nse;
@@ -77,7 +86,7 @@ final class BeanInstantiator {
 		Class<?>[] paramTypes = fb.producerParamTypes.stream().map(cn -> loadClassForInstantiation(cn))
 				.toArray(Class[]::new);
 		Method producer = configClass.getMethod(fb.producerMethodName, paramTypes);
-		Object[] args = resolveArgs(producer.getParameterTypes(), producer.getGenericParameterTypes());
+		Object[] args = resolveArgsFromBeanDef(fb.producerParamTypes, fb.listElementTypes);
 		return producer.invoke(configBean, args);
 	}
 
@@ -91,9 +100,10 @@ final class BeanInstantiator {
 		builder.register(clazz, instance);
 	}
 
-	private Object createInstance(Class<?> clazz) throws ReflectiveOperationException {
+	private Object createInstance(BeanDefinition beanDef) throws ReflectiveOperationException {
+		Class<?> clazz = loadClassForInstantiation(beanDef.qualifiedName);
 		Constructor<?> constructor = findSinglePublicConstructor(clazz);
-		Object[] args = resolveArgs(constructor.getParameterTypes(), constructor.getGenericParameterTypes());
+		Object[] args = resolveArgsFromBeanDef(beanDef.constructorParamTypes, beanDef.listElementTypes);
 		return constructor.newInstance(args);
 	}
 
@@ -106,23 +116,32 @@ final class BeanInstantiator {
 		return ctors[0];
 	}
 
-	private Object[] resolveArgs(Class<?>[] paramTypes, Type[] genericTypes) {
-		Object[] args = new Object[paramTypes.length];
-		for (int i = 0; i < paramTypes.length; i++) {
-			Class<?> paramType = paramTypes[i];
-			Type genericType = genericTypes[i];
-			if (paramType == List.class && genericType instanceof ParameterizedType pt) {
-				Type elementType = pt.getActualTypeArguments()[0];
-				if (elementType instanceof Class<?> elementClass) {
-					args[i] = builder.getBeans(elementClass);
-				} else {
-					args[i] = builder.getBean(paramType);
-				}
+	/**
+	 * Resolves constructor / {@code @Bean} method arguments from the parameter type
+	 * names stored in a {@link BeanDefinition}, rather than re-deriving them from
+	 * {@link java.lang.reflect.Method#getParameterTypes()} or
+	 * {@link Constructor#getParameterTypes()}.
+	 *
+	 * <p>
+	 * {@code List<T>} parameters use the element type information from
+	 * {@code listElementTypes} to collect all beans of the element type.
+	 * </p>
+	 */
+	private Object[] resolveArgsFromBeanDef(List<String> paramTypeNames, Map<Integer, String> listElementTypes) {
+		Object[] args = new Object[paramTypeNames.size()];
+		for (int i = 0; i < paramTypeNames.size(); i++) {
+			String paramTypeName = paramTypeNames.get(i);
+			if (paramTypeName.equals("summer.core.BeanContainer")) {
+				throw new BeanCreationException(
+						"ApplicationContext injection is not supported by the runtime engine. Use BeanContainer from caller.");
+			}
+
+			Class<?> paramType = loadClassForInstantiation(paramTypeName);
+			if (paramType == List.class && listElementTypes.containsKey(i)) {
+				String elementTypeName = listElementTypes.get(i);
+				Class<?> elementClass = loadClassForInstantiation(elementTypeName);
+				args[i] = builder.getBeans(elementClass);
 			} else {
-				if (paramType == summer.core.BeanContainer.class) {
-					throw new BeanCreationException(
-							"ApplicationContext injection is not supported by the runtime engine. Use BeanContainer from caller.");
-				}
 				args[i] = builder.getBean(paramType);
 			}
 		}
