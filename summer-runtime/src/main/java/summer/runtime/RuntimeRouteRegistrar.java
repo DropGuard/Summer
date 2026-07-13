@@ -2,6 +2,7 @@ package summer.runtime;
 
 import java.lang.reflect.Method;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import org.jboss.jandex.AnnotationInstance;
 import org.jboss.jandex.AnnotationValue;
@@ -34,6 +35,7 @@ public class RuntimeRouteRegistrar implements RouteRegistrar {
 
 	private final HttpParameterResolverChain resolverChain;
 	private final IndexView index;
+	private final Map<Class<?>, Map<String, Method>> methodCache = new HashMap<>();
 
 	public RuntimeRouteRegistrar(HttpParameterResolverChain resolverChain, IndexView index) {
 		this.resolverChain = resolverChain;
@@ -77,7 +79,8 @@ public class RuntimeRouteRegistrar implements RouteRegistrar {
 		try {
 			Class<?> clazz = Class.forName(controllerClass.name().toString());
 			Object controller = context.getBean(clazz);
-			Handler handler = HandlerFactory.create(controller, method, resolverChain);
+			Method resolved = resolveMethod(clazz, method);
+			Handler handler = HandlerFactory.create(controller, resolved, resolverChain);
 			switch (httpMethod) {
 				case GET -> builder.get(fullPath, handler);
 				case POST -> builder.post(fullPath, handler);
@@ -106,6 +109,16 @@ public class RuntimeRouteRegistrar implements RouteRegistrar {
 			}
 			return;
 		}
+	}
+
+	private Method resolveMethod(Class<?> clazz, MethodInfo methodInfo) {
+		return methodCache.computeIfAbsent(clazz, c -> {
+			Map<String, Method> map = new HashMap<>();
+			for (Method m : c.getMethods()) {
+				map.putIfAbsent(m.getName() + "|" + m.getParameterCount(), m);
+			}
+			return map;
+		}).get(methodInfo.name() + "|" + methodInfo.parameters().size());
 	}
 
 	private static String annotationValue(AnnotationInstance ann) {

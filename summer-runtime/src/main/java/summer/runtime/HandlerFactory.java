@@ -4,7 +4,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.function.Function;
-import org.jboss.jandex.MethodInfo;
 import summer.web.Handler;
 import summer.web.HttpContext;
 
@@ -55,21 +54,4 @@ public final class HandlerFactory {
 		};
 	}
 
-	/**
-	 * Creates a Handler from a Jandex {@link MethodInfo}. Resolves the Java
-	 * reflection method at build time from the instance class.
-	 */
-	public static Handler create(Object instance, MethodInfo methodInfo, HttpParameterResolverChain resolverChain) {
-		Method targetMethod = null;
-		for (Method m : instance.getClass().getMethods()) {
-			if (m.getName().equals(methodInfo.name()) && m.getParameterCount() == methodInfo.parameters().size()) {
-				targetMethod = m;
-				break;
-			}
-		}
-		if (targetMethod == null) {
-			throw new summer.aop.SummerAopException("Method not found: " + methodInfo.name());
-		}
-		return create(instance, targetMethod, resolverChain);
-	}
 }
