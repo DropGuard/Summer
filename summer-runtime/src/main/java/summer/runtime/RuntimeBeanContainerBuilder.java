@@ -105,13 +105,17 @@ public final class RuntimeBeanContainerBuilder {
 
 		// ── Phase 2: Evaluation ─────────────────────────────────────
 		// Evaluate @ConditionalOnBean and @Replaces against the candidate set.
-		SharedConditionEvaluator evaluator = new SharedConditionEvaluator(index);
+		SharedConditionEvaluator evaluator = new SharedConditionEvaluator();
 		evaluator.evaluate(candidates);
 
 		// ── Phase 3: Resolution ─────────────────────────────────────
 		// Bind, sort, instantiate.
 		bindConfigurationProperties(componentClasses, builder);
 		BeanDefinitionFactory.populateInterceptors(candidates);
+
+		// Pre-build exception handler metadata for RuntimeExceptionHandlerRegistrar.
+		// This eliminates reflection-based @ExceptionHandler scanning at registration time.
+		RuntimeExceptionHandlerRegistrar.setPrebuiltHandlers(candidates);
 
 		SharedDependencyResolver resolver = new SharedDependencyResolver();
 		List<BeanDefinition> sorted = resolver.resolve(candidates);

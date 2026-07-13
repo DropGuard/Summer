@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.ArrayList;
 import java.util.List;
-import org.jboss.jandex.Index;
 import org.junit.jupiter.api.Test;
 import summer.core.exception.AmbiguousBeanException;
 import summer.core.exception.NoSuchBeanException;
@@ -13,12 +12,12 @@ class SharedConditionEvaluatorTest {
 
 	@Test
 	void shouldThrowNoSuchBeanExceptionWhenMethodReplacesTargetMissing() throws Exception {
-		SharedConditionEvaluator evaluator = new SharedConditionEvaluator(Index.of(Object.class));
+		SharedConditionEvaluator evaluator = new SharedConditionEvaluator();
 
 		BeanDefinition replacer = new BeanDefinition("com.NewBean", "newBean");
 		replacer.configClassName = "com.Config";
 		replacer.producerMethodName = "newBean";
-		replacer.replacesReturnType = "com.MissingTarget";
+		replacer.methodLevelReplaces = "com.MissingTarget";
 
 		List<BeanDefinition> beans = new ArrayList<>();
 		beans.add(replacer);
@@ -29,12 +28,12 @@ class SharedConditionEvaluatorTest {
 
 	@Test
 	void shouldThrowAmbiguousBeanExceptionWhenMethodReplacesTargetIsAmbiguous() throws Exception {
-		SharedConditionEvaluator evaluator = new SharedConditionEvaluator(Index.of(Object.class));
+		SharedConditionEvaluator evaluator = new SharedConditionEvaluator();
 
 		BeanDefinition replacer = new BeanDefinition("com.NewBean", "newBean");
 		replacer.configClassName = "com.Config";
 		replacer.producerMethodName = "newBean";
-		replacer.replacesReturnType = "com.TargetBean";
+		replacer.methodLevelReplaces = "com.TargetBean";
 
 		BeanDefinition target1 = new BeanDefinition("com.TargetBean", "target1");
 		target1.configClassName = "com.OldConfig1";
