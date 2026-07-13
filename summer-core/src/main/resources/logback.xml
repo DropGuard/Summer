@@ -1,6 +1,6 @@
 <configuration>
-	<!-- Summer framework debug logging -->
-	<logger name="summer" level="DEBUG"/>
+	<!-- Summer: INFO by default. Flip to DEBUG when troubleshooting DI/resolution -->
+	<logger name="summer" level="INFO"/>
 
 	<!-- Suppress noisy third-party DEBUG logs -->
 	<logger name="com.zaxxer.hikari" level="WARN"/>
