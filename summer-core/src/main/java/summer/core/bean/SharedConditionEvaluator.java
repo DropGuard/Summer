@@ -6,11 +6,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.jboss.jandex.AnnotationInstance;
-import org.jboss.jandex.ClassInfo;
-import org.jboss.jandex.DotName;
-import org.jboss.jandex.IndexView;
-import org.jboss.jandex.MethodInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import summer.core.exception.AmbiguousBeanException;
@@ -32,20 +27,15 @@ import summer.core.exception.NoSuchBeanException;
  * </ol>
  *
  * <p>
- * Reads annotations via Jandex {@link IndexView}, works for both Runtime and
- * AOT engines.
+ * Reads conditions and replaces from {@link BeanDefinition} fields populated
+ * during discovery — no Jandex access at evaluation time.
  * </p>
  */
 public final class SharedConditionEvaluator {
 
 	private static final Logger log = LoggerFactory.getLogger(SharedConditionEvaluator.class);
-	private static final DotName CONDITIONAL_DOT = DotName.createSimple("summer.core.annotation.ConditionalOnBean");
-	private static final DotName REPLACES_DOT = DotName.createSimple("summer.core.annotation.Replaces");
 
-	private final IndexView index;
-
-	public SharedConditionEvaluator(IndexView index) {
-		this.index = index;
+	public SharedConditionEvaluator() {
 	}
 
 	/**
@@ -67,25 +57,11 @@ public final class SharedConditionEvaluator {
 	private Map<String, String> collectConditionalRequirements(List<BeanDefinition> beans) {
 		Map<String, String> requiredTypes = new HashMap<>();
 		for (BeanDefinition bean : beans) {
-			ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
-			if (ci == null)
-				continue;
-
-			AnnotationInstance condAnn = ci.annotation(CONDITIONAL_DOT);
-			if (condAnn != null) {
-				requiredTypes.put(bean.qualifiedName, condAnn.value().asClass().name().toString());
+			if (bean.conditionalOnBeanType != null) {
+				requiredTypes.put(bean.qualifiedName, bean.conditionalOnBeanType);
 			}
-
-			if (bean.isFactoryMethod()) {
-				ClassInfo configCi = index.getClassByName(DotName.createSimple(bean.configClassName));
-				if (configCi != null) {
-					for (MethodInfo method : configCi.methods()) {
-						if (method.name().equals(bean.producerMethodName) && method.hasAnnotation(CONDITIONAL_DOT)) {
-							requiredTypes.put(bean.qualifiedName,
-									method.annotation(CONDITIONAL_DOT).value().asClass().name().toString());
-						}
-					}
-				}
+			if (bean.methodConditionalOnBeanType != null) {
+				requiredTypes.put(bean.qualifiedName, bean.methodConditionalOnBeanType);
 			}
 		}
 		return requiredTypes;
@@ -143,37 +119,33 @@ public final class SharedConditionEvaluator {
 	// ── @Replaces ─────────────────────────────────────────────────
 
 	private void resolveReplaces(List<BeanDefinition> beans) {
-		// First pass: mark method-level @Replaces
+		// First pass: log method-level @Replaces from pre-populated field
 		for (BeanDefinition bean : beans) {
 			if (!bean.isFactoryMethod())
 				continue;
-			log.debug("[Summer] Checking method-level @Replaces for {}.{}", bean.configClassName,
-					bean.producerMethodName);
-			String target = resolveMethodLevelReplaces(bean);
-			if (target != null) {
-				log.debug("[Summer] Found method-level @Replaces: {}.{} replaces {}", bean.configClassName,
-						bean.producerMethodName, target);
-				bean.replacesReturnType = target;
+			if (bean.methodLevelReplaces != null) {
+				log.debug("[Summer] Method-level @Replaces: {}.{} replaces {}", bean.configClassName,
+						bean.producerMethodName, bean.methodLevelReplaces);
 			}
 		}
 
 		// Second pass: collect all replaced beans
 		List<BeanDefinition> replaced = new ArrayList<>();
 		for (BeanDefinition bean : beans) {
-			// Class-level: @Replaces on the replacement class itself
-			String targetName = resolveClassLevelReplaces(bean);
-			if (targetName != null) {
-				BeanDefinition target = findBeanByName(beans, targetName);
+			// Class-level @Replaces
+			if (bean.replacesTargetClass != null) {
+				BeanDefinition target = findBeanByName(beans, bean.replacesTargetClass);
 				if (target == null)
-					throw new NoSuchBeanException("@Replaces target not found: " + targetName);
-				log.debug("[Summer] Class-level @Replaces: {} replaces {}", bean.qualifiedName, targetName);
+					throw new NoSuchBeanException("@Replaces target not found: " + bean.replacesTargetClass);
+				log.debug("[Summer] Class-level @Replaces: {} replaces {}", bean.qualifiedName,
+						bean.replacesTargetClass);
 				replaced.add(target);
 			}
-			// Method-level: @Replaces on @Bean method
-			if (bean.replacesReturnType != null) {
-				BeanDefinition target = findBeanByReturnType(beans, bean.replacesReturnType, bean);
+			// Method-level @Replaces
+			if (bean.methodLevelReplaces != null) {
+				BeanDefinition target = findBeanByReturnType(beans, bean.methodLevelReplaces, bean);
 				if (target == null)
-					throw new NoSuchBeanException("@Replaces target not found: " + bean.replacesReturnType);
+					throw new NoSuchBeanException("@Replaces target not found: " + bean.methodLevelReplaces);
 				String beanDesc = bean.isFactoryMethod()
 						? bean.configClassName + "#" + bean.producerMethodName
 						: bean.qualifiedName;
@@ -192,37 +164,6 @@ public final class SharedConditionEvaluator {
 		}
 		beans.removeAll(replaced);
 		log.debug("[Summer] Beans after resolveReplaces: {} remaining", beans.size());
-	}
-
-	/**
-	 * Resolves the class-level {@code @Replaces} target for a bean definition. The
-	 * target is set by {@code BeanDefinitionFactory.toBeanDefinitions()} via
-	 * reflection at build time — no Jandex lookup needed.
-	 */
-	private String resolveClassLevelReplaces(BeanDefinition bean) {
-		return bean.replacesTargetClass;
-	}
-
-	private String resolveMethodLevelReplaces(BeanDefinition fb) {
-		ClassInfo configCi = index.getClassByName(DotName.createSimple(fb.configClassName));
-		if (configCi == null) {
-			log.debug("[Summer] resolveMethodLevelReplaces: configCi is null for {}", fb.configClassName);
-			return null;
-		}
-
-		for (MethodInfo method : configCi.methods()) {
-			if (!method.name().equals(fb.producerMethodName))
-				continue;
-			log.debug("[Summer] resolveMethodLevelReplaces: found method {}, hasReplaces={}", method.name(),
-					method.hasAnnotation(REPLACES_DOT));
-			if (!method.hasAnnotation(REPLACES_DOT))
-				continue;
-			AnnotationInstance ann = method.annotation(REPLACES_DOT);
-			if (ann != null) {
-				return ann.value().asClass().name().toString();
-			}
-		}
-		return null;
 	}
 
 	// ── @ConditionalOnBean ────────────────────────────────────────
