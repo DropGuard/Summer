@@ -64,6 +64,19 @@ public final class RuntimeBeanAdapter {
 		// AOP binding flag
 		bean.needsProxy = detectAopBinding(clazz);
 
+		// Pre-compute interceptor binding annotations for @Interceptor beans.
+		// Stored as strings on BeanDefinition so downstream matching code reads
+		// from the definition rather than re-scanning annotations via reflection.
+		if (clazz.isAnnotationPresent(summer.aop.Interceptor.class)) {
+			Set<String> bindings = new HashSet<>();
+			for (Annotation ann : clazz.getAnnotations()) {
+				if (ann.annotationType().isAnnotationPresent(summer.aop.InterceptorBinding.class)) {
+					bindings.add(ann.annotationType().getName());
+				}
+			}
+			bean.interceptorBindingAnnotations = bindings;
+		}
+
 		// Route metadata (if Controller)
 		collectRoutes(clazz, bean);
 

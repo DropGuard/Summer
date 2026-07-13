@@ -73,19 +73,16 @@ public final class BeanDefinitionFactory {
 
 	/**
 	 * Builds a map from bean qualifiedName to its matching interceptor
-	 * qualifiedNames. Used by {@link BeanInstantiator} to apply AOP proxies.
+	 * qualifiedNames. Uses the pre-computed {@link BeanDefinition#interceptors}
+	 * list populated by {@link #populateInterceptors(List)}.
 	 *
 	 * @param allBeans
 	 *            list of all bean definitions
 	 * @return map from bean qualifiedName to interceptor qualifiedNames
 	 */
 	public static Map<String, List<String>> buildInterceptorMap(List<BeanDefinition> allBeans) {
-		List<BeanDefinition> interceptors = findInterceptors(allBeans);
-		if (interceptors.isEmpty()) {
-			return Map.of();
-		}
 		return allBeans.stream().filter(bean -> bean.needsProxy).filter(bean -> !isInterceptor(bean))
-				.map(bean -> Map.entry(bean.qualifiedName, matchingInterceptorNames(bean, interceptors)))
+				.map(bean -> Map.entry(bean.qualifiedName, matchingInterceptorNames(bean)))
 				.filter(e -> !e.getValue().isEmpty()).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 	}
 
@@ -94,6 +91,12 @@ public final class BeanDefinitionFactory {
 	 * proxying. This tells {@link summer.core.bean.SharedDependencyResolver} about
 	 * AOP interceptor dependencies so that the topological sort places interceptors
 	 * before their targets.
+	 *
+	 * <p>
+	 * Interceptor matching reads {@link BeanDefinition#interceptorBindingAnnotations}
+	 * — pre-computed at discovery time by {@link RuntimeBeanAdapter} — rather than
+	 * scanning annotations via reflection.
+	 * </p>
 	 *
 	 * @param allBeans
 	 *            list of all bean definitions
@@ -111,26 +114,42 @@ public final class BeanDefinitionFactory {
 			if (beanClass == null) {
 				continue;
 			}
-			interceptors.stream().filter(ib -> ib != bean).map(ib -> loadClass(ib.qualifiedName))
-					.filter(ic -> ic != null && hasMatchingBinding(ic, beanClass))
-					.forEach(ic -> bean.interceptors.add(findBeanByClass(allBeans, ic)));
+			interceptors.stream().filter(ib -> ib != bean).filter(ib -> hasMatchingBinding(ib, beanClass))
+					.forEach(ib -> bean.interceptors.add(ib));
 		}
 	}
 
 	/**
-	 * Checks if an interceptor has a binding annotation that matches the target
-	 * class or any of its methods.
+	 * Checks if an interceptor definition has a binding annotation that matches the
+	 * target class or any of its methods.
 	 *
-	 * @param interceptorClass
-	 *            the interceptor class
+	 * <p>
+	 * Reads binding annotations from {@link BeanDefinition#interceptorBindingAnnotations},
+	 * which are pre-computed strings populated at discovery time — no reflection
+	 * call to {@code findBindings()} needed.
+	 * </p>
+	 *
+	 * @param interceptorDef
+	 *            the interceptor's bean definition (with populated
+	 *            {@code interceptorBindingAnnotations})
 	 * @param targetClass
 	 *            the target class to match against
 	 * @return true if the interceptor should be applied to the target
 	 */
-	public static boolean hasMatchingBinding(Class<?> interceptorClass, Class<?> targetClass) {
-		return BindingMatcher.findBindings(interceptorClass).stream()
-				.anyMatch(binding -> targetClass.isAnnotationPresent(binding)
-						|| Stream.of(targetClass.getMethods()).anyMatch(m -> m.isAnnotationPresent(binding)));
+	public static boolean hasMatchingBinding(BeanDefinition interceptorDef, Class<?> targetClass) {
+		for (String bindingName : interceptorDef.interceptorBindingAnnotations) {
+			Class<?> bindingClass = loadClass(bindingName);
+			if (bindingClass == null) {
+				continue;
+			}
+			@SuppressWarnings("unchecked")
+			Class<? extends java.lang.annotation.Annotation> binding = (Class<? extends java.lang.annotation.Annotation>) bindingClass;
+			if (targetClass.isAnnotationPresent(binding)
+					|| Stream.of(targetClass.getMethods()).anyMatch(m -> m.isAnnotationPresent(binding))) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -159,16 +178,16 @@ public final class BeanDefinitionFactory {
 		return clazz != null && clazz.isAnnotationPresent(summer.aop.Interceptor.class);
 	}
 
-	private static List<String> matchingInterceptorNames(BeanDefinition bean, List<BeanDefinition> interceptors) {
-		Class<?> beanClass = loadClass(bean.qualifiedName);
-		if (beanClass == null) {
-			return List.of();
-		}
-		return interceptors.stream().filter(ib -> ib != bean).map(ib -> loadClass(ib.qualifiedName))
-				.filter(ic -> ic != null && hasMatchingBinding(ic, beanClass)).map(Class::getName).toList();
-	}
-
-	private static BeanDefinition findBeanByClass(List<BeanDefinition> allBeans, Class<?> clazz) {
-		return allBeans.stream().filter(b -> b.qualifiedName.equals(clazz.getName())).findFirst().orElse(null);
+	/**
+	 * Returns the qualified names of interceptors that match the given bean.
+	 *
+	 * <p>
+	 * Reads from the pre-computed {@link BeanDefinition#interceptors} list
+	 * populated by {@link #populateInterceptors(List)} rather than re-running
+	 * binding matching.
+	 * </p>
+	 */
+	private static List<String> matchingInterceptorNames(BeanDefinition bean) {
+		return bean.interceptors.stream().map(b -> b.qualifiedName).toList();
 	}
 }

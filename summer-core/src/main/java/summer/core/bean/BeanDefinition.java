@@ -1,9 +1,11 @@
 package summer.core.bean;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Bean definition — the single source of metadata for every bean in the
@@ -46,6 +48,19 @@ public sealed class BeanDefinition permits ConfigPropertiesBean {
 	public boolean needsProxy;
 	public final List<BeanDefinition> interceptors = new ArrayList<>();
 	public boolean isAutoCloseable;
+
+	/**
+	 * AOP interceptor binding annotation qualified names.
+	 *
+	 * <p>
+	 * Populated at discovery time for {@code @Interceptor} beans. Stores the
+	 * fully-qualified names of annotations meta-annotated with
+	 * {@code @InterceptorBinding}. Consumers use these strings (rather than
+	 * re-scanning annotations via reflection) to match interceptors to target
+	 * beans.
+	 * </p>
+	 */
+	public Set<String> interceptorBindingAnnotations = Collections.emptySet();
 
 	public BeanDefinition(String qualifiedName, String simpleName) {
 		this.qualifiedName = qualifiedName;
