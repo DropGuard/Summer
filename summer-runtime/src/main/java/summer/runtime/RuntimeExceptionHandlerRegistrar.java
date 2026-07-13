@@ -16,14 +16,15 @@ import summer.web.annotation.ExceptionHandler;
 public class RuntimeExceptionHandlerRegistrar implements ExceptionHandlerRegistrar {
 
 	private final HttpParameterResolverChain resolverChain;
+	private final IndexView index;
 
-	public RuntimeExceptionHandlerRegistrar(HttpParameterResolverChain resolverChain) {
+	public RuntimeExceptionHandlerRegistrar(HttpParameterResolverChain resolverChain, IndexView index) {
 		this.resolverChain = resolverChain;
+		this.index = index;
 	}
 
 	@Override
 	public void registerHandlers(ExceptionRegistry registry, BeanContainer context) {
-		IndexView index = JandexIndexLoader.buildIndex();
 		for (ClassInfo ci : index.getKnownClasses()) {
 			try {
 				Class<?> clazz = Class.forName(ci.name().toString());

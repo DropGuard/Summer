@@ -36,7 +36,6 @@ public final class BeanDiscovery {
 	private static final DotName CONFIG_PROPERTIES_DOT = DotName
 			.createSimple("summer.core.config.ConfigurationProperties");
 	private static final DotName REPLACES_DOT = DotName.createSimple("summer.core.annotation.Replaces");
-	private static final DotName CONDITIONAL_DOT = DotName.createSimple("summer.core.annotation.ConditionalOnBean");
 	private static final DotName DEFAULT_VALUE_DOT = DotName.createSimple("summer.core.config.DefaultValue");
 
 	private final IndexView index;

@@ -11,15 +11,13 @@ import summer.core.annotation.Configuration;
 public class RuntimeWebConfiguration {
 
 	@Bean
-	public RuntimeRouteRegistrar routeRegistrar(HttpParameterResolverChain resolverChain) {
-		// The Jandex index is loaded directly — it is the same index that the
-		// RuntimeBeanContainerBuilder used during bean discovery.
-		IndexView index = JandexIndexLoader.buildIndex();
+	public RuntimeRouteRegistrar routeRegistrar(IndexView index, HttpParameterResolverChain resolverChain) {
 		return new RuntimeRouteRegistrar(resolverChain, index);
 	}
 
 	@Bean
-	public RuntimeExceptionHandlerRegistrar exceptionHandlerRegistrar(HttpParameterResolverChain resolverChain) {
-		return new RuntimeExceptionHandlerRegistrar(resolverChain);
+	public RuntimeExceptionHandlerRegistrar exceptionHandlerRegistrar(IndexView index,
+			HttpParameterResolverChain resolverChain) {
+		return new RuntimeExceptionHandlerRegistrar(resolverChain, index);
 	}
 }

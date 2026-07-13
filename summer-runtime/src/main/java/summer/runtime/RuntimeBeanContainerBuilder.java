@@ -97,7 +97,9 @@ public final class RuntimeBeanContainerBuilder {
 		// Build all candidate BeanDefinitions without filtering.
 		RuntimeBeanAdapter adapter = new RuntimeBeanAdapter(index);
 		List<BeanDefinition> candidates = BeanDefinitionFactory.buildBeanDefinitions(componentClasses, adapter);
-		candidates.add(new BeanDefinition(RuntimeDiMarker.class.getName(), "RuntimeDiMarker"));
+			candidates.add(new BeanDefinition(RuntimeDiMarker.class.getName(), "RuntimeDiMarker"));
+			// Register IndexView so the dependency resolver can find it for @Bean method params
+			candidates.add(new BeanDefinition(IndexView.class.getName(), IndexView.class.getSimpleName()));
 
 		// ── Phase 2: Evaluation ─────────────────────────────────────
 		// Evaluate @ConditionalOnBean and @Replaces against the candidate set.
@@ -114,6 +116,7 @@ public final class RuntimeBeanContainerBuilder {
 
 		Map<String, List<String>> interceptorMap = BeanDefinitionFactory.buildInterceptorMap(candidates);
 		BeanInstantiator instantiator = new BeanInstantiator(builder, interceptorMap);
+		builder.register(IndexView.class, index);
 		for (BeanDefinition beanDef : sorted) {
 			instantiator.instantiateFromDefinition(beanDef);
 		}
