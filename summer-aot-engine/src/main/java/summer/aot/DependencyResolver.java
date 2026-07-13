@@ -168,7 +168,7 @@ public final class DependencyResolver {
 			if (hasCycleDfs(bean.configBeanDefinition, visited, stack))
 				return true;
 		}
-		if (bean.needsProxy) {
+		if (bean.needsProxy()) {
 			for (BeanDefinition interceptor : bean.interceptors) {
 				if (hasCycleDfs(interceptor, visited, stack))
 					return true;
@@ -217,7 +217,7 @@ public final class DependencyResolver {
 			}
 			if (b.configBeanDefinition != null)
 				incoming.get(b).add(b.configBeanDefinition);
-			if (b.needsProxy) {
+			if (b.needsProxy()) {
 				for (BeanDefinition interceptor : b.interceptors)
 					incoming.get(b).add(interceptor);
 			}

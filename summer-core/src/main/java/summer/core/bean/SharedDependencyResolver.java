@@ -205,7 +205,7 @@ public final class SharedDependencyResolver {
 			}
 			if (b.configBeanDefinition != null)
 				incoming.get(b).add(b.configBeanDefinition);
-			if (b.needsProxy) {
+			if (b.needsProxy()) {
 				for (BeanDefinition interceptor : b.interceptors)
 					incoming.get(b).add(interceptor);
 			}

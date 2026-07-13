@@ -81,7 +81,7 @@ public final class BeanDefinitionFactory {
 	 * @return map from bean qualifiedName to interceptor qualifiedNames
 	 */
 	public static Map<String, List<String>> buildInterceptorMap(List<BeanDefinition> allBeans) {
-		return allBeans.stream().filter(bean -> bean.needsProxy).filter(bean -> !isInterceptor(bean))
+		return allBeans.stream().filter(BeanDefinition::needsProxy).filter(bean -> !isInterceptor(bean))
 				.map(bean -> Map.entry(bean.qualifiedName, matchingInterceptorNames(bean)))
 				.filter(e -> !e.getValue().isEmpty()).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 	}
@@ -107,14 +107,12 @@ public final class BeanDefinitionFactory {
 			return;
 		}
 		for (BeanDefinition bean : allBeans) {
-			if (!bean.needsProxy || isInterceptor(bean)) {
+			// needsProxy already excludes @Interceptor beans -- keep isInterceptor for clarity
+			if (!bean.needsProxy() || bean.isInterceptor) {
 				continue;
 			}
-			Class<?> beanClass = loadClass(bean.qualifiedName);
-			if (beanClass == null) {
-				continue;
-			}
-			interceptors.stream().filter(ib -> ib != bean).filter(ib -> hasMatchingBinding(ib, beanClass))
+			// Pure string Set intersection on pre-computed interceptorBindingAnnotations -- no reflection
+			interceptors.stream().filter(ib -> ib != bean).filter(ib -> hasMatchingBinding(ib, bean))
 					.forEach(ib -> bean.interceptors.add(ib));
 		}
 	}
@@ -136,20 +134,14 @@ public final class BeanDefinitionFactory {
 	 *            the target class to match against
 	 * @return true if the interceptor should be applied to the target
 	 */
-	public static boolean hasMatchingBinding(BeanDefinition interceptorDef, Class<?> targetClass) {
-		for (String bindingName : interceptorDef.interceptorBindingAnnotations) {
-			Class<?> bindingClass = loadClass(bindingName);
-			if (bindingClass == null) {
-				continue;
-			}
-			@SuppressWarnings("unchecked")
-			Class<? extends java.lang.annotation.Annotation> binding = (Class<? extends java.lang.annotation.Annotation>) bindingClass;
-			if (targetClass.isAnnotationPresent(binding)
-					|| Stream.of(targetClass.getMethods()).anyMatch(m -> m.isAnnotationPresent(binding))) {
-				return true;
-			}
-		}
-		return false;
+	/**
+	 * Checks if an interceptor definition has a binding annotation that matches the
+	 * target definition. Pure string Set intersection on pre-computed
+	 * {@link BeanDefinition#interceptorBindingAnnotations} — no reflection.
+	 */
+	public static boolean hasMatchingBinding(BeanDefinition interceptorDef, BeanDefinition targetDef) {
+		return interceptorDef.interceptorBindingAnnotations.stream()
+				.anyMatch(targetDef.interceptorBindingAnnotations::contains);
 	}
 
 	/**
@@ -159,6 +151,12 @@ public final class BeanDefinitionFactory {
 	 *            fully qualified class name
 	 * @return the loaded class, or null if not found
 	 */
+	/**
+	 * @deprecated No longer needed internally — all consumers now use pre-computed
+	 *             {@link BeanDefinition#interceptorBindingAnnotations} string sets.
+	 *             Will be removed in a future release.
+	 */
+	@Deprecated
 	public static Class<?> loadClass(String className) {
 		try {
 			return Class.forName(className);
@@ -174,7 +172,7 @@ public final class BeanDefinitionFactory {
 	}
 
 	private static boolean isInterceptor(BeanDefinition bean) {
-		return !bean.interceptorBindingAnnotations.isEmpty();
+		return bean.isInterceptor;
 	}
 
 	/**

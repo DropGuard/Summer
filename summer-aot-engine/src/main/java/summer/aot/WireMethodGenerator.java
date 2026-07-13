@@ -47,7 +47,7 @@ public final class WireMethodGenerator {
 			if (bean instanceof ConfigPropertiesBean) {
 				wire.addStatement("builder.register($T.class, $N)", beanClass, varName);
 			} else {
-				if (bean.needsProxy) {
+				if (bean.needsProxy()) {
 					wire.addStatement("builder.register($T.class, $N)", beanClass, varName + "_impl");
 				} else {
 					wire.addStatement("builder.register($T.class, $N)", beanClass, varName);
@@ -143,7 +143,7 @@ public final class WireMethodGenerator {
 	private void emitComponentInstantiation(MethodSpec.Builder wire, BeanDefinition bean, ClassName beanClass,
 			String varName) {
 		CodeBlock args = buildConstructorArgs(bean);
-		if (bean.needsProxy) {
+		if (bean.needsProxy()) {
 			String implVar = varName + "_impl";
 			if (bean.constructorParamTypes.isEmpty()) {
 				wire.addStatement("$T $N = new $T()", beanClass, implVar, beanClass);
