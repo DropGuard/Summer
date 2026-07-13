@@ -36,6 +36,7 @@ public final class BeanDiscovery {
 	private static final DotName CONFIG_PROPERTIES_DOT = DotName
 			.createSimple("summer.core.config.ConfigurationProperties");
 	private static final DotName REPLACES_DOT = DotName.createSimple("summer.core.annotation.Replaces");
+	private static final DotName CONDITIONAL_ON_BEAN_DOT = DotName.createSimple("summer.core.annotation.ConditionalOnBean");
 	private static final DotName DEFAULT_VALUE_DOT = DotName.createSimple("summer.core.config.DefaultValue");
 
 	private final IndexView index;
@@ -78,7 +79,7 @@ public final class BeanDiscovery {
 		}
 
 		// Phase 2: Evaluate conditions
-		new summer.core.bean.SharedConditionEvaluator(index).evaluate(beans);
+		new summer.core.bean.SharedConditionEvaluator().evaluate(beans);
 
 		// Phase 3: Enrich remaining metadata
 		new BeanEnrichment(index).enrich(beans);
@@ -108,6 +109,10 @@ public final class BeanDiscovery {
 				AnnotationInstance replacesAnn = ci.annotation(REPLACES_DOT);
 				if (replacesAnn != null) {
 					bean.replacesTargetClass = replacesAnn.value().asClass().name().toString();
+				}
+				AnnotationInstance condAnn = ci.annotation(CONDITIONAL_ON_BEAN_DOT);
+				if (condAnn != null) {
+					bean.conditionalOnBeanType = condAnn.value().asClass().name().toString();
 				}
 				beans.add(bean);
 			}
@@ -218,7 +223,29 @@ public final class BeanDiscovery {
 		fb.producerMethodName = method.name();
 		fb.producerParamTypes.clear();
 		for (int i = 0; i < method.parametersCount(); i++) {
-			fb.producerParamTypes.add(method.parameterType(i).name().toString());
+			org.jboss.jandex.Type paramType = method.parameterType(i);
+			fb.producerParamTypes.add(paramType.name().toString());
+
+			// Detect List<T> parameters
+			if (paramType.kind() == org.jboss.jandex.Type.Kind.PARAMETERIZED_TYPE) {
+				org.jboss.jandex.ParameterizedType pt = paramType.asParameterizedType();
+				if (pt.name().toString().equals("java.util.List") && pt.arguments().size() == 1) {
+					fb.listElementTypes.put(i, pt.arguments().get(0).name().toString());
+				}
+			}
+		}
+
+		// Method-level @Replaces (populated during discovery so SharedConditionEvaluator
+		// doesn't need to re-read Jandex)
+		AnnotationInstance methodReplaces = method.annotation(REPLACES_DOT);
+		if (methodReplaces != null) {
+			fb.methodLevelReplaces = methodReplaces.value().asClass().name().toString();
+		}
+
+		// Method-level @ConditionalOnBean
+		AnnotationInstance methodConditional = method.annotation(CONDITIONAL_ON_BEAN_DOT);
+		if (methodConditional != null) {
+			fb.methodConditionalOnBeanType = methodConditional.value().asClass().name().toString();
 		}
 	}
 }

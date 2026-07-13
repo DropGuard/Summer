@@ -37,6 +37,9 @@ final class BeanEnrichment {
 			DotName.createSimple("summer.web.annotation.Put"), "PUT",
 			DotName.createSimple("summer.web.annotation.Delete"), "DELETE");
 
+	private static final DotName EXCEPTION_HANDLER_DOT = DotName.createSimple("summer.web.annotation.ExceptionHandler");
+	private static final DotName CONDITIONAL_ON_BEAN_DOT = DotName.createSimple("summer.core.annotation.ConditionalOnBean");
+
 	private final IndexView index;
 
 	BeanEnrichment(IndexView index) {
@@ -58,6 +61,8 @@ final class BeanEnrichment {
 				}
 				// interfaces are now collected during BeanDiscovery.createBaseDefinition
 				// collectInterfaces(bean, ci);
+				collectExceptionHandlers(bean, ci);
+				collectConditions(bean, ci);
 			}
 		}
 		collectRouteMetadata(beans);
@@ -250,7 +255,7 @@ final class BeanEnrichment {
 			}
 		}
 
-		// Step 3: For each bean, check if it needs a proxy and match interceptors
+		// Step 3: Populate interceptorBindingAnnotations and match interceptors
 		for (BeanDefinition bean : beans) {
 			if (bean instanceof ConfigPropertiesBean)
 				continue;
@@ -263,41 +268,76 @@ final class BeanEnrichment {
 			if (ci.hasAnnotation(INTERCEPTOR_DOT))
 				continue;
 
-			// Check class-level bindings
+			// Collect class-level bindings
+			Set<String> bindings = new HashSet<>();
 			Set<DotName> targetBindings = new HashSet<>();
 			for (AnnotationInstance ann : ci.declaredAnnotations()) {
 				if (bindingAnnotations.contains(ann.name())) {
+					String name = ann.name().toString();
+					bindings.add(name);
 					targetBindings.add(ann.name());
-					bean.needsProxy = true;
 				}
 			}
 
-			// Check method-level bindings
-			if (!bean.needsProxy) {
+			// Collect method-level bindings
+			Map<String, Set<String>> methodBindings = new java.util.LinkedHashMap<>();
+			if (targetBindings.isEmpty()) {
 				for (MethodInfo method : ci.methods()) {
+					Set<String> methodAnnNames = new HashSet<>();
 					for (AnnotationInstance ann : method.annotations()) {
 						if (bindingAnnotations.contains(ann.name())) {
-							targetBindings.add(ann.name());
-							bean.needsProxy = true;
-							break;
+							String name = ann.name().toString();
+							methodAnnNames.add(name);
+							bindings.add(name);
 						}
 					}
-					if (bean.needsProxy)
-						break;
+					if (!methodAnnNames.isEmpty()) {
+						methodBindings.put(method.name(), methodAnnNames);
+					}
 				}
 			}
 
-			// Match interceptors
-			if (bean.needsProxy) {
+			// Populate BeanDefinition enrichment fields (sets needsProxy() implicitly)
+			bean.interceptorBindingAnnotations = bindings.isEmpty() ? Set.of() : Set.copyOf(bindings);
+			if (!methodBindings.isEmpty()) {
+				bean.methodBindingAnnotations = methodBindings;
+			}
+
+			// Match interceptors when bindings exist
+			if (!bindings.isEmpty()) {
 				for (var entry : interceptorBindings.entrySet()) {
 					for (DotName binding : entry.getValue()) {
-						if (targetBindings.contains(binding)) {
+						if (targetBindings.contains(binding) || methodBindings.values().stream()
+								.anyMatch(ms -> ms.contains(binding.toString()))) {
 							bean.interceptors.add(entry.getKey());
 							break;
 						}
 					}
 				}
 			}
+		}
+	}
+
+	// ── @ExceptionHandler collection ───────────────────────────────────
+
+	private void collectExceptionHandlers(BeanDefinition bean, ClassInfo ci) {
+		for (MethodInfo method : ci.methods()) {
+			AnnotationInstance ann = method.annotation(EXCEPTION_HANDLER_DOT);
+			if (ann != null) {
+				String exClass = ann.value().asClass().name().toString();
+				bean.exceptionHandlerMethods.add(
+						new BeanDefinition.ExceptionHandlerEntry(method.name(), exClass,
+								method.parametersCount()));
+			}
+		}
+	}
+
+	// ── @ConditionalOnBean collection ──────────────────────────────────
+
+	private void collectConditions(BeanDefinition bean, ClassInfo ci) {
+		AnnotationInstance ann = ci.annotation(CONDITIONAL_ON_BEAN_DOT);
+		if (ann != null) {
+			bean.conditionalOnBeanType = ann.value().asClass().name().toString();
 		}
 	}
 }

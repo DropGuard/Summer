@@ -5,6 +5,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -61,27 +62,23 @@ public final class RuntimeBeanAdapter {
 			detectListParameters(ctor, bean);
 		}
 
-		// AOP binding flag
-		bean.needsProxy = detectAopBinding(clazz);
-
-		// Pre-compute interceptor binding annotations for @Interceptor beans.
-		// Stored as strings on BeanDefinition so downstream matching code reads
-		// from the definition rather than re-scanning annotations via reflection.
-		if (clazz.isAnnotationPresent(summer.aop.Interceptor.class)) {
-			Set<String> bindings = new HashSet<>();
-			for (Annotation ann : clazz.getAnnotations()) {
-				if (ann.annotationType().isAnnotationPresent(summer.aop.InterceptorBinding.class)) {
-					bindings.add(ann.annotationType().getName());
-				}
-			}
-			bean.interceptorBindingAnnotations = bindings;
-		}
+		// AOP binding metadata: collect @InterceptorBinding annotations for ALL beans.
+		// This single pass replaces the old two-step approach (separate boolean check
+		// + separate @Interceptor annotation scan). The result feeds pure-String Set
+		// intersection matching downstream -- no reflection on the matching path.
+		collectAopBindings(clazz, bean);
 
 		// Route metadata (if Controller)
 		collectRoutes(clazz, bean);
 
-		log.debug("[Summer] Adapted component: {} (interfaces={}, needsProxy={})", clazz.getSimpleName(),
-				bean.interfaceNames.size(), bean.needsProxy);
+		// Exception handler metadata
+		collectExceptionHandlers(clazz, bean);
+
+		// @ConditionalOnBean
+		collectConditions(clazz, bean);
+
+		log.debug("[Summer] Adapted component: {} (interfaces={})", clazz.getSimpleName(),
+				bean.interfaceNames.size());
 
 		return bean;
 	}
@@ -174,22 +171,26 @@ public final class RuntimeBeanAdapter {
 		}
 	}
 
-	private boolean detectAopBinding(Class<?> clazz) {
+	private void collectAopBindings(Class<?> clazz, BeanDefinition bean) {
+		Set<String> bindings = new HashSet<>();
 		// Check class-level annotations for @InterceptorBinding
 		for (Annotation ann : clazz.getAnnotations()) {
 			if (ann.annotationType().isAnnotationPresent(summer.aop.InterceptorBinding.class)) {
-				return true;
+				bindings.add(ann.annotationType().getName());
 			}
 		}
 		// Check method-level annotations
 		for (Method method : clazz.getMethods()) {
 			for (Annotation ann : method.getAnnotations()) {
 				if (ann.annotationType().isAnnotationPresent(summer.aop.InterceptorBinding.class)) {
-					return true;
+					bindings.add(ann.annotationType().getName());
 				}
 			}
 		}
-		return false;
+
+		bean.interceptorBindingAnnotations = bindings.isEmpty() ? Collections.emptySet() : bindings;
+		bean.isInterceptor = clazz.isAnnotationPresent(summer.aop.Interceptor.class);
+		// needsProxy is derived from interceptorBindingAnnotations + isInterceptor via BeanDefinition.needsProxy()
 	}
 
 	private void collectRoutes(Class<?> clazz, BeanDefinition bean) {
@@ -313,6 +314,31 @@ public final class RuntimeBeanAdapter {
 				bean.defaultValues.put(comp.name(), defaultAnn.value().asString());
 				bean.fieldTypes.put(comp.name(), comp.type().name().toString());
 			}
+		}
+	}
+
+	// ── @ExceptionHandler collection ───────────────────────────────────
+
+	private void collectExceptionHandlers(Class<?> clazz, BeanDefinition bean) {
+		for (Method method : clazz.getMethods()) {
+			summer.web.annotation.ExceptionHandler ann = method
+					.getAnnotation(summer.web.annotation.ExceptionHandler.class);
+			if (ann != null) {
+				String exClass = ann.value().getName();
+				bean.exceptionHandlerMethods.add(
+						new BeanDefinition.ExceptionHandlerEntry(method.getName(), exClass,
+								method.getParameterCount()));
+			}
+		}
+	}
+
+	// ── @ConditionalOnBean collection ──────────────────────────────────
+
+	private void collectConditions(Class<?> clazz, BeanDefinition bean) {
+		summer.core.annotation.ConditionalOnBean cond = clazz
+				.getAnnotation(summer.core.annotation.ConditionalOnBean.class);
+		if (cond != null) {
+			bean.conditionalOnBeanType = cond.value().getName();
 		}
 	}
 }
