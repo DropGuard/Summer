@@ -64,7 +64,7 @@ public final class AotProxyGenerator {
 		}
 
 		for (BeanDefinition bean : beans) {
-			if (bean.needsProxy && !bean.interfaceNames.isEmpty()) {
+			if (bean.needsProxy() && !bean.interfaceNames.isEmpty()) {
 				generateProxy(bean, index, outputDir, allBindingAnnotations);
 			}
 		}
@@ -96,27 +96,15 @@ public final class AotProxyGenerator {
 				.addStatement("this.target = target").addStatement("this.interceptors = interceptors").build();
 		proxyBuilder.addMethod(constructor);
 
-		ClassInfo targetCi = index.getClassByName(DotName.createSimple(bean.qualifiedName));
-		boolean classLevelBinding = false;
-		if (targetCi != null) {
-			for (AnnotationInstance ann : targetCi.declaredAnnotations()) {
-				if (bindingAnnotations.contains(ann.name())) {
-					classLevelBinding = true;
-					break;
-				}
-			}
-		}
-
-		Set<String> methodLevelBindingMethods = new HashSet<>();
-		if (!classLevelBinding && targetCi != null) {
-			for (MethodInfo method : targetCi.methods()) {
-				for (AnnotationInstance ann : method.annotations()) {
-					if (bindingAnnotations.contains(ann.name())) {
-						methodLevelBindingMethods.add(method.name());
-						break;
-					}
-				}
-			}
+		// Determine which methods should be intercepted from pre-computed
+		// BeanDefinition.methodBindingAnnotations (key "" = class-level,
+		// other keys = method-level annotations). No Jandex re-read.
+		boolean classLevelBinding = bean.methodBindingAnnotations.containsKey("");
+		Set<String> methodLevelBindingMethods;
+		if (classLevelBinding) {
+			methodLevelBindingMethods = Set.of();
+		} else {
+			methodLevelBindingMethods = bean.methodBindingAnnotations.keySet();
 		}
 
 		// Pass 1: collect intercepted methods and generate static metadata fields

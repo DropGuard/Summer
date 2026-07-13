@@ -14,15 +14,21 @@ import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
 import org.jboss.jandex.MethodInfo;
+import org.jboss.jandex.MethodParameterInfo;
 import summer.core.bean.BeanDefinition;
+import summer.web.ExceptionHandlerRegistrar;
+import summer.web.ExceptionRegistry;
+import summer.web.RequestAttributes;
 
 /**
  * Generates {@code GeneratedExceptionHandlerAdapter} — the AOT counterpart of
- * {@code RuntimeExceptionHandlerRegistrar}.
+ * {@code summer.runtime.RuntimeExceptionHandlerRegistrar}.
  *
  * <p>
- * Discovers {@code @ExceptionHandler} methods via Jandex and generates direct
- * registration code. No reflection at runtime.
+ * Uses {@link BeanDefinition#exceptionHandlerMethods} to discover which beans
+ * carry handlers, then reads method signatures from Jandex for code generation
+ * (parameter types, names, exceptions — these are code shape concerns, not bean
+ * metadata).
  * </p>
  */
 public final class ExceptionHandlerAdapterGenerator {
@@ -37,8 +43,14 @@ public final class ExceptionHandlerAdapterGenerator {
 	private static final String PACKAGE = "summer.core.aot";
 	private static final String CLASS_NAME = "GeneratedExceptionHandlerAdapter";
 
+	public ExceptionHandlerAdapterGenerator() {
+	}
+
 	public void generate(List<BeanDefinition> beans, IndexView index, java.io.File outputDir) throws IOException {
 		CodeBlock body = buildRegisterHandlersBody(beans, index);
+		if (body.isEmpty()) {
+			return;
+		}
 
 		TypeSpec adapter = TypeSpec.classBuilder(CLASS_NAME)
 				.addModifiers(javax.lang.model.element.Modifier.PUBLIC, javax.lang.model.element.Modifier.FINAL)
@@ -54,17 +66,27 @@ public final class ExceptionHandlerAdapterGenerator {
 
 	private CodeBlock buildRegisterHandlersBody(List<BeanDefinition> beans, IndexView index) {
 		CodeBlock.Builder code = CodeBlock.builder();
-		if (index == null) {
-			return code.build();
-		}
-
 		Set<String> declaredHandlers = new HashSet<>();
 
 		for (BeanDefinition bean : beans) {
+			// Phase-1 filter: skip beans without exception handlers entirely.
+			// This is exactly what BD.exceptionHandlerMethods is for — fast O(1)
+			// rejection without touching Jandex.
+			if (bean.exceptionHandlerMethods.isEmpty()) {
+				continue;
+			}
+
+			// Phase-2 detail: read method signatures from Jandex for code generation.
+			// Signature details (param types, names, exceptions) are code-shape
+			// concerns, not bean metadata — Jandex is the right source.
 			ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
 			if (ci == null) {
 				continue;
 			}
+
+			ClassName handlerClass = safeClassName(bean.qualifiedName);
+			String handlerVar = bean.variableName;
+
 			for (MethodInfo method : ci.methods()) {
 				AnnotationInstance ann = method.annotation(EXCEPTION_HANDLER_DOT);
 				if (ann == null) {
@@ -72,17 +94,16 @@ public final class ExceptionHandlerAdapterGenerator {
 				}
 
 				String exceptionClassName = ann.value().asClass().name().toString();
-				ClassName handlerClass = safeClassName(bean.qualifiedName);
 				ClassName exceptionType = safeClassName(exceptionClassName);
-				String handlerVar = bean.variableName;
 
-				// Build args: Throwable params get 'ex', HttpContext params get 'httpCtx'
+				// Build args: inspect parameter types from Jandex
 				StringBuilder args = new StringBuilder();
-				for (org.jboss.jandex.MethodParameterInfo param : method.parameters()) {
+				for (MethodParameterInfo param : method.parameters()) {
 					if (args.length() > 0) {
 						args.append(", ");
 					}
-					boolean isContext = param.type().name() != null && param.type().name().equals(HTTP_CONTEXT_DOT);
+					boolean isContext = param.type().name() != null
+							&& HTTP_CONTEXT_DOT.equals(param.type().name());
 					args.append(isContext ? "httpCtx" : "ex");
 				}
 
