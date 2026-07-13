@@ -1,7 +1,10 @@
 package summer.runtime;
 
+import java.lang.annotation.Annotation;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import summer.aop.MethodInterceptor;
 
 /**
@@ -24,9 +27,13 @@ final class RuntimeAopProcessor {
 	 * @param matchingInterceptors
 	 *            pre-filtered interceptors that match this bean (queried from
 	 *            {@link BeanDefinitionFactory})
+	 * @param interceptorBindings
+	 *            pre-computed interceptor → binding annotations map (from
+	 *            {@link BeanDefinition#interceptorBindingAnnotations})
 	 * @return the proxy, or the original instance if no interception is needed
 	 */
-	static Object applyProxy(Object instance, Class<?> clazz, List<MethodInterceptor> matchingInterceptors) {
+	static Object applyProxy(Object instance, Class<?> clazz, List<MethodInterceptor> matchingInterceptors,
+			Map<Class<?>, Set<Class<? extends Annotation>>> interceptorBindings) {
 		if (instance == null || clazz.getInterfaces().length == 0
 				|| instance.getClass().isAnnotationPresent(summer.aop.Interceptor.class)) {
 			return instance;
@@ -38,6 +45,6 @@ final class RuntimeAopProcessor {
 			return instance;
 		}
 
-		return ProxyFactory.createProxy(instance, matching);
+		return ProxyFactory.createProxy(instance, matching, interceptorBindings);
 	}
 }

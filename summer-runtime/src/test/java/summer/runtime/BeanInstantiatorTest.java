@@ -13,7 +13,7 @@ class BeanInstantiatorTest {
 	@Test
 	void shouldWrapConstructorException() {
 		BeanContainer.Builder builder = new BeanContainer.Builder();
-		BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of());
+		BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of(), Map.of());
 
 		BeanDefinition def = new BeanDefinition(CrashingComponent.class.getName(), "crashingComponent");
 
@@ -28,7 +28,7 @@ class BeanInstantiatorTest {
 	@Test
 	void shouldRejectBeanContainerInjection() {
 		BeanContainer.Builder builder = new BeanContainer.Builder();
-		BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of());
+		BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of(), Map.of());
 
 		BeanDefinition def = new BeanDefinition(ContainerInjectingComponent.class.getName(),
 				"containerInjectingComponent");
@@ -43,7 +43,7 @@ class BeanInstantiatorTest {
 	@Test
 	void shouldWrapClassNotFoundException() {
 		BeanContainer.Builder builder = new BeanContainer.Builder();
-		BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of());
+		BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of(), Map.of());
 
 		BeanDefinition def = new BeanDefinition("com.example.NonExistentClass", "missing");
 

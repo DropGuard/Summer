@@ -3,6 +3,7 @@ package summer.runtime;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import summer.aop.InterceptorChain;
 import summer.aop.MethodInterceptor;
@@ -18,7 +19,7 @@ class ProxyFactoryTest {
 	void shouldCreateProxy() {
 		TestService target = new TestServiceImpl();
 		List<MethodInterceptor> interceptors = List.of();
-		TestService proxy = ProxyFactory.createProxy(target, interceptors);
+		TestService proxy = ProxyFactory.createProxy(target, interceptors, Map.of());
 
 		assertNotNull(proxy);
 		assertNotSame(target, proxy);
@@ -34,7 +35,7 @@ class ProxyFactoryTest {
 			}
 		};
 
-		TestService proxy = ProxyFactory.createProxy(target, List.of(interceptor));
+		TestService proxy = ProxyFactory.createProxy(target, List.of(interceptor), Map.of());
 		assertNotNull(proxy);
 	}
 
@@ -43,14 +44,14 @@ class ProxyFactoryTest {
 		Object target = new Object();
 		List<MethodInterceptor> interceptors = List.of();
 
-		assertThrows(SummerAopException.class, () -> ProxyFactory.createProxy(target, interceptors));
+		assertThrows(SummerAopException.class, () -> ProxyFactory.createProxy(target, interceptors, Map.of()));
 	}
 
 	@Test
 	void shouldDelegateToObjectMethods() {
 		TestService target = new TestServiceImpl();
 		List<MethodInterceptor> interceptors = List.of();
-		TestService proxy = ProxyFactory.createProxy(target, interceptors);
+		TestService proxy = ProxyFactory.createProxy(target, interceptors, Map.of());
 
 		// Test toString
 		assertEquals(target.toString(), proxy.toString());
@@ -67,7 +68,7 @@ class ProxyFactoryTest {
 		TestService target = new TestServiceImpl();
 		MethodInterceptor interceptor = new TestInterceptor();
 
-		TestService proxy = ProxyFactory.createProxy(target, List.of(interceptor));
+		TestService proxy = ProxyFactory.createProxy(target, List.of(interceptor), Map.of());
 		String result = proxy.sayHello();
 		assertEquals("Intercepted: Hello", result);
 	}
@@ -83,7 +84,7 @@ class ProxyFactoryTest {
 			}
 		};
 
-		TestService proxy = ProxyFactory.createProxy(target, List.of(interceptor));
+		TestService proxy = ProxyFactory.createProxy(target, List.of(interceptor), Map.of());
 		// No binding annotation on interceptor, so no interception
 		String result = proxy.sayHello();
 		assertEquals("Hello", result);
@@ -95,7 +96,7 @@ class ProxyFactoryTest {
 		MethodInterceptor interceptor1 = new FirstTestInterceptor();
 		MethodInterceptor interceptor2 = new SecondTestInterceptor();
 
-		TestService proxy = ProxyFactory.createProxy(target, List.of(interceptor1, interceptor2));
+		TestService proxy = ProxyFactory.createProxy(target, List.of(interceptor1, interceptor2), Map.of());
 		String result = proxy.sayHello();
 		// Interceptors are executed in order: interceptor1 wraps interceptor2
 		assertEquals("First: Second: Hello", result);

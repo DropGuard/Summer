@@ -1,5 +1,6 @@
 package summer.runtime;
 
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -115,7 +116,14 @@ public final class RuntimeBeanContainerBuilder {
 		List<BeanDefinition> sorted = resolver.resolve(candidates);
 
 		Map<String, List<String>> interceptorMap = BeanDefinitionFactory.buildInterceptorMap(candidates);
-		BeanInstantiator instantiator = new BeanInstantiator(builder, interceptorMap);
+		Map<String, Set<String>> interceptorBindingMap = new HashMap<>();
+		for (BeanDefinition bd : candidates) {
+			if (!bd.interceptorBindingAnnotations.isEmpty()) {
+				interceptorBindingMap.put(bd.qualifiedName, bd.interceptorBindingAnnotations);
+			}
+		}
+		BeanInstantiator instantiator = new BeanInstantiator(builder, interceptorMap, interceptorBindingMap);
+		
 		builder.register(IndexView.class, index);
 		for (BeanDefinition beanDef : sorted) {
 			instantiator.instantiateFromDefinition(beanDef);

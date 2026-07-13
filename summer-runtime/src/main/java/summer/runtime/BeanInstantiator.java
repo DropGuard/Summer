@@ -1,12 +1,17 @@
 package summer.runtime;
 
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import summer.aop.MethodInterceptor;
 import summer.core.BeanContainer;
 import summer.core.Provider;
@@ -42,10 +47,34 @@ final class BeanInstantiator {
 
 	private final BeanContainer.Builder builder;
 	private final Map<String, List<String>> interceptorMap;
+	private final Map<Class<?>, Set<Class<? extends Annotation>>> interceptorBindings;
 
-	BeanInstantiator(BeanContainer.Builder builder, Map<String, List<String>> interceptorMap) {
+	BeanInstantiator(BeanContainer.Builder builder, Map<String, List<String>> interceptorMap,
+			Map<String, Set<String>> interceptorBindingAnnotations) {
 		this.builder = builder;
 		this.interceptorMap = interceptorMap;
+		this.interceptorBindings = buildInterceptorBindings(interceptorBindingAnnotations);
+	}
+
+	/**
+	 * Converts string-based interceptor binding annotations (from
+	 * {@link BeanDefinition#interceptorBindingAnnotations}) into a Class-keyed map
+	 * for use by {@link ProxyFactory}.
+	 */
+	private static Map<Class<?>, Set<Class<? extends Annotation>>> buildInterceptorBindings(
+			Map<String, Set<String>> interceptorBindingAnnotations) {
+		Map<Class<?>, Set<Class<? extends Annotation>>> result = new HashMap<>();
+		for (var entry : interceptorBindingAnnotations.entrySet()) {
+			Class<?> interceptorClass = loadClassForInstantiation(entry.getKey());
+			Set<String> bindingNames = entry.getValue();
+			Set<Class<? extends Annotation>> bindings = new HashSet<>();
+			for (String name : bindingNames) {
+				Class<?> clazz = loadClassForInstantiation(name);
+				bindings.add(clazz.asSubclass(Annotation.class));
+			}
+			result.put(interceptorClass, Collections.unmodifiableSet(bindings));
+		}
+		return result;
 	}
 
 	/**
@@ -165,7 +194,7 @@ final class BeanInstantiator {
 
 	private void registerRegularBean(Class<?> clazz, Object instance) {
 		List<MethodInterceptor> matchingInterceptors = resolveMatchingInterceptors(clazz);
-		Object proxy = RuntimeAopProcessor.applyProxy(instance, clazz, matchingInterceptors);
+		Object proxy = RuntimeAopProcessor.applyProxy(instance, clazz, matchingInterceptors, interceptorBindings);
 		// Concrete class key keeps the raw instance
 		builder.register(clazz, instance);
 		// Interfaces get the proxy (first-wins)
