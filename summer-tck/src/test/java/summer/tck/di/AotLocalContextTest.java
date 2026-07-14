@@ -3,21 +3,46 @@ package summer.tck.di;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.Set;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import summer.core.AotDiMarker;
 import summer.core.BeanContainer;
 import summer.core.Engine;
 import summer.fixtures.di.configprops.AppProperties;
-import summer.test.annotation.SummerTest;
+import summer.test.TestContainerBuilder;
+import summer.tck.annotation.WithFixtures;
 import summer.web.ExceptionHandlerRegistrar;
 
-@SummerTest(engine = Engine.AOT, value = {AppProperties.class})
+/**
+ * Verifies that the AOT LocalContext mechanism produces a correctly-scoped
+ * container.
+ *
+ * <p>
+ * Declares its seeds via {@code @WithFixtures} and loads them via
+ * {@link summer.test.TestContainerBuilder#buildAot(Class)}. The SummerMojo
+ * generates a {@code LocalContext_AotLocalContextTest} at build time containing
+ * only the transitive closure of those seeds.
+ * </p>
+ */
+@WithFixtures({AppProperties.class})
 class AotLocalContextTest {
 
-	final BeanContainer context;
+	private BeanContainer context;
 
-	AotLocalContextTest(BeanContainer context) {
-		this.context = context;
+	@BeforeEach
+	void setUp() {
+		context = TestContainerBuilder.buildAot(getClass());
+	}
+
+	@AfterEach
+	void tearDown() {
+		if (context != null) {
+			try {
+				context.close();
+			} catch (Exception ignored) {
+			}
+		}
 	}
 
 	@Test

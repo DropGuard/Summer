@@ -11,7 +11,7 @@ public class AotGrpcTCKTest extends AbstractGrpcTCK {
 	protected BeanContainer createContext(Class<?>... configClasses) {
 		try {
 
-			return summer.test.TestContainerBuilder.buildAot(null);
+			return summer.test.TestContainerBuilder.buildAot();
 		} catch (Exception e) {
 			throw new RuntimeException("AOT context not available", e);
 		}

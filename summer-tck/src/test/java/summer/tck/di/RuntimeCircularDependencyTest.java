@@ -3,7 +3,7 @@ package summer.tck.di;
 import summer.fixtures.di.circular.CircularA;
 import summer.fixtures.di.circular.CircularB;
 import summer.test.TestContainerBuilder;
-import summer.test.annotation.WithFixtures;
+import summer.tck.annotation.WithFixtures;
 
 /**
  * Runtime test for circular dependency detection.

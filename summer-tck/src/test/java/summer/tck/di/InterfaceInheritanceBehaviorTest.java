@@ -1,0 +1,56 @@
+package summer.tck.di;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+import org.junit.jupiter.api.Test;
+import summer.core.BeanContainer;
+import summer.fixtures.di.inheritance.BaseService;
+import summer.fixtures.di.inheritance.ExtendedService;
+import summer.fixtures.di.inheritance.ServiceClient;
+import summer.fixtures.di.inheritance.ServiceImpl;
+import summer.test.annotation.DualEngineTest;
+
+@DualEngineTest(seeds = { ServiceClient.class, ServiceImpl.class })
+public class InterfaceInheritanceBehaviorTest {
+
+	private final BeanContainer context;
+
+	public InterfaceInheritanceBehaviorTest(BeanContainer context) {
+		this.context = context;
+	}
+
+	@Test
+	void testContextStartsSuccessfully() {
+		assertNotNull(context, "BeanContainer should not be null");
+	}
+
+	@Test
+	void testCanResolveBaseService() {
+		BaseService baseService = context.getBean(BaseService.class);
+		assertNotNull(baseService, "Should be able to resolve BaseService");
+		assertInstanceOf(ServiceImpl.class, baseService, "BaseService should be resolved to ServiceImpl");
+	}
+
+	@Test
+	void testCanResolveExtendedService() {
+		ExtendedService extendedService = context.getBean(ExtendedService.class);
+		assertNotNull(extendedService, "Should be able to resolve ExtendedService");
+		assertInstanceOf(ServiceImpl.class, extendedService, "ExtendedService should be resolved to ServiceImpl");
+	}
+
+	@Test
+	void testSingletonConsistency() {
+		BaseService baseService = context.getBean(BaseService.class);
+		ExtendedService extendedService = context.getBean(ExtendedService.class);
+		assertSame(baseService, extendedService,
+				"BaseService and ExtendedService should resolve to the same singleton instance");
+	}
+
+	@Test
+	void testDependencyInjectionWithInheritedInterface() {
+		ServiceClient client = context.getBean(ServiceClient.class);
+		assertNotNull(client, "ServiceClient should be instantiated");
+		assertNotNull(client.getBaseService(), "ServiceClient should have BaseService injected");
+		assertInstanceOf(ServiceImpl.class, client.getBaseService(), "Injected BaseService should be ServiceImpl");
+	}
+}
