@@ -12,6 +12,7 @@ import java.util.List;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.CompositeIndex;
 import org.jboss.jandex.DotName;
+import summer.core.bean.SharedDependencyResolver;
 import org.jboss.jandex.Index;
 import org.jboss.jandex.Indexer;
 import org.junit.jupiter.api.Test;
@@ -82,7 +83,7 @@ class CrossModuleDiscoveryTest {
 		BeanDefinition serviceC = new BeanDefinition("summer.fixtures.dummy.ServiceC", "ServiceC");
 
 		List<BeanDefinition> beans = List.of(serviceA, serviceB, serviceC);
-		DependencyResolver resolver = new DependencyResolver();
+		SharedDependencyResolver resolver = new SharedDependencyResolver();
 
 		List<BeanDefinition> sorted = resolver.resolve(beans);
 		assertEquals(3, sorted.size(), "Should resolve all 3 beans");
@@ -98,7 +99,7 @@ class CrossModuleDiscoveryTest {
 		consumer.constructorParamTypes.add("summer.fixtures.dummy.ServiceB");
 
 		List<BeanDefinition> beans = List.of(impl, consumer);
-		DependencyResolver resolver = new DependencyResolver();
+		SharedDependencyResolver resolver = new SharedDependencyResolver();
 
 		List<BeanDefinition> sorted = resolver.resolve(beans);
 		assertEquals(2, sorted.size());

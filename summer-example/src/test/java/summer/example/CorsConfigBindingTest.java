@@ -2,27 +2,27 @@ package summer.example;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
-import summer.core.BeanContainer;
 import summer.test.annotation.SummerTest;
 import summer.web.middleware.CorsConfig;
 
 /**
- * Demonstrates {@code @SummerTest} with entry beans — no manual
- * {@code createContext()} needed.
+ * Integration test — requires Redis on localhost:6379.
+ * Demonstrates {@code @SummerTest} with constructor injection.
  */
-@SummerTest({CorsConfig.class})
+@Tag("integration")
+@SummerTest
 class CorsConfigBindingTest {
 
-    final BeanContainer context;
+    final CorsConfig config;
 
-    CorsConfigBindingTest(BeanContainer context) {
-        this.context = context;
+    CorsConfigBindingTest(CorsConfig config) {
+        this.config = config;
     }
 
     @Test
     void bindsWithDefaults() {
-        CorsConfig config = context.getBean(CorsConfig.class);
         assertNotNull(config);
         assertEquals(3600, config.maxAge());
     }

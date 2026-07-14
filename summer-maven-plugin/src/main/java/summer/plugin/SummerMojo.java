@@ -130,30 +130,20 @@ public class SummerMojo extends AbstractMojo {
 		indexClassFiles(testOutputDirectory, testIndexer);
 		org.jboss.jandex.Index testIndex = testIndexer.complete();
 
-		DotName summerTestDot = DotName.createSimple("summer.test.annotation.SummerTest");
-		DotName summerIntegrationTestDot = DotName.createSimple("summer.test.annotation.SummerIntegrationTest");
+		DotName withFixturesDot = DotName.createSimple("summer.tck.annotation.WithFixtures");
 
 		BeanDiscovery discovery = new BeanDiscovery(index);
 		LocalContextGenerator localGen = new LocalContextGenerator(wireGen, generatedDir);
 
 		int count = 0;
 		for (ClassInfo ci : testIndex.getKnownClasses()) {
-			AnnotationInstance ann = ci.annotation(summerTestDot);
-			if (ann == null) {
-				ann = ci.annotation(summerIntegrationTestDot);
-			}
-			if (ann == null) {
+			AnnotationInstance wfAnn = ci.annotation(withFixturesDot);
+			if (wfAnn == null) {
 				continue;
 			}
 
-			// Check engine = AOT
-			AnnotationValue engineVal = ann.value("engine");
-			if (engineVal == null || !engineVal.asString().endsWith("AOT")) {
-				continue;
-			}
-
-			// Check value (entryBeans) non-empty
-			AnnotationValue valueVal = ann.value("value");
+			// Read entry beans (seeds) from @WithFixtures
+			AnnotationValue valueVal = wfAnn.value("value");
 			if (valueVal == null) {
 				continue;
 			}
@@ -171,8 +161,8 @@ public class SummerMojo extends AbstractMojo {
 			count++;
 			getLog().info("[Summer] Generating LocalContext for " + testClassName + " with entry beans: " + entryNames);
 
-			// 1. Compute scope from seeds via transitive closure
-			Scope scope = Scope.reachableFrom(entryNames, index);
+			// 1. Exact seed scope — no transitive closure expansion
+			Scope scope = entryNames::contains;
 
 			// 2. Scoped bean discovery
 			List<BeanDefinition> scopedBeans = discovery.discover(scope);
@@ -189,7 +179,7 @@ public class SummerMojo extends AbstractMojo {
 		}
 
 		getLog().info("[Summer] LocalContext scan complete: indexed " + testIndex.getKnownClasses().size()
-				+ " test classes, found " + count + " @SummerTest(engine=AOT) with entryBeans");
+				+ " test classes, found " + count + " @WithFixtures annotations");
 	}
 
 	private void indexClassFiles(File dir, org.jboss.jandex.Indexer indexer) throws IOException {

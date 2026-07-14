@@ -6,16 +6,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
 import summer.core.BeanContainer;
-import summer.runtime.RuntimeBeanContainerBuilder;
-import summer.twitter.auth.AuthController;
-import summer.twitter.auth.AuthMiddleware;
-import summer.twitter.config.TestDatabaseConfig;
-import summer.twitter.config.WebSocketConfig;
-import summer.twitter.social.FollowController;
-import summer.twitter.social.LikeController;
-import summer.twitter.timeline.TimelineController;
-import summer.twitter.tweet.TweetController;
-import summer.twitter.user.UserController;
+import summer.test.TestContainerBuilder;
 import summer.web.GlobalMiddlewareChain;
 import summer.web.WebInfrastructureConfiguration;
 import summer.web.server.NettyServerConfiguration;
@@ -42,8 +33,9 @@ import static summer.twitter.support.TwitterTestDatabase.*;
  *   <li>Disposable PostgreSQL container (Testcontainers 1.21.4)</li>
  *   <li>{@link TestDatabaseConfig} replaces production {@code DatabaseConfig}
  *       via {@code @Replaces}, reads dynamic container URL from system properties</li>
- *   <li>Seeds-based container build via {@code RuntimeBeanContainerBuilder}
- *       — only beans reachable from seeds are instantiated</li>
+ *   <li>Package-scan container build via {@code TestContainerBuilder.buildModuleWithExternal}
+ *       — all {@code summer.twitter} beans are auto-discovered, infrastructure configs
+ *       outside the package are passed as explicit seeds</li>
  *   <li>Netty bound to random port (test application.yml sets server.port: 0)</li>
  *   <li>Auth middleware applied globally with public-route exemptions</li>
  * </ol>
@@ -79,27 +71,19 @@ class TwitterApplicationIT {
         System.setProperty("summer.test.datasource.username", "test");
         System.setProperty("summer.test.datasource.password", "test");
 
-        // 4. Build the bean container from seeds + external GlobalMiddlewareChain
-        GlobalMiddlewareChain chain = new GlobalMiddlewareChain(List.of(AuthMiddleware.class));
-        context = RuntimeBeanContainerBuilder.buildFromSeedsWithExternal(
+        // 4. Build the bean container from package scan + external beans
+        //    Controllers, services, and middleware in summer.twitter.* are
+        //    auto-discovered. Only framework infrastructure outside the package
+        //    must be listed explicitly.
+        GlobalMiddlewareChain chain = new GlobalMiddlewareChain(List.of(summer.twitter.auth.AuthMiddleware.class));
+        context = TestContainerBuilder.buildModuleWithExternal(
+                "summer.twitter",
                 new Class<?>[]{
-                        TestDatabaseConfig.class,
                         NettyServerConfiguration.class,
                         RouterConfiguration.class,
                         RuntimeWebConfiguration.class,
                         HttpParameterResolverConfiguration.class,
                         WebInfrastructureConfiguration.class,
-                        WebSocketConfig.class,
-                        // Controllers + middleware (explicit seeds because
-                        // RuntimeRouteRegistrar discovers them from the Jandex
-                        // index at runtime, not from the DI closure)
-                        AuthMiddleware.class,
-                        AuthController.class,
-                        UserController.class,
-                        TweetController.class,
-                        FollowController.class,
-                        LikeController.class,
-                        TimelineController.class
                 },
                 chain    // external bean: GlobalMiddlewareChain
         );
