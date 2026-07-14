@@ -16,6 +16,7 @@ import org.jboss.jandex.IndexView;
 import org.jboss.jandex.RecordComponentInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import summer.core.annotation.Replaces;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.ConfigPropertiesBean;
 import summer.core.bean.RouteInfo;
@@ -77,8 +78,7 @@ public final class RuntimeBeanAdapter {
 		// @ConditionalOnBean
 		collectConditions(clazz, bean);
 
-		log.debug("[Summer] Adapted component: {} (interfaces={})", clazz.getSimpleName(),
-				bean.interfaceNames.size());
+		log.debug("[Summer] Adapted component: {} (interfaces={})", clazz.getSimpleName(), bean.interfaceNames.size());
 
 		return bean;
 	}
@@ -111,6 +111,21 @@ public final class RuntimeBeanAdapter {
 
 		log.debug("[Summer] Adapted factory method: {}.{}() -> {}", method.getDeclaringClass().getSimpleName(),
 				method.getName(), method.getReturnType().getSimpleName());
+
+		// Method-level @Replaces (populated during discovery so
+		// SharedConditionEvaluator
+		// doesn't need to re-read Jandex)
+		Replaces methodReplaces = method.getAnnotation(Replaces.class);
+		if (methodReplaces != null) {
+			bean.methodLevelReplaces = methodReplaces.value().getName();
+		}
+
+		// Method-level @ConditionalOnBean
+		summer.core.annotation.ConditionalOnBean methodConditional = method
+				.getAnnotation(summer.core.annotation.ConditionalOnBean.class);
+		if (methodConditional != null) {
+			bean.methodConditionalOnBeanType = methodConditional.value().getName();
+		}
 
 		return bean;
 	}
@@ -190,7 +205,8 @@ public final class RuntimeBeanAdapter {
 
 		bean.interceptorBindingAnnotations = bindings.isEmpty() ? Collections.emptySet() : bindings;
 		bean.isInterceptor = clazz.isAnnotationPresent(summer.aop.Interceptor.class);
-		// needsProxy is derived from interceptorBindingAnnotations + isInterceptor via BeanDefinition.needsProxy()
+		// needsProxy is derived from interceptorBindingAnnotations + isInterceptor via
+		// BeanDefinition.needsProxy()
 	}
 
 	private void collectRoutes(Class<?> clazz, BeanDefinition bean) {
@@ -213,7 +229,8 @@ public final class RuntimeBeanAdapter {
 			String fullPath = combinePaths(basePath, methodPath);
 			String returnType = method.getReturnType().getName();
 
-			RouteInfo route = new RouteInfo(httpMethod, fullPath, clazz.getName(), method.getName(), returnType);
+			RouteInfo route = new RouteInfo(httpMethod, fullPath, clazz.getName(), method.getName(), returnType, clazz,
+					method);
 
 			// Collect parameter info
 			collectParameters(method, route);
@@ -325,9 +342,8 @@ public final class RuntimeBeanAdapter {
 					.getAnnotation(summer.web.annotation.ExceptionHandler.class);
 			if (ann != null) {
 				String exClass = ann.value().getName();
-				bean.exceptionHandlerMethods.add(
-						new BeanDefinition.ExceptionHandlerEntry(method.getName(), exClass,
-								method.getParameterCount()));
+				bean.exceptionHandlerMethods.add(new BeanDefinition.ExceptionHandlerEntry(method.getName(), exClass,
+						method.getParameterCount()));
 			}
 		}
 	}

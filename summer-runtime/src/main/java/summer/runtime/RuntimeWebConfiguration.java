@@ -15,8 +15,7 @@ public class RuntimeWebConfiguration {
 	}
 
 	@Bean
-	public RuntimeExceptionHandlerRegistrar exceptionHandlerRegistrar(
-			HttpParameterResolverChain resolverChain) {
+	public RuntimeExceptionHandlerRegistrar exceptionHandlerRegistrar(HttpParameterResolverChain resolverChain) {
 		return new RuntimeExceptionHandlerRegistrar(resolverChain);
 	}
 }

@@ -93,9 +93,10 @@ public final class BeanDefinitionFactory {
 	 * before their targets.
 	 *
 	 * <p>
-	 * Interceptor matching reads {@link BeanDefinition#interceptorBindingAnnotations}
-	 * — pre-computed at discovery time by {@link RuntimeBeanAdapter} — rather than
-	 * scanning annotations via reflection.
+	 * Interceptor matching reads
+	 * {@link BeanDefinition#interceptorBindingAnnotations} — pre-computed at
+	 * discovery time by {@link RuntimeBeanAdapter} — rather than scanning
+	 * annotations via reflection.
 	 * </p>
 	 *
 	 * @param allBeans
@@ -107,11 +108,13 @@ public final class BeanDefinitionFactory {
 			return;
 		}
 		for (BeanDefinition bean : allBeans) {
-			// needsProxy already excludes @Interceptor beans -- keep isInterceptor for clarity
+			// needsProxy already excludes @Interceptor beans -- keep isInterceptor for
+			// clarity
 			if (!bean.needsProxy() || bean.isInterceptor) {
 				continue;
 			}
-			// Pure string Set intersection on pre-computed interceptorBindingAnnotations -- no reflection
+			// Pure string Set intersection on pre-computed interceptorBindingAnnotations --
+			// no reflection
 			interceptors.stream().filter(ib -> ib != bean).filter(ib -> hasMatchingBinding(ib, bean))
 					.forEach(ib -> bean.interceptors.add(ib));
 		}
@@ -122,9 +125,10 @@ public final class BeanDefinitionFactory {
 	 * target class or any of its methods.
 	 *
 	 * <p>
-	 * Reads binding annotations from {@link BeanDefinition#interceptorBindingAnnotations},
-	 * which are pre-computed strings populated at discovery time — no reflection
-	 * call to {@code findBindings()} needed.
+	 * Reads binding annotations from
+	 * {@link BeanDefinition#interceptorBindingAnnotations}, which are pre-computed
+	 * strings populated at discovery time — no reflection call to
+	 * {@code findBindings()} needed.
 	 * </p>
 	 *
 	 * @param interceptorDef

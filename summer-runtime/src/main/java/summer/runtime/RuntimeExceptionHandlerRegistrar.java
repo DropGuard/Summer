@@ -12,8 +12,8 @@ import summer.web.Handler;
 
 /**
  * Exception handler registrar that reads from pre-computed
- * {@link BeanDefinition.ExceptionHandlerEntry} records rather than
- * re-scanning annotations via reflection.
+ * {@link BeanDefinition.ExceptionHandlerEntry} records rather than re-scanning
+ * annotations via reflection.
  *
  * <p>
  * Pre-computed handler data is set by
@@ -37,8 +37,8 @@ public class RuntimeExceptionHandlerRegistrar implements ExceptionHandlerRegistr
 	}
 
 	/**
-	 * Pre-computes exception handler metadata from BeanDefinitions.
-	 * Called by {@code RuntimeBeanContainerBuilder.initialize()} after discovery.
+	 * Pre-computes exception handler metadata from BeanDefinitions. Called by
+	 * {@code RuntimeBeanContainerBuilder.initialize()} after discovery.
 	 */
 	public static void setPrebuiltHandlers(List<BeanDefinition> candidates) {
 		Map<String, List<BeanDefinition.ExceptionHandlerEntry>> map = new HashMap<>();

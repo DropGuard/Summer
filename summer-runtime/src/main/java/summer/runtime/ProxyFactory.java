@@ -132,8 +132,8 @@ public class ProxyFactory {
 
 		/**
 		 * Fallback: scans an interceptor class's annotations for
-		 * {@code @InterceptorBinding} meta-annotations. Used when the pre-computed
-		 * map does not contain the interceptor (e.g., unit tests creating interceptors
+		 * {@code @InterceptorBinding} meta-annotations. Used when the pre-computed map
+		 * does not contain the interceptor (e.g., unit tests creating interceptors
 		 * directly).
 		 */
 		private static Set<Class<? extends Annotation>> scanBindings(Class<?> interceptorClass) {

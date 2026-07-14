@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import summer.aop.MethodInterceptor;
+import summer.core.exception.BeanCreationException;
 
 /**
  * Applies AOP proxies to bean instances. Matching interceptors are pre-filtered
@@ -17,25 +18,9 @@ final class RuntimeAopProcessor {
 	private RuntimeAopProcessor() {
 	}
 
-	/**
-	 * Creates a proxy for the given instance if matching interceptors are provided.
-	 *
-	 * @param instance
-	 *            the raw bean instance
-	 * @param clazz
-	 *            the bean class
-	 * @param matchingInterceptors
-	 *            pre-filtered interceptors that match this bean (queried from
-	 *            {@link BeanDefinitionFactory})
-	 * @param interceptorBindings
-	 *            pre-computed interceptor → binding annotations map (from
-	 *            {@link BeanDefinition#interceptorBindingAnnotations})
-	 * @return the proxy, or the original instance if no interception is needed
-	 */
 	static Object applyProxy(Object instance, Class<?> clazz, List<MethodInterceptor> matchingInterceptors,
 			Map<Class<?>, Set<Class<? extends Annotation>>> interceptorBindings) {
-		if (instance == null || clazz.getInterfaces().length == 0
-				|| instance.getClass().isAnnotationPresent(summer.aop.Interceptor.class)) {
+		if (instance == null || instance.getClass().isAnnotationPresent(summer.aop.Interceptor.class)) {
 			return instance;
 		}
 
@@ -43,6 +28,13 @@ final class RuntimeAopProcessor {
 
 		if (matching.isEmpty()) {
 			return instance;
+		}
+
+		// Summer uses JDK dynamic proxies -- requires at least one interface.
+		if (clazz.getInterfaces().length == 0) {
+			throw new BeanCreationException(clazz.getName()
+					+ " is annotated with AOP bindings but implements no interfaces. "
+					+ "Summer uses JDK dynamic proxies -- extract an interface and inject it by the interface type instead.");
 		}
 
 		return ProxyFactory.createProxy(instance, matching, interceptorBindings);
