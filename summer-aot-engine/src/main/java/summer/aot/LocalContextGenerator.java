@@ -11,13 +11,14 @@ import org.slf4j.LoggerFactory;
 import summer.core.bean.BeanDefinition;
 
 /**
- * Generates a minimal AOT {@code BeanContainer} for a test class annotated with
- * {@code @SummerTest(engine = AOT, value = {...})}.
+ * Generates a minimal AOT {@code BeanContainer} for a test class that uses
+ * {@code @WithFixtures} and has an {@code Aot} prefix.
  *
  * <p>
- * Transitive dependency closure is computed by
- * {@link summer.core.bean.BeanClosure}; this class focuses solely on generating
- * the {@code LocalContext_<testClassName>} source file.
+ * The seed beans are declared via {@code @WithFixtures({...})} (TCK internal).
+ * dependency closure is computed by the Maven plugin using the seed scope; this
+ * class focuses solely on generating the {@code LocalContext_<testClassName>}
+ * source file.
  * </p>
  */
 public final class LocalContextGenerator {

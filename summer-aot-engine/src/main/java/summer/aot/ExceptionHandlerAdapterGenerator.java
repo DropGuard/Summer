@@ -16,9 +16,6 @@ import org.jboss.jandex.IndexView;
 import org.jboss.jandex.MethodInfo;
 import org.jboss.jandex.MethodParameterInfo;
 import summer.core.bean.BeanDefinition;
-import summer.web.ExceptionHandlerRegistrar;
-import summer.web.ExceptionRegistry;
-import summer.web.RequestAttributes;
 
 /**
  * Generates {@code GeneratedExceptionHandlerAdapter} — the AOT counterpart of
@@ -48,20 +45,24 @@ public final class ExceptionHandlerAdapterGenerator {
 
 	public void generate(List<BeanDefinition> beans, IndexView index, java.io.File outputDir) throws IOException {
 		CodeBlock body = buildRegisterHandlersBody(beans, index);
+
+		TypeSpec.Builder adapter = TypeSpec.classBuilder(CLASS_NAME)
+				.addModifiers(javax.lang.model.element.Modifier.PUBLIC, javax.lang.model.element.Modifier.FINAL)
+				.addSuperinterface(EXCEPTION_HANDLER_REGISTRAR);
+
 		if (body.isEmpty()) {
-			return;
+			// Generate a no-op implementation so the class always exists
+			// (AotContextGenerator always references GeneratedExceptionHandlerAdapter).
+			adapter.addMethod(MethodSpec.methodBuilder("registerHandlers").addAnnotation(Override.class)
+					.addModifiers(javax.lang.model.element.Modifier.PUBLIC).addParameter(EXCEPTION_REGISTRY, "registry")
+					.addParameter(BEAN_CONTAINER, "context").addCode("").build());
+		} else {
+			adapter.addMethod(MethodSpec.methodBuilder("registerHandlers").addAnnotation(Override.class)
+					.addModifiers(javax.lang.model.element.Modifier.PUBLIC).addParameter(EXCEPTION_REGISTRY, "registry")
+					.addParameter(BEAN_CONTAINER, "context").addCode(body).build());
 		}
 
-		TypeSpec adapter = TypeSpec.classBuilder(CLASS_NAME)
-				.addModifiers(javax.lang.model.element.Modifier.PUBLIC, javax.lang.model.element.Modifier.FINAL)
-				.addSuperinterface(EXCEPTION_HANDLER_REGISTRAR)
-				.addMethod(MethodSpec.methodBuilder("registerHandlers").addAnnotation(Override.class)
-						.addModifiers(javax.lang.model.element.Modifier.PUBLIC)
-						.addParameter(EXCEPTION_REGISTRY, "registry").addParameter(BEAN_CONTAINER, "context")
-						.addCode(body).build())
-				.build();
-
-		JavaFile.builder(PACKAGE, adapter).indent("    ").build().writeTo(outputDir);
+		JavaFile.builder(PACKAGE, adapter.build()).indent("    ").build().writeTo(outputDir);
 	}
 
 	private CodeBlock buildRegisterHandlersBody(List<BeanDefinition> beans, IndexView index) {
@@ -102,8 +103,7 @@ public final class ExceptionHandlerAdapterGenerator {
 					if (args.length() > 0) {
 						args.append(", ");
 					}
-					boolean isContext = param.type().name() != null
-							&& HTTP_CONTEXT_DOT.equals(param.type().name());
+					boolean isContext = param.type().name() != null && HTTP_CONTEXT_DOT.equals(param.type().name());
 					args.append(isContext ? "httpCtx" : "ex");
 				}
 

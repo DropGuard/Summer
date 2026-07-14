@@ -38,7 +38,8 @@ final class BeanEnrichment {
 			DotName.createSimple("summer.web.annotation.Delete"), "DELETE");
 
 	private static final DotName EXCEPTION_HANDLER_DOT = DotName.createSimple("summer.web.annotation.ExceptionHandler");
-	private static final DotName CONDITIONAL_ON_BEAN_DOT = DotName.createSimple("summer.core.annotation.ConditionalOnBean");
+	private static final DotName CONDITIONAL_ON_BEAN_DOT = DotName
+			.createSimple("summer.core.annotation.ConditionalOnBean");
 
 	private final IndexView index;
 
@@ -242,7 +243,11 @@ final class BeanEnrichment {
 			if (bean instanceof ConfigPropertiesBean)
 				continue;
 			ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
-			if (ci == null || !ci.hasAnnotation(INTERCEPTOR_DOT))
+			if (ci == null)
+				continue;
+			// ci.annotations() checks the actual annotation list directly,
+			// avoiding potential resolution issues with cross-module DotNames.
+			if (ci.annotation(INTERCEPTOR_DOT) == null)
 				continue;
 			Set<DotName> bindings = new HashSet<>();
 			for (AnnotationInstance ann : ci.declaredAnnotations()) {
@@ -264,8 +269,8 @@ final class BeanEnrichment {
 			if (ci == null)
 				continue;
 
-			// Skip interceptors — they are not proxy targets
-			if (ci.hasAnnotation(INTERCEPTOR_DOT))
+			// Skip interceptors -- they are not proxy targets.
+			if (ci.annotation(INTERCEPTOR_DOT) != null)
 				continue;
 
 			// Collect class-level bindings
@@ -307,8 +312,8 @@ final class BeanEnrichment {
 			if (!bindings.isEmpty()) {
 				for (var entry : interceptorBindings.entrySet()) {
 					for (DotName binding : entry.getValue()) {
-						if (targetBindings.contains(binding) || methodBindings.values().stream()
-								.anyMatch(ms -> ms.contains(binding.toString()))) {
+						if (targetBindings.contains(binding)
+								|| methodBindings.values().stream().anyMatch(ms -> ms.contains(binding.toString()))) {
 							bean.interceptors.add(entry.getKey());
 							break;
 						}
@@ -326,8 +331,7 @@ final class BeanEnrichment {
 			if (ann != null) {
 				String exClass = ann.value().asClass().name().toString();
 				bean.exceptionHandlerMethods.add(
-						new BeanDefinition.ExceptionHandlerEntry(method.name(), exClass,
-								method.parametersCount()));
+						new BeanDefinition.ExceptionHandlerEntry(method.name(), exClass, method.parametersCount()));
 			}
 		}
 	}

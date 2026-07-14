@@ -47,7 +47,7 @@ public final class WireMethodGenerator {
 			if (bean instanceof ConfigPropertiesBean) {
 				wire.addStatement("builder.register($T.class, $N)", beanClass, varName);
 			} else {
-				if (bean.needsProxy()) {
+				if (bean.needsProxy() && !bean.interfaceNames.isEmpty()) {
 					wire.addStatement("builder.register($T.class, $N)", beanClass, varName + "_impl");
 				} else {
 					wire.addStatement("builder.register($T.class, $N)", beanClass, varName);
@@ -143,6 +143,13 @@ public final class WireMethodGenerator {
 	private void emitComponentInstantiation(MethodSpec.Builder wire, BeanDefinition bean, ClassName beanClass,
 			String varName) {
 		CodeBlock args = buildConstructorArgs(bean);
+		// Summer does not support class-based proxying -- JDK dynamic proxy
+		// requires at least one interface. Fail fast.
+		if (bean.needsProxy() && bean.interfaceNames.isEmpty()) {
+			throw new summer.core.exception.BeanCreationException(bean.qualifiedName
+					+ " is annotated with AOP bindings but implements no interfaces. "
+					+ "Summer uses JDK dynamic proxies -- extract an interface and inject it by the interface type instead.");
+		}
 		if (bean.needsProxy()) {
 			String implVar = varName + "_impl";
 			if (bean.constructorParamTypes.isEmpty()) {

@@ -3,6 +3,7 @@ package summer.aot;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import org.jboss.jandex.AnnotationInstance;
 import org.jboss.jandex.ClassInfo;
@@ -36,8 +37,10 @@ public final class BeanDiscovery {
 	private static final DotName CONFIG_PROPERTIES_DOT = DotName
 			.createSimple("summer.core.config.ConfigurationProperties");
 	private static final DotName REPLACES_DOT = DotName.createSimple("summer.core.annotation.Replaces");
-	private static final DotName CONDITIONAL_ON_BEAN_DOT = DotName.createSimple("summer.core.annotation.ConditionalOnBean");
+	private static final DotName CONDITIONAL_ON_BEAN_DOT = DotName
+			.createSimple("summer.core.annotation.ConditionalOnBean");
 	private static final DotName DEFAULT_VALUE_DOT = DotName.createSimple("summer.core.config.DefaultValue");
+	private static final DotName INTERCEPTOR_DOT = DotName.createSimple("summer.aop.Interceptor");
 
 	private final IndexView index;
 
@@ -53,6 +56,10 @@ public final class BeanDiscovery {
 	}
 
 	public List<BeanDefinition> discover(Scope scope) {
+		return discover(scope, null);
+	}
+
+	public List<BeanDefinition> discover(Scope scope, Set<String> visibleTypes) {
 		List<BeanDefinition> beans = new ArrayList<>();
 		Set<String> collected = new HashSet<>();
 
@@ -78,8 +85,13 @@ public final class BeanDiscovery {
 			}
 		}
 
-		// Phase 2: Evaluate conditions
-		new summer.core.bean.SharedConditionEvaluator().evaluate(beans);
+		// Phase 2: Evaluate conditions (with cross-module visibility if provided)
+		var evaluator = new summer.core.bean.SharedConditionEvaluator();
+		if (visibleTypes != null) {
+			evaluator.evaluate(beans, visibleTypes);
+		} else {
+			evaluator.evaluate(beans);
+		}
 
 		// Phase 3: Enrich remaining metadata
 		new BeanEnrichment(index).enrich(beans);
@@ -106,6 +118,7 @@ public final class BeanDiscovery {
 				|| hasMetaComponentAnnotation(ci, new HashSet<>())) {
 			if (collected.add(name)) {
 				BeanDefinition bean = createBaseDefinition(ci);
+				bean.isInterceptor = ci.annotation(INTERCEPTOR_DOT) != null;
 				AnnotationInstance replacesAnn = ci.annotation(REPLACES_DOT);
 				if (replacesAnn != null) {
 					bean.replacesTargetClass = replacesAnn.value().asClass().name().toString();
@@ -235,7 +248,8 @@ public final class BeanDiscovery {
 			}
 		}
 
-		// Method-level @Replaces (populated during discovery so SharedConditionEvaluator
+		// Method-level @Replaces (populated during discovery so
+		// SharedConditionEvaluator
 		// doesn't need to re-read Jandex)
 		AnnotationInstance methodReplaces = method.annotation(REPLACES_DOT);
 		if (methodReplaces != null) {
