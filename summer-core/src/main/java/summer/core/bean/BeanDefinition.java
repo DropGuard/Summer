@@ -2,7 +2,6 @@ package summer.core.bean;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -12,21 +11,21 @@ import java.util.Set;
  * container.
  *
  * <p>
- * <b>Phase 1 (identity):</b> Qualified &amp; simple name, set in
- * constructor — never changes.
+ * <b>Phase 1 (identity):</b> Qualified &amp; simple name, set in constructor —
+ * never changes.
  * </p>
  *
  * <p>
  * <b>Phase 1b (discovery / enrichment):</b> Constructor params, routes,
- * interfaces, AOP bindings, condition/replaces metadata. Populated once
- * during the discovery+enrichment pipeline, <em>never re-derived</em> from
- * Jandex or reflection afterward.
+ * interfaces, AOP bindings, condition/replaces metadata. Populated once during
+ * the discovery+enrichment pipeline, <em>never re-derived</em> from Jandex or
+ * reflection afterward.
  * </p>
  *
  * <p>
  * <b>Phase 3 (resolution):</b> {@link #resolvedDependencies},
- * {@link #configBeanDefinition}, {@link #interceptors}. Set by the
- * dependency resolver after condition evaluation.
+ * {@link #configBeanDefinition}, {@link #interceptors}. Set by the dependency
+ * resolver after condition evaluation.
  * </p>
  *
  * <p>
@@ -67,22 +66,22 @@ public sealed class BeanDefinition permits ConfigPropertiesBean {
 	public final List<String> interfaceNames = new ArrayList<>();
 
 	/**
-	 * AOP interceptor binding annotation qualified names.
-	 * Populated during enrichment. Empty set = no AOP bindings.
+	 * AOP interceptor binding annotation qualified names. Populated during
+	 * enrichment. Empty set = no AOP bindings.
 	 */
 	public Set<String> interceptorBindingAnnotations = Set.of();
 
 	/**
 	 * Method-level interceptor binding annotations.
 	 *
-	 * Key = method name, value = binding annotation qualified names.
-	 * Key {@code ""} = class-level bindings. Empty map = no AOP bindings.
+	 * Key = method name, value = binding annotation qualified names. Key {@code ""}
+	 * = class-level bindings. Empty map = no AOP bindings.
 	 */
 	public Map<String, Set<String>> methodBindingAnnotations = Map.of();
 
 	/**
-	 * @ExceptionHandler methods discovered on this bean. Populated
-	 * during enrichment.
+	 * @ExceptionHandler methods discovered on this bean. Populated during
+	 *                   enrichment.
 	 */
 	public final List<ExceptionHandlerEntry> exceptionHandlerMethods = new ArrayList<>();
 
@@ -140,9 +139,9 @@ public sealed class BeanDefinition permits ConfigPropertiesBean {
 	}
 
 	/**
-	 * Returns {@code true} if this bean needs an AOP proxy.
-	 * Derived from {@link #interceptorBindingAnnotations} and
-	 * {@link #isInterceptor} — no separate field.
+	 * Returns {@code true} if this bean needs an AOP proxy. Derived from
+	 * {@link #interceptorBindingAnnotations} and {@link #isInterceptor} — no
+	 * separate field.
 	 */
 	public boolean needsProxy() {
 		return !interceptorBindingAnnotations.isEmpty() && !isInterceptor;
@@ -166,9 +165,12 @@ public sealed class BeanDefinition permits ConfigPropertiesBean {
 	/**
 	 * Metadata for an {@code @ExceptionHandler} method.
 	 *
-	 * @param methodName     the method name
-	 * @param exceptionClass the handled exception class name
-	 * @param parameterCount total method parameters
+	 * @param methodName
+	 *            the method name
+	 * @param exceptionClass
+	 *            the handled exception class name
+	 * @param parameterCount
+	 *            total method parameters
 	 */
 	public record ExceptionHandlerEntry(String methodName, String exceptionClass, int parameterCount) {
 	}

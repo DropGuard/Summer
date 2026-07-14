@@ -1,8 +1,5 @@
 package summer.core.bean;
 
-import java.util.Set;
-import org.jboss.jandex.IndexView;
-
 /**
  * Defines the bounded universe for bean discovery.
  *
@@ -12,27 +9,13 @@ import org.jboss.jandex.IndexView;
  * operate on the already-scoped candidate set and remain unaware of scope.
  * </p>
  *
- * <h3>Dual input channels</h3>
  * <p>
- * The framework accepts beans through two independent channels:
- * <ul>
- * <li><b>Index</b> — the Jandex index drives BFS discovery and component
- * scanning.</li>
- * <li><b>Seeds</b> — the caller's explicit declaration of intent. Seeds are
- * authoritative and always included regardless of index coverage.
- * {@code BeanDefinitionFactory} resolves unindexed seeds via reflection.</li>
- * </ul>
- * Production uses only the index channel ({@link #classpath()}). Tests use both
- * ({@link #reachableFrom} + explicit seed inclusion).
+ * Production uses {@link #classpath()}. Integration tests use
+ * {@link #packageOf(String)}. Module-scoped tests bypass {@code Scope}
+ * entirely — they use {@code ModuleIndex.classesInModule()} directly.
+ * Exact-seed tests ({@code @DualEngineTest(seeds = ...)}) pass seeds as
+ * the candidate set without scope filtering.
  * </p>
- *
- * <pre>{@code
- * // Production: full classpath
- * Scope scope = Scope.classpath();
- *
- * // Test isolation: only beans reachable from seeds
- * Scope scope = Scope.reachableFrom(Set.of("com.app.OrderService"), index);
- * }</pre>
  */
 @FunctionalInterface
 public interface Scope {
@@ -54,26 +37,16 @@ public interface Scope {
 	}
 
 	/**
-	 * Test isolation: BFS from seed class names over the Jandex index, computing
-	 * the transitive dependency closure.
+	 * Bean discovery narrowed to a package tree. Every
+	 * {@code @Component} under the given package is included regardless of
+	 * dependency relationships.
 	 *
-	 * <p>
-	 * Validates that all seeds are eligible components, then walks constructor
-	 * parameters, {@code @Bean} method parameters, and {@code @Replaces} targets to
-	 * determine the reachable set.
-	 * </p>
-	 *
-	 * @param seeds
-	 *            fully-qualified class names of the entry beans
-	 * @param index
-	 *            Jandex index for dependency resolution
-	 * @return a scope that includes exactly the transitive closure
-	 * @throws summer.core.exception.BeanCreationException
-	 *             if any seed is invalid
+	 * @param basePackage
+	 *            package prefix (e.g. {@code "com.myapp"})
+	 * @return a scope that includes all classes under the package
 	 */
-	static Scope reachableFrom(Set<String> seeds, IndexView index) {
-		BeanClosure.validateSeeds(seeds, index);
-		Set<String> closure = BeanClosure.compute(seeds, index);
-		return closure::contains;
+	static Scope packageOf(String basePackage) {
+		String prefix = basePackage.endsWith(".") ? basePackage : basePackage + ".";
+		return name -> name.startsWith(prefix);
 	}
 }

@@ -14,6 +14,6 @@ public enum Engine {
 	/** Compile-time generated context (requires summer-maven-plugin). */
 	AOT,
 
-	/** Runtime classpath scanning via Jandex. */
+	/** Runtime DI engine: reads Jandex index at startup. */
 	RUNTIME
 }

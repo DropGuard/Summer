@@ -20,11 +20,23 @@ public final class DiEngine {
 	}
 
 	public static Engine detectEngine() {
-		if (isDevMode()) {
-			log.info("[Summer] Dev mode detected (file protocol): using RUNTIME engine.");
+		// 1. Explicit override: -Dsummer.engine=runtime|aot|auto
+		String override = System.getProperty("summer.engine", "").toLowerCase();
+		if ("runtime".equals(override)) {
+			log.info("[Summer] Engine override: RUNTIME");
 			return Engine.RUNTIME;
 		}
-		log.info("[Summer] Production mode detected (jar protocol): using AOT engine.");
+		if ("aot".equals(override)) {
+			log.info("[Summer] Engine override: AOT");
+			return Engine.AOT;
+		}
+
+		// 2. Auto-detection
+		if (isDevMode()) {
+			log.info("[Summer] Dev mode detected: using RUNTIME engine.");
+			return Engine.RUNTIME;
+		}
+		log.info("[Summer] Production mode detected: using AOT engine.");
 		return Engine.AOT;
 	}
 
@@ -42,13 +54,7 @@ public final class DiEngine {
 	}
 
 	private static boolean isDevMode() {
-		// 1. Explicit system property override
-		String prop = System.getProperty("summer.dev-mode");
-		if (prop != null) {
-			return Boolean.parseBoolean(prop);
-		}
-
-		// 2. Debugger attach detection (IDE Run/Debug)
+		// 1. Debugger attach detection (IDE Run/Debug)
 		if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().stream()
 				.anyMatch(arg -> arg.startsWith("-agentlib:jdwp"))) {
 			return true;
