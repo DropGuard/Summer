@@ -6,17 +6,30 @@ import summer.core.Component;
 import summer.core.DiEngine;
 
 /**
- * Unified test container builder for both AOT and Runtime engines.
+ * Test container builder for Summer DI engines.
+ *
+ * <p>
+ * <b>User path</b> (engine transparent — always Runtime in dev mode):
+ * </p>
  *
  * <pre>{@code
- * // Runtime — full classpath scan
+ * TestContainerBuilder.build();
+ * TestContainerBuilder.build(AppConfig.class);
+ * TestContainerBuilder.buildWithExternal(new Class<?>[]{AppConfig.class}, someBean);
+ * }</pre>
+ *
+ * <p>
+ * <b>TCK path</b> (explicit engine for dual-engine verification):
+ * </p>
+ *
+ * <pre>{@code
  * TestContainerBuilder.buildRuntime();
+ * TestContainerBuilder.buildRuntime(AppConfig.class);
+ * TestContainerBuilder.buildRuntimeWithExternal(new Class<?>[]{AppConfig.class}, ext);
  *
- * // Runtime — isolated from seed classes
- * TestContainerBuilder.buildRuntime(A.class, B.class);
- *
- * // AOT — loads pre-generated LocalContext for the test class
- * TestContainerBuilder.buildAot(TestClass.class);
+ * TestContainerBuilder.buildAot(); // GeneratedAotContext (full)
+ * TestContainerBuilder.buildAot(TestClass.class); // LocalContext (seed-isolated)
+ * TestContainerBuilder.buildAotWithExternal(chain); // GeneratedAotContext + external
  * }</pre>
  */
 public final class TestContainerBuilder {
@@ -24,12 +37,26 @@ public final class TestContainerBuilder {
 	private TestContainerBuilder() {
 	}
 
+	// ── User path: engine transparent ───────────────────────────────────
+
+	/** Builds a container using the auto-detected engine (Runtime in dev mode). */
+	public static BeanContainer build(Class<?>... seeds) {
+		return buildRuntime(seeds);
+	}
+
+	/** Builds a container with external beans using the auto-detected engine. */
+	public static BeanContainer buildWithExternal(Class<?>[] seeds, Object... externalBeans) {
+		return buildRuntimeWithExternal(seeds, externalBeans);
+	}
+
+	// ── TCK path: explicit Runtime engine ───────────────────────────────
+
 	/**
-	 * Builds a {@link BeanContainer} for the Runtime engine.
+	 * Builds a Runtime engine container.
 	 *
 	 * <p>
-	 * With no arguments, performs a full classpath scan. With seed classes, uses
-	 * transitive dependency expansion (isolated).
+	 * With no arguments, builds from the full merged index. With seed classes,
+	 * uses the exact seed scope (no transitive expansion).
 	 * </p>
 	 */
 	public static BeanContainer buildRuntime(Class<?>... seeds) {
@@ -42,38 +69,95 @@ public final class TestContainerBuilder {
 		}
 		return summer.runtime.RuntimeBeanContainerBuilder.build(externalBeans);
 	}
-	public static BeanContainer buildAot(Class<?> testClass, Object... externalBeans) {
-		if (testClass != null) {
-			return loadAotLocalContext(testClass, externalBeans);
-		}
+
+	// ── TCK path: explicit AOT engine ───────────────────────────────────
+
+	/**
+	 * Loads the full AOT-generated context ({@code GeneratedAotContext}).
+	 * Equivalent to {@code Engine.AOT} production startup.
+	 */
+	public static BeanContainer buildAot() {
 		try {
-			return DiEngine.create(externalBeans);
+			return DiEngine.create();
 		} catch (Exception e) {
 			throw new IllegalStateException("Failed to create AOT context", e);
 		}
 	}
 
-	private static BeanContainer loadAotLocalContext(Class<?> testClass, Object... externalBeans) {
-		String testClassName = testClass.getName().replace('.', '_').replace('$', '_');
-		String aotClassName = "summer.core.aot.LocalContext_" + testClassName;
+	/**
+	 * Loads the AOT LocalContext for a specific test class.
+	 * <p>
+	 * Requires that {@code LocalContext_<testClassName>} was generated at build
+	 * time by {@code summer-maven-plugin}. The test class must have
+	 * {@code summer.tck.annotation.WithFixtures(...)}.
+	 * </p>
+	 */
+	public static BeanContainer buildAot(Class<?> testClass) {
+		String aotClassName = "summer.core.aot.LocalContext_" + testClass.getName().replace('.', '_').replace('$', '_');
 		try {
 			Class<?> aotClass = Class.forName(aotClassName);
-			return (BeanContainer) aotClass.getMethod("build", Object[].class).invoke(null, (Object) externalBeans);
+			return (BeanContainer) aotClass.getMethod("build").invoke(null);
 		} catch (ClassNotFoundException e) {
 			throw new IllegalStateException("AOT LocalContext not found for " + testClass.getName()
-					+ ". Ensure summer-maven-plugin is configured for the test phase.", e);
+					+ ". Ensure summer-maven-plugin is configured and the test class"
+					+ " has @WithFixtures with an Aot prefix.", e);
 		} catch (Exception e) {
-			throw new IllegalStateException("Failed to create AOT LocalContext context for " + testClass.getName(), e);
+			throw new IllegalStateException("Failed to create AOT LocalContext for " + testClass.getName(), e);
 		}
 	}
+
+	/**
+	 * Loads the full AOT-generated context with external bean injection.
+	 * <p>
+	 * External beans are registered <em>after</em> the generated wiring completes.
+	 * </p>
+	 */
+	public static BeanContainer buildAotWithExternal(Object... externalBeans) {
+		try {
+			return DiEngine.create(externalBeans);
+		} catch (Exception e) {
+			throw new IllegalStateException("Failed to create AOT context with external beans", e);
+		}
+	}
+
+	/**
+	 * Builds a Runtime engine container by auto-scanning a package tree.
+	 *
+	 * <p>
+	 * All {@code @Component} (and meta-annotated) classes under {@code basePackage}
+	 * are discovered automatically. Additional seeds outside the package tree (e.g.
+	 * framework infrastructure) are passed explicitly.
+	 * </p>
+	 *
+	 * <pre>{@code
+	 * TestContainerBuilder.buildModuleWithExternal("summer.twitter", new Class<?>[]{NettyServerConfiguration.class},
+	 * 		chain);
+	 * }</pre>
+	 */
+	public static BeanContainer buildModuleWithExternal(String basePackage, Class<?>[] seeds, Object... externalBeans) {
+		return summer.runtime.RuntimeBeanContainerBuilder.buildModuleWithExternal(basePackage, seeds, externalBeans);
+	}
+
+	/**
+	 * Builds a Runtime engine container by auto-scanning a package tree. No
+	 * external beans required.
+	 */
+	public static BeanContainer buildModule(String basePackage) {
+		return buildModuleWithExternal(basePackage, new Class<?>[0]);
+	}
+
+	/**
+	 * Builds a Runtime engine container by auto-scanning a package tree with
+	 * additional seeds but no external beans.
+	 */
+	public static BeanContainer buildModule(String basePackage, Class<?>... seeds) {
+		return buildModuleWithExternal(basePackage, seeds);
+	}
+
 	/**
 	 * Checks whether a class has {@code @Component} or a meta-annotation that is
 	 * itself annotated with {@code @Component} (e.g. {@code @RestController},
 	 * {@code @Configuration}).
-	 * 
-	 * @param clazz
-	 *            the class to check
-	 * @return true if the class is a component
 	 */
 	public static boolean isComponent(Class<?> clazz) {
 		if (clazz.isAnnotationPresent(Component.class)) {
@@ -85,30 +169,5 @@ public final class TestContainerBuilder {
 			}
 		}
 		return false;
-	}
-
-	public static BeanContainer buildAot(Class<?> testClass) {
-		if (testClass != null) {
-			return loadAotLocalContext(testClass);
-		}
-		try {
-			return DiEngine.create();
-		} catch (Exception e) {
-			throw new IllegalStateException("Failed to create AOT context", e);
-		}
-	}
-
-	private static BeanContainer loadAotLocalContext(Class<?> testClass) {
-		String testClassName = testClass.getName().replace('.', '_').replace('$', '_');
-		String aotClassName = "summer.core.aot.LocalContext_" + testClassName;
-		try {
-			Class<?> aotClass = Class.forName(aotClassName);
-			return (BeanContainer) aotClass.getMethod("build").invoke(null);
-		} catch (ClassNotFoundException e) {
-			throw new IllegalStateException("AOT LocalContext not found for " + testClass.getName()
-					+ ". Ensure summer-maven-plugin is configured for the test phase.", e);
-		} catch (Exception e) {
-			throw new IllegalStateException("Failed to create AOT LocalContext context for " + testClass.getName(), e);
-		}
 	}
 }
