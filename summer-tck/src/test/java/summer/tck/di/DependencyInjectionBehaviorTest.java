@@ -13,7 +13,8 @@ import summer.test.annotation.SummerTest;
  * Verifies core DI behaviour via {@link SummerTest}. Each {@code @Test} uses
  * the Runtime engine (dev mode default).
  */
-@SummerTest(modules = "summer-tck-fixtures")
+
+@SummerTest
 public class DependencyInjectionBehaviorTest {
 
 	private final BeanContainer context;

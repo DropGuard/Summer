@@ -8,7 +8,7 @@ import summer.fixtures.di.configprops.*;
 import summer.fixtures.di.root.RootService;
 import summer.test.annotation.SummerTest;
 
-@SummerTest(modules = "summer-tck-fixtures")
+@SummerTest
 public class ConfigurationPropertiesBehaviorTest {
 
 	private final BeanContainer context;

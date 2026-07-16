@@ -13,7 +13,8 @@ import summer.test.annotation.SummerTest;
  * Verifies {@link Mock} replaces a real bean in the container and is injected
  * into dependent beans.
  */
-@SummerTest(modules = "summer-tck-fixtures")
+
+@SummerTest
 class MockBehaviorTest {
 
 	private final ServiceA serviceA;

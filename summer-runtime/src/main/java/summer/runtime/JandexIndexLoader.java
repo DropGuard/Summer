@@ -57,59 +57,62 @@ public final class JandexIndexLoader {
 	}
 
 	/**
-	 * Loads Jandex indexes with module attribution.
+	 * The application universe: production beans only.
 	 *
 	 * <p>
-	 * Each indexed class is associated with the module it came from (derived from
-	 * the jar or directory containing {@code META-INF/jandex.idx}). The returned
-	 * {@link ModuleIndex} can be used to scope bean discovery to specific modules.
+	 * Merges every {@code META-INF/jandex.idx} (production) on the classpath and
+	 * attributes each class to its module. Test-class indexes
+	 * ({@code jandex-test.idx}) are <b>never</b> part of this universe — so a
+	 * production container (runtime startup or AOT generation) can never
+	 * instantiate a test bean. This is the boundary that keeps
+	 * {@code SummerMojo}-generated AOT containers free of test classes.
 	 * </p>
 	 *
 	 * <p>
-	 * In addition to production indexes ({@code jandex.idx}), test-class indexes
-	 * ({@code jandex-test.idx}) are consulted purely for module attribution — so a
-	 * {@code @SummerTest} class resolves to its own module even though test classes
-	 * are not part of the bean-discovery universe. Test indexes are intentionally
-	 * kept under a separate file name so the AOT generator (which scans
-	 * {@code jandex.idx}) never treats test classes as beans.
+	 * Mirrors Quarkus: the application under test is the production code; test
+	 * classes live on a separate classpath slice and are only consulted by the test
+	 * container.
 	 * </p>
+	 *
+	 * @return a module index whose universe is production beans across all modules
 	 */
-	public static ModuleIndex buildModuleIndex() {
+	public static ModuleIndex applicationIndex() {
 		Map<String, String> classToModule = new HashMap<>();
 		Map<String, IndexView> moduleIndexes = new HashMap<>();
 		List<Index> indexes = new ArrayList<>();
-
-		// Production/main indexes: attribution + bean-discovery universe.
 		loadIndexResource("META-INF/jandex.idx", classToModule, moduleIndexes, indexes, true);
-		// Test indexes: attribution only (not added to the bean universe).
-		loadIndexResource("META-INF/jandex-test.idx", classToModule, moduleIndexes, indexes, false);
-
 		if (indexes.isEmpty()) {
 			throw new ConfigurationException(ErrorCode.CONFIG_MISSING_INDEX, "No jandex.idx found on classpath.");
 		}
-
 		List<IndexView> indexViews = new ArrayList<>(indexes);
 		return new ModuleIndex(CompositeIndex.create(indexViews), classToModule, moduleIndexes);
 	}
 
 	/**
-	 * Builds a {@link ModuleIndex} for the Runtime test container.
+	 * The test universe: the application universe plus every test-class bean on the
+	 * test classpath.
 	 *
 	 * <p>
-	 * Like {@link #buildModuleIndex()}, but test-class indexes
-	 * ({@code META-INF/jandex-test.idx}) are <b>also</b> added to the
-	 * bean-discovery universe — not attribution-only. Test fixtures
-	 * ({@code @Component} classes in {@code src/test}) must be instantiable by the
-	 * container, yet they live in test-class indexes that the AOT generator never
-	 * scans. Keeping them in the Runtime test universe is safe: the
-	 * {@code ConflictConfig} ambiguity that motivated the index split is a
-	 * <em>main-source</em> fixture (already in {@code jandex.idx}); it is
-	 * unaffected because {@code SummerMojo} still reads only {@code jandex.idx}.
+	 * Merges {@code META-INF/jandex.idx} (production) <b>and</b>
+	 * {@code META-INF/jandex-test.idx} (test fixtures) per module, so a
+	 * {@code @SummerTest} container sees the same beans Quarkus'
+	 * {@code @QuarkusTest} would: the whole application, plus whatever test beans
+	 * are on the classpath (controllers, stub configs, etc.) — no explicit fixture
+	 * list, no narrowing switch. A test bean is discovered exactly like a
+	 * production bean: if it is indexed and in scope, the container wires it.
 	 * </p>
 	 *
-	 * @return a module index whose bean universe includes test-class indexes
+	 * <p>
+	 * This is the only universe the test container uses. The split between
+	 * {@code jandex.idx} and {@code jandex-test.idx} exists purely so the
+	 * <em>production</em> path ({@link #applicationIndex()}, used by AOT
+	 * generation) never sees test classes — it is not a mechanism for excluding
+	 * test beans from a test container.
+	 * </p>
+	 *
+	 * @return a module index whose universe is production beans plus test beans
 	 */
-	public static ModuleIndex buildTestModuleIndex() {
+	public static ModuleIndex testIndex() {
 		Map<String, String> classToModule = new HashMap<>();
 		// Production per-module indexes (authoritative for the bean universe).
 		Map<String, IndexView> prodIndexes = new HashMap<>();
@@ -117,9 +120,7 @@ public final class JandexIndexLoader {
 		Map<String, IndexView> testIndexes = new HashMap<>();
 		List<Index> indexes = new ArrayList<>();
 
-		// Production/main indexes: attribution + bean-discovery universe.
 		loadIndexResource("META-INF/jandex.idx", classToModule, prodIndexes, indexes, true);
-		// Test indexes: attribution + bean-discovery universe (test fixtures).
 		loadIndexResource("META-INF/jandex-test.idx", classToModule, testIndexes, indexes, true);
 
 		if (indexes.isEmpty()) {
@@ -127,9 +128,9 @@ public final class JandexIndexLoader {
 		}
 
 		// Per-module index = production classes, merged with the module's test
-		// classes when both exist. This lets discoverComponents iterate the full
-		// class set for a module (production beans + its own test fixtures) instead
-		// of the test index silently shadowing the production one.
+		// classes when both exist. This lets discovery iterate the full class set
+		// for a module (production beans + its test fixtures) instead of the test
+		// index silently shadowing the production one.
 		Map<String, IndexView> moduleIndexes = new HashMap<>(prodIndexes);
 		for (var entry : testIndexes.entrySet()) {
 			IndexView existing = moduleIndexes.get(entry.getKey());
@@ -137,31 +138,6 @@ public final class JandexIndexLoader {
 					existing != null ? CompositeIndex.create(List.of(existing, entry.getValue())) : entry.getValue());
 		}
 
-		List<IndexView> indexViews = new ArrayList<>(indexes);
-		return new ModuleIndex(CompositeIndex.create(indexViews), classToModule, moduleIndexes);
-	}
-
-	/**
-	 * Builds a {@link ModuleIndex} from production indexes only
-	 * ({@code jandex.idx}), excluding {@code jandex-test.idx}.
-	 *
-	 * <p>
-	 * Used to decide whether a class is a production bean (and thus always in scope
-	 * for an integration test) versus a test-only fixture that must be named
-	 * explicitly. Keeping test indexes out means test fixtures are NOT treated as
-	 * production beans.
-	 * </p>
-	 *
-	 * @return a production-only module index
-	 */
-	public static ModuleIndex buildProductionModuleIndex() {
-		Map<String, String> classToModule = new HashMap<>();
-		Map<String, IndexView> moduleIndexes = new HashMap<>();
-		List<Index> indexes = new ArrayList<>();
-		loadIndexResource("META-INF/jandex.idx", classToModule, moduleIndexes, indexes, true);
-		if (indexes.isEmpty()) {
-			throw new ConfigurationException(ErrorCode.CONFIG_MISSING_INDEX, "No jandex.idx found on classpath.");
-		}
 		List<IndexView> indexViews = new ArrayList<>(indexes);
 		return new ModuleIndex(CompositeIndex.create(indexViews), classToModule, moduleIndexes);
 	}

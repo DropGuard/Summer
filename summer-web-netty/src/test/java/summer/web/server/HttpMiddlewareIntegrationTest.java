@@ -27,8 +27,7 @@ class HttpMiddlewareIntegrationTest {
 	static void startServer() throws Exception {
 		summer.web.GlobalMiddlewareChain chain = new summer.web.GlobalMiddlewareChain(
 				List.of(HttpTestMiddleware.class));
-		context = Testing.buildForIntegration(HttpMiddlewareIntegrationTest.class,
-				new Class<?>[]{HttpTestMiddleware.class, summer.fixtures.HttpTestController.class}, chain);
+		context = Testing.buildForTest(HttpMiddlewareIntegrationTest.class, chain);
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);
 	}

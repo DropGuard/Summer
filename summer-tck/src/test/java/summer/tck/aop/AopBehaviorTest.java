@@ -9,7 +9,7 @@ import summer.fixtures.aop.Greeter;
 import summer.fixtures.aop.RecordingInterceptor;
 import summer.test.annotation.SummerTest;
 
-@SummerTest(modules = "summer-tck-fixtures")
+@SummerTest
 public class AopBehaviorTest {
 
 	private final BeanContainer context;

@@ -20,7 +20,8 @@ import summer.test.annotation.TestProfile;
  * so this test is also a guard for dual-engine config consistency.
  */
 @TestProfile(DevProfile.class)
-@SummerTest(modules = "summer-tck-fixtures")
+
+@SummerTest
 public class ProfileBehaviorTest {
 
 	private final BeanContainer context;

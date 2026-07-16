@@ -7,7 +7,7 @@ import summer.core.BeanContainer;
 import summer.fixtures.di.MethodReplacesBean;
 import summer.test.annotation.SummerTest;
 
-@SummerTest(modules = "summer-tck-fixtures")
+@SummerTest
 public class MethodReplacesBehaviorTest {
 
 	private final BeanContainer context;

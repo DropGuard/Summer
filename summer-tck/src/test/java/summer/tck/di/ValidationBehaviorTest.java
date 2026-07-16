@@ -8,7 +8,7 @@ import summer.fixtures.validation.TlsService;
 import summer.fixtures.validation.TlsValidator;
 import summer.test.annotation.SummerTest;
 
-@SummerTest(modules = "summer-tck-fixtures")
+@SummerTest
 public class ValidationBehaviorTest {
 
 	private final BeanContainer context;

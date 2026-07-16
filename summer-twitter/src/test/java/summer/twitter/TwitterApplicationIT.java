@@ -6,14 +6,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
 import summer.core.BeanContainer;
-import summer.test.TestContainerBuilder;
+import summer.test.Testing;
 import summer.web.GlobalMiddlewareChain;
-import summer.web.WebInfrastructureConfiguration;
-import summer.web.server.NettyServerConfiguration;
 import summer.web.server.NettyServerRunner;
-import summer.web.server.RouterConfiguration;
-import summer.runtime.HttpParameterResolverConfiguration;
-import summer.runtime.RuntimeWebConfiguration;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -33,9 +28,10 @@ import static summer.twitter.support.TwitterTestDatabase.*;
  *   <li>Disposable PostgreSQL container (Testcontainers 1.21.4)</li>
  *   <li>{@link TestDatabaseConfig} replaces production {@code DatabaseConfig}
  *       via {@code @Replaces}, reads dynamic container URL from system properties</li>
- *   <li>Package-scan container build via {@code TestContainerBuilder.buildModuleWithExternal}
- *       — all {@code summer.twitter} beans are auto-discovered, infrastructure configs
- *       outside the package are passed as explicit seeds</li>
+ *   <li>Full test-universe container build via {@code Testing.buildForTest}
+ *       — Twitter beans and framework infrastructure configs are all
+ *       auto-discovered as test beans; the GlobalMiddlewareChain is the only
+ *       explicitly registered external bean</li>
  *   <li>Netty bound to random port (test application.yml sets server.port: 0)</li>
  *   <li>Auth middleware applied globally with public-route exemptions</li>
  * </ol>
@@ -71,22 +67,12 @@ class TwitterApplicationIT {
         System.setProperty("summer.test.datasource.username", "test");
         System.setProperty("summer.test.datasource.password", "test");
 
-        // 4. Build the bean container from package scan + external beans
-        //    Controllers, services, and middleware in summer.twitter.* are
-        //    auto-discovered. Only framework infrastructure outside the package
-        //    must be listed explicitly.
+        // 4. Build the bean container over the full test universe. The Twitter
+        //    beans (controllers, services, middleware) and the framework
+        //    infrastructure configs are all auto-discovered as test beans; only
+        //    the GlobalMiddlewareChain is registered explicitly as an external bean.
         GlobalMiddlewareChain chain = new GlobalMiddlewareChain(List.of(summer.twitter.auth.AuthMiddleware.class));
-        context = TestContainerBuilder.buildModuleWithExternal(
-                "summer.twitter",
-                new Class<?>[]{
-                        NettyServerConfiguration.class,
-                        RouterConfiguration.class,
-                        RuntimeWebConfiguration.class,
-                        HttpParameterResolverConfiguration.class,
-                        WebInfrastructureConfiguration.class,
-                },
-                chain    // external bean: GlobalMiddlewareChain
-        );
+        context = Testing.buildForTest(TwitterApplicationIT.class, chain);
 
         // 5. Start ApplicationRunners (starts Netty)
         for (Object runner : context.getBeans(NettyServerRunner.class)) {

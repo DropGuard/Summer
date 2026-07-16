@@ -31,11 +31,10 @@ class TweetServiceTest {
 		mockTweetRepo = mock(TweetRepository.class);
 		mockUserRepo = mock(UserRepository.class);
 
-		// Full merged Jandex index.  Mocks are registered as external beans first,
-		// so real beans peek() and skip.  Seeds isolation is not used because
-		// mocks are registered at build time, not discovered.
+		// Full test universe. Mocks are registered as external beans first, so real
+		// beans peek() and skip them. The universe is the full test universe
+		// (Quarkus-aligned), and isolation comes from the mocks — not from seeds.
 		container = Testing.buildWithExternal(
-				new Class<?>[0],
 				mockTweetRepo, mockUserRepo,
 				mock(summer.twitter.timeline.TimelineService.class),
 				mock(summer.data.redis.SummerRedisTemplate.class),

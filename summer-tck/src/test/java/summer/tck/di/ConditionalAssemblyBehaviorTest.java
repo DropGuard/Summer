@@ -8,7 +8,7 @@ import summer.fixtures.di.ConditionalBean;
 import summer.fixtures.di.TestMarker;
 import summer.test.annotation.SummerTest;
 
-@SummerTest(modules = "summer-tck-fixtures")
+@SummerTest
 public class ConditionalAssemblyBehaviorTest {
 
 	private final BeanContainer context;

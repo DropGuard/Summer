@@ -93,26 +93,6 @@ public final class ModuleIndex {
 	}
 
 	/**
-	 * Returns the union of class names across several modules. Used by the test
-	 * framework when a {@code @SummerTest} narrows its universe to an explicit
-	 * module set (plus its own module) — the optional narrowing on top of the
-	 * Quarkus-wide default.
-	 *
-	 * @param moduleNames
-	 *            modules whose classes should be in scope
-	 * @return every class belonging to any of the named modules
-	 */
-	public Set<String> classesInModules(Set<String> moduleNames) {
-		Set<String> result = new HashSet<>();
-		for (var entry : classToModule.entrySet()) {
-			if (moduleNames.contains(entry.getValue())) {
-				result.add(entry.getKey());
-			}
-		}
-		return result;
-	}
-
-	/**
 	 * Creates a scope that includes all classes from the given module and its
 	 * transitive dependencies.
 	 */
@@ -122,14 +102,21 @@ public final class ModuleIndex {
 	}
 
 	/**
-	 * The Quarkus-aligned wide default: every production class across all modules.
-	 * Test classes are excluded by construction — {@link JandexIndexLoader#buildModuleIndex()}
-	 * keeps {@code jandex-test.idx} out of the bean universe, so this scope can
-	 * never pull in unrelated test fixtures (the sad-path trap).
+	 * The universe scope: every class this index knows about.
 	 *
-	 * @return a scope covering all production beans
+	 * <p>
+	 * The set of "known classes" depends entirely on which index was loaded:
+	 * {@link JandexIndexLoader#applicationIndex()} knows only production classes,
+	 * while {@link JandexIndexLoader#testIndex()} also knows test-class beans. So
+	 * the same method yields the production universe on the application index and
+	 * the production-plus-test universe on the test index — the scope carries no
+	 * separate test/production flag, it simply reflects the index it was built
+	 * from. This is what makes the test container see test beans automatically
+	 * (Quarkus-style) without any narrowing switch.
+	 *
+	 * @return a scope covering every class in this index's universe
 	 */
-	public Scope productionScope() {
+	public Scope universeScope() {
 		return name -> classToModule.containsKey(name);
 	}
 }

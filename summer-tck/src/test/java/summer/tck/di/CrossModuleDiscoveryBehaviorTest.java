@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
 import summer.test.annotation.SummerTest;
 
-@SummerTest(modules = "summer-tck-fixtures")
+@SummerTest
 public class CrossModuleDiscoveryBehaviorTest {
 
 	private final BeanContainer context;

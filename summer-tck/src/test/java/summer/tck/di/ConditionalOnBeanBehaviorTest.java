@@ -7,7 +7,7 @@ import summer.core.BeanContainer;
 import summer.fixtures.di.conditional.*;
 import summer.test.annotation.SummerTest;
 
-@SummerTest(modules = "summer-tck-fixtures")
+@SummerTest
 public class ConditionalOnBeanBehaviorTest {
 
 	private final BeanContainer context;

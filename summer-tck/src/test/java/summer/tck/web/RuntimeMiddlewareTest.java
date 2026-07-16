@@ -7,6 +7,6 @@ public class RuntimeMiddlewareTest extends AbstractMiddlewareTCK {
 	protected BeanContainer createContext() {
 		summer.web.GlobalMiddlewareChain chain = new summer.web.GlobalMiddlewareChain(
 				java.util.List.of(summer.fixtures.web.dummy.GlobalLoggingMiddleware.class));
-		return summer.test.TestContainerBuilder.buildRuntimeWithExternal(new Class<?>[0], chain);
+		return summer.test.TestContainerBuilder.buildWithExternal(chain);
 	}
 }

@@ -11,8 +11,8 @@ import summer.web.middleware.CorsConfig;
  * Integration test — requires Redis on localhost:6379.
  * Demonstrates {@code @SummerTest} with constructor injection.
  */
+@SummerTest
 @Tag("integration")
-@SummerTest(modules = "summer-web-middleware")
 class CorsConfigBindingTest {
 
     final CorsConfig config;

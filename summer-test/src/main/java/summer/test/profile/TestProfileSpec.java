@@ -10,8 +10,9 @@ import java.util.Map;
  * configuration — the canonical way to exercise conditional/sad-path branches
  * without reshaping bean discovery. It overrides
  * {@code @ConfigurationProperties} binding only; it does not add or remove
- * beans (use {@code @SummerTest(modules
- * = ...)} / {@code packages = ...} for that).
+ * beans. The bean universe is always the full test universe (whole application
+ * plus test beans), so a profile never reshapes discovery — it only changes
+ * configuration values, exactly as a Quarkus {@code @TestProfile} does.
  * </p>
  *
  * <pre>{@code

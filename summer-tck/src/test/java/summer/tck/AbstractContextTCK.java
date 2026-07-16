@@ -48,7 +48,7 @@ public abstract class AbstractContextTCK extends AbstractTCK {
 	 * {@code TestContainerBuilder.buildAot()}).
 	 */
 	protected BeanContainer createContext() {
-		return TestContainerBuilder.buildRuntime();
+		return TestContainerBuilder.build();
 	}
 
 	/**

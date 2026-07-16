@@ -3,13 +3,10 @@ package summer.test;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.security.MessageDigest;
-import java.util.Arrays;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import summer.core.config.ConfigBinder;
-import summer.runtime.JandexIndexLoader;
 import summer.test.annotation.Mock;
-import summer.test.annotation.SummerTest;
 
 /**
  * Stable identity of an AOT container.
@@ -55,29 +52,21 @@ public final class AotKey {
 	}
 
 	/**
-	 * Identity for a {@code @SummerTest} container. Derived from the test class's
-	 * module boundary, the active profile's <em>content</em> (not its name), and
-	 * the types being mocked via {@code @Mock}.
+	 * Identity for a {@code @SummerTest} container.
+	 *
+	 * <p>
+	 * The universe is always the test universe (application beans plus test beans),
+	 * so there is no module/package boundary dimension to encode — Quarkus-aligned,
+	 * where {@code @QuarkusTest} sees the whole application plus test beans and
+	 * isolation comes from {@code @TestProfile} and {@code @Mock}, not from a
+	 * shrunk discovery universe. The only inputs that change the generated graph
+	 * are the active profile's <em>content</em> (not its name) and the types
+	 * replaced by {@code @Mock}.
 	 */
 	public static AotKey forTest(Class<?> testClass) {
 		SortedSet<String> dimensions = new TreeSet<>();
 		dimensions.add("kind=test");
-		dimensions.add("test=" + testClass.getName());
-
-		SummerTest ann = testClass.getAnnotation(SummerTest.class);
-		if (ann != null) {
-			for (String m : sorted(ann.modules())) {
-				dimensions.add("module=" + m);
-			}
-			for (String p : sorted(ann.packages())) {
-				dimensions.add("package=" + p);
-			}
-		}
-		// Own module attribution — the boundary that scopeFor() also uses.
-		String own = JandexIndexLoader.buildModuleIndex().moduleOf(testClass.getName());
-		if (own != null) {
-			dimensions.add("ownModule=" + own);
-		}
+		dimensions.add("test=" + (testClass != null ? testClass.getName() : "<anonymous>"));
 		// Profile content (not name) — same overrides ⇒ same container.
 		dimensions.add("profile=" + hash(ConfigBinder.getProfileOverrides().toString()));
 		// Mocked types — AOT bakes the replacement in at generation time.
@@ -86,18 +75,8 @@ public final class AotKey {
 	}
 
 	/**
-	 * Identity for a full-application (TCK) AOT verification. No test class, no
-	 * profile, no mocks — keyed by an explicit universe tag (e.g. "all-modules" or
-	 * a seed signature).
+	 * Cache key for {@code AotEngine}'s container cache.
 	 */
-	public static AotKey forUniverse(String universeTag) {
-		SortedSet<String> dimensions = new TreeSet<>();
-		dimensions.add("kind=universe");
-		dimensions.add("universe=" + universeTag);
-		return new AotKey(String.join("|", dimensions));
-	}
-
-	/** Cache key for {@code AotEngine}'s container cache. */
 	public String cacheKey() {
 		return "aot-" + hash(fingerprint);
 	}
@@ -110,14 +89,6 @@ public final class AotKey {
 	@Override
 	public String toString() {
 		return fingerprint;
-	}
-
-	private static SortedSet<String> sorted(String[] values) {
-		SortedSet<String> set = new TreeSet<>();
-		if (values != null) {
-			set.addAll(Arrays.asList(values));
-		}
-		return set;
 	}
 
 	/**

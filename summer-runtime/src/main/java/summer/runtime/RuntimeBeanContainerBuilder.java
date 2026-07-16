@@ -1,8 +1,6 @@
 package summer.runtime;
 
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,8 +28,8 @@ import summer.core.validation.Validator;
  * }</pre>
  *
  * <p>
- * For isolated builds (tests), use
- * {@code TestContainerBuilder.buildRuntime(seeds...)}.
+ * For isolated builds (tests), use {@code Testing.build()} over the full test
+ * universe, or {@code TestContainerBuilder.build()} for the TCK path.
  * </p>
  */
 public final class RuntimeBeanContainerBuilder {
@@ -42,161 +40,67 @@ public final class RuntimeBeanContainerBuilder {
 	}
 
 	/**
-	 * Builds a {@link BeanContainer} from the full merged Jandex index.
+	 * Builds a {@link BeanContainer} over the test universe: the whole application
+	 * (every production bean) plus the test-class beans on the classpath. Mirrors
+	 * Quarkus' {@code @QuarkusTest} universe — no seed list, no module narrowing.
+	 * Test beans are discovered exactly like production beans.
 	 *
+	 * @param externalBeans
+	 *            pre-instantiated beans to register (e.g. mocks)
 	 * @return immutable bean container
 	 */
 	public static BeanContainer build(Object... externalBeans) {
-		IndexView index = JandexIndexLoader.buildIndex();
-
-		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(index, Scope.classpath());
-
-		return initialize(index, componentClasses, externalBeans);
+		return build(testUniverse(), externalBeans);
 	}
 
 	/**
-	 * Builds a {@link BeanContainer} from the full merged index <b>including
-	 * test-class indexes</b> ({@code jandex-test.idx}).
+	 * Builds a {@link BeanContainer} restricted to an explicit {@link Scope} over
+	 * the test universe, registering pre-instantiated {@code externalBeans}.
 	 *
 	 * <p>
-	 * Used by the test container so {@code @Component} test fixtures in
-	 * {@code src/test} are discoverable. Mirrors {@link #build(Object...)} but uses
-	 * the test-aware index. Production startup must NOT use this — it keeps test
-	 * classes out of the bean universe.
-	 * </p>
-	 *
-	 * @param externalBeans
-	 *            pre-instantiated beans to register
-	 * @return immutable bean container
-	 */
-	public static BeanContainer buildFromTestIndex(Object... externalBeans) {
-		ModuleIndex moduleIndex = JandexIndexLoader.buildTestModuleIndex();
-		IndexView index = moduleIndex.index();
-		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(moduleIndex, index,
-				Scope.classpath());
-		return initialize(index, componentClasses, externalBeans);
-	}
-
-	/**
-	 * Builds a {@link BeanContainer} from explicit seed classes using transitive
-	 * dependency expansion (exact seed scope). Called by
-	 * {@link summer.test.TestContainerBuilder}.
-	 *
-	 * @param seeds
-	 *            seed component classes
-	 * @return immutable bean container
-	 */
-	public static BeanContainer buildFromSeeds(Class<?>... seeds) {
-		return buildFromSeedsWithExternal(seeds, new Object[0]);
-	}
-
-	public static BeanContainer buildFromSeedsWithExternal(Class<?>[] seeds, Object... externalBeans) {
-		IndexView index = JandexIndexLoader.buildIndex();
-		// Seeds define the exact candidate set — the scope filter. Any seed that is
-		// a @Component / @Configuration / @ConfigurationProperties is discovered by
-		// the scanner; unannotated intentionally not force-registered.
-		Set<String> seedNames = new LinkedHashSet<>();
-		for (Class<?> seed : seeds) {
-			seedNames.add(seed.getName());
-		}
-		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(index, seedNames::contains);
-		return initialize(index, componentClasses, externalBeans);
-	}
-
-	/**
-	 * Builds a {@link BeanContainer} from specific modules using their Jandex
-	 * indexes. Only beans from the named modules are instantiated.
-	 *
-	 * @param moduleIndex
-	 *            pre-built module index (from
-	 *            {@code JandexIndexLoader.buildModuleIndex()})
-	 * @param modules
-	 *            module names to scope discovery to
-	 * @param externalBeans
-	 *            pre-instantiated beans to register
-	 * @return immutable bean container
-	 */
-	public static BeanContainer buildFromModuleScope(ModuleIndex moduleIndex, java.util.List<String> modules,
-			Object... externalBeans) {
-		Set<String> deps = Set.of();
-		Set<String> allInScope = new HashSet<>();
-		for (String mod : modules) {
-			allInScope.addAll(moduleIndex.classesInModule(mod, deps));
-		}
-		Scope scope = name -> allInScope.contains(name);
-		IndexView index = moduleIndex.index();
-		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(index, scope);
-		return initialize(index, componentClasses, externalBeans);
-	}
-
-	/**
-	 * Builds a {@link BeanContainer} by scanning all {@code @Component} classes
-	 * under a given package tree, plus explicit seeds from outside that tree.
-	 *
-	 * <p>
-	 * This is the right choice for integration tests: the test module's beans are
-	 * discovered automatically, while infrastructure configurations that live in
-	 * framework packages (e.g. {@code NettyServerConfiguration}) are passed as
-	 * explicit seeds.
-	 * </p>
-	 *
-	 * @param basePackage
-	 *            package prefix for auto-scanning (e.g. {@code "summer.twitter"})
-	 * @param seeds
-	 *            additional seed classes (may overlap with or extend the package)
-	 * @param externalBeans
-	 *            pre-instantiated external beans (e.g.
-	 *            {@code GlobalMiddlewareChain})
-	 * @return immutable bean container
-	 */
-	public static BeanContainer buildModuleWithExternal(String basePackage, Class<?>[] seeds, Object... externalBeans) {
-		IndexView index = JandexIndexLoader.buildIndex();
-		Scope scope = Scope.packageOf(basePackage);
-		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(index, scope);
-		for (Class<?> seed : seeds) {
-			componentClasses.add(seed);
-		}
-		return initialize(index, componentClasses, externalBeans);
-	}
-
-	/**
-	 * Builds a {@link BeanContainer} restricted to an explicit {@link Scope}.
-	 *
-	 * <p>
-	 * Used by {@code @SummerTest}: the scope is derived from the test class's
-	 * module (plus any {@code modules}/{@code packages} it declares), so the
-	 * container sees exactly the beans the test should see — no more. Discovery
-	 * never loads classes outside the scope, which keeps sad-path constructors (DB
-	 * connections, thread pools) of unrelated beans from firing during scan.
+	 * The scope is the test universe (application + test beans); discovery never
+	 * loads classes outside it. This is the single discovery boundary used by every
+	 * test container — {@code @SummerTest}, {@code @DualEngine}, integration tests
+	 * all funnel through here, so Runtime and AOT observe the same candidate set.
 	 * </p>
 	 *
 	 * @param scope
-	 *            the discovery boundary
+	 *            the discovery boundary (typically
+	 *            {@code testUniverse().universeScope()})
 	 * @param externalBeans
 	 *            pre-instantiated beans to register (e.g. mocks)
 	 * @return immutable bean container
 	 */
 	public static BeanContainer build(Scope scope, Object... externalBeans) {
-		// Default test container: production indexes + test-class attribution
-		// only (test classes are NOT in the bean universe). Unit tests scope via
-		// @SummerTest(modules=...) and must not sweep in sibling test
-		// fixtures. Integration tests that need fixtures call
-		// build(ModuleIndex, Scope, ...) with the test-aware index instead.
-		return build(JandexIndexLoader.buildModuleIndex(), scope, externalBeans);
+		return build(testUniverse(), scope, externalBeans);
 	}
 
 	/**
-	 * Builds a {@link BeanContainer} restricted to an explicit {@link Scope}, using
-	 * a caller-supplied {@link ModuleIndex}.
+	 * Builds a {@link BeanContainer} by auto-scanning a package tree for
+	 * {@code @Component} classes over the application universe. Retained for
+	 * one-off package-scoped builds.
 	 *
-	 * <p>
-	 * Lets the integration-test path pass a test-aware index (which includes
-	 * {@code jandex-test.idx} fixtures) while the unit-test path keeps the
-	 * production-only index.
-	 * </p>
+	 * @param basePackage
+	 *            package prefix for auto-scanning (e.g. {@code "summer.twitter"})
+	 * @return immutable bean container
+	 */
+	public static BeanContainer buildFromPackage(String basePackage) {
+		ModuleIndex moduleIndex = testUniverse();
+		IndexView index = moduleIndex.index();
+		Scope scope = Scope.packageOf(basePackage);
+		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(moduleIndex, index, scope);
+		return initialize(index, componentClasses);
+	}
+
+	/**
+	 * Builds a {@link BeanContainer} over a caller-supplied {@link ModuleIndex} and
+	 * {@link Scope}. The test container uses the test universe index; the
+	 * production path is not exposed here (production startup uses
+	 * {@code SummerApplication} / {@code SummerMojo}, which read only
+	 * {@code jandex.idx}).
 	 *
 	 * @param moduleIndex
-	 *            the module index to discover from
+	 *            the module index to discover from (test universe)
 	 * @param scope
 	 *            the discovery boundary
 	 * @param externalBeans
@@ -207,6 +111,11 @@ public final class RuntimeBeanContainerBuilder {
 		IndexView index = moduleIndex.index();
 		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(moduleIndex, index, scope);
 		return initialize(index, componentClasses, externalBeans);
+	}
+
+	/** The test universe index: application beans plus test-class beans. */
+	private static ModuleIndex testUniverse() {
+		return JandexIndexLoader.testIndex();
 	}
 
 	private static BeanContainer initialize(IndexView index, Set<Class<?>> componentClasses, Object... externalBeans) {

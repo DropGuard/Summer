@@ -9,7 +9,7 @@ import summer.fixtures.di.generic.GenericServiceClient;
 import summer.fixtures.di.generic.StringServiceImpl;
 import summer.test.annotation.SummerTest;
 
-@SummerTest(modules = "summer-tck-fixtures")
+@SummerTest
 public class GenericInterfaceBehaviorTest {
 
 	private final BeanContainer context;

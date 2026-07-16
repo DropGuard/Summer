@@ -14,16 +14,17 @@ import summer.test.annotation.SummerTest;
  * with identical results.
  *
  * <p>
- * The class is scoped by {@code @SummerTest(modules = "summer-tck-fixtures")};
- * the {@code @DualEngine} method triggers dual-engine execution. Both engines
- * derive the same strict module scope and merge the test index into the AOT
- * universe, so the dependency chain {@code ServiceA → ServiceB → ServiceC}
- * (defined in {@code summer-tck-fixtures}) must resolve identically on both
- * engines. If the two engines diverge, this test reports a per-engine failure
- * rather than a silent pass.
+ * A single {@code @SummerTest} method is executed on BOTH DI engines (Runtime +
+ * AOT) with identical results. The {@code @DualEngine} method triggers
+ * dual-engine execution: the container is the full test universe (whole
+ * application plus test beans from {@code summer-tck-fixtures}), so the
+ * dependency chain {@code ServiceA → ServiceB → ServiceC} must resolve
+ * identically on both engines. If the two engines diverge, this test reports a
+ * per-engine failure rather than a silent pass.
  * </p>
  */
-@SummerTest(modules = "summer-tck-fixtures")
+
+@SummerTest
 class DualEngineSmokeTest {
 
 	ServiceA serviceA;

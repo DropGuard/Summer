@@ -57,11 +57,11 @@ public class SummerMojo extends AbstractMojo {
 		// In the test phase, AOT code generation was previously driven by
 		// @WithFixtures annotations, which have been removed. The generated
 		// LocalContext classes served a TCK pattern that is now handled by
-		// @SummerTest(modules=...) and its module-derived scope -- AOT generation
-		// at process-test-classes is no longer needed by any test.
+		// the whole-application test universe (Quarkus-aligned @SummerTest) --
+		// AOT generation at process-test-classes is no longer needed by any test.
 		if (isTestPhase) {
 			getLog().info(
-					"[Summer] Test-phase AOT disabled -- @WithFixtures has been removed. @SummerTest uses module-derived scope.");
+					"[Summer] Test-phase AOT disabled -- @WithFixtures has been removed. @SummerTest uses the full test universe.");
 			return;
 		}
 

@@ -1,7 +1,0 @@
-package summer.fixtures.di.conflict;
-
-public class ConflictServiceImpl1 implements ConflictService {
-	@Override
-	public void doSomething() {
-	}
-}

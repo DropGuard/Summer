@@ -10,7 +10,6 @@ import io.grpc.stub.ClientCalls;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import summer.fixtures.GrpcTestConfig;
-import summer.grpc.GrpcInfrastructureConfiguration;
 import summer.test.TestContainerBuilder;
 
 public class GrpcInterceptorIntegrationTest {
@@ -22,7 +21,7 @@ public class GrpcInterceptorIntegrationTest {
 
 	@Test
 	public void testGrpcServerInterceptorDiscovery() throws Exception {
-		var ctx = TestContainerBuilder.buildRuntime(GrpcTestConfig.class, GrpcInfrastructureConfiguration.class);
+		var ctx = TestContainerBuilder.build();
 
 		GrpcServerRunner serverRunner = ctx.getBean(GrpcServerRunner.class);
 		serverRunner.run(ctx);

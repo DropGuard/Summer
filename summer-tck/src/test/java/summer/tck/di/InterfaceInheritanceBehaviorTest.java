@@ -10,7 +10,7 @@ import summer.fixtures.di.inheritance.ServiceClient;
 import summer.fixtures.di.inheritance.ServiceImpl;
 import summer.test.annotation.SummerTest;
 
-@SummerTest(modules = "summer-tck-fixtures")
+@SummerTest
 public class InterfaceInheritanceBehaviorTest {
 
 	private final BeanContainer context;

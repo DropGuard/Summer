@@ -27,8 +27,7 @@ class WebSocketInterceptorIntegrationTest {
 	@BeforeAll
 	static void startServer() throws Exception {
 		summer.web.GlobalMiddlewareChain chain = new summer.web.GlobalMiddlewareChain(List.of());
-		context = Testing.buildForIntegration(WebSocketInterceptorIntegrationTest.class,
-				new Class<?>[]{summer.fixtures.WsInterceptorTestConfig.class}, chain);
+		context = Testing.buildForTest(WebSocketInterceptorIntegrationTest.class, chain);
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);
 	}

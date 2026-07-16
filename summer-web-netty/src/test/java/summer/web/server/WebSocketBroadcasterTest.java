@@ -27,8 +27,7 @@ class WebSocketBroadcasterTest {
 	@BeforeAll
 	static void startServer() throws Exception {
 		summer.web.GlobalMiddlewareChain chain = new summer.web.GlobalMiddlewareChain(List.of());
-		context = Testing.buildForIntegration(WebSocketBroadcasterTest.class,
-				new Class<?>[]{summer.fixtures.WsTestConfig.class}, chain);
+		context = Testing.buildForTest(WebSocketBroadcasterTest.class, chain);
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);
 	}

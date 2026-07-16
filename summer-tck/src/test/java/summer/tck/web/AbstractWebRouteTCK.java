@@ -28,11 +28,12 @@ import summer.web.Request;
  * </p>
  *
  * <p>
- * The container is supplied by the subclass constructor (the {@code @SummerTest}
- * injection contract) — this base class no longer builds its own context. The
- * {@code routeBehaviour()} / {@code exceptionHandlerBehaviour()} templates hold
- * the assertions; concrete subclasses expose them either as plain {@code @Test}
- * methods (Runtime) or as {@code @DualEngine} methods (AOT parity).
+ * The container is supplied by the subclass constructor (the
+ * {@code @SummerTest} injection contract) — this base class no longer builds
+ * its own context. The {@code routeBehaviour()} /
+ * {@code exceptionHandlerBehaviour()} templates hold the assertions; concrete
+ * subclasses expose them either as plain {@code @Test} methods (Runtime) or as
+ * {@code @DualEngine} methods (AOT parity).
  * </p>
  */
 public abstract class AbstractWebRouteTCK extends AbstractTCK {
@@ -80,10 +81,10 @@ public abstract class AbstractWebRouteTCK extends AbstractTCK {
 
 	/**
 	 * Runs {@link #routeBehaviour(HttpMethod, String, String, String)} for every
-	 * case from {@link #routeTestCases()}. Used by the dual-engine path so a
-	 * single {@code @DualEngine} method exercises all routing cases on both
-	 * engines (the two repetition axes — engine and case — cannot share one
-	 * method, so the case axis is folded into the body here).
+	 * case from {@link #routeTestCases()}. Used by the dual-engine path so a single
+	 * {@code @DualEngine} method exercises all routing cases on both engines (the
+	 * two repetition axes — engine and case — cannot share one method, so the case
+	 * axis is folded into the body here).
 	 */
 	protected void routeBehaviour() {
 		routeTestCases().forEach(args -> {
@@ -92,12 +93,17 @@ public abstract class AbstractWebRouteTCK extends AbstractTCK {
 		});
 	}
 
+	/**
+	 * Mechanism-level routing contract. Paths are business-agnostic on purpose and
+	 * match {@code RoutingFixtureController} (the TCK fixture that backs this TCK).
+	 * Keep the two in sync: each case here must have a corresponding handler there.
+	 */
 	static Stream<Arguments> routeTestCases() {
-		return Stream.of(Arguments.of(HttpMethod.GET, "/api/users/456", null, "user:456"),
-				Arguments.of(HttpMethod.POST, "/api/users", "{\"name\":\"Alice\"}", "created:Alice"),
-				Arguments.of(HttpMethod.PUT, "/api/users/123", "{\"name\":\"Bob\"}", "updated:123:Bob"),
-				Arguments.of(HttpMethod.DELETE, "/api/users/123", null, "deleted:123"),
-				Arguments.of(HttpMethod.GET, "/api/users/secured", null, "secret"));
+		return Stream.of(Arguments.of(HttpMethod.GET, "/rt/users/456", null, "user:456"),
+				Arguments.of(HttpMethod.POST, "/rt/users", "{\"name\":\"Alice\"}", "created:Alice"),
+				Arguments.of(HttpMethod.PUT, "/rt/users/123", "{\"name\":\"Bob\"}", "updated:123:Bob"),
+				Arguments.of(HttpMethod.DELETE, "/rt/users/123", null, "deleted:123"),
+				Arguments.of(HttpMethod.GET, "/rt/secured", null, "secret"));
 	}
 
 	/**
@@ -105,7 +111,7 @@ public abstract class AbstractWebRouteTCK extends AbstractTCK {
 	 * this through {@code @Test} (Runtime) or {@code @DualEngine} (AOT parity).
 	 */
 	protected void exceptionHandlerBehaviour() {
-		Request req = new Request(HttpMethod.GET, "/api/users/error", null, null, null);
+		Request req = new Request(HttpMethod.GET, "/rt/error", null, null, null);
 		HttpContext ctx = new HttpContext(req);
 
 		try {

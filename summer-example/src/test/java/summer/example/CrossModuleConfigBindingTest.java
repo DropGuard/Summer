@@ -37,8 +37,8 @@ class CrossModuleConfigBindingTest {
 		}
 	}
 
-	private BeanContainer createContext(Class<?>... components) {
-		context = TestContainerBuilder.buildRuntime(components);
+	private BeanContainer createContext() {
+		context = TestContainerBuilder.build();
 		return context;
 	}
 
@@ -78,7 +78,7 @@ class CrossModuleConfigBindingTest {
 
 		@Test
 		void corsConfigBindsWithDefaults() {
-			BeanContainer ctx = createContext(CorsConfig.class);
+			BeanContainer ctx = createContext();
 			CorsConfig config = ctx.getBean(CorsConfig.class);
 
 			assertNotNull(config, "CorsConfig should bind with defaults");
@@ -90,7 +90,7 @@ class CrossModuleConfigBindingTest {
 
 		@Test
 		void grpcTlsConfigBindsWithNulls() {
-			BeanContainer ctx = createContext(GrpcTlsConfig.class);
+			BeanContainer ctx = createContext();
 			GrpcTlsConfig config = ctx.getBean(GrpcTlsConfig.class);
 
 			assertNotNull(config, "GrpcTlsConfig should bind");
