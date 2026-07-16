@@ -3,7 +3,6 @@ package summer.aot;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import org.jboss.jandex.AnnotationInstance;
 import org.jboss.jandex.ClassInfo;
@@ -12,6 +11,7 @@ import org.jboss.jandex.IndexView;
 import org.jboss.jandex.MethodInfo;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.ConfigPropertiesBean;
+import summer.core.bean.ModuleIndex;
 import summer.core.bean.Scope;
 
 /**
@@ -28,6 +28,13 @@ import summer.core.bean.Scope;
  * unsatisfied beans</li>
  * <li>Enrich via {@link BeanEnrichment}</li>
  * </ol>
+ *
+ * <p>
+ * When backed by a {@link ModuleIndex}, discovery iterates only the indexes of
+ * modules whose classes are within the requested {@link Scope} — the engine
+ * honours module boundaries natively instead of iterating a merged index and
+ * filtering after the fact.
+ * </p>
  */
 public final class BeanDiscovery {
 
@@ -43,9 +50,22 @@ public final class BeanDiscovery {
 	private static final DotName INTERCEPTOR_DOT = DotName.createSimple("summer.aop.Interceptor");
 
 	private final IndexView index;
+	private final ModuleIndex moduleIndex;
 
 	public BeanDiscovery(IndexView index) {
 		this.index = index;
+		this.moduleIndex = null;
+	}
+
+	/**
+	 * Creates a discovery that iterates per-module indexes rather than a merged
+	 * {@link CompositeIndex}. The merged {@code index} is still kept for annotation
+	 * resolution ({@link #hasMetaComponentAnnotation} etc. calls
+	 * {@code index.getClassByName()} which must resolve across all modules).
+	 */
+	public BeanDiscovery(IndexView index, ModuleIndex moduleIndex) {
+		this.index = index;
+		this.moduleIndex = moduleIndex;
 	}
 
 	/**
@@ -56,10 +76,6 @@ public final class BeanDiscovery {
 	}
 
 	public List<BeanDefinition> discover(Scope scope) {
-		return discover(scope, null);
-	}
-
-	public List<BeanDefinition> discover(Scope scope, Set<String> visibleTypes) {
 		List<BeanDefinition> beans = new ArrayList<>();
 		Set<String> collected = new HashSet<>();
 
@@ -67,31 +83,67 @@ public final class BeanDiscovery {
 		// AotDiMarker is not @Component — register explicitly for @ConditionalOnBean
 		beans.add(new BeanDefinition(summer.core.AotDiMarker.class.getName(), "AotDiMarker"));
 
-		for (ClassInfo ci : index.getKnownClasses()) {
-			if (ci.isAnnotation() || !scope.includes(ci.name().toString()))
-				continue;
-			if (ci.isInterface() || ci.isAbstract()) {
-				if (hasMetaComponentAnnotation(ci, new HashSet<>())) {
-					throw new summer.core.exception.BeanCreationException(
-							"@Component cannot be placed on an interface or abstract class: " + ci.name()
-									+ ". Annotate the concrete implementation instead.");
+		if (moduleIndex != null) {
+			// ModuleIndex-aware path: iterate only the indexes of modules in scope.
+			for (String mod : moduleIndex.modules()) {
+				IndexView modIdx = moduleIndex.moduleIndex(mod);
+				// Quick check: if no class in this module is in scope, skip the
+				// whole module index. A fine-grained per-class check follows below.
+				boolean moduleInScope = false;
+				for (ClassInfo ci : modIdx.getKnownClasses()) {
+					String cn = ci.name().toString();
+					if (scope.includes(cn)) {
+						moduleInScope = true;
+						break;
+					}
 				}
-				continue;
-			}
-			boolean isNew = !collected.contains(ci.name().toString());
-			discoverClass(ci, beans, collected);
-			if (isNew && ci.hasAnnotation(CONFIG_DOT)) {
-				discoverBeanFactoryMethods(ci, beans);
-			}
-		}
+				if (!moduleInScope)
+					continue;
 
-		// Phase 2: Evaluate conditions (with cross-module visibility if provided)
-		var evaluator = new summer.core.bean.SharedConditionEvaluator();
-		if (visibleTypes != null) {
-			evaluator.evaluate(beans, visibleTypes);
+				for (ClassInfo ci : modIdx.getKnownClasses()) {
+					if (ci.isAnnotation() || !scope.includes(ci.name().toString()))
+						continue;
+					if (ci.isInterface() || ci.isAbstract()) {
+						if (hasMetaComponentAnnotation(ci, new HashSet<>())) {
+							throw new summer.core.exception.BeanCreationException(
+									"@Component cannot be placed on an interface or abstract class: " + ci.name()
+											+ ". Annotate the concrete implementation instead.");
+						}
+						continue;
+					}
+					boolean isNew = !collected.contains(ci.name().toString());
+					discoverClass(ci, beans, collected);
+					if (isNew && ci.hasAnnotation(CONFIG_DOT)) {
+						discoverBeanFactoryMethods(ci, beans);
+					}
+				}
+			}
 		} else {
-			evaluator.evaluate(beans);
+			// Merged-index path (production AOT, SummerMojo).
+			for (ClassInfo ci : index.getKnownClasses()) {
+				if (ci.isAnnotation() || !scope.includes(ci.name().toString()))
+					continue;
+				if (ci.isInterface() || ci.isAbstract()) {
+					if (hasMetaComponentAnnotation(ci, new HashSet<>())) {
+						throw new summer.core.exception.BeanCreationException(
+								"@Component cannot be placed on an interface or abstract class: " + ci.name()
+										+ ". Annotate the concrete implementation instead.");
+					}
+					continue;
+				}
+				boolean isNew = !collected.contains(ci.name().toString());
+				discoverClass(ci, beans, collected);
+				if (isNew && ci.hasAnnotation(CONFIG_DOT)) {
+					discoverBeanFactoryMethods(ci, beans);
+				}
+			}
 		}
+		// Phase 2: Evaluate conditions.
+		// Both engines feed the same scoped candidate set, so condition
+		// evaluation only sees beans within that set. @ConditionalOnBean targets
+		// are expected to be reachable via scope (declared modules) + dependency
+		// resolution — no global type-name bypass.
+		new summer.core.bean.SharedConditionEvaluator().evaluate(beans);
 
 		// Phase 3: Enrich remaining metadata
 		new BeanEnrichment(index).enrich(beans);

@@ -55,6 +55,29 @@ public final class RuntimeBeanContainerBuilder {
 	}
 
 	/**
+	 * Builds a {@link BeanContainer} from the full merged index <b>including
+	 * test-class indexes</b> ({@code jandex-test.idx}).
+	 *
+	 * <p>
+	 * Used by the test container so {@code @Component} test fixtures in
+	 * {@code src/test} are discoverable. Mirrors {@link #build(Object...)} but uses
+	 * the test-aware index. Production startup must NOT use this — it keeps test
+	 * classes out of the bean universe.
+	 * </p>
+	 *
+	 * @param externalBeans
+	 *            pre-instantiated beans to register
+	 * @return immutable bean container
+	 */
+	public static BeanContainer buildFromTestIndex(Object... externalBeans) {
+		ModuleIndex moduleIndex = JandexIndexLoader.buildTestModuleIndex();
+		IndexView index = moduleIndex.index();
+		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(moduleIndex, index,
+				Scope.classpath());
+		return initialize(index, componentClasses, externalBeans);
+	}
+
+	/**
 	 * Builds a {@link BeanContainer} from explicit seed classes using transitive
 	 * dependency expansion (exact seed scope). Called by
 	 * {@link summer.test.TestContainerBuilder}.
@@ -69,29 +92,24 @@ public final class RuntimeBeanContainerBuilder {
 
 	public static BeanContainer buildFromSeedsWithExternal(Class<?>[] seeds, Object... externalBeans) {
 		IndexView index = JandexIndexLoader.buildIndex();
-		// Seeds are the exact candidate set — no BFS, no scope expansion.
-		// discoverComponents with a seed-only scope finds the seeds if they are
-		// @Component/@Configuration in the index; seeds are always re-added
-		// explicitly to cover unindexed or non-@Component classes.
+		// Seeds define the exact candidate set — the scope filter. Any seed that is
+		// a @Component / @Configuration / @ConfigurationProperties is discovered by
+		// the scanner; unannotated intentionally not force-registered.
 		Set<String> seedNames = new LinkedHashSet<>();
 		for (Class<?> seed : seeds) {
 			seedNames.add(seed.getName());
 		}
 		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(index, seedNames::contains);
-		for (Class<?> seed : seeds) {
-			componentClasses.add(seed);
-		}
 		return initialize(index, componentClasses, externalBeans);
 	}
 
 	/**
 	 * Builds a {@link BeanContainer} from specific modules using their Jandex
-	 * indexes. Only beans from the named modules are instantiated; condition
-	 * condition evaluation sees the full merged index so that
-	 * {@code @ConditionalOnBean(DataSource.class)} works across module boundaries.
+	 * indexes. Only beans from the named modules are instantiated.
 	 *
 	 * @param moduleIndex
-	 *            pre-built module index (from {@code JandexIndexLoader.buildModuleIndex()})
+	 *            pre-built module index (from
+	 *            {@code JandexIndexLoader.buildModuleIndex()})
 	 * @param modules
 	 *            module names to scope discovery to
 	 * @param externalBeans
@@ -108,9 +126,7 @@ public final class RuntimeBeanContainerBuilder {
 		Scope scope = name -> allInScope.contains(name);
 		IndexView index = moduleIndex.index();
 		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(index, scope);
-
-		// Condition evaluation sees all indexed types (cross-module visibility)
-		return initialize(index, componentClasses, moduleIndex.allTypeNames(), externalBeans);
+		return initialize(index, componentClasses, externalBeans);
 	}
 
 	/**
@@ -143,12 +159,57 @@ public final class RuntimeBeanContainerBuilder {
 		return initialize(index, componentClasses, externalBeans);
 	}
 
-	private static BeanContainer initialize(IndexView index, Set<Class<?>> componentClasses, Object... externalBeans) {
-		return initialize(index, componentClasses, null, externalBeans);
+	/**
+	 * Builds a {@link BeanContainer} restricted to an explicit {@link Scope}.
+	 *
+	 * <p>
+	 * Used by {@code @SummerTest}: the scope is derived from the test class's
+	 * module (plus any {@code modules}/{@code packages} it declares), so the
+	 * container sees exactly the beans the test should see — no more. Discovery
+	 * never loads classes outside the scope, which keeps sad-path constructors (DB
+	 * connections, thread pools) of unrelated beans from firing during scan.
+	 * </p>
+	 *
+	 * @param scope
+	 *            the discovery boundary
+	 * @param externalBeans
+	 *            pre-instantiated beans to register (e.g. mocks)
+	 * @return immutable bean container
+	 */
+	public static BeanContainer build(Scope scope, Object... externalBeans) {
+		// Default test container: production indexes + test-class attribution
+		// only (test classes are NOT in the bean universe). Unit tests scope via
+		// @SummerTest(modules=...) and must not sweep in sibling test
+		// fixtures. Integration tests that need fixtures call
+		// build(ModuleIndex, Scope, ...) with the test-aware index instead.
+		return build(JandexIndexLoader.buildModuleIndex(), scope, externalBeans);
 	}
 
-	private static BeanContainer initialize(IndexView index, Set<Class<?>> componentClasses,
-			Set<String> visibleTypes, Object... externalBeans) {
+	/**
+	 * Builds a {@link BeanContainer} restricted to an explicit {@link Scope}, using
+	 * a caller-supplied {@link ModuleIndex}.
+	 *
+	 * <p>
+	 * Lets the integration-test path pass a test-aware index (which includes
+	 * {@code jandex-test.idx} fixtures) while the unit-test path keeps the
+	 * production-only index.
+	 * </p>
+	 *
+	 * @param moduleIndex
+	 *            the module index to discover from
+	 * @param scope
+	 *            the discovery boundary
+	 * @param externalBeans
+	 *            pre-instantiated beans to register (e.g. mocks)
+	 * @return immutable bean container
+	 */
+	public static BeanContainer build(ModuleIndex moduleIndex, Scope scope, Object... externalBeans) {
+		IndexView index = moduleIndex.index();
+		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(moduleIndex, index, scope);
+		return initialize(index, componentClasses, externalBeans);
+	}
+
+	private static BeanContainer initialize(IndexView index, Set<Class<?>> componentClasses, Object... externalBeans) {
 		ConfigBinder.setDefaultValueResolver(RuntimeDefaultValueResolver.INSTANCE);
 		BeanContainer.Builder builder = new BeanContainer.Builder();
 
@@ -175,15 +236,11 @@ public final class RuntimeBeanContainerBuilder {
 		candidates.add(new BeanDefinition(IndexView.class.getName(), IndexView.class.getSimpleName()));
 
 		// ── Phase 2: Evaluation ─────────────────────────────────────
-		// Evaluate @ConditionalOnBean and @Replaces against the candidate set.
-		// When visibleTypes is provided (module-scoped builds), condition
-		// evaluation can see types beyond the current module's candidate set.
-		SharedConditionEvaluator evaluator = new SharedConditionEvaluator();
-		if (visibleTypes != null) {
-			evaluator.evaluate(candidates, visibleTypes);
-		} else {
-			evaluator.evaluate(candidates);
-		}
+		// Evaluate @ConditionalOnBean and @Replaces against the scoped candidate
+		// set. Condition targets are expected to be reachable within the scope
+		// (declared modules) plus dependency resolution — no global type-name
+		// bypass, so the Runtime and AOT engines evaluate an identical set.
+		new SharedConditionEvaluator().evaluate(candidates);
 
 		// ── Phase 3: Resolution ─────────────────────────────────────
 		// Bind, sort, instantiate.

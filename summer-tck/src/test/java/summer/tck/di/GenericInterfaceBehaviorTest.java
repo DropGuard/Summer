@@ -7,9 +7,9 @@ import summer.core.BeanContainer;
 import summer.fixtures.di.generic.GenericService;
 import summer.fixtures.di.generic.GenericServiceClient;
 import summer.fixtures.di.generic.StringServiceImpl;
-import summer.test.annotation.DualEngineTest;
+import summer.test.annotation.SummerTest;
 
-@DualEngineTest(seeds = { GenericServiceClient.class, StringServiceImpl.class })
+@SummerTest(modules = "summer-tck-fixtures")
 public class GenericInterfaceBehaviorTest {
 
 	private final BeanContainer context;

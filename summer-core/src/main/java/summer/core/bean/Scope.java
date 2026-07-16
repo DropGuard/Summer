@@ -11,10 +11,8 @@ package summer.core.bean;
  *
  * <p>
  * Production uses {@link #classpath()}. Integration tests use
- * {@link #packageOf(String)}. Module-scoped tests bypass {@code Scope}
- * entirely — they use {@code ModuleIndex.classesInModule()} directly.
- * Exact-seed tests ({@code @DualEngineTest(seeds = ...)}) pass seeds as
- * the candidate set without scope filtering.
+ * {@link #packageOf(String)}. Module-scoped tests use
+ * {@code testing.scopeFor(testClass)} to derive scope from the test class.
  * </p>
  */
 @FunctionalInterface
@@ -37,9 +35,8 @@ public interface Scope {
 	}
 
 	/**
-	 * Bean discovery narrowed to a package tree. Every
-	 * {@code @Component} under the given package is included regardless of
-	 * dependency relationships.
+	 * Bean discovery narrowed to a package tree. Every {@code @Component} under the
+	 * given package is included regardless of dependency relationships.
 	 *
 	 * @param basePackage
 	 *            package prefix (e.g. {@code "com.myapp"})

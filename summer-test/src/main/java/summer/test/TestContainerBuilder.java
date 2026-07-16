@@ -27,8 +27,7 @@ import summer.core.DiEngine;
  * TestContainerBuilder.buildRuntime(AppConfig.class);
  * TestContainerBuilder.buildRuntimeWithExternal(new Class<?>[]{AppConfig.class}, ext);
  *
- * TestContainerBuilder.buildAot(); // GeneratedAotContext (full)
- * TestContainerBuilder.buildAot(TestClass.class); // LocalContext (seed-isolated)
+ * TestContainerBuilder.buildAot(); // GeneratedAotContext (full, production-equivalent)
  * TestContainerBuilder.buildAotWithExternal(chain); // GeneratedAotContext + external
  * }</pre>
  */
@@ -55,8 +54,8 @@ public final class TestContainerBuilder {
 	 * Builds a Runtime engine container.
 	 *
 	 * <p>
-	 * With no arguments, builds from the full merged index. With seed classes,
-	 * uses the exact seed scope (no transitive expansion).
+	 * With no arguments, builds from the full merged index. With seed classes, uses
+	 * the exact seed scope (no transitive expansion).
 	 * </p>
 	 */
 	public static BeanContainer buildRuntime(Class<?>... seeds) {
@@ -85,11 +84,17 @@ public final class TestContainerBuilder {
 	}
 
 	/**
-	 * Loads the AOT LocalContext for a specific test class.
+	 * Loads a per-test AOT LocalContext for a specific test class, if one was
+	 * generated at build time by {@code summer-maven-plugin}.
+	 *
 	 * <p>
-	 * Requires that {@code LocalContext_<testClassName>} was generated at build
-	 * time by {@code summer-maven-plugin}. The test class must have
-	 * {@code summer.tck.annotation.WithFixtures(...)}.
+	 * Historical note: this path was used by the retired {@code @WithFixtures}
+	 * mechanism. After the test-infra redesign, scoped tests rely on
+	 * {@code @SummerTest(modules = ...)} + module-derived scope (Runtime engine),
+	 * and AOT verification uses the full generated context via {@link #buildAot()}.
+	 * The LocalContext generation step was removed from {@code SummerMojo}, so this
+	 * method is now a compatibility shim: it succeeds only if a
+	 * {@code LocalContext_<testClassName>} class still exists on the classpath.
 	 * </p>
 	 */
 	public static BeanContainer buildAot(Class<?> testClass) {
@@ -98,9 +103,11 @@ public final class TestContainerBuilder {
 			Class<?> aotClass = Class.forName(aotClassName);
 			return (BeanContainer) aotClass.getMethod("build").invoke(null);
 		} catch (ClassNotFoundException e) {
-			throw new IllegalStateException("AOT LocalContext not found for " + testClass.getName()
-					+ ". Ensure summer-maven-plugin is configured and the test class"
-					+ " has @WithFixtures with an Aot prefix.", e);
+			throw new IllegalStateException(
+					"AOT LocalContext not found for " + testClass.getName()
+							+ ". The test-scoped AOT LocalContext path has been retired; use @SummerTest(modules = ...)"
+							+ " for scoped Runtime tests or TestContainerBuilder.buildAot() for the full AOT context.",
+					e);
 		} catch (Exception e) {
 			throw new IllegalStateException("Failed to create AOT LocalContext for " + testClass.getName(), e);
 		}

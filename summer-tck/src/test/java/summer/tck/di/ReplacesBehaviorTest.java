@@ -7,9 +7,9 @@ import summer.core.BeanContainer;
 import summer.fixtures.di.replaces.OriginalComponent;
 import summer.fixtures.di.replaces.ReplacableService;
 import summer.fixtures.di.replaces.ServiceBean;
-import summer.test.annotation.DualEngineTest;
+import summer.test.annotation.SummerTest;
 
-@DualEngineTest
+@SummerTest(modules = "summer-tck-fixtures")
 public class ReplacesBehaviorTest {
 
 	private final BeanContainer context;

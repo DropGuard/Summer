@@ -25,11 +25,59 @@ public final class ConfigBinder {
 	private static volatile DefaultValueResolver defaultValueResolver = (section, type) -> {
 	};
 
+	/**
+	 * Per-thread configuration overrides installed by the test framework (e.g.
+	 * {@code @TestProfile}). Keys are dotted paths in the original YAML key form
+	 * (kebab/snake/dot), normalized on application so they line up with the
+	 * camelCased section produced by {@link #normalizeKeys(Map)}. Overrides win
+	 * over both YAML values and {@code @DefaultValue} defaults.
+	 *
+	 * <p>
+	 * Thread-local (not static) so parallel test engines — Runtime on one virtual
+	 * thread, AOT on another — never cross-contaminate profile state. Cleared by
+	 * the framework after the container is built.
+	 * </p>
+	 */
+	private static final ThreadLocal<Map<String, Object>> PROFILE_OVERRIDES = ThreadLocal
+			.withInitial(LinkedHashMap::new);
+
 	private ConfigBinder() {
 	}
 
 	public static void setDefaultValueResolver(DefaultValueResolver resolver) {
 		defaultValueResolver = resolver;
+	}
+
+	/**
+	 * Installs profile overrides for the current thread. Replaces any previously
+	 * set overrides (call {@link #clearProfileOverrides()} when the container is
+	 * disposed). Intended to be called by the test framework immediately before a
+	 * container is built.
+	 *
+	 * @param overrides
+	 *            dotted-path keys → values, in original YAML key form
+	 */
+	public static void setProfileOverrides(Map<String, Object> overrides) {
+		Map<String, Object> copy = new LinkedHashMap<>(overrides);
+		PROFILE_OVERRIDES.set(copy);
+	}
+
+	/** Removes any profile overrides for the current thread. */
+	public static void clearProfileOverrides() {
+		PROFILE_OVERRIDES.remove();
+	}
+
+	/**
+	 * Returns the current thread's profile overrides (unmodifiable). Used by the
+	 * test framework to derive the AOT container identity from the actual config
+	 * content — so the identity and the binding read from the same source and can
+	 * never drift.
+	 *
+	 * @return overrides map, or an empty map when none are set
+	 */
+	public static Map<String, Object> getProfileOverrides() {
+		Map<String, Object> current = PROFILE_OVERRIDES.get();
+		return current == null ? Map.of() : java.util.Collections.unmodifiableMap(current);
 	}
 
 	/**
@@ -58,6 +106,7 @@ public final class ConfigBinder {
 				section = new LinkedHashMap<>();
 			}
 			applyDefaults(section, targetType);
+			applyProfileOverrides(section, prefix);
 			return YAML_MAPPER.convertValue(section, targetType);
 		} catch (ConfigurationException e) {
 			throw e;
@@ -127,5 +176,62 @@ public final class ConfigBinder {
 	 */
 	public static void applyDefaults(Map<String, Object> section, Class<?> type) {
 		defaultValueResolver.applyDefaults(section, type);
+	}
+
+	/**
+	 * Merges the current thread's profile overrides into the (already normalized)
+	 * section map, just before Jackson conversion. Overrides are keyed by dotted
+	 * path in the original YAML key form; each key is normalized to camelCase so it
+	 * lands on the matching record component. Nested paths ({@code server.port})
+	 * descend into nested maps. Only overrides under the requested {@code prefix}
+	 * apply — an override for {@code server.port} is ignored when binding the
+	 * {@code app} section.
+	 *
+	 * @param section
+	 *            normalized section map (mutated in place)
+	 * @param prefix
+	 *            the binding prefix, or empty for the root
+	 */
+	@SuppressWarnings("unchecked")
+	private static void applyProfileOverrides(Map<String, Object> section, String prefix) {
+		Map<String, Object> overrides = PROFILE_OVERRIDES.get();
+		if (overrides == null || overrides.isEmpty()) {
+			return;
+		}
+		String scope = (prefix == null || prefix.isEmpty()) ? "" : prefix + ".";
+		for (Map.Entry<String, Object> entry : overrides.entrySet()) {
+			String key = entry.getKey();
+			if (!scope.isEmpty() && !key.startsWith(scope)) {
+				continue;
+			}
+			String relative = scope.isEmpty() ? key : key.substring(scope.length());
+			if (relative.isEmpty()) {
+				continue;
+			}
+			writeNested(section, splitDotted(relative), entry.getValue());
+		}
+	}
+
+	private static String[] splitDotted(String key) {
+		return key.split("\\.");
+	}
+
+	/**
+	 * Walks {@code path} (already camelCased segments) into {@code target},
+	 * creating intermediate {@link LinkedHashMap}s as needed, and sets the leaf to
+	 * {@code value}.
+	 */
+	@SuppressWarnings("unchecked")
+	private static void writeNested(Map<String, Object> target, String[] path, Object value) {
+		Map<String, Object> current = target;
+		for (int i = 0; i < path.length - 1; i++) {
+			Object next = current.get(path[i]);
+			if (!(next instanceof Map)) {
+				next = new LinkedHashMap<String, Object>();
+				current.put(path[i], next);
+			}
+			current = (Map<String, Object>) next;
+		}
+		current.put(path[path.length - 1], value);
 	}
 }

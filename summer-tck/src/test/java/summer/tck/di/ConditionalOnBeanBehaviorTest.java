@@ -5,9 +5,9 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
 import summer.fixtures.di.conditional.*;
-import summer.test.annotation.DualEngineTest;
+import summer.test.annotation.SummerTest;
 
-@DualEngineTest
+@SummerTest(modules = "summer-tck-fixtures")
 public class ConditionalOnBeanBehaviorTest {
 
 	private final BeanContainer context;

@@ -13,3 +13,9 @@ summer:
 
 jwt:
   secret: a-very-secure-jwt-secret-key-that-is-long-enough-to-be-secure
+
+cors:
+  allowed-origins: "http://localhost:5173"
+  allowed-methods: "GET, POST, PUT, DELETE, OPTIONS"
+  allowed-headers: "Content-Type, Authorization"
+  max-age: 3600

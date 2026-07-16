@@ -4,7 +4,6 @@ import java.io.File;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import org.jboss.jandex.IndexView;
 import summer.core.BeanContainer;
 import summer.core.bean.BeanDefinition;
@@ -39,35 +38,50 @@ public final class AotEngine {
 	 * @param index
 	 *            Jandex index
 	 * @param scope
-	 *            bean scope (classpath or seed-isolated)
-	 * @param visibleTypes
-	 *            extra type names for cross-module {@code @ConditionalOnBean}
-	 *            visibility, or {@code null} for standard evaluation
+	 *            bean scope (classpath or seed-isolated) — same scope the Runtime
+	 *            engine uses, so both engines evaluate the identical candidate set
 	 * @param cacheKey
-	 *            unique cache key (deterministic — e.g. sorted seed names)
+	 *            unique cache key (deterministic — e.g. sorted seed names). Must
+	 *            also encode any profile/config variant, or two tests that differ
+	 *            only by {@code @TestProfile} will silently share one container.
 	 * @param externalBeans
 	 *            pre-instantiated beans to register
 	 * @return AOT-compiled BeanContainer
 	 */
-	public static BeanContainer buildAndCompile(IndexView index, Scope scope, Set<String> visibleTypes,
-			String cacheKey, Object... externalBeans) {
+	public static BeanContainer buildAndCompile(IndexView index, Scope scope, String cacheKey,
+			Object... externalBeans) {
+		return buildAndCompile(index, scope, cacheKey, AotContextGenerator.CLASS_NAME, externalBeans);
+	}
+
+	/**
+	 * Variant that names the generated class explicitly. The JVM loads a class name
+	 * at most once per run, so two distinct test containers must not share a
+	 * generated class name — tests pass a scope/profile-derived name while the
+	 * production path keeps the default {@link AotContextGenerator#CLASS_NAME}.
+	 *
+	 * @param index
+	 *            Jandex index
+	 * @param scope
+	 *            bean scope
+	 * @param cacheKey
+	 *            cache key (must encode scope + profile)
+	 * @param className
+	 *            generated class name (without package)
+	 * @param externalBeans
+	 *            pre-instantiated beans to register
+	 * @return AOT-compiled BeanContainer
+	 */
+	public static BeanContainer buildAndCompile(IndexView index, Scope scope, String cacheKey, String className,
+			Object... externalBeans) {
 		BeanContainer cached = CACHE.get(cacheKey);
 		if (cached != null) {
 			return cached;
 		}
 
-		List<BeanDefinition> beans = new BeanDiscovery(index).discover(scope, visibleTypes);
+		List<BeanDefinition> beans = new BeanDiscovery(index).discover(scope);
 		List<BeanDefinition> sorted = new SharedDependencyResolver().resolve(beans);
 
-		return compile(index, sorted, cacheKey, externalBeans);
-	}
-
-	/**
-	 * Full AOT pipeline without cross-module visibleTypes (backward compat).
-	 */
-	public static BeanContainer buildAndCompile(IndexView index, Scope scope, String cacheKey,
-			Object... externalBeans) {
-		return buildAndCompile(index, scope, null, cacheKey, externalBeans);
+		return compile(index, sorted, cacheKey, className, externalBeans);
 	}
 
 	/**
@@ -87,6 +101,16 @@ public final class AotEngine {
 	 */
 	public static BeanContainer compile(IndexView index, List<BeanDefinition> sorted, String cacheKey,
 			Object... externalBeans) {
+		return compile(index, sorted, cacheKey, AotContextGenerator.CLASS_NAME, externalBeans);
+	}
+
+	/**
+	 * Variant that names the generated class explicitly.
+	 *
+	 * @see #buildAndCompile(IndexView, Scope, String, String, Object...)
+	 */
+	public static BeanContainer compile(IndexView index, List<BeanDefinition> sorted, String cacheKey, String className,
+			Object... externalBeans) {
 		// Check cache
 		BeanContainer cached = CACHE.get(cacheKey);
 		if (cached != null) {
@@ -99,7 +123,7 @@ public final class AotEngine {
 			tempDir.deleteOnExit();
 
 			WireMethodGenerator wireGen = new WireMethodGenerator();
-			new AotContextGenerator(index, tempDir, wireGen).generate(sorted);
+			new AotContextGenerator(index, tempDir, wireGen).generate(sorted, className);
 			new AotProxyGenerator().generate(sorted, index, tempDir);
 			new RouteAdapterGenerator().generate(sorted, tempDir);
 
@@ -107,7 +131,7 @@ public final class AotEngine {
 			compileGeneratedSources(tempDir);
 
 			// 3. Load and build
-			Class<?> aotClass = Class.forName("summer.core.aot.GeneratedAotContext");
+			Class<?> aotClass = Class.forName(AotContextGenerator.PACKAGE + "." + className);
 			BeanContainer container = (BeanContainer) aotClass.getMethod("build", Object[].class).invoke(null,
 					(Object) externalBeans);
 

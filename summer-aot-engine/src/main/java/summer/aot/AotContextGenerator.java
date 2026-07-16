@@ -49,14 +49,34 @@ public final class AotContextGenerator {
 	}
 
 	public void generate(List<BeanDefinition> sortedBeans) throws IOException {
+		generate(sortedBeans, CLASS_NAME);
+	}
+
+	/**
+	 * Generates the AOT context class under an explicit name. The default
+	 * {@link #CLASS_NAME} ({@code GeneratedAotContext}) is used by the production
+	 * path (generated at build time by {@code summer-maven-plugin}); tests pass a
+	 * scope/profile-derived name so two different test containers never collide on
+	 * the JVM's single-load-per-name class cache.
+	 *
+	 * @param sortedBeans
+	 *            topologically-sorted bean definitions
+	 * @param className
+	 *            generated class name (without package)
+	 */
+	public void generate(List<BeanDefinition> sortedBeans, String className) throws IOException {
 		new ExceptionHandlerAdapterGenerator().generate(sortedBeans, index, outputDir);
 
-		JavaFile javaFile = buildJavaFile(sortedBeans);
+		JavaFile javaFile = buildJavaFile(sortedBeans, className);
 		javaFile.writeTo(outputDir);
 	}
 
 	private JavaFile buildJavaFile(List<BeanDefinition> sortedBeans) {
-		TypeSpec.Builder type = TypeSpec.classBuilder(CLASS_NAME).addModifiers(javax.lang.model.element.Modifier.PUBLIC,
+		return buildJavaFile(sortedBeans, CLASS_NAME);
+	}
+
+	private JavaFile buildJavaFile(List<BeanDefinition> sortedBeans, String className) {
+		TypeSpec.Builder type = TypeSpec.classBuilder(className).addModifiers(javax.lang.model.element.Modifier.PUBLIC,
 				javax.lang.model.element.Modifier.FINAL);
 
 		// Legacy fields for backward compatibility, no longer checked by DiEngine but

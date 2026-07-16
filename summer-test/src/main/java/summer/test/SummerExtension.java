@@ -1,17 +1,13 @@
 package summer.test;
 
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.List;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestInstanceFactory;
 import org.junit.jupiter.api.extension.TestInstanceFactoryContext;
 import org.junit.jupiter.api.extension.TestInstantiationException;
 import summer.core.BeanContainer;
-import summer.test.annotation.Mock;
+import summer.core.Engine;
 import summer.test.annotation.SummerTest;
 
 /**
@@ -20,7 +16,9 @@ import summer.test.annotation.SummerTest;
  * <p>
  * Builds a {@link BeanContainer} during test instance creation and resolves
  * constructor parameters against it — same injection contract as
- * {@code @Component}.
+ * {@code @Component}. The container scope is derived from the test class (its
+ * module, widened by {@code modules}/{@code packages}), so the test sees
+ * exactly the beans it should and nothing from unrelated tests.
  * </p>
  */
 public class SummerExtension implements TestInstanceFactory, AfterAllCallback {
@@ -37,52 +35,13 @@ public class SummerExtension implements TestInstanceFactory, AfterAllCallback {
 			return null;
 		}
 
-		// Single constructor — same contract as @Component
-		Constructor<?>[] ctors = testClass.getDeclaredConstructors();
-		if (ctors.length != 1) {
-			throw new TestInstantiationException("@SummerTest class " + testClass.getName()
-					+ " must have exactly one constructor. Found: " + ctors.length);
-		}
-
-		Constructor<?> ctor = ctors[0];
-		ctor.setAccessible(true);
-
-		// Detect @Mock parameters and create Mockito mocks
-		List<Object> mocks = new ArrayList<>();
-		Annotation[][] paramAnnotations = ctor.getParameterAnnotations();
-		Class<?>[] paramTypes = ctor.getParameterTypes();
-		for (int i = 0; i < paramTypes.length; i++) {
-			for (Annotation ann : paramAnnotations[i]) {
-				if (ann instanceof Mock) {
-					mocks.add(createMock(paramTypes[i]));
-				}
-			}
-		}
-
-		// Module-scoped scan: auto-detect which module the test class belongs to
-		BeanContainer container = Testing.buildForTest(testClass, mocks.toArray());
+		// Engine selection is transparent to users; the dev switch (Summer:dev)
+		// can force a specific engine, otherwise Runtime is the dev default.
+		Engine engine = summerTest.engine();
+		BeanContainer container = TestContainerFactory.build(testClass, engine);
 		extensionContext.getStore(NS).put(KEY, container);
 
-		// Resolve constructor arguments from container
-		Object[] args = new Object[paramTypes.length];
-		for (int i = 0; i < paramTypes.length; i++) {
-			if (paramTypes[i] == BeanContainer.class) {
-				args[i] = container;
-			} else {
-				try {
-					args[i] = container.getBean(paramTypes[i]);
-				} catch (Exception e) {
-					throw new TestInstantiationException("Cannot resolve constructor parameter "
-							+ paramTypes[i].getSimpleName() + " for @SummerTest " + testClass.getSimpleName(), e);
-				}
-			}
-		}
-
-		try {
-			return ctor.newInstance(args);
-		} catch (Exception e) {
-			throw new TestInstantiationException("Failed to create @SummerTest instance: " + testClass.getName(), e);
-		}
+		return TestContainerFactory.instantiate(testClass, container);
 	}
 
 	@Override
@@ -111,9 +70,10 @@ public class SummerExtension implements TestInstanceFactory, AfterAllCallback {
 	/**
 	 * Creates a Mockito mock via reflection so summer-test does not hard-depend on
 	 * Mockito at compile time. Requires {@code org.mockito:mockito-core} on the
-	 * test classpath.
+	 * test classpath. Shared by all Summer test engines so mock handling behaves
+	 * identically regardless of which DI engine builds the container.
 	 */
-	private static Object createMock(Class<?> type) {
+	static Object createMock(Class<?> type) {
 		try {
 			Class<?> mockito = Class.forName("org.mockito.Mockito");
 			Method mockMethod = mockito.getMethod("mock", Class.class);

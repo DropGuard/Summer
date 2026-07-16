@@ -12,10 +12,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
-import summer.fixtures.HttpTestController;
 import summer.fixtures.HttpTestMiddleware;
-import summer.runtime.RuntimeWebConfiguration;
-import summer.test.TestContainerBuilder;
+import summer.test.Testing;
 
 class HttpMiddlewareIntegrationTest {
 
@@ -29,10 +27,8 @@ class HttpMiddlewareIntegrationTest {
 	static void startServer() throws Exception {
 		summer.web.GlobalMiddlewareChain chain = new summer.web.GlobalMiddlewareChain(
 				List.of(HttpTestMiddleware.class));
-		context = TestContainerBuilder.buildRuntimeWithExternal(
-				new Class<?>[]{HttpTestMiddleware.class, HttpTestController.class, NettyServerConfiguration.class,
-						RouterConfiguration.class, RuntimeWebConfiguration.class},
-				chain);
+		context = Testing.buildForIntegration(HttpMiddlewareIntegrationTest.class,
+				new Class<?>[]{HttpTestMiddleware.class, summer.fixtures.HttpTestController.class}, chain);
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);
 	}

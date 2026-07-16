@@ -15,9 +15,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
-import summer.fixtures.WsTestConfig;
-import summer.runtime.RuntimeWebConfiguration;
-import summer.test.TestContainerBuilder;
+import summer.test.Testing;
 
 class WebSocketBroadcasterTest {
 
@@ -29,8 +27,8 @@ class WebSocketBroadcasterTest {
 	@BeforeAll
 	static void startServer() throws Exception {
 		summer.web.GlobalMiddlewareChain chain = new summer.web.GlobalMiddlewareChain(List.of());
-		context = TestContainerBuilder.buildRuntimeWithExternal(new Class<?>[]{WsTestConfig.class,
-				NettyServerConfiguration.class, RouterConfiguration.class, RuntimeWebConfiguration.class}, chain);
+		context = Testing.buildForIntegration(WebSocketBroadcasterTest.class,
+				new Class<?>[]{summer.fixtures.WsTestConfig.class}, chain);
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);
 	}

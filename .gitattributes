@@ -1,0 +1,31 @@
+# Normalize line endings to LF on checkout to keep diffs clean across platforms.
+# This is the root cause fix for the CRLF churn seen when switching dev platforms.
+* text=auto eol=lf
+
+# Java / build / config sources are always text with LF.
+*.java text
+*.kt text
+*.xml text
+*.yml text
+*.yaml text
+*.properties text
+*.md text
+*.txt text
+*.gradle text
+*.toml text
+
+# Shell scripts keep LF (they run on Linux/WSL); Windows .bat keeps CRLF.
+*.sh text eol=lf
+*.bat text eol=crlf
+
+# Binary assets must never be line-ending normalized.
+*.jar binary
+*.class binary
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary

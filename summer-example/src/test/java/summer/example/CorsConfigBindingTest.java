@@ -12,7 +12,7 @@ import summer.web.middleware.CorsConfig;
  * Demonstrates {@code @SummerTest} with constructor injection.
  */
 @Tag("integration")
-@SummerTest
+@SummerTest(modules = "summer-web-middleware")
 class CorsConfigBindingTest {
 
     final CorsConfig config;

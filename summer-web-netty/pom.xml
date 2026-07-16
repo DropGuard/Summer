@@ -73,11 +73,17 @@
                     </execution>
                     <execution>
                         <id>make-test-index</id>
-                        <phase>process-test-classes</phase>
+                        <phase>test-compile</phase>
                         <goals><goal>jandex</goal></goals>
                         <configuration>
-                            <classesDir>${project.build.testOutputDirectory}</classesDir>
+                            <processDefaultFileSet>false</processDefaultFileSet>
+                            <indexName>jandex-test.idx</indexName>
                             <indexDir>${project.build.testOutputDirectory}/META-INF</indexDir>
+                            <fileSets>
+                                <fileSet>
+                                    <directory>${project.build.testOutputDirectory}</directory>
+                                </fileSet>
+                            </fileSets>
                         </configuration>
                     </execution>
                 </executions>

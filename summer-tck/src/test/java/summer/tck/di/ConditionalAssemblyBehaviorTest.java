@@ -6,9 +6,9 @@ import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
 import summer.fixtures.di.ConditionalBean;
 import summer.fixtures.di.TestMarker;
-import summer.test.annotation.DualEngineTest;
+import summer.test.annotation.SummerTest;
 
-@DualEngineTest
+@SummerTest(modules = "summer-tck-fixtures")
 public class ConditionalAssemblyBehaviorTest {
 
 	private final BeanContainer context;

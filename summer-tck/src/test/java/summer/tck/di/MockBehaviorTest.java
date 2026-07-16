@@ -13,7 +13,7 @@ import summer.test.annotation.SummerTest;
  * Verifies {@link Mock} replaces a real bean in the container and is injected
  * into dependent beans.
  */
-@SummerTest
+@SummerTest(modules = "summer-tck-fixtures")
 class MockBehaviorTest {
 
 	private final ServiceA serviceA;
@@ -26,8 +26,7 @@ class MockBehaviorTest {
 
 	@Test
 	void mockReplacesRealBean() {
-		assertSame(mockB, serviceA.getServiceB(),
-				"ServiceA should receive the mock instead of the real ServiceB");
+		assertSame(mockB, serviceA.getServiceB(), "ServiceA should receive the mock instead of the real ServiceB");
 	}
 
 	@Test

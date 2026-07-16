@@ -3,26 +3,17 @@ package summer.tck.di;
 import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import summer.core.BeanContainer;
 import summer.fixtures.dummy.ServiceA;
 import summer.fixtures.dummy.ServiceB;
 import summer.fixtures.dummy.ServiceC;
-import summer.test.DualEngineExtension;
-import summer.test.annotation.DualEngineTest;
+import summer.test.annotation.SummerTest;
 
 /**
- * Verifies core DI behaviour on both engines via {@link DualEngineTest}.
- *
- * <p>
- * Single class replaces the old 3-file pattern
- * ({@code AbstractDependencyInjectionTCK} + {@code RuntimeDiTest} +
- * {@code AotDependencyInjectionTest}).
- * Each {@code @Test} method runs once per engine.
- * </p>
+ * Verifies core DI behaviour via {@link SummerTest}. Each {@code @Test} uses
+ * the Runtime engine (dev mode default).
  */
-@ExtendWith(DualEngineExtension.class)
-@DualEngineTest(seeds = { ServiceA.class })
+@SummerTest(modules = "summer-tck-fixtures")
 public class DependencyInjectionBehaviorTest {
 
 	private final BeanContainer context;

@@ -45,32 +45,9 @@ public final class SharedConditionEvaluator {
 	 *            bean list (mutated in place)
 	 */
 	public void evaluate(List<BeanDefinition> beans) {
-		evaluate(beans, null);
-	}
-
-	/**
-	 * Evaluates conditions with extra visible types for cross-module
-	 * {@code @ConditionalOnBean} resolution.
-	 *
-	 * <p>
-	 * When scope-restricted discovery (e.g. {@code @ModuleTest}) limits the
-	 * candidate set to a subset of modules, condition targets from other
-	 * modules must still be resolvable. Pass the full index's type names as
-	 * {@code visibleTypes} so that e.g.
-	 * {@code @ConditionalOnBean(DataSource.class)} works even when DataSource
-	 * isn't in the current module scope.
-	 * </p>
-	 *
-	 * @param beans
-	 *            bean list (mutated in place)
-	 * @param visibleTypes
-	 *            extra type names visible to condition evaluation, or
-	 *            {@code null} for standard (candidates-only) evaluation
-	 */
-	public void evaluate(List<BeanDefinition> beans, Set<String> visibleTypes) {
 		Map<String, String> requiredTypes = collectConditionalRequirements(beans);
 		List<BeanDefinition> topoOrder = buildTopologicalOrder(beans, requiredTypes);
-		resolveConditionalOnBean(beans, topoOrder, requiredTypes, visibleTypes);
+		resolveConditionalOnBean(beans, topoOrder, requiredTypes);
 		resolveReplaces(beans);
 		removeOrphanedFactoryProducts(beans);
 	}
@@ -193,18 +170,10 @@ public final class SharedConditionEvaluator {
 
 	private void resolveConditionalOnBean(List<BeanDefinition> beans, List<BeanDefinition> topoOrder,
 			Map<String, String> requiredTypes) {
-		resolveConditionalOnBean(beans, topoOrder, requiredTypes, null);
-	}
-
-	private void resolveConditionalOnBean(List<BeanDefinition> beans, List<BeanDefinition> topoOrder,
-			Map<String, String> requiredTypes, Set<String> extraVisibleTypes) {
 		Set<String> available = new HashSet<>();
 		for (BeanDefinition bean : beans) {
 			available.add(bean.qualifiedName);
 			available.addAll(bean.interfaceNames);
-		}
-		if (extraVisibleTypes != null) {
-			available.addAll(extraVisibleTypes);
 		}
 
 		for (BeanDefinition bean : topoOrder) {

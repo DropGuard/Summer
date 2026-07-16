@@ -8,8 +8,8 @@ import summer.core.annotation.Configuration;
  *
  * <p>
  * Intentionally creates ambiguous beans (two implementations of the same
- * interface). Use {@code @WithFixtures(ConflictConfig.class)} to register this
- * configuration in tests, avoiding AOT plugin failures.
+ * interface). Scope to the test's own module so discovery intentional ambiguity
+ * is resolved by the engine.
  * </p>
  */
 @Configuration

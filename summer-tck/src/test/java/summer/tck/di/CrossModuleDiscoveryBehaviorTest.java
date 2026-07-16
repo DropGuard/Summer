@@ -4,9 +4,9 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
-import summer.test.annotation.DualEngineTest;
+import summer.test.annotation.SummerTest;
 
-@DualEngineTest(seeds = { summer.fixtures.dummy.ServiceA.class })
+@SummerTest(modules = "summer-tck-fixtures")
 public class CrossModuleDiscoveryBehaviorTest {
 
 	private final BeanContainer context;

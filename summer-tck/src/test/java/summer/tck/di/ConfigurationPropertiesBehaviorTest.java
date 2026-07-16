@@ -6,9 +6,9 @@ import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
 import summer.fixtures.di.configprops.*;
 import summer.fixtures.di.root.RootService;
-import summer.test.annotation.DualEngineTest;
+import summer.test.annotation.SummerTest;
 
-@DualEngineTest
+@SummerTest(modules = "summer-tck-fixtures")
 public class ConfigurationPropertiesBehaviorTest {
 
 	private final BeanContainer context;

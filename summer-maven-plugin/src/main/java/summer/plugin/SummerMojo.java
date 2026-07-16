@@ -7,7 +7,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.maven.artifact.Artifact;
@@ -19,22 +18,16 @@ import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
-import org.jboss.jandex.AnnotationInstance;
-import org.jboss.jandex.AnnotationValue;
-import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.CompositeIndex;
-import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexReader;
 import org.jboss.jandex.IndexView;
 import summer.aot.AotContextGenerator;
 import summer.aot.AotProxyGenerator;
 import summer.aot.BeanDiscovery;
-import summer.aot.LocalContextGenerator;
 import summer.aot.RouteAdapterGenerator;
 import summer.aot.WireMethodGenerator;
 import summer.core.BeanContainer;
 import summer.core.bean.BeanDefinition;
-import summer.core.bean.Scope;
 import summer.core.bean.SharedDependencyResolver;
 
 /**
@@ -61,8 +54,19 @@ public class SummerMojo extends AbstractMojo {
 	public void execute() throws MojoExecutionException, MojoFailureException {
 		boolean isTestPhase = testPhase;
 
+		// In the test phase, AOT code generation was previously driven by
+		// @WithFixtures annotations, which have been removed. The generated
+		// LocalContext classes served a TCK pattern that is now handled by
+		// @SummerTest(modules=...) and its module-derived scope -- AOT generation
+		// at process-test-classes is no longer needed by any test.
+		if (isTestPhase) {
+			getLog().info(
+					"[Summer] Test-phase AOT disabled -- @WithFixtures has been removed. @SummerTest uses module-derived scope.");
+			return;
+		}
+
 		try {
-			CompositeIndex index = loadIndexes(isTestPhase);
+			CompositeIndex index = loadIndexes(false);
 			if (index.getKnownClasses().isEmpty()) {
 				getLog().info("[Summer] No Jandex index found, skipping");
 				return;
@@ -72,7 +76,7 @@ public class SummerMojo extends AbstractMojo {
 			getLog().info("[Summer] Starting AOT code generation");
 			getLog().debug("[Summer] Loaded Jandex index with " + index.getKnownClasses().size() + " classes");
 
-			File generatedDir = prepareGeneratedDir(isTestPhase);
+			File generatedDir = prepareGeneratedDir(false);
 
 			// Assemble the AOT pipeline via BeanContainer.Builder (constructor injection)
 			WireMethodGenerator wireGen = new WireMethodGenerator();
@@ -103,97 +107,12 @@ public class SummerMojo extends AbstractMojo {
 			pipeline.getBean(AotProxyGenerator.class).generate(sorted, index, generatedDir);
 			pipeline.getBean(RouteAdapterGenerator.class).generate(sorted, generatedDir);
 
-			generateLocalContexts(index, generatedDir, wireGen);
-
-			compileGeneratedSources(generatedDir, isTestPhase);
+			compileGeneratedSources(generatedDir, false);
 
 			getLog().info("[Summer] AOT generation complete");
 
 		} catch (Exception e) {
 			throw new MojoExecutionException("[Summer] AOT generation failed: " + e.getMessage(), e);
-		}
-	}
-
-	// ---- LocalContext generation ----
-
-	private void generateLocalContexts(IndexView index, File generatedDir, WireMethodGenerator wireGen)
-			throws Exception {
-
-		// Build a Jandex index from test class .class files directly.
-		// The jandex-maven-plugin doesn't support test-class indexing in 3.5.3.
-		if (!testPhase || !testOutputDirectory.exists()) {
-			getLog().debug("[Summer] Skipping LocalContext scan (not test phase or no test classes)");
-			return;
-		}
-
-		org.jboss.jandex.Indexer testIndexer = new org.jboss.jandex.Indexer();
-		indexClassFiles(testOutputDirectory, testIndexer);
-		org.jboss.jandex.Index testIndex = testIndexer.complete();
-
-		DotName withFixturesDot = DotName.createSimple("summer.tck.annotation.WithFixtures");
-
-		BeanDiscovery discovery = new BeanDiscovery(index);
-		LocalContextGenerator localGen = new LocalContextGenerator(wireGen, generatedDir);
-
-		int count = 0;
-		for (ClassInfo ci : testIndex.getKnownClasses()) {
-			AnnotationInstance wfAnn = ci.annotation(withFixturesDot);
-			if (wfAnn == null) {
-				continue;
-			}
-
-			// Read entry beans (seeds) from @WithFixtures
-			AnnotationValue valueVal = wfAnn.value("value");
-			if (valueVal == null) {
-				continue;
-			}
-			org.jboss.jandex.Type[] classes = valueVal.asClassArray();
-			if (classes.length == 0) {
-				continue;
-			}
-
-			Set<String> entryNames = new LinkedHashSet<>();
-			for (org.jboss.jandex.Type t : classes) {
-				entryNames.add(t.name().toString());
-			}
-
-			String testClassName = ci.name().toString();
-			count++;
-			getLog().info("[Summer] Generating LocalContext for " + testClassName + " with entry beans: " + entryNames);
-
-			// 1. Exact seed scope — no transitive closure expansion
-			Scope scope = entryNames::contains;
-
-			// 2. Scoped bean discovery
-			List<BeanDefinition> scopedBeans = discovery.discover(scope);
-
-			// 3. Dependency resolution (topological sort within closure)
-			SharedDependencyResolver resolver = new SharedDependencyResolver();
-			List<BeanDefinition> sorted = resolver.resolve(scopedBeans);
-
-			// 4. Generate LocalContext source
-			localGen.generate(testClassName, sorted);
-
-			getLog().debug(
-					"[Summer] LocalContext: " + entryNames.size() + " entry -> " + scopedBeans.size() + " beans");
-		}
-
-		getLog().info("[Summer] LocalContext scan complete: indexed " + testIndex.getKnownClasses().size()
-				+ " test classes, found " + count + " @WithFixtures annotations");
-	}
-
-	private void indexClassFiles(File dir, org.jboss.jandex.Indexer indexer) throws IOException {
-		File[] files = dir.listFiles();
-		if (files == null)
-			return;
-		for (File f : files) {
-			if (f.isDirectory()) {
-				indexClassFiles(f, indexer);
-			} else if (f.getName().endsWith(".class")) {
-				try (InputStream is = new java.io.FileInputStream(f)) {
-					indexer.index(is);
-				}
-			}
 		}
 	}
 

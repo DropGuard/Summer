@@ -50,7 +50,13 @@
                         </goals>
                         <configuration>
                             <excludes>
-                                <exclude>summer/aot/**/*</exclude>
+                                <!--
+                                  Generated AOT assembly classes are produced at
+                                  runtime from hand-written templates, so JaCoCo
+                                  cannot instrument them — exclude the generated
+                                  output only, not the hand-written engine itself.
+                                -->
+                                <exclude>**/GeneratedAot*.class</exclude>
                                 <exclude>summer/data/jdbc/tx/TransactionAwareConnectionWrapper.class</exclude>
                             </excludes>
                         </configuration>

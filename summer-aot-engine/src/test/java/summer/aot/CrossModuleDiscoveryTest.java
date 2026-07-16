@@ -12,7 +12,6 @@ import java.util.List;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.CompositeIndex;
 import org.jboss.jandex.DotName;
-import summer.core.bean.SharedDependencyResolver;
 import org.jboss.jandex.Index;
 import org.jboss.jandex.Indexer;
 import org.junit.jupiter.api.Test;
@@ -20,6 +19,7 @@ import org.junit.jupiter.api.io.TempDir;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.ConfigPropertiesBean;
 import summer.core.bean.RouteInfo;
+import summer.core.bean.SharedDependencyResolver;
 
 /**
  * Tests for cross-module bean discovery via Jandex indexes.

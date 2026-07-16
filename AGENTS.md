@@ -23,8 +23,8 @@ summer-framework/
 ├── summer-data-redis/     # Redis client
 ├── summer-grpc/           # gRPC client + server
 ├── summer-maven-plugin/   # AOT codegen + Jandex indexing
-├── summer-test/           # @SummerTest, @DualEngineTest infra
-├── summer-tck/            # Behavioral tests (dual-engine)
+├── summer-test/           # @SummerTest, @Mock test infra
+├── summer-tck/            # Behavioral tests (Runtime + AOT engines)
 ├── summer-tck-fixtures/   # Shared test fixtures
 ├── summer-archunit/       # Architecture constraint tests
 ├── summer-exceptions/     # Shared exception types
@@ -61,7 +61,7 @@ summer-framework/
 - **Explicit middleware** — global middleware registered via `SummerApplication.apply()`. Route-level via `Router.Builder.mount()`.
 - **REQUIRED-only transactions** — no distributed/XA.
 - **YAML config** — `application.yml` bound to `@ConfigurationProperties` records. Nested under server/data/ keys.
-- **Tests** — JUnit 5 + Mockito. `@DualEngineTest` runs each method on both engines. `@SummerTest` for DI tests. `*IT.java` for integration (Failsafe).
+- **Tests** — JUnit 5 + Mockito. `@SummerTest(modules = "...")` derives the bean scope from the test's own module (plus declared modules/packages); Runtime engine in dev. `@Mock` injects Mockito mocks. `*IT.java` for integration (Failsafe).
 
 ## ANTI-PATTERNS
 

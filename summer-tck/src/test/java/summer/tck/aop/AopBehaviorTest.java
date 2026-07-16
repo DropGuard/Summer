@@ -7,9 +7,9 @@ import summer.core.BeanContainer;
 import summer.fixtures.aop.ClassLevelGreeter;
 import summer.fixtures.aop.Greeter;
 import summer.fixtures.aop.RecordingInterceptor;
-import summer.test.annotation.DualEngineTest;
+import summer.test.annotation.SummerTest;
 
-@DualEngineTest
+@SummerTest(modules = "summer-tck-fixtures")
 public class AopBehaviorTest {
 
 	private final BeanContainer context;
@@ -30,8 +30,7 @@ public class AopBehaviorTest {
 	void testNonInterceptedMethodIsUnaffected() {
 		Greeter greeter = context.getBean(Greeter.class);
 		String result = greeter.shout("hello");
-		assertEquals("HELLO", result,
-				"Non-intercepted method must return the raw result, without any prefix");
+		assertEquals("HELLO", result, "Non-intercepted method must return the raw result, without any prefix");
 	}
 
 	@Test
@@ -53,7 +52,8 @@ public class AopBehaviorTest {
 
 		String result = raw.greet("Charlie");
 		assertEquals("Hello, Charlie", result, "greet() on raw instance must NOT be intercepted");
-		assertTrue(interceptor.getCallLog().isEmpty(), "Interceptor must not fire when method is called on the raw instance");
+		assertTrue(interceptor.getCallLog().isEmpty(),
+				"Interceptor must not fire when method is called on the raw instance");
 	}
 
 	@Test

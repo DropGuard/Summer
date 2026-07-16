@@ -62,4 +62,19 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <!--
+              JaCoCo: instruments this module's own tests (e.g.
+              CrossModuleDiscoveryTest) so the hand-written AOT engine
+              (summer.aot.*) is measured directly, not only transitively
+              through the TCK. prepare-agent is inherited from pluginManagement.
+            -->
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>

@@ -10,6 +10,7 @@ import org.jboss.jandex.IndexView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import summer.core.Component;
+import summer.core.bean.ModuleIndex;
 import summer.core.bean.Scope;
 import summer.core.config.ConfigurationProperties;
 
@@ -64,6 +65,65 @@ public final class RuntimeComponentScanner {
 			}
 		}
 		log.debug("[Summer] Discovered {} component classes", componentClasses.size());
+		return componentClasses;
+	}
+
+	/**
+	 * Scans a {@link ModuleIndex} for component classes, iterating only the indexes
+	 * of modules that have classes within the requested {@link Scope}. The full
+	 * merged index is still used for annotation resolution
+	 * ({@link #hasMetaComponentAnnotation} calls {@code index.getClassByName()}),
+	 * but class loading ({@code Class.forName}) only happens for classes whose
+	 * module is within the scope — unrelated modules' sad-path constructors never
+	 * fire.
+	 *
+	 * @param moduleIndex
+	 *            the module-index with per-module index retention
+	 * @param mergedIndex
+	 *            the merged CompositeIndex for annotation lookups
+	 * @param scope
+	 *            the discovery boundary
+	 * @return mutable set of discovered component classes
+	 */
+	public static Set<Class<?>> discoverComponents(ModuleIndex moduleIndex, IndexView mergedIndex, Scope scope) {
+		Set<Class<?>> componentClasses = new LinkedHashSet<>();
+		for (String mod : moduleIndex.modules()) {
+			IndexView modIdx = moduleIndex.moduleIndex(mod);
+			// Quick check: skip this module entirely if no class is in scope.
+			boolean moduleInScope = false;
+			for (ClassInfo ci : modIdx.getKnownClasses()) {
+				if (scope.includes(ci.name().toString())) {
+					moduleInScope = true;
+					break;
+				}
+			}
+			if (!moduleInScope) {
+				continue;
+			}
+			for (ClassInfo classInfo : modIdx.getKnownClasses()) {
+				if (classInfo.isInterface() || classInfo.isAbstract()) {
+					continue;
+				}
+				String className = classInfo.name().toString();
+				if (className.contains(".config.generated.") || className.contains("$Generated")) {
+					continue;
+				}
+				if (!scope.includes(className)) {
+					continue;
+				}
+				boolean isComponent = hasMetaComponentAnnotation(classInfo, mergedIndex, new HashSet<>());
+				boolean isConfigProps = classInfo.hasAnnotation(CONFIGURATION_PROPERTIES);
+				if (isComponent || isConfigProps) {
+					try {
+						Class<?> clazz = Class.forName(className);
+						componentClasses.add(clazz);
+					} catch (ClassNotFoundException e) {
+						log.debug("[Summer] Could not load indexed class: {}", classInfo.name());
+					}
+				}
+			}
+		}
+		log.debug("[Summer] Discovered {} component classes from ModuleIndex", componentClasses.size());
 		return componentClasses;
 	}
 

@@ -8,12 +8,9 @@ import static org.junit.jupiter.api.Assertions.fail;
 import java.nio.charset.StandardCharsets;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 import summer.core.BeanContainer;
-import summer.tck.AbstractContextTCK;
+import summer.tck.AbstractTCK;
 import summer.web.ExceptionRegistry;
 import summer.web.Handler;
 import summer.web.HttpContext;
@@ -29,36 +26,49 @@ import summer.web.Request;
  * via the Pull Model ({@link summer.web.RouteProvider}), and produces a sealed
  * {@link HttpRouter} that dispatches requests to the right handlers.
  * </p>
+ *
+ * <p>
+ * The container is supplied by the subclass constructor (the {@code @SummerTest}
+ * injection contract) — this base class no longer builds its own context. The
+ * {@code routeBehaviour()} / {@code exceptionHandlerBehaviour()} templates hold
+ * the assertions; concrete subclasses expose them either as plain {@code @Test}
+ * methods (Runtime) or as {@code @DualEngine} methods (AOT parity).
+ * </p>
  */
-public abstract class AbstractWebRouteTCK extends AbstractContextTCK {
+public abstract class AbstractWebRouteTCK extends AbstractTCK {
 
+	protected final BeanContainer context;
 	protected HttpRouter router;
 	protected ExceptionRegistry exceptionRegistry;
 
+	protected AbstractWebRouteTCK(BeanContainer context) {
+		this.context = context;
+	}
+
 	@BeforeEach
 	void setUpRouter() {
-		// Force context initialization (not lazy)
-		BeanContainer ctx = context();
-
 		summer.web.HttpRouter.Builder builder = new summer.web.HttpRouter.Builder(
 				summer.web.http.RadixTreeHttpRouter::new);
 		exceptionRegistry = new ExceptionRegistry();
 
 		// Get registrars from context (they are @Component beans)
-		for (summer.web.RouteRegistrar registrar : ctx.getBeans(summer.web.RouteRegistrar.class)) {
-			registrar.registerControllers(builder, ctx);
+		for (summer.web.RouteRegistrar registrar : context.getBeans(summer.web.RouteRegistrar.class)) {
+			registrar.registerControllers(builder, context);
 		}
-		for (summer.web.ExceptionHandlerRegistrar ehRegistrar : ctx
+		for (summer.web.ExceptionHandlerRegistrar ehRegistrar : context
 				.getBeans(summer.web.ExceptionHandlerRegistrar.class)) {
-			ehRegistrar.registerHandlers(exceptionRegistry, ctx);
+			ehRegistrar.registerHandlers(exceptionRegistry, context);
 		}
 
 		router = builder.build();
 	}
 
-	@ParameterizedTest
-	@MethodSource("routeTestCases")
-	void testRoute(HttpMethod method, String path, String body, String expected) {
+	/**
+	 * Routing assertions, parameterised by HTTP method/path/body/expected body.
+	 * Subclasses expose this through {@code @ParameterizedTest} (Runtime) or
+	 * {@code @DualEngine} (AOT parity).
+	 */
+	protected void routeBehaviour(HttpMethod method, String path, String body, String expected) {
 		byte[] bodyBytes = body != null ? body.getBytes(StandardCharsets.UTF_8) : null;
 		String contentType = body != null ? "application/json" : null;
 		Request req = new Request(method, path, null, contentType, bodyBytes);
@@ -66,6 +76,20 @@ public abstract class AbstractWebRouteTCK extends AbstractContextTCK {
 
 		router.route(ctx);
 		assertEquals(expected, new String(ctx.body(), StandardCharsets.UTF_8));
+	}
+
+	/**
+	 * Runs {@link #routeBehaviour(HttpMethod, String, String, String)} for every
+	 * case from {@link #routeTestCases()}. Used by the dual-engine path so a
+	 * single {@code @DualEngine} method exercises all routing cases on both
+	 * engines (the two repetition axes — engine and case — cannot share one
+	 * method, so the case axis is folded into the body here).
+	 */
+	protected void routeBehaviour() {
+		routeTestCases().forEach(args -> {
+			Object[] v = args.get();
+			routeBehaviour((HttpMethod) v[0], (String) v[1], (String) v[2], (String) v[3]);
+		});
 	}
 
 	static Stream<Arguments> routeTestCases() {
@@ -76,8 +100,11 @@ public abstract class AbstractWebRouteTCK extends AbstractContextTCK {
 				Arguments.of(HttpMethod.GET, "/api/users/secured", null, "secret"));
 	}
 
-	@Test
-	void testExceptionHandlerIsTriggeredAndResolved() {
+	/**
+	 * Exception-handler triggering and resolution assertions. Subclasses expose
+	 * this through {@code @Test} (Runtime) or {@code @DualEngine} (AOT parity).
+	 */
+	protected void exceptionHandlerBehaviour() {
 		Request req = new Request(HttpMethod.GET, "/api/users/error", null, null, null);
 		HttpContext ctx = new HttpContext(req);
 

@@ -8,9 +8,9 @@ import summer.fixtures.di.inheritance.BaseService;
 import summer.fixtures.di.inheritance.ExtendedService;
 import summer.fixtures.di.inheritance.ServiceClient;
 import summer.fixtures.di.inheritance.ServiceImpl;
-import summer.test.annotation.DualEngineTest;
+import summer.test.annotation.SummerTest;
 
-@DualEngineTest(seeds = { ServiceClient.class, ServiceImpl.class })
+@SummerTest(modules = "summer-tck-fixtures")
 public class InterfaceInheritanceBehaviorTest {
 
 	private final BeanContainer context;
