@@ -1,0 +1,21 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-twitter-blue: #1d9bf0;
+  --color-twitter-blue-hover: #1a8cd8;
+  --color-twitter-dark: #0f1419;
+  --color-twitter-gray: #536471;
+  --color-twitter-light-gray: #eff3f4;
+  --color-twitter-border: #cfd9de;
+  --color-twitter-like: #f91880;
+  --color-twitter-retweet: #00ba7c;
+  --color-twitter-reply: #1d9bf0;
+}
+
+body {
+  margin: 0;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: var(--color-twitter-dark);
+  background-color: #fff;
+}
