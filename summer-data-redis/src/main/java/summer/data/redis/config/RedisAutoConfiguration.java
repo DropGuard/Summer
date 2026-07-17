@@ -1,8 +1,6 @@
 package summer.data.redis.config;
 
 import io.lettuce.core.RedisClient;
-import io.lettuce.core.api.StatefulRedisConnection;
-import io.lettuce.core.api.sync.RedisCommands;
 import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
 import summer.data.redis.SummerRedisTemplate;
@@ -29,18 +27,21 @@ public class RedisAutoConfiguration {
 		return RedisClient.create(properties.uri());
 	}
 
+	/**
+	 * Binds the template to the {@link RedisClient}. The connection is opened
+	 * lazily on the first command, so building this bean never requires a reachable
+	 * Redis server — a context can be assembled (and the template mocked) in an
+	 * environment without Redis, mirroring Quarkus' Redis client.
+	 *
+	 * <p>
+	 * The previous wiring exposed a {@code StatefulRedisConnection} and
+	 * {@code RedisCommands} bean and connected eagerly at startup; that forced a
+	 * live Redis even for tests that never touch it. The template's lazy path
+	 * removes that constraint.
+	 * </p>
+	 */
 	@Bean
-	public StatefulRedisConnection<String, Object> redisConnection(RedisClient client) {
-		return client.connect(new JsonRedisCodec());
-	}
-
-	@Bean
-	public RedisCommands<String, Object> redisCommands(StatefulRedisConnection<String, Object> connection) {
-		return connection.sync();
-	}
-
-	@Bean
-	public SummerRedisTemplate summerRedisTemplate(RedisCommands<String, Object> commands) {
-		return new SummerRedisTemplate(commands);
+	public SummerRedisTemplate summerRedisTemplate(RedisClient redisClient) {
+		return new SummerRedisTemplate(redisClient, new JsonRedisCodec());
 	}
 }

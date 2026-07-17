@@ -19,15 +19,24 @@ import summer.runtime.RuntimeBeanContainerBuilder;
  * universe.
  * </p>
  *
+ * <p>
+ * The two user-facing methods below are the complete surface:
+ * </p>
+ *
  * <pre>{@code
  * // User path — engine transparent (Runtime in dev mode):
  * TestContainerBuilder.build();
- * TestContainerBuilder.buildWithExternal(ext);
  *
- * // TCK path — explicit engine for dual-engine verification:
+ * // TCK path — explicit AOT engine for dual-engine verification:
  * TestContainerBuilder.buildAot(); // full AOT context (production-equivalent)
- * TestContainerBuilder.buildAotWithExternal(chain); // full AOT context + external beans
  * }</pre>
+ *
+ * <p>
+ * Mocks are never passed in as a hand-rolled instance collection (a concept
+ * Quarkus does not expose). They are declared with {@code @Mock} on a
+ * {@code @SummerTest} constructor parameter and supplied by the framework — the
+ * same mechanism the dual-engine path uses internally.
+ * </p>
  */
 public final class TestContainerBuilder {
 
@@ -44,14 +53,6 @@ public final class TestContainerBuilder {
 		return RuntimeBeanContainerBuilder.build();
 	}
 
-	/**
-	 * Builds a container over the full test universe, registering pre-instantiated
-	 * {@code externalBeans} (e.g. mocks).
-	 */
-	public static BeanContainer buildWithExternal(Object... externalBeans) {
-		return RuntimeBeanContainerBuilder.build(externalBeans);
-	}
-
 	// ── TCK path: explicit AOT engine ───────────────────────────────────
 
 	/**
@@ -64,19 +65,6 @@ public final class TestContainerBuilder {
 			return DiEngine.create();
 		} catch (Exception e) {
 			throw new IllegalStateException("Failed to create AOT context", e);
-		}
-	}
-
-	/**
-	 * Loads the full AOT-generated context with external bean injection. External
-	 * beans (e.g. Mockito mocks produced from {@code @Mock}) are registered
-	 * <em>after</em> the generated wiring completes, overriding the real beans.
-	 */
-	public static BeanContainer buildAotWithExternal(Object... externalBeans) {
-		try {
-			return DiEngine.create(externalBeans);
-		} catch (Exception e) {
-			throw new IllegalStateException("Failed to create AOT context with external beans", e);
 		}
 	}
 

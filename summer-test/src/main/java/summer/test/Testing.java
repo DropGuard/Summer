@@ -21,7 +21,9 @@ import summer.runtime.RuntimeBeanContainerBuilder;
  * production bean — if it is indexed and in scope, the container wires it.
  * Isolation between tests comes from {@code @TestProfile} (configuration
  * variants) and {@code @Mock} (bean stubs), never from shrinking the discovery
- * universe.
+ * universe. Mocks are declared with {@code @Mock} on a test constructor
+ * parameter and supplied by the framework — there is no hand-rolled instance
+ * collection to register (a concept Quarkus does not expose).
  * </p>
  *
  * <p>
@@ -47,28 +49,11 @@ public final class Testing {
 	}
 
 	/**
-	 * Builds a container over a caller-supplied {@link Scope}, registering
-	 * pre-instantiated {@code externalBeans} (e.g. mocks from {@code @Mock}). The
-	 * Runtime engine is used.
-	 */
-	public static BeanContainer build(Scope scope, Object... externalBeans) {
-		return RuntimeBeanContainerBuilder.build(scope, externalBeans);
-	}
-
-	/**
 	 * Auto-scans a package tree for components. Retained for one-off package scoped
 	 * builds; the test-universe default is preferred for {@code @SummerTest}.
 	 */
 	public static BeanContainer scan(String basePackage) {
 		return RuntimeBeanContainerBuilder.buildFromPackage(basePackage);
-	}
-
-	/**
-	 * Builds a container over the full test universe, registering pre-instantiated
-	 * {@code externalBeans} (e.g. Mockito mocks). The Runtime engine is used.
-	 */
-	public static BeanContainer buildWithExternal(Object... externalBeans) {
-		return RuntimeBeanContainerBuilder.build(externalBeans);
 	}
 
 	// ── TCK path: explicit engine, identical universe ───────────────────
@@ -80,32 +65,34 @@ public final class Testing {
 	 * <p>
 	 * The universe is always the test universe (application + test beans), shared
 	 * verbatim by both engines — the precondition for dual-engine consistency.
-	 * Mocks declared via {@code @Mock} are passed through as {@code externalBeans}
-	 * by the calling factory ({@link TestContainerFactory}).
+	 * Mocks declared via {@code @Mock} are created by {@link TestContainerFactory}
+	 * and registered through the internal synthetic-bean channel; users never pass
+	 * a hand-built instance collection (a concept Quarkus does not expose).
 	 * </p>
 	 *
 	 * @param testClass
 	 *            the annotated test class
 	 * @param engine
 	 *            Runtime or AOT
-	 * @param externalBeans
-	 *            pre-instantiated beans to register (e.g. mocks)
+	 * @param mocks
+	 *            pre-instantiated mock beans produced from {@code @Mock} parameters
+	 *            (internal — not a public registration API)
 	 * @return immutable bean container
 	 */
-	public static BeanContainer buildForTest(Class<?> testClass, Engine engine, Object... externalBeans) {
+	public static BeanContainer buildForTest(Class<?> testClass, Engine engine, Object... mocks) {
 		Scope scope = testUniverseScope();
 		if (engine == Engine.AOT) {
-			return buildAot(AotKey.forTest(testClass), scope, externalBeans);
+			return buildAot(AotKey.forTest(testClass), scope, mocks);
 		}
-		return build(scope, externalBeans);
+		return RuntimeBeanContainerBuilder.build(scope, mocks);
 	}
 
 	/**
 	 * Builds a container for a {@code @SummerTest} class using the dev-mode default
 	 * engine (Runtime). See {@link #buildForTest(Class, Engine, Object...)}.
 	 */
-	public static BeanContainer buildForTest(Class<?> testClass, Object... externalBeans) {
-		return buildForTest(testClass, Engine.RUNTIME, externalBeans);
+	public static BeanContainer buildForTest(Class<?> testClass, Object... mocks) {
+		return buildForTest(testClass, Engine.RUNTIME, mocks);
 	}
 
 	// ── Internals ─────────────────────────────────────────────────────
@@ -139,14 +126,13 @@ public final class Testing {
 	 * beans are part of the generated graph.
 	 * </p>
 	 */
-	private static BeanContainer buildAot(AotKey key, Scope scope, Object... externalBeans) {
+	private static BeanContainer buildAot(AotKey key, Scope scope, Object... mocks) {
 		try {
 			IndexView index = JandexIndexLoader.testIndex().index();
 			Class<?> aotEngine = Class.forName("summer.aot.AotEngine");
 			java.lang.reflect.Method buildAndCompile = aotEngine.getMethod("buildAndCompile", IndexView.class,
 					Scope.class, String.class, String.class, Object[].class);
-			return (BeanContainer) buildAndCompile.invoke(null, index, scope, key.cacheKey(), key.className(),
-					externalBeans);
+			return (BeanContainer) buildAndCompile.invoke(null, index, scope, key.cacheKey(), key.className(), mocks);
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to build AOT container. Ensure summer-aot-engine is on the classpath.",
 					e);

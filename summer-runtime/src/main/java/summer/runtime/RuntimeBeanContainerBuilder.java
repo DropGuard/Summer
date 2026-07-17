@@ -50,7 +50,8 @@ public final class RuntimeBeanContainerBuilder {
 	 * @return immutable bean container
 	 */
 	public static BeanContainer build(Object... externalBeans) {
-		return build(testUniverse(), externalBeans);
+		ModuleIndex moduleIndex = testUniverse();
+		return build(moduleIndex, moduleIndex.universeScope(), externalBeans);
 	}
 
 	/**

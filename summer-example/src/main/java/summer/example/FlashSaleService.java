@@ -1,18 +1,18 @@
 package summer.example;
 
 import io.lettuce.core.ScriptOutputType;
-import io.lettuce.core.api.sync.RedisCommands;
 import summer.core.Component;
+import summer.data.redis.SummerRedisTemplate;
 
 @Component
 public class FlashSaleService {
 
 	private static final String STOCK_KEY_PREFIX = "seckill:item:";
 
-	private final RedisCommands<String, Object> redisCommands;
+	private final SummerRedisTemplate redisTemplate;
 
-	public FlashSaleService(RedisCommands<String, Object> redisCommands) {
-		this.redisCommands = redisCommands;
+	public FlashSaleService(SummerRedisTemplate redisTemplate) {
+		this.redisTemplate = redisTemplate;
 	}
 
 	private String stockKey(String itemId) {
@@ -23,7 +23,7 @@ public class FlashSaleService {
 	 * Initializes the stock for a given item.
 	 */
 	public void initStock(String itemId, int stock) {
-		redisCommands.set(stockKey(itemId), stock);
+		redisTemplate.set(stockKey(itemId), stock);
 	}
 
 	/**
@@ -37,7 +37,7 @@ public class FlashSaleService {
 				+ "if stock == nil or stock <= 0 then \n" + "    return 0 \n" + "end \n"
 				+ "redis.call('decr', KEYS[1]) \n" + "return 1";
 
-		Long result = redisCommands.eval(script, ScriptOutputType.INTEGER, new String[]{stockKey(itemId)});
+		Long result = redisTemplate.eval(script, ScriptOutputType.INTEGER, new String[]{stockKey(itemId)});
 
 		return result != null && result == 1L;
 	}
@@ -46,7 +46,7 @@ public class FlashSaleService {
 	 * Gets current stock.
 	 */
 	public int getStock(String itemId) {
-		Object val = redisCommands.get(stockKey(itemId));
+		Object val = redisTemplate.getRaw(stockKey(itemId));
 		if (val instanceof Integer) {
 			return (Integer) val;
 		} else if (val != null) {

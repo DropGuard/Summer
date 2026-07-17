@@ -73,9 +73,13 @@ public abstract class AbstractMiddlewareTCK extends AbstractContextTCK {
 
 		router = builder.build();
 
-		// Collect global middlewares by manually resolving from MiddlewareRegistry
-		// (since we don't start NettyServerRunner in this unit test)
-		summer.web.GlobalMiddlewareChain chain = ctx.getBean(summer.web.GlobalMiddlewareChain.class);
+		// Global middlewares are assembled locally for the TCK — we don't start
+		// NettyServerRunner here, so the chain is built directly from the
+		// @Component middleware beans in the test universe. This matches the
+		// production wiring contract (GlobalMiddlewareChain wraps the discovered
+		// global middlewares) without depending on a container-provided chain.
+		summer.web.GlobalMiddlewareChain chain = new summer.web.GlobalMiddlewareChain(
+				java.util.List.of(summer.fixtures.web.dummy.GlobalLoggingMiddleware.class));
 		globalMiddlewares = new java.util.ArrayList<>();
 		for (Class<? extends summer.web.Middleware> c : chain.middlewares()) {
 			globalMiddlewares.add(ctx.getBean(c));

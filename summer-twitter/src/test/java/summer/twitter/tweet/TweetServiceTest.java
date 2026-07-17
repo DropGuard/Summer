@@ -5,47 +5,39 @@ import static org.mockito.Mockito.*;
 
 import java.util.Optional;
 
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
-import summer.test.Testing;
+import summer.test.annotation.Mock;
+import summer.test.annotation.SummerTest;
 import summer.twitter.infra.SnowflakeIdGenerator;
 import summer.twitter.user.User;
 import summer.twitter.user.UserRepository;
 
+/**
+ * Unit test for {@link TweetService}.
+ *
+ * <p>
+ * Runs under the Quarkus-aligned wide test universe: the full application plus
+ * test beans are discovered automatically. Isolation comes from {@code @Mock} on
+ * the constructor parameters — each declared mock is created by the framework and
+ * replaces the real bean of the same type. No manual bean registration is needed.
+ * </p>
+ */
+@SummerTest
 class TweetServiceTest {
 
-	private static BeanContainer container;
-	private static TweetRepository mockTweetRepo;
-	private static UserRepository mockUserRepo;
-
 	private final TweetService tweetService;
+	private final TweetRepository mockTweetRepo;
+	private final UserRepository mockUserRepo;
 
-	TweetServiceTest() {
-		this.tweetService = container.getBean(TweetService.class);
-	}
-
-	@BeforeAll
-	static void setUp() {
-		mockTweetRepo = mock(TweetRepository.class);
-		mockUserRepo = mock(UserRepository.class);
-
-		// Full test universe. Mocks are registered as external beans first, so real
-		// beans peek() and skip them. The universe is the full test universe
-		// (Quarkus-aligned), and isolation comes from the mocks — not from seeds.
-		container = Testing.buildWithExternal(
-				mockTweetRepo, mockUserRepo,
-				mock(summer.twitter.timeline.TimelineService.class),
-				mock(summer.data.redis.SummerRedisTemplate.class),
-				mock(summer.twitter.social.FollowRepository.class),
-				mock(summer.data.jdbc.JdbcTemplate.class),
-				mock(javax.sql.DataSource.class));
-	}
-
-	@AfterAll
-	static void tearDown() throws Exception {
-		if (container != null) container.close();
+	TweetServiceTest(TweetService tweetService, @Mock TweetRepository mockTweetRepo,
+			@Mock UserRepository mockUserRepo, @Mock summer.twitter.timeline.TimelineService timelineService,
+			@Mock summer.data.redis.SummerRedisTemplate redisTemplate,
+			@Mock summer.twitter.social.FollowRepository followRepository,
+			@Mock summer.data.jdbc.JdbcTemplate jdbcTemplate, @Mock javax.sql.DataSource dataSource) {
+		this.tweetService = tweetService;
+		this.mockTweetRepo = mockTweetRepo;
+		this.mockUserRepo = mockUserRepo;
 	}
 
 	@Test
