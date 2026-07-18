@@ -7,8 +7,10 @@ import summer.web.HttpContext;
 import summer.web.Middleware;
 import summer.web.RequestAttributes;
 import summer.web.HttpStatus;
+import summer.web.annotation.GlobalMiddleware;
 
 @Component
+@GlobalMiddleware
 public class AuthMiddleware implements Middleware {
 
     private final JwtUtil jwtUtil;

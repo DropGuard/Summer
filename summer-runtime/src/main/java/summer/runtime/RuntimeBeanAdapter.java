@@ -229,8 +229,7 @@ public final class RuntimeBeanAdapter {
 			String fullPath = combinePaths(basePath, methodPath);
 			String returnType = method.getReturnType().getName();
 
-			RouteInfo route = new RouteInfo(httpMethod, fullPath, clazz.getName(), method.getName(), returnType, clazz,
-					method);
+			RouteInfo route = new RouteInfo(httpMethod, fullPath, clazz.getName(), method.getName(), returnType, clazz);
 
 			// Collect parameter info
 			collectParameters(method, route);
@@ -287,22 +286,22 @@ public final class RuntimeBeanAdapter {
 						.getAnnotation(summer.web.annotation.PathParam.class);
 				String bindingName = pathParam.value().isEmpty() ? paramName : pathParam.value();
 				boolean validated = method.getParameters()[i].isAnnotationPresent(jakarta.validation.Valid.class);
-				route.params.add(new RouteInfo.ParamInfo(bindingName, paramType.getName(), RouteInfo.ParamBinding.PATH,
-						validated));
+				route.params.add(new RouteInfo.ParamInfo(paramName, bindingName, paramType.getName(),
+						RouteInfo.ParamBinding.PATH, validated));
 			} else if (method.getParameters()[i].isAnnotationPresent(summer.web.annotation.QueryParam.class)) {
 				summer.web.annotation.QueryParam queryParam = method.getParameters()[i]
 						.getAnnotation(summer.web.annotation.QueryParam.class);
 				String bindingName = queryParam.value().isEmpty() ? paramName : queryParam.value();
 				boolean validated = method.getParameters()[i].isAnnotationPresent(jakarta.validation.Valid.class);
-				route.params.add(new RouteInfo.ParamInfo(bindingName, paramType.getName(), RouteInfo.ParamBinding.QUERY,
-						validated));
+				route.params.add(new RouteInfo.ParamInfo(paramName, bindingName, paramType.getName(),
+						RouteInfo.ParamBinding.QUERY, validated));
 			} else if (summer.web.ScrollRequest.class.isAssignableFrom(paramType)) {
-				route.params.add(new RouteInfo.ParamInfo(paramName, paramType.getName(),
+				route.params.add(new RouteInfo.ParamInfo(paramName, "", paramType.getName(),
 						RouteInfo.ParamBinding.PAGEABLE, false));
 			} else {
 				boolean validated = method.getParameters()[i].isAnnotationPresent(jakarta.validation.Valid.class);
-				route.params.add(new RouteInfo.ParamInfo(paramName, paramType.getName(), RouteInfo.ParamBinding.BODY,
-						validated));
+				route.params.add(new RouteInfo.ParamInfo(paramName, "", paramType.getName(),
+						RouteInfo.ParamBinding.BODY, validated));
 			}
 		}
 	}
