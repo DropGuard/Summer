@@ -112,6 +112,29 @@ class ArchitectureTest {
 	// --- @Replaces usage rules ---
 
 	@Test
+	@DisplayName("AOT engine must not depend on the runtime engine")
+	void aotMustNotDependOnRuntime() {
+		// The two DI engines are peers: the AOT path is compile-time
+		// code generation (reflection-free), the runtime path is reflective
+		// bean discovery. Neither may compile-depend on the other, or the
+		// engine boundary collapses and the AOT path silently re-introduces
+		// runtime coupling.
+		ArchRule rule = noClasses().that().resideInAnyPackage("..summer.aot..")
+				.should().dependOnClassesThat().resideInAnyPackage("..summer.runtime..");
+		rule.check(classes);
+	}
+
+	@Test
+	@DisplayName("Runtime engine must not depend on the AOT engine")
+	void runtimeMustNotDependOnAot() {
+		// Symmetric counterpart of {@link #aotMustNotDependOnRuntime}: the
+		// runtime engine must not pull in the compile-time generator either.
+		ArchRule rule = noClasses().that().resideInAnyPackage("..summer.runtime..")
+				.should().dependOnClassesThat().resideInAnyPackage("..summer.aot..");
+		rule.check(classes);
+	}
+
+	@Test
 	@DisplayName("@Replaces must be on @Configuration in framework packages (not plain @Component)")
 	void replacesRequiresConfigurationInFramework() {
 		// Rule 1: framework/middleware code must use @Configuration for @Replaces,

@@ -7,14 +7,12 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
 import summer.core.BeanContainer;
 import summer.test.Testing;
-import summer.web.GlobalMiddlewareChain;
 import summer.web.server.NettyServerRunner;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -30,8 +28,8 @@ import static summer.twitter.support.TwitterTestDatabase.*;
  *       via {@code @Replaces}, reads dynamic container URL from system properties</li>
  *   <li>Full test-universe container build via {@code Testing.buildForTest}
  *       — Twitter beans and framework infrastructure configs are all
- *       auto-discovered as test beans; the GlobalMiddlewareChain is the only
- *       explicitly registered external bean</li>
+ *       auto-discovered as test beans; the {@code @GlobalMiddleware}-annotated
+ *       {@code AuthMiddleware} is collected automatically by the web runner</li>
  *   <li>Netty bound to random port (test application.yml sets server.port: 0)</li>
  *   <li>Auth middleware applied globally with public-route exemptions</li>
  * </ol>
@@ -69,10 +67,9 @@ class TwitterApplicationIT {
 
         // 4. Build the bean container over the full test universe. The Twitter
         //    beans (controllers, services, middleware) and the framework
-        //    infrastructure configs are all auto-discovered as test beans; only
-        //    the GlobalMiddlewareChain is registered explicitly as an external bean.
-        GlobalMiddlewareChain chain = new GlobalMiddlewareChain(List.of(summer.twitter.auth.AuthMiddleware.class));
-        context = Testing.buildForTest(TwitterApplicationIT.class, chain);
+        //    infrastructure configs are all auto-discovered as test beans. The
+        //    auth middleware is applied globally via its @GlobalMiddleware annotation.
+        context = Testing.buildForTest(TwitterApplicationIT.class);
 
         // 5. Start ApplicationRunners (starts Netty)
         for (Object runner : context.getBeans(NettyServerRunner.class)) {
