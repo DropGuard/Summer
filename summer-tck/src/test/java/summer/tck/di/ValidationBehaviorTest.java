@@ -2,7 +2,7 @@ package summer.tck.di;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.Test;
+import summer.test.annotation.DualEngine;
 import summer.core.BeanContainer;
 import summer.fixtures.validation.TlsService;
 import summer.fixtures.validation.TlsValidator;
@@ -17,7 +17,7 @@ public class ValidationBehaviorTest {
 		this.context = context;
 	}
 
-	@Test
+	@DualEngine
 	void testValidationPassesWhenTlsEnabledWithCerts() {
 		TlsService service = context.getBean(TlsService.class);
 		assertNotNull(service, "TlsService should be created when validation passes");
@@ -25,12 +25,12 @@ public class ValidationBehaviorTest {
 		assertNotNull(service.getConfig().certChain(), "cert-chain should be bound from YAML");
 	}
 
-	@Test
+	@DualEngine
 	void testValidationPassesWhenTlsDisabled() {
 		assertNotNull(context, "Context should be created even when TLS is disabled");
 	}
 
-	@Test
+	@DualEngine
 	void testValidatorIsRegisteredAsBean() {
 		TlsValidator validator = context.getBean(TlsValidator.class);
 		assertNotNull(validator, "Validator should be registered as a bean");

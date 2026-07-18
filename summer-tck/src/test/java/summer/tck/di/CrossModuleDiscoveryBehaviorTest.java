@@ -2,7 +2,7 @@ package summer.tck.di;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.Test;
+import summer.test.annotation.DualEngine;
 import summer.core.BeanContainer;
 import summer.test.annotation.SummerTest;
 
@@ -15,13 +15,13 @@ public class CrossModuleDiscoveryBehaviorTest {
 		this.context = context;
 	}
 
-	@Test
+	@DualEngine
 	void discoversBeanFromExternalModule() {
 		assertDoesNotThrow(() -> context.getBean(summer.fixtures.dummy.ServiceA.class),
 				"Bean from external module (summer-tck-fixtures) should be discoverable");
 	}
 
-	@Test
+	@DualEngine
 	void resolvesCrossModuleDependencyChain() {
 		summer.fixtures.dummy.ServiceA a = context.getBean(summer.fixtures.dummy.ServiceA.class);
 		assertNotNull(a.getServiceB(), "ServiceA should have ServiceB injected");
@@ -29,7 +29,7 @@ public class CrossModuleDiscoveryBehaviorTest {
 		assertEquals("Hello from C", a.getServiceB().getServiceC().getMessage());
 	}
 
-	@Test
+	@DualEngine
 	void crossModuleBeansAreSingletons() {
 		summer.fixtures.dummy.ServiceA a1 = context.getBean(summer.fixtures.dummy.ServiceA.class);
 		summer.fixtures.dummy.ServiceA a2 = context.getBean(summer.fixtures.dummy.ServiceA.class);

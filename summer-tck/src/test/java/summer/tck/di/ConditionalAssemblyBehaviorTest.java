@@ -2,7 +2,7 @@ package summer.tck.di;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.Test;
+import summer.test.annotation.DualEngine;
 import summer.core.BeanContainer;
 import summer.fixtures.di.ConditionalBean;
 import summer.fixtures.di.TestMarker;
@@ -17,7 +17,7 @@ public class ConditionalAssemblyBehaviorTest {
 		this.context = context;
 	}
 
-	@Test
+	@DualEngine
 	void conditionalBeanPresentWhenMarkerExists() {
 		assertNotNull(context.getBean(TestMarker.class), "TestMarker should be registered");
 		assertNotNull(context.getBean(ConditionalBean.class),

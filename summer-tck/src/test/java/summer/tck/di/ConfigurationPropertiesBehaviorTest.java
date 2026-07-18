@@ -2,7 +2,7 @@ package summer.tck.di;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.Test;
+import summer.test.annotation.DualEngine;
 import summer.core.BeanContainer;
 import summer.fixtures.di.configprops.*;
 import summer.fixtures.di.root.RootService;
@@ -17,12 +17,12 @@ public class ConfigurationPropertiesBehaviorTest {
 		this.context = context;
 	}
 
-	@Test
+	@DualEngine
 	void testPropertiesBeanRegistered() {
 		assertNotNull(context.getBean(AppProperties.class));
 	}
 
-	@Test
+	@DualEngine
 	void testYamlValuesBound() {
 		AppProperties props = context.getBean(AppProperties.class);
 		assertEquals("summer-tck", props.name());
@@ -30,14 +30,14 @@ public class ConfigurationPropertiesBehaviorTest {
 		assertTrue(props.verbose());
 	}
 
-	@Test
+	@DualEngine
 	void testInjectableIntoBeanMethod() {
 		AppService service = context.getBean(AppService.class);
 		assertNotNull(service);
 		assertSame(context.getBean(AppProperties.class), service.getProperties());
 	}
 
-	@Test
+	@DualEngine
 	void testNonBeanConstructorParamsResolved() {
 		TlsProperties tls = context.getBean(TlsProperties.class);
 		assertNotNull(tls);
@@ -46,12 +46,12 @@ public class ConfigurationPropertiesBehaviorTest {
 		assertEquals(Integer.valueOf(8443), tls.port());
 	}
 
-	@Test
+	@DualEngine
 	void testMissingFieldIsNull() {
 		assertNotNull(context);
 	}
 
-	@Test
+	@DualEngine
 	void testComponentCanInjectConfigProperties() {
 		PropertiesConsumer consumer = context.getBean(PropertiesConsumer.class);
 		assertNotNull(consumer);
@@ -59,19 +59,19 @@ public class ConfigurationPropertiesBehaviorTest {
 		assertEquals("summer-tck", consumer.getProperties().name());
 	}
 
-	@Test
+	@DualEngine
 	void testConfigPropertiesAvailableAsDependency() {
 		assertNotNull(context.getBean(PropertiesConsumer.class));
 	}
 
-	@Test
+	@DualEngine
 	void testServiceReceivesCorrectlyBoundProperties() {
 		AppService service = context.getBean(AppService.class);
 		assertNotNull(service);
 		assertEquals("summer-tck", service.getProperties().name());
 	}
 
-	@Test
+	@DualEngine
 	void testMultiplePrefixesBoundIndependently() {
 		AppProperties app = context.getBean(AppProperties.class);
 		TlsProperties tls = context.getBean(TlsProperties.class);
@@ -81,7 +81,7 @@ public class ConfigurationPropertiesBehaviorTest {
 		assertTrue(tls.enabled());
 	}
 
-	@Test
+	@DualEngine
 	void testEmptyPrefixBindsRootYaml() {
 		RootService service = context.getBean(RootService.class);
 		assertNotNull(service);

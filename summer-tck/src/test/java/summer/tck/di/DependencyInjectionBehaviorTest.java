@@ -2,7 +2,7 @@ package summer.tck.di;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.Test;
+import summer.test.annotation.DualEngine;
 import summer.core.BeanContainer;
 import summer.fixtures.dummy.ServiceA;
 import summer.fixtures.dummy.ServiceB;
@@ -23,12 +23,12 @@ public class DependencyInjectionBehaviorTest {
 		this.context = context;
 	}
 
-	@Test
+	@DualEngine
 	void testContextStartsSuccessfully() {
 		assertNotNull(context, "BeanContainer should not be null");
 	}
 
-	@Test
+	@DualEngine
 	void testSingletonUniqueness() {
 		ServiceC c1 = context.getBean(ServiceC.class);
 		ServiceC c2 = context.getBean(ServiceC.class);
@@ -36,7 +36,7 @@ public class DependencyInjectionBehaviorTest {
 		assertSame(c1, c2, "Multiple calls to getBean should return the same singleton instance");
 	}
 
-	@Test
+	@DualEngine
 	void testDependencyResolution() {
 		ServiceA a = context.getBean(ServiceA.class);
 		ServiceB b = context.getBean(ServiceB.class);

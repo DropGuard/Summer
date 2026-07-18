@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
 import summer.fixtures.di.MethodReplacesBean;
+import summer.test.annotation.DualEngine;
 import summer.test.annotation.SummerTest;
 
 @SummerTest
@@ -16,7 +17,7 @@ public class MethodReplacesBehaviorTest {
 		this.context = context;
 	}
 
-	@Test
+	@DualEngine
 	void methodLevelReplacesReplacesByReturnType() {
 		MethodReplacesBean bean = context.getBean(MethodReplacesBean.class);
 		assertNotNull(bean, "MethodReplacesBean should be registered");

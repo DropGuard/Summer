@@ -2,9 +2,9 @@ package summer.tck.di;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
 import summer.fixtures.di.conditional.*;
+import summer.test.annotation.DualEngine;
 import summer.test.annotation.SummerTest;
 
 @SummerTest
@@ -16,12 +16,12 @@ public class ConditionalOnBeanBehaviorTest {
 		this.context = context;
 	}
 
-	@Test
+	@DualEngine
 	void testContextStartsSuccessfully() {
 		assertNotNull(context, "BeanContainer should not be null");
 	}
 
-	@Test
+	@DualEngine
 	void testConditionalOnConcreteClass() {
 		RequiredComponent required = context.getBean(RequiredComponent.class);
 		assertNotNull(required, "RequiredComponent should be registered");
@@ -30,13 +30,13 @@ public class ConditionalOnBeanBehaviorTest {
 		assertNotNull(conditional, "ConditionalOnComponent should be registered when RequiredComponent exists");
 	}
 
-	@Test
+	@DualEngine
 	void testConditionalOnMissingComponent() {
 		assertThrows(Exception.class, () -> context.getBean(ConditionalOnMissingComponent.class),
 				"ConditionalOnMissingComponent should NOT be registered when MissingComponent does not exist");
 	}
 
-	@Test
+	@DualEngine
 	void testConditionalOnInterface() {
 		RequiredInterface required = context.getBean(RequiredInterface.class);
 		assertNotNull(required, "RequiredInterface should be registered");

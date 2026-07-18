@@ -2,7 +2,7 @@ package summer.tck.aop;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.Test;
+import summer.test.annotation.DualEngine;
 import summer.core.BeanContainer;
 import summer.fixtures.aop.ClassLevelGreeter;
 import summer.fixtures.aop.Greeter;
@@ -18,7 +18,7 @@ public class AopBehaviorTest {
 		this.context = context;
 	}
 
-	@Test
+	@DualEngine
 	void testInterceptedMethodReturnsWrappedResult() {
 		Greeter greeter = context.getBean(Greeter.class);
 		String result = greeter.greet("Alice");
@@ -26,14 +26,14 @@ public class AopBehaviorTest {
 				"Intercepted method must return the mutated value from the interceptor");
 	}
 
-	@Test
+	@DualEngine
 	void testNonInterceptedMethodIsUnaffected() {
 		Greeter greeter = context.getBean(Greeter.class);
 		String result = greeter.shout("hello");
 		assertEquals("HELLO", result, "Non-intercepted method must return the raw result, without any prefix");
 	}
 
-	@Test
+	@DualEngine
 	void testBeanIsProxy() {
 		Greeter greeter = context.getBean(Greeter.class);
 		assertNotEquals(summer.fixtures.aop.GreeterService.class, greeter.getClass(),
@@ -41,7 +41,7 @@ public class AopBehaviorTest {
 		assertInstanceOf(Greeter.class, greeter);
 	}
 
-	@Test
+	@DualEngine
 	void testConcreteClassBypassesAop() {
 		RecordingInterceptor interceptor = context.getBean(RecordingInterceptor.class);
 		interceptor.clearLog();
@@ -56,7 +56,7 @@ public class AopBehaviorTest {
 				"Interceptor must not fire when method is called on the raw instance");
 	}
 
-	@Test
+	@DualEngine
 	void testClassLevelBindingInterceptsAllMethods() {
 		ClassLevelGreeter greeter = context.getBean(ClassLevelGreeter.class);
 		assertEquals("[intercepted] Hello, Alice", greeter.greet("Alice"),

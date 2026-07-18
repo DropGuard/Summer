@@ -2,7 +2,7 @@ package summer.tck.di;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.Test;
+import summer.test.annotation.DualEngine;
 import summer.core.BeanContainer;
 import summer.fixtures.di.inheritance.BaseService;
 import summer.fixtures.di.inheritance.ExtendedService;
@@ -19,26 +19,26 @@ public class InterfaceInheritanceBehaviorTest {
 		this.context = context;
 	}
 
-	@Test
+	@DualEngine
 	void testContextStartsSuccessfully() {
 		assertNotNull(context, "BeanContainer should not be null");
 	}
 
-	@Test
+	@DualEngine
 	void testCanResolveBaseService() {
 		BaseService baseService = context.getBean(BaseService.class);
 		assertNotNull(baseService, "Should be able to resolve BaseService");
 		assertInstanceOf(ServiceImpl.class, baseService, "BaseService should be resolved to ServiceImpl");
 	}
 
-	@Test
+	@DualEngine
 	void testCanResolveExtendedService() {
 		ExtendedService extendedService = context.getBean(ExtendedService.class);
 		assertNotNull(extendedService, "Should be able to resolve ExtendedService");
 		assertInstanceOf(ServiceImpl.class, extendedService, "ExtendedService should be resolved to ServiceImpl");
 	}
 
-	@Test
+	@DualEngine
 	void testSingletonConsistency() {
 		BaseService baseService = context.getBean(BaseService.class);
 		ExtendedService extendedService = context.getBean(ExtendedService.class);
@@ -46,7 +46,7 @@ public class InterfaceInheritanceBehaviorTest {
 				"BaseService and ExtendedService should resolve to the same singleton instance");
 	}
 
-	@Test
+	@DualEngine
 	void testDependencyInjectionWithInheritedInterface() {
 		ServiceClient client = context.getBean(ServiceClient.class);
 		assertNotNull(client, "ServiceClient should be instantiated");

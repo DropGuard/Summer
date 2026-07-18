@@ -2,11 +2,11 @@ package summer.tck.di;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
 import summer.fixtures.di.replaces.OriginalComponent;
 import summer.fixtures.di.replaces.ReplacableService;
 import summer.fixtures.di.replaces.ServiceBean;
+import summer.test.annotation.DualEngine;
 import summer.test.annotation.SummerTest;
 
 @SummerTest
@@ -18,20 +18,20 @@ public class ReplacesBehaviorTest {
 		this.context = context;
 	}
 
-	@Test
+	@DualEngine
 	void testReplacementHappens() {
 		ReplacableService service = context.getBean(ReplacableService.class);
 		assertNotNull(service);
 		assertEquals("replacement", service.serve(), "ReplacementComponent should replace OriginalComponent");
 	}
 
-	@Test
+	@DualEngine
 	void testOriginalIsRemoved() {
 		assertThrows(Exception.class, () -> context.getBean(OriginalComponent.class),
 				"OriginalComponent should be removed after replacement");
 	}
 
-	@Test
+	@DualEngine
 	void testConditionalReplacesConditionUnmet() {
 		assertThrows(Exception.class,
 				() -> context.getBean(summer.fixtures.di.replaces.conditional.ReplacesWithConditionComponent.class));
@@ -42,7 +42,7 @@ public class ReplacesBehaviorTest {
 		assertEquals("original", original.serve());
 	}
 
-	@Test
+	@DualEngine
 	void testConfigurationReplacesCascade() {
 		ServiceBean bean = context.getBean(ServiceBean.class);
 		assertNotNull(bean);

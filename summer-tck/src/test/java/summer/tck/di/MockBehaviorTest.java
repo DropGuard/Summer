@@ -3,15 +3,22 @@ package summer.tck.di;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import org.junit.jupiter.api.Test;
 import summer.fixtures.dummy.ServiceA;
 import summer.fixtures.dummy.ServiceB;
+import summer.test.annotation.DualEngine;
 import summer.test.annotation.Mock;
 import summer.test.annotation.SummerTest;
 
 /**
  * Verifies {@link Mock} replaces a real bean in the container and is injected
  * into dependent beans.
+ *
+ * <p>
+ * Runs on BOTH engines via {@link DualEngine} — {@code @Mock} replacement is a
+ * known dual-engine divergence risk (the AOT path must drop the mocked type from
+ * codegen and register the Mockito stub), so the Runtime-only default would hide
+ * any AOT break.
+ * </p>
  */
 
 @SummerTest
@@ -25,12 +32,12 @@ class MockBehaviorTest {
 		this.mockB = mockB;
 	}
 
-	@Test
+	@DualEngine
 	void mockReplacesRealBean() {
 		assertSame(mockB, serviceA.getServiceB(), "ServiceA should receive the mock instead of the real ServiceB");
 	}
 
-	@Test
+	@DualEngine
 	void mockStubWorks() {
 		when(mockB.getServiceC()).thenReturn(null);
 

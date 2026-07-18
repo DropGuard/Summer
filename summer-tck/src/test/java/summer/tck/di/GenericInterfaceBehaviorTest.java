@@ -2,7 +2,7 @@ package summer.tck.di;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.Test;
+import summer.test.annotation.DualEngine;
 import summer.core.BeanContainer;
 import summer.fixtures.di.generic.GenericService;
 import summer.fixtures.di.generic.GenericServiceClient;
@@ -18,25 +18,25 @@ public class GenericInterfaceBehaviorTest {
 		this.context = context;
 	}
 
-	@Test
+	@DualEngine
 	void testContextStartsSuccessfully() {
 		assertNotNull(context, "BeanContainer should not be null");
 	}
 
-	@Test
+	@DualEngine
 	void testCanResolveGenericService() {
 		GenericService<?> service = context.getBean(GenericService.class);
 		assertNotNull(service, "Should be able to resolve GenericService (raw type)");
 		assertInstanceOf(StringServiceImpl.class, service, "GenericService should be resolved to StringServiceImpl");
 	}
 
-	@Test
+	@DualEngine
 	void testCanResolveStringServiceImpl() {
 		StringServiceImpl service = context.getBean(StringServiceImpl.class);
 		assertNotNull(service, "Should be able to resolve StringServiceImpl");
 	}
 
-	@Test
+	@DualEngine
 	void testSingletonConsistency() {
 		GenericService<?> genericService = context.getBean(GenericService.class);
 		StringServiceImpl stringService = context.getBean(StringServiceImpl.class);
@@ -44,7 +44,7 @@ public class GenericInterfaceBehaviorTest {
 				"GenericService and StringServiceImpl should resolve to the same singleton instance");
 	}
 
-	@Test
+	@DualEngine
 	void testDependencyInjectionWithGenericInterface() {
 		GenericServiceClient client = context.getBean(GenericServiceClient.class);
 		assertNotNull(client, "GenericServiceClient should be instantiated");
