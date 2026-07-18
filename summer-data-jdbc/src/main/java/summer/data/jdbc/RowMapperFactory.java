@@ -73,6 +73,24 @@ public final class RowMapperFactory {
 		return new ReflectiveRowMapper<>(modelClass, meta);
 	}
 
+	/**
+	 * Convenience overload that resolves the model {@link Class} from the metadata
+	 * before delegating to {@link #createReflective(Class, RowModelMeta)}. Used by
+	 * the {@link RowMapperRegistrar} component, which discovers {@code @RowModel}
+	 * records through the Jandex index and loads each model class within this
+	 * module (loading a user-declared model is a data-module responsibility, not a
+	 * cross-module reflection).
+	 */
+	@SuppressWarnings("unchecked")
+	public static RowMapper<?> createReflective(RowModelMeta meta) {
+		try {
+			Class<?> modelClass = Class.forName(meta.modelClassName());
+			return new ReflectiveRowMapper<>(modelClass, meta);
+		} catch (ClassNotFoundException e) {
+			throw new IllegalStateException("Cannot load @RowModel class: " + meta.modelClassName(), e);
+		}
+	}
+
 	private static String jdbcGetter(Type type, String fieldName) {
 		String colName = camelToSnake(fieldName);
 		return switch (type.name().toString()) {

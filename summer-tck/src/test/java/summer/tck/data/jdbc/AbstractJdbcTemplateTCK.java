@@ -2,51 +2,46 @@ package summer.tck.data.jdbc;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
 import java.util.List;
 import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import summer.core.BeanContainer;
 import summer.data.jdbc.JdbcTemplate;
 import summer.fixtures.data.jdbc.User;
-import summer.tck.AbstractComponentTCK;
+import summer.tck.AbstractTCK;
 
 /**
  * TCK for JdbcTemplate CRUD operations.
  *
  * <p>
- * Subclasses provide a {@code JdbcTemplate} via
- * {@link #createJdbcTemplate(DataSource)}, simulating each engine's
- * instantiation path: Runtime via reflection, AOT via generated code.
+ * The {@link JdbcTemplate} is obtained from the DI container (via
+ * {@link #context}), so both engines (Runtime + AOT) wire it through their own
+ * assembly path. {@code RowMapperRegistrar} (conditional on {@code JdbcTemplate})
+ * auto-registers every {@code @RowModel} (e.g. {@link User}) — the real
+ * engine-specific behaviour this TCK must verify. The container is supplied by
+ * the {@code @SummerTest} subclass constructor; a concrete subclass exposes the
+ * {@code @Test} methods as {@code @DualEngine} so the framework runs them on
+ * both engines, proving parity.
  * </p>
  */
-public abstract class AbstractJdbcTemplateTCK extends AbstractComponentTCK {
+public abstract class AbstractJdbcTemplateTCK extends AbstractTCK {
 
-	private HikariDataSource dataSource;
+	protected final BeanContainer context;
 	protected JdbcTemplate jdbcTemplate;
+	protected DataSource dataSource;
 
-	/**
-	 * Creates the JdbcTemplate for this engine.
-	 */
-	protected abstract JdbcTemplate createJdbcTemplate(DataSource dataSource);
+	protected AbstractJdbcTemplateTCK(BeanContainer context) {
+		this.context = context;
+	}
+
 	@BeforeEach
 	void setUpJdbcTemplate() {
-		HikariConfig config = new HikariConfig();
-		config.setJdbcUrl("jdbc:h2:mem:tck_test;DB_CLOSE_DELAY=-1");
-		config.setUsername("sa");
-		config.setPassword("");
-		dataSource = new HikariDataSource(config);
-
-		jdbcTemplate = createJdbcTemplate(dataSource);
+		jdbcTemplate = context.getBean(JdbcTemplate.class);
+		dataSource = context.getBean(DataSource.class);
 
 		jdbcTemplate.update("CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY, name VARCHAR(255))");
 		jdbcTemplate.update("TRUNCATE TABLE users");
-	}
-	protected void cleanupComponent() {
-		if (dataSource != null) {
-			dataSource.close();
-		}
 	}
 
 	// ---- INSERT + QUERY ----
