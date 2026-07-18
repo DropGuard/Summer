@@ -30,16 +30,15 @@ import summer.core.bean.BeanDefinition;
  * <p>
  * For each bean with interceptors, generates a {@code $$AotProxy} class that
  * implements the same interfaces and delegates to the target bean through the
- * interceptor chain. Uses {@link summer.aop.AotMethodMetadata} for zero-
- * reflection method metadata — no {@code java.lang.reflect.Method}, no
- * {@code RuntimeMethodMetadata}.
+ * interceptor chain. Uses {@link summer.aop.InterceptedMethod} — a zero-
+ * reflection, compile-time-constant method view — so proxies never touch
+ * {@code java.lang.reflect.Method} at runtime.
  * </p>
  */
 public final class AotProxyGenerator {
 
 	private static final ClassName PROXY_CHAIN = ClassName.get("summer.aop", "ProxyInterceptorChain");
-	private static final ClassName AOT_METADATA = ClassName.get("summer.aop", "AotMethodMetadata");
-	private static final ClassName METHOD_METADATA = ClassName.get("summer.aop", "MethodMetadata");
+	private static final ClassName INTERCEPTED_METHOD = ClassName.get("summer.aop", "InterceptedMethod");
 	private static final ClassName SET = ClassName.get("java.util", "Set");
 
 	public AotProxyGenerator() {
@@ -119,7 +118,7 @@ public final class AotProxyGenerator {
 
 				boolean shouldIntercept = classLevelBinding || methodLevelBindingMethods.contains(method.name());
 				if (shouldIntercept) {
-					proxyBuilder.addField(buildMetaField(method, safeClassName(ifaceName), bindingAnnotations));
+					proxyBuilder.addField(buildMetaField(method, bindingAnnotations));
 				}
 			}
 		}
@@ -151,7 +150,7 @@ public final class AotProxyGenerator {
 
 	// ── Metadata Field ────────────────────────────────────────────────
 
-	private FieldSpec buildMetaField(MethodInfo method, ClassName declaringIface, Set<DotName> bindingAnnotations) {
+	private FieldSpec buildMetaField(MethodInfo method, Set<DotName> bindingAnnotations) {
 		Set<ClassName> annotationClasses = new HashSet<>();
 		for (AnnotationInstance ann : method.annotations()) {
 			if (bindingAnnotations.contains(ann.name())) {
@@ -159,12 +158,14 @@ public final class AotProxyGenerator {
 			}
 		}
 
+		// AOT emits the method view as compile-time constants: method name + the set
+		// of binding annotation types. No reflection, no intermediate metadata object.
 		CodeBlock init;
 		if (annotationClasses.isEmpty()) {
-			init = CodeBlock.of("new $T($S, $T.class, $T.of())", AOT_METADATA, method.name(), declaringIface, SET);
+			init = CodeBlock.of("new $T($S, $T.of())", INTERCEPTED_METHOD, method.name(), SET);
 		} else {
 			CodeBlock.Builder cb = CodeBlock.builder();
-			cb.add("new $T($S, $T.class, $T.of(", AOT_METADATA, method.name(), declaringIface, SET);
+			cb.add("new $T($S, $T.of(", INTERCEPTED_METHOD, method.name(), SET);
 			boolean first = true;
 			for (ClassName annClass : annotationClasses) {
 				if (!first)
@@ -177,7 +178,7 @@ public final class AotProxyGenerator {
 		}
 
 		return FieldSpec
-				.builder(METHOD_METADATA, metaFieldName(method), Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
+				.builder(INTERCEPTED_METHOD, metaFieldName(method), Modifier.PRIVATE, Modifier.STATIC, Modifier.FINAL)
 				.initializer(init).build();
 	}
 

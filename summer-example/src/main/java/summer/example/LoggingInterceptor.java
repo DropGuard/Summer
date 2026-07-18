@@ -21,7 +21,7 @@ public class LoggingInterceptor implements MethodInterceptor {
 			return context.proceed();
 		} finally {
 			long duration = System.currentTimeMillis() - start;
-			log.info("[AOP] Executed {} in {}ms", context.getMethod().getName(), duration);
+			log.info("[AOP] Executed {} in {}ms", context.method().name(), duration);
 		}
 	}
 }

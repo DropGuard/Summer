@@ -7,7 +7,7 @@ public interface InterceptorChain {
 
 	Object getTarget();
 
-	MethodMetadata getMethod();
+	InterceptedMethod method();
 
 	Object[] getArguments();
 

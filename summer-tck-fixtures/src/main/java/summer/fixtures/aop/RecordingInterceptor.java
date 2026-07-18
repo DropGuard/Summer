@@ -25,7 +25,7 @@ public class RecordingInterceptor implements MethodInterceptor {
 
 	@Override
 	public Object intercept(InterceptorChain chain) throws Throwable {
-		String methodName = chain.getMethod().getName();
+		String methodName = chain.method().name();
 		callLog.add("before:" + methodName);
 		Object result = chain.proceed();
 		callLog.add("after:" + methodName);

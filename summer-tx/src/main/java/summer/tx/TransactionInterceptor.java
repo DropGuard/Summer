@@ -36,7 +36,7 @@ public class TransactionInterceptor implements MethodInterceptor {
 	@Override
 	public Object intercept(InterceptorChain chain) throws Throwable {
 		// Check if method is annotated with @Transactional
-		if (chain.getMethod().isAnnotationPresent(Transactional.class)) {
+		if (chain.method().isAnnotationPresent(Transactional.class)) {
 			boolean alreadyActive = interceptorActive.get();
 			try {
 				interceptorActive.set(true);

@@ -51,12 +51,12 @@ public class ProxyFactory {
 		private static class MethodCache {
 			final Method targetMethod;
 			final boolean shouldIntercept;
-			final RuntimeMethodMetadata metadata;
+			final summer.aop.InterceptedMethod metadata;
 
-			MethodCache(Method targetMethod, boolean shouldIntercept) {
+			MethodCache(Method targetMethod, boolean shouldIntercept, summer.aop.InterceptedMethod metadata) {
 				this.targetMethod = targetMethod;
 				this.shouldIntercept = shouldIntercept;
-				this.metadata = shouldIntercept ? new RuntimeMethodMetadata(targetMethod) : null;
+				this.metadata = metadata;
 			}
 		}
 
@@ -74,7 +74,10 @@ public class ProxyFactory {
 					try {
 						Method targetMethod = target.getClass().getMethod(method.getName(), method.getParameterTypes());
 						boolean shouldIntercept = shouldIntercept(targetMethod);
-						methodCache.put(method, new MethodCache(targetMethod, shouldIntercept));
+						summer.aop.InterceptedMethod metadata = shouldIntercept
+								? new summer.aop.InterceptedMethod(targetMethod.getName(), bindingsOn(targetMethod))
+								: null;
+						methodCache.put(method, new MethodCache(targetMethod, shouldIntercept, metadata));
 					} catch (NoSuchMethodException e) {
 						// Ignore
 					}
@@ -128,6 +131,29 @@ public class ProxyFactory {
 				}
 			}
 			return false;
+		}
+
+		/**
+		 * Collects the binding annotations actually present on the target method (or
+		 * its declaring class) — the set an {@link summer.aop.InterceptedMethod}
+		 * exposes to interceptors via {@code isAnnotationPresent}. Computed once at
+		 * proxy creation, never on the hot path.
+		 */
+		private Set<Class<? extends Annotation>> bindingsOn(Method targetMethod) {
+			Set<Class<? extends Annotation>> present = new HashSet<>();
+			for (MethodInterceptor interceptor : interceptors) {
+				Set<Class<? extends Annotation>> bindings = interceptorBindings.get(interceptor.getClass());
+				if (bindings == null) {
+					bindings = scanBindings(interceptor.getClass());
+				}
+				for (Class<? extends Annotation> binding : bindings) {
+					if (targetMethod.getDeclaringClass().isAnnotationPresent(binding)
+							|| targetMethod.isAnnotationPresent(binding)) {
+						present.add(binding);
+					}
+				}
+			}
+			return present;
 		}
 
 		/**

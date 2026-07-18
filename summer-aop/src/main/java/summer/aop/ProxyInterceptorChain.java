@@ -9,13 +9,13 @@ import java.util.List;
 public class ProxyInterceptorChain implements InterceptorChain {
 
 	private final Object target;
-	private final MethodMetadata targetMethod;
+	private final InterceptedMethod targetMethod;
 	private final Object[] args;
 	private final List<MethodInterceptor> interceptors;
 	private final TargetInvoker targetInvoker;
 	private int currentIndex = -1;
 
-	public ProxyInterceptorChain(Object target, MethodMetadata targetMethod, Object[] args,
+	public ProxyInterceptorChain(Object target, InterceptedMethod targetMethod, Object[] args,
 			List<MethodInterceptor> interceptors, TargetInvoker targetInvoker) {
 		this.target = target;
 		this.targetMethod = targetMethod;
@@ -30,7 +30,7 @@ public class ProxyInterceptorChain implements InterceptorChain {
 	}
 
 	@Override
-	public MethodMetadata getMethod() {
+	public InterceptedMethod method() {
 		return targetMethod;
 	}
 

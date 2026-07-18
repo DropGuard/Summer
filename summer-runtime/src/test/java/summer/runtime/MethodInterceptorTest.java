@@ -2,10 +2,11 @@ package summer.runtime;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.util.Set;
 import org.junit.jupiter.api.Test;
+import summer.aop.InterceptedMethod;
 import summer.aop.InterceptorChain;
 import summer.aop.MethodInterceptor;
-import summer.aop.MethodMetadata;
 import summer.aop.TargetInvoker;
 
 /**
@@ -18,7 +19,7 @@ class MethodInterceptorTest {
 		MethodInterceptor interceptor = chain -> "Intercepted: " + chain.proceed();
 
 		TestService target = new TestService();
-		MethodMetadata metadata = new RuntimeMethodMetadata(TestService.class.getMethod("sayHello"));
+		InterceptedMethod metadata = new InterceptedMethod("sayHello", Set.of());
 		InterceptorChain chain = new TestInterceptorChain(target, metadata, new Object[0], target::sayHello);
 
 		Object result = interceptor.intercept(chain);
@@ -36,7 +37,7 @@ class MethodInterceptorTest {
 		};
 
 		TestService target = new TestService();
-		MethodMetadata metadata = new RuntimeMethodMetadata(TestService.class.getMethod("greet", String.class));
+		InterceptedMethod metadata = new InterceptedMethod("greet", Set.of());
 		Object[] args = {"world"};
 		InterceptorChain chain = new TestInterceptorChain(target, metadata, args, () -> target.greet((String) args[0]));
 
@@ -51,7 +52,7 @@ class MethodInterceptorTest {
 		};
 
 		TestService target = new TestService();
-		MethodMetadata metadata = new RuntimeMethodMetadata(TestService.class.getMethod("sayHello"));
+		InterceptedMethod metadata = new InterceptedMethod("sayHello", Set.of());
 		InterceptorChain chain = new TestInterceptorChain(target, metadata, new Object[0], target::sayHello);
 
 		assertThrows(RuntimeException.class, () -> interceptor.intercept(chain));
@@ -69,11 +70,12 @@ class MethodInterceptorTest {
 
 	private static class TestInterceptorChain implements InterceptorChain {
 		private final Object target;
-		private final MethodMetadata methodMetadata;
+		private final InterceptedMethod methodMetadata;
 		private final Object[] arguments;
 		private final TargetInvoker invoker;
 
-		TestInterceptorChain(Object target, MethodMetadata methodMetadata, Object[] arguments, TargetInvoker invoker) {
+		TestInterceptorChain(Object target, InterceptedMethod methodMetadata, Object[] arguments,
+				TargetInvoker invoker) {
 			this.target = target;
 			this.methodMetadata = methodMetadata;
 			this.arguments = arguments;
@@ -86,7 +88,7 @@ class MethodInterceptorTest {
 		}
 
 		@Override
-		public MethodMetadata getMethod() {
+		public InterceptedMethod method() {
 			return methodMetadata;
 		}
 

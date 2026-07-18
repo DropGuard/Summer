@@ -2,9 +2,9 @@ package summer.aop;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.lang.annotation.Annotation;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -15,7 +15,7 @@ class ProxyInterceptorChainTest {
 	@Test
 	void shouldReturnTarget() {
 		Object target = new Object();
-		MethodMetadata metadata = new TestMethodMetadata("test");
+		InterceptedMethod metadata = new InterceptedMethod("test", Set.of());
 		Object[] args = {"arg1"};
 		List<MethodInterceptor> interceptors = Collections.emptyList();
 		TargetInvoker invoker = () -> "result";
@@ -28,20 +28,20 @@ class ProxyInterceptorChainTest {
 	@Test
 	void shouldReturnMethod() {
 		Object target = new Object();
-		MethodMetadata metadata = new TestMethodMetadata("test");
+		InterceptedMethod metadata = new InterceptedMethod("test", Set.of());
 		Object[] args = {};
 		List<MethodInterceptor> interceptors = Collections.emptyList();
 		TargetInvoker invoker = () -> "result";
 
 		ProxyInterceptorChain chain = new ProxyInterceptorChain(target, metadata, args, interceptors, invoker);
 
-		assertSame(metadata, chain.getMethod());
+		assertSame(metadata, chain.method());
 	}
 
 	@Test
 	void shouldReturnArguments() {
 		Object target = new Object();
-		MethodMetadata metadata = new TestMethodMetadata("test");
+		InterceptedMethod metadata = new InterceptedMethod("test", Set.of());
 		Object[] args = {"arg1", "arg2"};
 		List<MethodInterceptor> interceptors = Collections.emptyList();
 		TargetInvoker invoker = () -> "result";
@@ -54,7 +54,7 @@ class ProxyInterceptorChainTest {
 	@Test
 	void shouldInvokeTargetWhenNoInterceptors() throws Throwable {
 		Object target = new Object();
-		MethodMetadata metadata = new TestMethodMetadata("test");
+		InterceptedMethod metadata = new InterceptedMethod("test", Set.of());
 		Object[] args = {};
 		List<MethodInterceptor> interceptors = Collections.emptyList();
 		TargetInvoker invoker = () -> "targetResult";
@@ -68,7 +68,7 @@ class ProxyInterceptorChainTest {
 	@Test
 	void shouldExecuteSingleInterceptor() throws Throwable {
 		Object target = new Object();
-		MethodMetadata metadata = new TestMethodMetadata("test");
+		InterceptedMethod metadata = new InterceptedMethod("test", Set.of());
 		Object[] args = {};
 		MethodInterceptor interceptor = chain -> "intercepted";
 		List<MethodInterceptor> interceptors = List.of(interceptor);
@@ -83,7 +83,7 @@ class ProxyInterceptorChainTest {
 	@Test
 	void shouldExecuteMultipleInterceptorsInOrder() throws Throwable {
 		Object target = new Object();
-		MethodMetadata metadata = new TestMethodMetadata("test");
+		InterceptedMethod metadata = new InterceptedMethod("test", Set.of());
 		Object[] args = {};
 
 		StringBuilder order = new StringBuilder();
@@ -111,7 +111,7 @@ class ProxyInterceptorChainTest {
 	@Test
 	void shouldAllowInterceptorToShortCircuit() throws Throwable {
 		Object target = new Object();
-		MethodMetadata metadata = new TestMethodMetadata("test");
+		InterceptedMethod metadata = new InterceptedMethod("test", Set.of());
 		Object[] args = {};
 		MethodInterceptor interceptor = chain -> "shortCircuit";
 		List<MethodInterceptor> interceptors = List.of(interceptor);
@@ -129,7 +129,7 @@ class ProxyInterceptorChainTest {
 	@Test
 	void shouldAllowInterceptorToModifyArguments() throws Throwable {
 		Object target = new Object();
-		MethodMetadata metadata = new TestMethodMetadata("test");
+		InterceptedMethod metadata = new InterceptedMethod("test", Set.of());
 		Object[] args = {"original"};
 		MethodInterceptor interceptor = chain -> {
 			Object[] modifiedArgs = chain.getArguments();
@@ -149,7 +149,7 @@ class ProxyInterceptorChainTest {
 	@Test
 	void shouldPropagateExceptionFromInterceptor() {
 		Object target = new Object();
-		MethodMetadata metadata = new TestMethodMetadata("test");
+		InterceptedMethod metadata = new InterceptedMethod("test", Set.of());
 		Object[] args = {};
 		MethodInterceptor interceptor = chain -> {
 			throw new RuntimeException("Interceptor error");
@@ -165,7 +165,7 @@ class ProxyInterceptorChainTest {
 	@Test
 	void shouldPropagateExceptionFromTarget() {
 		Object target = new Object();
-		MethodMetadata metadata = new TestMethodMetadata("test");
+		InterceptedMethod metadata = new InterceptedMethod("test", Set.of());
 		Object[] args = {};
 		List<MethodInterceptor> interceptors = Collections.emptyList();
 		TargetInvoker invoker = () -> {
@@ -175,34 +175,5 @@ class ProxyInterceptorChainTest {
 		ProxyInterceptorChain chain = new ProxyInterceptorChain(target, metadata, args, interceptors, invoker);
 
 		assertThrows(RuntimeException.class, chain::proceed);
-	}
-
-	// Test helper class
-	private static class TestMethodMetadata implements MethodMetadata {
-		private final String name;
-
-		TestMethodMetadata(String name) {
-			this.name = name;
-		}
-
-		@Override
-		public String getName() {
-			return name;
-		}
-
-		@Override
-		public Class<?> getDeclaringClass() {
-			return Object.class;
-		}
-
-		@Override
-		public boolean isAnnotationPresent(Class<? extends Annotation> annotationClass) {
-			return false;
-		}
-
-		@Override
-		public <T extends Annotation> T getAnnotation(Class<T> annotationClass) {
-			return null;
-		}
 	}
 }

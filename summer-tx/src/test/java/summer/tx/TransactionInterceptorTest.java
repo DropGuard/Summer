@@ -2,12 +2,11 @@ package summer.tx;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Method;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.Test;
+import summer.aop.InterceptedMethod;
 import summer.aop.InterceptorChain;
-import summer.aop.MethodMetadata;
 import summer.aop.TargetInvoker;
 
 /**
@@ -29,7 +28,7 @@ class TransactionInterceptorTest {
 		TransactionInterceptor interceptor = new TransactionInterceptor(manager);
 
 		TestService target = new TestServiceImpl();
-		MethodMetadata metadata = new SimpleMethodMetadata(TestService.class.getMethod("transactionalMethod"));
+		InterceptedMethod metadata = new InterceptedMethod("transactionalMethod", Set.of(Transactional.class));
 		InterceptorChain chain = new TestInterceptorChain(target, metadata, new Object[0], target::transactionalMethod);
 
 		Object result = interceptor.intercept(chain);
@@ -42,7 +41,7 @@ class TransactionInterceptorTest {
 		TransactionInterceptor interceptor = new TransactionInterceptor(manager);
 
 		TestService target = new TestServiceImpl();
-		MethodMetadata metadata = new SimpleMethodMetadata(TestService.class.getMethod("nonTransactionalMethod"));
+		InterceptedMethod metadata = new InterceptedMethod("nonTransactionalMethod", Set.of());
 		InterceptorChain chain = new TestInterceptorChain(target, metadata, new Object[0],
 				target::nonTransactionalMethod);
 
@@ -56,7 +55,7 @@ class TransactionInterceptorTest {
 		TransactionInterceptor interceptor = new TransactionInterceptor(manager);
 
 		TestService target = new TestServiceImpl();
-		MethodMetadata metadata = new SimpleMethodMetadata(TestService.class.getMethod("transactionalMethod"));
+		InterceptedMethod metadata = new InterceptedMethod("transactionalMethod", Set.of(Transactional.class));
 		InterceptorChain chain = new TestInterceptorChain(target, metadata, new Object[0], () -> {
 			throw new RuntimeException("Test exception");
 		});
@@ -73,7 +72,7 @@ class TransactionInterceptorTest {
 		TransactionInterceptor interceptor = new TransactionInterceptor(manager);
 
 		TestService target = new TestServiceImpl();
-		MethodMetadata metadata = new SimpleMethodMetadata(TestService.class.getMethod("transactionalMethod"));
+		InterceptedMethod metadata = new InterceptedMethod("transactionalMethod", Set.of(Transactional.class));
 		InterceptorChain chain = new TestInterceptorChain(target, metadata, new Object[0], target::transactionalMethod);
 
 		Object result = interceptor.intercept(chain);
@@ -175,11 +174,12 @@ class TransactionInterceptorTest {
 	// Test InterceptorChain implementation
 	private static class TestInterceptorChain implements InterceptorChain {
 		private final Object target;
-		private final MethodMetadata methodMetadata;
+		private final InterceptedMethod methodMetadata;
 		private final Object[] arguments;
 		private final TargetInvoker invoker;
 
-		TestInterceptorChain(Object target, MethodMetadata methodMetadata, Object[] arguments, TargetInvoker invoker) {
+		TestInterceptorChain(Object target, InterceptedMethod methodMetadata, Object[] arguments,
+				TargetInvoker invoker) {
 			this.target = target;
 			this.methodMetadata = methodMetadata;
 			this.arguments = arguments;
@@ -192,7 +192,7 @@ class TransactionInterceptorTest {
 		}
 
 		@Override
-		public MethodMetadata getMethod() {
+		public InterceptedMethod method() {
 			return methodMetadata;
 		}
 
@@ -204,29 +204,6 @@ class TransactionInterceptorTest {
 		@Override
 		public Object proceed() throws Throwable {
 			return invoker.invoke();
-		}
-	}
-
-	private record SimpleMethodMetadata(Method method) implements MethodMetadata {
-		@Override
-		public String getName() {
-			return method.getName();
-		}
-
-		@Override
-		public Class<?> getDeclaringClass() {
-			return method.getDeclaringClass();
-		}
-
-		@Override
-		public boolean isAnnotationPresent(Class<? extends Annotation> annotationClass) {
-			return method.isAnnotationPresent(annotationClass);
-		}
-
-		@SuppressWarnings("unchecked")
-		@Override
-		public <T extends Annotation> T getAnnotation(Class<T> annotationClass) {
-			return method.getAnnotation(annotationClass);
 		}
 	}
 }
