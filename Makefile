@@ -1,4 +1,4 @@
-.PHONY: all clean compile install test test-module run benchmark fmt check pre-commit arch realworld coverage coverage-module
+.PHONY: all clean compile install test test-module it it-module run benchmark fmt check pre-commit arch realworld coverage coverage-module
 
 
 export MAVEN_OPTS := --sun-misc-unsafe-memory-access=allow
@@ -25,6 +25,21 @@ ifdef TEST
 	mvn test -pl $(MODULE) -am -Dtest="$(TEST)" -Dsurefire.useFile=false -Dsurefire.failIfNoSpecifiedTests=false
 else
 	mvn test -pl $(MODULE) -am -Dsurefire.useFile=false
+endif
+
+# Integration tests (Testcontainers) — need a running Docker daemon. Activated
+# with -Dit so plain `make test` / `mvn verify` stay Docker-free and fast.
+it:
+	mvn verify -Dit -Dsurefire.useFile=false
+
+it-module:
+ifndef MODULE
+	$(error Usage: make it-module MODULE=summer-data-redis [TEST=ClassName])
+endif
+ifdef TEST
+	mvn verify -pl $(MODULE) -am -Dit -Dtest="$(TEST)" -Dsurefire.useFile=false -Dsurefire.failIfNoSpecifiedTests=false
+else
+	mvn verify -pl $(MODULE) -am -Dit -Dsurefire.useFile=false
 endif
 
 run:

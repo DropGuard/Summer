@@ -139,29 +139,6 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-failsafe-plugin</artifactId>
-                <version>3.5.5</version>
-                <executions>
-                    <execution>
-                        <id>integration-tests</id>
-                        <goals>
-                            <goal>integration-test</goal>
-                            <goal>verify</goal>
-                        </goals>
-                        <configuration>
-                            <includes>
-                                <include>**/*IT.java</include>
-                            </includes>
-                            <systemPropertyVariables>
-                                <testcontainers.disableRyuk>true</testcontainers.disableRyuk>
-                                <DOCKER_HOST>npipe:////./pipe/dockerDesktopLinuxEngine</DOCKER_HOST>
-                            </systemPropertyVariables>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
                 <groupId>summer</groupId>
                 <artifactId>summer-maven-plugin</artifactId>
                 <executions>
@@ -210,4 +187,49 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+          Integration tests (Testcontainers) need a running Docker daemon. They are
+          NOT bound to `verify` by default — activate explicitly with `-Dit` so that
+          plain `mvn verify` / `make test` stay Docker-free and fast. The
+          DOCKER_HOST is intentionally omitted: on WSL the native Docker Engine
+          exposes the default unix socket, and hardcoding the old Docker Desktop
+          pipe would break discovery after Desktop was uninstalled.
+        -->
+        <profile>
+            <id>it</id>
+            <activation>
+                <property>
+                    <name>it</name>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <version>3.5.5</version>
+                        <executions>
+                            <execution>
+                                <id>integration-tests</id>
+                                <goals>
+                                    <goal>integration-test</goal>
+                                    <goal>verify</goal>
+                                </goals>
+                                <configuration>
+                                    <includes>
+                                        <include>**/*IT.java</include>
+                                    </includes>
+                                    <systemPropertyVariables>
+                                        <testcontainers.disableRyuk>true</testcontainers.disableRyuk>
+                                    </systemPropertyVariables>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
