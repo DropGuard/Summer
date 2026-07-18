@@ -41,8 +41,11 @@ public final class SummerApplication {
 	}
 
 	public BeanContainer start(String[] args) throws Exception {
-		summer.web.GlobalMiddlewareChain chain = new summer.web.GlobalMiddlewareChain(this.middlewareEntries);
-		BeanContainer context = DiEngine.create(chain);
+		// The ordered list of middleware classes declared via apply(...) is passed
+		// as a boot-time external bean (keyed by the plain List type) so the web
+		// server runner can apply them in declaration order. Middleware beans
+		// annotated with @GlobalMiddleware are collected automatically without this.
+		BeanContainer context = DiEngine.create(this.middlewareEntries);
 
 		System.out.println(Banner.format(context.engine().name()));
 
