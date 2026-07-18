@@ -27,7 +27,7 @@
             <artifactId>javapoet</artifactId>
         </dependency>
 
-        <!-- Summer Core (annotations, BeanContainer, exceptions) -->
+        <!-- Summer Core (annotations, BeanContainer, exceptions, reflection-free config binding) -->
         <dependency>
             <groupId>summer</groupId>
             <artifactId>summer-core</artifactId>

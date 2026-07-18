@@ -17,8 +17,7 @@ summer.runtime/
 ├── RuntimeBeanAdapter             # Bridge: Jandex ClassInfo → reflection metadata (@Bean methods, routes, exception handlers)
 ├── BeanInstantiator               # Reflective instantiation + constructor-arg resolution from BeanContainer
 ├── RuntimeAopProcessor            # Applies JDK proxy to beans with matching interceptors
-├── ProxyFactory                   # JDK dynamic proxy generation (InvocationHandler + interceptor chain)
-├── RuntimeMethodMetadata          # MethodMetadata impl wrapping java.lang.reflect.Method
+├── ProxyFactory                  # JDK dynamic proxy generation (InvocationHandler + interceptor chain); builds InterceptedMethod from Method at proxy creation
 ├── HandlerFactory                 # Controller/exception-handler method → Handler with cold-start param provider compilation
 ├── RuntimeRouteRegistrar          # RouteInfo[] → HttpRouter.register() for @Get/@Post/...
 ├── RuntimeExceptionHandlerRegistrar # BeanDefinition.ExceptionHandlerEntry[] → ExceptionRegistry
