@@ -1,8 +1,6 @@
-package summer.runtime;
+package summer.web;
 
-import java.lang.reflect.Parameter;
-import java.util.function.Function;
-import summer.web.HttpContext;
+import summer.core.bean.RouteInfo.ParamBinding;
 import summer.web.annotation.PathParam;
 
 /**
@@ -12,21 +10,21 @@ import summer.web.annotation.PathParam;
 public class PathParamResolver implements HttpParameterResolver {
 
 	@Override
-	public boolean supports(Parameter parameter) {
-		return parameter.isAnnotationPresent(PathParam.class);
+	public boolean supports(HandlerParam param) {
+		return param.binding() == ParamBinding.PATH;
 	}
 
 	@Override
-	public Object resolve(HttpContext ctx, Parameter parameter) {
-		String raw = ctx.request().pathParam(parameter.getAnnotation(PathParam.class).value());
-		return convert(raw, parameter.getType());
+	public Object resolve(HttpContext ctx, HandlerParam param) {
+		String raw = ctx.request().pathParam(param.bindingName());
+		return convert(raw, param.type());
 	}
 
 	@Override
-	public Function<HttpContext, Object> compile(Parameter parameter) {
-		String paramName = parameter.getAnnotation(PathParam.class).value();
-		Class<?> targetType = parameter.getType();
-		return ctx -> convert(ctx.request().pathParam(paramName), targetType);
+	public java.util.function.Function<HttpContext, Object> compile(HandlerParam param) {
+		String name = param.bindingName();
+		Class<?> targetType = param.type();
+		return ctx -> convert(ctx.request().pathParam(name), targetType);
 	}
 
 	private static Object convert(String raw, Class<?> targetType) {

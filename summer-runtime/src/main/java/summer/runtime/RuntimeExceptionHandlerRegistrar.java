@@ -9,6 +9,7 @@ import summer.core.bean.BeanDefinition;
 import summer.web.ExceptionHandlerRegistrar;
 import summer.web.ExceptionRegistry;
 import summer.web.Handler;
+import summer.web.HttpParameterResolverChain;
 
 /**
  * Exception handler registrar that reads from pre-computed

@@ -5,6 +5,7 @@ import summer.core.annotation.Bean;
 import summer.core.annotation.ConditionalOnBean;
 import summer.core.annotation.Configuration;
 import summer.core.config.PageableProperties;
+import summer.web.DefaultPageResolver;
 
 /**
  * Configuration for pagination support.

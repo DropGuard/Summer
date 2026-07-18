@@ -5,6 +5,14 @@ import summer.core.RuntimeDiMarker;
 import summer.core.annotation.Bean;
 import summer.core.annotation.ConditionalOnBean;
 import summer.core.annotation.Configuration;
+import summer.web.DefaultPageResolver;
+import summer.web.HttpParameterResolver;
+import summer.web.HttpParameterResolverChain;
+import summer.web.PathParamResolver;
+import summer.web.QueryParamResolver;
+import summer.web.ThrowableResolver;
+import summer.web.TypeParameterResolver;
+import summer.web.ValidatingParameterResolver;
 
 /**
  * Framework configuration for HTTP parameter resolvers.

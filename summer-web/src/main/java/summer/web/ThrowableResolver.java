@@ -1,9 +1,4 @@
-package summer.runtime;
-
-import java.lang.reflect.Parameter;
-import java.util.function.Function;
-import summer.web.HttpContext;
-import summer.web.RequestAttributes;
+package summer.web;
 
 /**
  * Resolves {@link Throwable}-typed parameters for {@code @ExceptionHandler}
@@ -12,17 +7,17 @@ import summer.web.RequestAttributes;
 public class ThrowableResolver implements HttpParameterResolver {
 
 	@Override
-	public boolean supports(Parameter parameter) {
-		return Throwable.class.isAssignableFrom(parameter.getType());
+	public boolean supports(HandlerParam param) {
+		return Throwable.class.isAssignableFrom(param.type());
 	}
 
 	@Override
-	public Object resolve(HttpContext ctx, Parameter parameter) {
+	public Object resolve(HttpContext ctx, HandlerParam param) {
 		return ctx.request().getAttribute(RequestAttributes.LAST_EXCEPTION);
 	}
 
 	@Override
-	public Function<HttpContext, Object> compile(Parameter parameter) {
+	public java.util.function.Function<HttpContext, Object> compile(HandlerParam param) {
 		return ctx -> ctx.request().getAttribute(RequestAttributes.LAST_EXCEPTION);
 	}
 }

@@ -4,6 +4,7 @@ import summer.core.RuntimeDiMarker;
 import summer.core.annotation.Bean;
 import summer.core.annotation.ConditionalOnBean;
 import summer.core.annotation.Configuration;
+import summer.web.HttpParameterResolverChain;
 
 @Configuration
 @ConditionalOnBean(RuntimeDiMarker.class)

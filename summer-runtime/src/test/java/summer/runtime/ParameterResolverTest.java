@@ -6,9 +6,15 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import summer.web.HandlerParam;
 import summer.web.HttpContext;
 import summer.web.HttpMethod;
+import summer.web.PathParamResolver;
+import summer.web.QueryParamResolver;
 import summer.web.Request;
+import summer.web.RequestAttributes;
+import summer.web.ThrowableResolver;
+import summer.web.TypeParameterResolver;
 import summer.web.annotation.PathParam;
 import summer.web.annotation.QueryParam;
 
@@ -23,9 +29,10 @@ class ParameterResolverTest {
 		return new HttpContext(req);
 	}
 
-	private Parameter param(String methodName, Class<?>... paramTypes) throws NoSuchMethodException {
+	private HandlerParam param(String methodName, Class<?>... paramTypes) throws NoSuchMethodException {
 		Method method = ParameterResolverTest.class.getDeclaredMethod(methodName, paramTypes);
-		return method.getParameters()[0];
+		Parameter parameter = method.getParameters()[0];
+		return new RuntimeHandlerParam(parameter);
 	}
 
 	// ── Fixture methods (used via reflection) ──────────────────────
@@ -144,7 +151,7 @@ class ParameterResolverTest {
 		void resolvesExceptionFromAttribute() throws Exception {
 			HttpContext ctx = ctx("/test");
 			RuntimeException ex = new RuntimeException("boom");
-			ctx.request().setAttribute(summer.web.RequestAttributes.LAST_EXCEPTION, ex);
+			ctx.request().setAttribute(RequestAttributes.LAST_EXCEPTION, ex);
 			assertSame(ex, resolver.resolve(ctx, param("throwableParam", RuntimeException.class)));
 		}
 	}
