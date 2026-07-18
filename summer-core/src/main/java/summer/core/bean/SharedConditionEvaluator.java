@@ -45,11 +45,64 @@ public final class SharedConditionEvaluator {
 	 *            bean list (mutated in place)
 	 */
 	public void evaluate(List<BeanDefinition> beans) {
+		evaluate(beans, Set.of());
+	}
+
+	/**
+	 * Evaluates conditions, removes unsatisfied beans, and removes any bean whose
+	 * type is mocked by a {@code @Mock} declared on the test.
+	 *
+	 * <p>
+	 * Mock removal is a <b>discovery-stage type replacement</b> (Quarkus-style):
+	 * the real implementation is taken out of the candidate set entirely, so it is
+	 * never instantiated — and because nothing references it, its dependency
+	 * closure is also never instantiated. This runs identically on both the Runtime
+	 * and AOT engines (both funnel through this evaluator), which fixes the prior
+	 * divergence where the AOT path let a concrete-class {@code @Mock} lose to the
+	 * real bean via registration-order overwrite.
+	 * </p>
+	 *
+	 * <p>
+	 * {@code mockedTypes} holds the declared {@code @Mock} parameter type names
+	 * (not {@code mock.getClass()}, which for a Mockito proxy differs from the
+	 * target type). Matching is by exact type name and implemented interfaces, so
+	 * it works without loading classes — safe for the AOT compile phase.
+	 * </p>
+	 *
+	 * @param beans
+	 *            bean list (mutated in place)
+	 * @param mockedTypes
+	 *            type names declared as {@code @Mock} on the test constructor
+	 */
+	public void evaluate(List<BeanDefinition> beans, Set<String> mockedTypes) {
+		removeMockedBeans(beans, mockedTypes);
 		Map<String, String> requiredTypes = collectConditionalRequirements(beans);
 		List<BeanDefinition> topoOrder = buildTopologicalOrder(beans, requiredTypes);
 		resolveConditionalOnBean(beans, topoOrder, requiredTypes);
 		resolveReplaces(beans);
 		removeOrphanedFactoryProducts(beans);
+	}
+
+	/**
+	 * Removes beans whose type (or any implemented interface) is among the mocked
+	 * types. The mock instance itself is supplied separately at instance-build
+	 * time; removing the real definition ensures it is never instantiated.
+	 */
+	private void removeMockedBeans(List<BeanDefinition> beans, Set<String> mockedTypes) {
+		if (mockedTypes.isEmpty()) {
+			return;
+		}
+		beans.removeIf(bean -> {
+			if (mockedTypes.contains(bean.qualifiedName)) {
+				return true;
+			}
+			for (String iface : bean.interfaceNames) {
+				if (mockedTypes.contains(iface)) {
+					return true;
+				}
+			}
+			return false;
+		});
 	}
 
 	// ── Collect @ConditionalOnBean requirements ───────────────────

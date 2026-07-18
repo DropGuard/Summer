@@ -3,6 +3,8 @@ package summer.core.bean;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -43,10 +45,76 @@ public final class SharedDependencyResolver {
 	 *             if a cycle is detected
 	 */
 	public List<BeanDefinition> resolve(List<BeanDefinition> beans) {
+		return resolve(beans, Set.of());
+	}
+
+	/**
+	 * Resolves dependencies and returns beans in topological order.
+	 *
+	 * @param beans
+	 *            bean list (real definitions; mocked types have already been
+	 *            removed by {@code SharedConditionEvaluator})
+	 * @param mockedTypeNames
+	 *            fully-qualified names of types replaced by a mock. A dependency on
+	 *            a mocked type is treated as satisfiable — the mock instance is
+	 *            supplied at instantiation time (registered before the instantiate
+	 *            loop), so the resolver must not fail the build for it.
+	 * @return topologically sorted bean list
+	 * @throws CircularDependencyException
+	 *             if a cycle is detected
+	 */
+	public List<BeanDefinition> resolve(List<BeanDefinition> beans, Set<String> mockedTypeNames) {
+		return resolve(beans, mockedTypeNames, Map.of());
+	}
+
+	/**
+	 * Resolves dependencies and returns beans in topological order.
+	 *
+	 * <p>
+	 * This overload derives the mocked-type set and their interface names from the
+	 * {@link MockedBean} list directly, so a dependency declared against an
+	 * <em>interface</em> that a mocked implementation class implements is correctly
+	 * recognised as satisfied by the mock (without loading any classes — AOT-safe).
+	 * Both engines funnel through here with the same {@code MockedBean} list, which
+	 * is what keeps mock resolution identical across Runtime and AOT.
+	 *
+	 * @param beans
+	 *            bean list (real definitions; mocked types already removed by
+	 *            {@code SharedConditionEvaluator})
+	 * @param mocks
+	 *            mocked beans produced from {@code @Mock} parameters
+	 * @return topologically sorted bean list
+	 */
+	public List<BeanDefinition> resolve(List<BeanDefinition> beans, List<MockedBean> mocks) {
+		Set<String> mockedTypeNames = mocks.stream().map(MockedBean::targetTypeName)
+				.collect(java.util.stream.Collectors.toSet());
+		Map<String, Set<String>> mockedInterfaces = mockedInterfaceNames(mocks);
+		return resolve(beans, mockedTypeNames, mockedInterfaces);
+	}
+
+	/**
+	 * Builds the mapping from each mocked type name to the names of the interfaces
+	 * its implementation class implements. Used (without class loading) to satisfy
+	 * a dependency declared against an interface that the mock implements.
+	 */
+	private static Map<String, Set<String>> mockedInterfaceNames(List<MockedBean> mocks) {
+		Map<String, Set<String>> result = new HashMap<>();
+		for (MockedBean mocked : mocks) {
+			Set<String> ifaces = new HashSet<>();
+			for (Class<?> iface : mocked.targetType().getInterfaces()) {
+				ifaces.add(iface.getName());
+			}
+			result.put(mocked.targetTypeName(), ifaces);
+		}
+		return result;
+	}
+
+	private List<BeanDefinition> resolve(List<BeanDefinition> beans, Set<String> mockedTypeNames,
+			Map<String, Set<String>> mockedInterfaces) {
 		validateUniqueBeanNames(beans);
 
 		for (BeanDefinition bean : beans) {
-			resolveDependencies(bean, beans);
+			resolveDependencies(bean, beans, mockedTypeNames, mockedInterfaces);
 		}
 
 		for (BeanDefinition bean : beans) {
@@ -85,7 +153,8 @@ public final class SharedDependencyResolver {
 		}
 	}
 
-	private void resolveDependencies(BeanDefinition bean, List<BeanDefinition> allBeans) {
+	private void resolveDependencies(BeanDefinition bean, List<BeanDefinition> allBeans, Set<String> mockedTypeNames,
+			Map<String, Set<String>> mockedInterfaces) {
 		if (bean instanceof ConfigPropertiesBean)
 			return;
 
@@ -100,13 +169,19 @@ public final class SharedDependencyResolver {
 
 			if (paramType.equals("java.util.List") && listElementTypes.containsKey(i)) {
 				String elementType = listElementTypes.get(i);
-				List<BeanDefinition> matches = findAllBeans(elementType, allBeans);
+				List<BeanDefinition> matches = findAllBeans(elementType, allBeans, mockedTypeNames);
 				bean.resolvedDependencies.addAll(matches);
 				continue;
 			}
 
 			BeanDefinition resolved = findBean(paramType, allBeans);
 			if (resolved == null) {
+				// A dependency on a mocked type is satisfied by the mock instance, which
+				// is registered before the instantiate loop. The resolver must not fail
+				// the build for it; the engine resolves it at injection time.
+				if (isMocked(paramType, mockedTypeNames, mockedInterfaces)) {
+					continue;
+				}
 				throw new NoSuchBeanException(
 						"No bean found for dependency type: " + paramType + " required by " + bean.qualifiedName);
 			}
@@ -114,7 +189,26 @@ public final class SharedDependencyResolver {
 		}
 	}
 
-	private List<BeanDefinition> findAllBeans(String paramType, List<BeanDefinition> allBeans) {
+	/**
+	 * True if the dependency type is directly mocked, or is an interface that one
+	 * of the mocked implementation classes implements. The latter case is resolved
+	 * without loading any classes (AOT-safe) using the interface names derived from
+	 * the {@link MockedBean} list.
+	 */
+	private boolean isMocked(String paramType, Set<String> mockedTypeNames, Map<String, Set<String>> mockedInterfaces) {
+		if (mockedTypeNames.contains(paramType)) {
+			return true;
+		}
+		for (var entry : mockedInterfaces.entrySet()) {
+			if (entry.getValue().contains(paramType)) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private List<BeanDefinition> findAllBeans(String paramType, List<BeanDefinition> allBeans,
+			Set<String> mockedTypeNames) {
 		List<BeanDefinition> matches = new ArrayList<>();
 		for (BeanDefinition candidate : allBeans) {
 			if (candidate.qualifiedName.equals(paramType)) {
@@ -123,6 +217,8 @@ public final class SharedDependencyResolver {
 				matches.add(candidate);
 			}
 		}
+		// A List<MockedType> dependency is satisfied by the single mock instance at
+		// injection time; the resolver does not need to enumerate it here.
 		return matches;
 	}
 
