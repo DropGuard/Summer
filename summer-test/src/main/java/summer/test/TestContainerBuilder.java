@@ -4,7 +4,6 @@ import java.lang.annotation.Annotation;
 import summer.core.BeanContainer;
 import summer.core.Component;
 import summer.core.DiEngine;
-import summer.runtime.RuntimeBeanContainerBuilder;
 
 /**
  * Test container builder for Summer DI engines.
@@ -50,7 +49,7 @@ public final class TestContainerBuilder {
 	 * (Runtime in dev mode).
 	 */
 	public static BeanContainer build() {
-		return RuntimeBeanContainerBuilder.build();
+		return Testing.build();
 	}
 
 	// ── TCK path: explicit AOT engine ───────────────────────────────────

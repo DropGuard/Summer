@@ -41,7 +41,11 @@ public final class DiEngine {
 	}
 
 	/**
-	 * Creates a {@link BeanContainer} by auto-detecting the environment.
+	 * Creates a {@link BeanContainer} by auto-detecting the environment. The
+	 * optional {@code externalBeans} are boot-time application beans supplied only
+	 * by {@code SummerApplication} (e.g. the ordered middleware list from
+	 * {@code apply(...)}); they are never exposed to tests. Global middleware is
+	 * otherwise discovered as {@code @GlobalMiddleware}-annotated beans.
 	 */
 	public static BeanContainer create(Object... externalBeans) {
 		if (detectEngine() == Engine.AOT) {
@@ -94,10 +98,39 @@ public final class DiEngine {
 	private static BeanContainer invokeBuild(String className, ErrorCode notFoundCode, String notFoundMsg,
 			Object... externalBeans) {
 		try {
+			return loadCompiledEngine(className, externalBeans);
+		} catch (ConfigurationException e) {
+			// propagate the not-found variant unchanged
+			throw e;
+		}
+	}
+
+	/**
+	 * The single, framework-recognized boundary at which a compiled engine class is
+	 * loaded and its static {@code build} method invoked. Both the production path
+	 * ({@link #create}) and the test-time AOT compiler ({@code AotEngine}) funnel
+	 * through here, so reflective loading of generated classes lives in exactly one
+	 * place — the core engine loader — and never leaks into the AOT or runtime
+	 * modules.
+	 *
+	 * <p>
+	 * {@code build} is matched by its argument array type, so both
+	 * {@code build(Object...)} (production) and {@code build(MockedBean[])}
+	 * (test-time AOT) resolve through the same reflective call.
+	 *
+	 * @param className
+	 *            fully-qualified name of the compiled engine / container class
+	 * @param args
+	 *            arguments passed to the static {@code build} method
+	 * @return the built container
+	 */
+	public static BeanContainer loadCompiledEngine(String className, Object... args) {
+		try {
 			Class<?> clazz = Class.forName(className);
-			return (BeanContainer) clazz.getMethod("build", Object[].class).invoke(null, (Object) externalBeans);
+			return (BeanContainer) clazz.getMethod("build", args.getClass()).invoke(null, (Object) args);
 		} catch (ClassNotFoundException e) {
-			throw new ConfigurationException(notFoundCode, notFoundMsg, e);
+			throw new ConfigurationException(ErrorCode.CONFIG_AOT_CONTEXT_NOT_FOUND,
+					"Engine class not found on classpath: " + className, e);
 		} catch (java.lang.reflect.InvocationTargetException e) {
 			if (e.getCause() instanceof RuntimeException) {
 				throw (RuntimeException) e.getCause();

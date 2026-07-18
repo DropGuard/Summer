@@ -13,9 +13,9 @@ import summer.test.annotation.Mock;
  *
  * <p>
  * An AOT container is generated, compiled, and cached — so two requests that
- * should resolve to the <em>same</em>固化 graph must share one identity, and two
- * requests that differ in any input that changes the graph must get distinct
- * identities. This is the AOT-side equivalent of the Runtime engine's
+ * should resolve to the <em>same</em> generated graph must share one identity,
+ * and two requests that differ in any input that changes the graph must get
+ * distinct identities. This is the AOT-side equivalent of the Runtime engine's
  * {@code Scope}: it is what "test isolation" means on the AOT path.
  * </p>
  *

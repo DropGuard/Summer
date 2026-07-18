@@ -22,9 +22,6 @@ public final class ConfigBinder {
 	private static final ObjectMapper YAML_MAPPER = SummerObjectMapper.createYaml();
 	private static final String YAML_RESOURCE = "application.yml";
 
-	private static volatile DefaultValueResolver defaultValueResolver = (section, type) -> {
-	};
-
 	/**
 	 * Per-thread configuration overrides installed by the test framework (e.g.
 	 * {@code @TestProfile}). Keys are dotted paths in the original YAML key form
@@ -42,10 +39,6 @@ public final class ConfigBinder {
 			.withInitial(LinkedHashMap::new);
 
 	private ConfigBinder() {
-	}
-
-	public static void setDefaultValueResolver(DefaultValueResolver resolver) {
-		defaultValueResolver = resolver;
 	}
 
 	/**
@@ -85,6 +78,14 @@ public final class ConfigBinder {
 	 * section, normalize keys, apply {@code @DefaultValue} defaults, and convert to
 	 * the target record type via Jackson.
 	 *
+	 * <p>
+	 * Convenience form with no explicit field defaults — equivalent to calling
+	 * {@link #bind(String, Class, Map)} with an empty default map. Both DI engines
+	 * (runtime and AOT) use the same two-method surface; the AOT generator simply
+	 * passes a statically-built default map for records annotated with
+	 * {@code @DefaultValue}.
+	 * </p>
+	 *
 	 * @param prefix
 	 *            the YAML prefix (e.g. "app", "server.tls"), or empty for root
 	 * @param targetType
@@ -93,6 +94,34 @@ public final class ConfigBinder {
 	 */
 	@SuppressWarnings("unchecked")
 	public static <T> T bind(String prefix, Class<T> targetType) {
+		return bind(prefix, targetType, Map.of());
+	}
+
+	/**
+	 * Binding pipeline with explicit field defaults supplied as already-converted
+	 * values.
+	 *
+	 * <p>
+	 * The {@code fieldDefaults} map associates a record component name with its
+	 * pre-converted {@code @DefaultValue}. It is supplied by the caller — the
+	 * runtime engine extracts it reflectively during discovery, the AOT engine
+	 * emits it inline at code-generation time (via {@link TypeConverter#convert}).
+	 * Both paths converge here; no reflection occurs inside this method. A missing
+	 * section field is filled with the supplied value, so YAML always wins over a
+	 * default. When {@code fieldDefaults} is empty this is identical to
+	 * {@link #bind(String, Class)}.
+	 * </p>
+	 *
+	 * @param prefix
+	 *            the YAML prefix, or empty for root
+	 * @param targetType
+	 *            the record class to bind to
+	 * @param fieldDefaults
+	 *            component name → pre-converted {@code @DefaultValue} value
+	 * @return the bound instance
+	 */
+	@SuppressWarnings("unchecked")
+	public static <T> T bind(String prefix, Class<T> targetType, Map<String, Object> fieldDefaults) {
 		try (InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream(YAML_RESOURCE)) {
 			Map<String, Object> section;
 			if (stream != null) {
@@ -105,13 +134,30 @@ public final class ConfigBinder {
 			} else {
 				section = new LinkedHashMap<>();
 			}
-			applyDefaults(section, targetType);
+			applyFieldDefaults(section, fieldDefaults);
 			applyProfileOverrides(section, prefix);
 			return YAML_MAPPER.convertValue(section, targetType);
 		} catch (ConfigurationException e) {
 			throw e;
 		} catch (Exception e) {
 			throw new BeanCreationException("Failed to bind @ConfigurationProperties: " + targetType.getName(), e);
+		}
+	}
+
+	/**
+	 * Fills {@code section} with the supplied field defaults for any component that
+	 * is absent (YAML values win). Reflection-free: values arrive already converted
+	 * by the caller. Shared by both the runtime and AOT engines.
+	 */
+	private static void applyFieldDefaults(Map<String, Object> section, Map<String, Object> fieldDefaults) {
+		if (fieldDefaults.isEmpty()) {
+			return;
+		}
+		for (Map.Entry<String, Object> entry : fieldDefaults.entrySet()) {
+			String name = entry.getKey();
+			if (!section.containsKey(name)) {
+				section.put(name, entry.getValue());
+			}
 		}
 	}
 
@@ -167,15 +213,6 @@ public final class ConfigBinder {
 			}
 		}
 		return sb.toString();
-	}
-
-	/**
-	 * Applies {@link DefaultValue} defaults for record components that are missing
-	 * from the section map. Delegates to the configured
-	 * {@link DefaultValueResolver}.
-	 */
-	public static void applyDefaults(Map<String, Object> section, Class<?> type) {
-		defaultValueResolver.applyDefaults(section, type);
 	}
 
 	/**

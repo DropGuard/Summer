@@ -1,6 +1,7 @@
 package summer.runtime;
 
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -11,6 +12,7 @@ import summer.core.BeanContainer;
 import summer.core.Engine;
 import summer.core.RuntimeDiMarker;
 import summer.core.bean.BeanDefinition;
+import summer.core.bean.MockedBean;
 import summer.core.bean.ModuleIndex;
 import summer.core.bean.RouteInfo;
 import summer.core.bean.Scope;
@@ -18,6 +20,8 @@ import summer.core.bean.SharedConditionEvaluator;
 import summer.core.bean.SharedDependencyResolver;
 import summer.core.config.ConfigBinder;
 import summer.core.config.ConfigurationProperties;
+import summer.core.config.DefaultValue;
+import summer.core.config.TypeConverter;
 import summer.core.validation.Validator;
 
 /**
@@ -45,18 +49,45 @@ public final class RuntimeBeanContainerBuilder {
 	 * Quarkus' {@code @QuarkusTest} universe — no seed list, no module narrowing.
 	 * Test beans are discovered exactly like production beans.
 	 *
-	 * @param externalBeans
-	 *            pre-instantiated beans to register (e.g. mocks)
+	 * @param mocks
+	 *            mocked beans produced from {@code @Mock} parameters (internal)
 	 * @return immutable bean container
+	 */
+	public static BeanContainer build(List<MockedBean> mocks) {
+		ModuleIndex moduleIndex = testUniverse();
+		return build(moduleIndex, moduleIndex.universeScope(), mocks);
+	}
+
+	/**
+	 * Convenience overload for the no-mock test universe (equivalent to
+	 * {@link #build(List)} with an empty mock list). Retained so existing tests
+	 * that call {@code build()} without mocks keep compiling.
+	 *
+	 * @return immutable bean container over the full test universe
+	 */
+	public static BeanContainer build() {
+		return build(List.of());
+	}
+
+	/**
+	 * Production bootstrap entry point, invoked reflectively by
+	 * {@code DiEngine.create} for the Runtime engine (dev mode / IDE). Discovers
+	 * the full application components and registers the boot-time external beans
+	 * supplied by {@code SummerApplication} (e.g. the ordered middleware list from
+	 * {@code apply(...)}). Test containers never use this overload — they go
+	 * through {@link #build(List)} and must not hand-register beans.
 	 */
 	public static BeanContainer build(Object... externalBeans) {
 		ModuleIndex moduleIndex = testUniverse();
-		return build(moduleIndex, moduleIndex.universeScope(), externalBeans);
+		IndexView index = moduleIndex.index();
+		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(moduleIndex, index,
+				moduleIndex.universeScope());
+		return initialize(index, componentClasses, List.of(), externalBeans);
 	}
 
 	/**
 	 * Builds a {@link BeanContainer} restricted to an explicit {@link Scope} over
-	 * the test universe, registering pre-instantiated {@code externalBeans}.
+	 * the test universe.
 	 *
 	 * <p>
 	 * The scope is the test universe (application + test beans); discovery never
@@ -68,12 +99,12 @@ public final class RuntimeBeanContainerBuilder {
 	 * @param scope
 	 *            the discovery boundary (typically
 	 *            {@code testUniverse().universeScope()})
-	 * @param externalBeans
-	 *            pre-instantiated beans to register (e.g. mocks)
+	 * @param mocks
+	 *            mocked beans produced from {@code @Mock} parameters (internal)
 	 * @return immutable bean container
 	 */
-	public static BeanContainer build(Scope scope, Object... externalBeans) {
-		return build(testUniverse(), scope, externalBeans);
+	public static BeanContainer build(Scope scope, List<MockedBean> mocks) {
+		return build(testUniverse(), scope, mocks);
 	}
 
 	/**
@@ -90,7 +121,7 @@ public final class RuntimeBeanContainerBuilder {
 		IndexView index = moduleIndex.index();
 		Scope scope = Scope.packageOf(basePackage);
 		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(moduleIndex, index, scope);
-		return initialize(index, componentClasses);
+		return initialize(index, componentClasses, List.of());
 	}
 
 	/**
@@ -104,14 +135,14 @@ public final class RuntimeBeanContainerBuilder {
 	 *            the module index to discover from (test universe)
 	 * @param scope
 	 *            the discovery boundary
-	 * @param externalBeans
-	 *            pre-instantiated beans to register (e.g. mocks)
+	 * @param mocks
+	 *            mocked beans produced from {@code @Mock} parameters (internal)
 	 * @return immutable bean container
 	 */
-	public static BeanContainer build(ModuleIndex moduleIndex, Scope scope, Object... externalBeans) {
+	public static BeanContainer build(ModuleIndex moduleIndex, Scope scope, List<MockedBean> mocks) {
 		IndexView index = moduleIndex.index();
 		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(moduleIndex, index, scope);
-		return initialize(index, componentClasses, externalBeans);
+		return initialize(index, componentClasses, mocks, new Object[0]);
 	}
 
 	/** The test universe index: application beans plus test-class beans. */
@@ -119,20 +150,19 @@ public final class RuntimeBeanContainerBuilder {
 		return JandexIndexLoader.testIndex();
 	}
 
-	private static BeanContainer initialize(IndexView index, Set<Class<?>> componentClasses, Object... externalBeans) {
-		ConfigBinder.setDefaultValueResolver(RuntimeDefaultValueResolver.INSTANCE);
-		BeanContainer.Builder builder = new BeanContainer.Builder();
+	private static BeanContainer initialize(IndexView index, Set<Class<?>> componentClasses, List<MockedBean> mocks) {
+		return initialize(index, componentClasses, mocks, new Object[0]);
+	}
 
-		if (externalBeans != null) {
-			for (Object bean : externalBeans) {
-				builder.register(bean.getClass(), bean);
-				// Register under interfaces so mocks (JDK proxies) are found
-				// by peek() and getBean() with their interface types.
-				for (Class<?> iface : bean.getClass().getInterfaces()) {
-					builder.register(iface, bean);
-				}
-			}
-		}
+	/**
+	 * Full initialization with optional boot-time external beans (production only).
+	 * External beans are registered by their concrete class so the web layer can
+	 * collect them (e.g. the ordered middleware list from
+	 * {@code SummerApplication.apply(...)}). Tests never pass external beans.
+	 */
+	private static BeanContainer initialize(IndexView index, Set<Class<?>> componentClasses, List<MockedBean> mocks,
+			Object... externalBeans) {
+		BeanContainer.Builder builder = new BeanContainer.Builder();
 
 		builder.register(RuntimeDiMarker.class, new RuntimeDiMarker());
 
@@ -147,10 +177,12 @@ public final class RuntimeBeanContainerBuilder {
 
 		// ── Phase 2: Evaluation ─────────────────────────────────────
 		// Evaluate @ConditionalOnBean and @Replaces against the scoped candidate
-		// set. Condition targets are expected to be reachable within the scope
-		// (declared modules) plus dependency resolution — no global type-name
-		// bypass, so the Runtime and AOT engines evaluate an identical set.
-		new SharedConditionEvaluator().evaluate(candidates);
+		// set, and remove real beans whose type is mocked. Condition targets and
+		// mock replacements are evaluated identically on both engines (the AOT path
+		// feeds the same MockedBean target types into SharedConditionEvaluator).
+		Set<String> mockedTypeNames = mocks.stream().map(MockedBean::targetTypeName)
+				.collect(java.util.stream.Collectors.toSet());
+		new SharedConditionEvaluator().evaluate(candidates, mockedTypeNames);
 
 		// ── Phase 3: Resolution ─────────────────────────────────────
 		// Bind, sort, instantiate.
@@ -163,7 +195,7 @@ public final class RuntimeBeanContainerBuilder {
 		RuntimeExceptionHandlerRegistrar.setPrebuiltHandlers(candidates);
 
 		SharedDependencyResolver resolver = new SharedDependencyResolver();
-		List<BeanDefinition> sorted = resolver.resolve(candidates);
+		List<BeanDefinition> sorted = resolver.resolve(candidates, mocks);
 
 		Map<String, List<String>> interceptorMap = BeanDefinitionFactory.buildInterceptorMap(candidates);
 		Map<String, Set<String>> interceptorBindingMap = new HashMap<>();
@@ -175,6 +207,16 @@ public final class RuntimeBeanContainerBuilder {
 		BeanInstantiator instantiator = new BeanInstantiator(builder, interceptorMap, interceptorBindingMap);
 
 		builder.register(IndexView.class, index);
+		// Register mocked instances under their declared target type (and the
+		// target's interfaces) so dependent beans inject the mock. The real bean of
+		// each target type was already removed at discovery stage, so this never
+		// collides with a real instance.
+		for (MockedBean mocked : mocks) {
+			builder.register(mocked.targetType(), mocked.instance());
+			for (Class<?> iface : mocked.targetType().getInterfaces()) {
+				builder.register(iface, mocked.instance());
+			}
+		}
 		for (BeanDefinition beanDef : sorted) {
 			instantiator.instantiateFromDefinition(beanDef);
 		}
@@ -182,8 +224,14 @@ public final class RuntimeBeanContainerBuilder {
 		List<RouteInfo> allRoutes = candidates.stream().flatMap(bd -> bd.routes.stream()).toList();
 		builder.routes(allRoutes);
 
-		registerRowMappers(builder, index);
 		runValidators(builder);
+
+		// Boot-time external beans (production only): register under concrete class.
+		for (Object bean : externalBeans) {
+			if (bean != null) {
+				builder.register(bean.getClass(), bean);
+			}
+		}
 
 		return builder.build(Engine.RUNTIME);
 	}
@@ -202,55 +250,35 @@ public final class RuntimeBeanContainerBuilder {
 			if (props == null) {
 				continue;
 			}
-			Object instance = ConfigBinder.bind(props.prefix(), configClass);
+			// Reflection extraction of @DefaultValue at discovery time (runtime engine).
+			// The converted map is passed to ConfigBinder.bind — the same surface the
+			// AOT engine uses with a statically-emitted map. Core stays reflection-free.
+			Map<String, Object> defaults = extractDefaultValues(configClass);
+			Object instance = ConfigBinder.bind(props.prefix(), configClass, defaults);
 			builder.register(configClass, instance);
 			log.debug("[Summer] Bound @ConfigurationProperties: {} (prefix='{}')", configClass.getSimpleName(),
 					props.prefix());
 		}
 	}
 
-	// ---- Infrastructure ----
-
-	@SuppressWarnings({"unchecked", "rawtypes"})
-	private static void registerRowMappers(BeanContainer.Builder builder, IndexView index) {
-		try {
-			Class<?> factoryClass = Class.forName("summer.data.jdbc.RowMapperFactory");
-			var metas = (java.util.List<?>) factoryClass.getMethod("scanJandex", IndexView.class).invoke(null, index);
-			if (metas.isEmpty()) {
-				return;
-			}
-
-			Class<?> jdbcTemplateClass;
-			try {
-				jdbcTemplateClass = Class.forName("summer.data.jdbc.JdbcTemplate");
-			} catch (ClassNotFoundException e) {
-				return;
-			}
-
-			Object jdbcTemplate = builder.peek(jdbcTemplateClass);
-			if (jdbcTemplate == null) {
-				return;
-			}
-
-			java.lang.reflect.Method registerMethod = jdbcTemplateClass.getMethod("registerMapper", Class.class,
-					Class.forName("summer.data.jdbc.RowMapper"));
-
-			for (Object meta : metas) {
-				try {
-					String modelClassName = (String) meta.getClass().getMethod("modelClassName").invoke(meta);
-					Class<?> modelClass = Class.forName(modelClassName);
-					Object mapper = factoryClass.getMethod("createReflective", Class.class, meta.getClass())
-							.invoke(null, modelClass, meta);
-					registerMethod.invoke(jdbcTemplate, modelClass, mapper);
-				} catch (ClassNotFoundException e) {
-					log.debug("[Summer] Could not load @RowModel class", e);
-				}
-			}
-		} catch (ClassNotFoundException e) {
-			// summer-data-jdbc not on classpath — nothing to do
-		} catch (Exception e) {
-			log.debug("[Summer] Failed to register RowMapper registry: {}", e.getMessage());
+	/**
+	 * Reads {@code @DefaultValue} from a record's components via reflection and
+	 * converts each to its declared type. Reflection is legitimate here — this is
+	 * the runtime engine's discovery phase. The AOT engine performs the equivalent
+	 * extraction from the Jandex index at code-generation time.
+	 */
+	private static Map<String, Object> extractDefaultValues(Class<?> type) {
+		Map<String, Object> defaults = new LinkedHashMap<>();
+		if (!type.isRecord()) {
+			return defaults;
 		}
+		for (java.lang.reflect.RecordComponent component : type.getRecordComponents()) {
+			DefaultValue ann = component.getDeclaredAnnotation(DefaultValue.class);
+			if (ann != null) {
+				defaults.put(component.getName(), TypeConverter.convert(ann.value(), component.getType()));
+			}
+		}
+		return defaults;
 	}
 
 	// ---- Validation ----

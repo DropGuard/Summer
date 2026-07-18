@@ -7,6 +7,7 @@ import java.util.List;
 import org.junit.jupiter.api.extension.TestInstantiationException;
 import summer.core.BeanContainer;
 import summer.core.Engine;
+import summer.core.bean.MockedBean;
 import summer.core.config.ConfigBinder;
 import summer.test.annotation.Mock;
 import summer.test.profile.TestProfileSpec;
@@ -20,6 +21,15 @@ import summer.test.profile.TestProfileSpec;
  * factory, so constructor injection, {@code @Mock} handling, and
  * {@code @TestProfile} override wiring behave identically regardless of which
  * DI engine (Runtime or AOT) is in use.
+ * </p>
+ *
+ * <p>
+ * A {@code @Mock} constructor parameter becomes a single {@link MockedBean}
+ * (target type + Mockito instance), carried as one bound unit down the whole
+ * build chain. The discovery stage removes the real bean of the target type so
+ * it is never instantiated; the instance-build stage registers the mock. There
+ * is no hand-rolled instance collection — mocks are declared, not assembled by
+ * the caller.
  * </p>
  *
  * <p>
@@ -37,8 +47,8 @@ public final class TestContainerFactory {
 	/**
 	 * Builds a {@link BeanContainer} for the given test class and engine, applying
 	 * any {@link TestProfile} overrides. Mocks declared via {@code @Mock} on the
-	 * test constructor are created first and registered as external beans so the
-	 * real implementations are skipped.
+	 * test constructor are assembled into {@link MockedBean}s first, so the real
+	 * implementations are replaced at discovery stage.
 	 *
 	 * @param testClass
 	 *            the annotated test class
@@ -47,13 +57,13 @@ public final class TestContainerFactory {
 	 * @return an immutable, fully wired container scoped to the test
 	 */
 	public static BeanContainer build(Class<?> testClass, Engine engine) {
-		List<Object> mocks = createMocks(testClass);
+		List<MockedBean> mocks = createMocks(testClass);
 		TestProfileSpec profile = resolveProfile(testClass);
 		try {
 			if (profile != null) {
 				ConfigBinder.setProfileOverrides(profile.configOverrides());
 			}
-			return Testing.buildForTest(testClass, engine, mocks.toArray());
+			return Testing.buildForTest(testClass, engine, mocks);
 		} finally {
 			if (profile != null) {
 				ConfigBinder.clearProfileOverrides();
@@ -98,8 +108,13 @@ public final class TestContainerFactory {
 		}
 	}
 
-	private static List<Object> createMocks(Class<?> testClass) {
-		List<Object> mocks = new ArrayList<>();
+	/**
+	 * Assembles a {@link MockedBean} for every {@code @Mock} constructor parameter.
+	 * The declared parameter type is the replacement target; the Mockito instance
+	 * is created by {@link SummerExtension#createMock}.
+	 */
+	private static List<MockedBean> createMocks(Class<?> testClass) {
+		List<MockedBean> mocks = new ArrayList<>();
 		Constructor<?>[] ctors = testClass.getDeclaredConstructors();
 		if (ctors.length != 1) {
 			return mocks;
@@ -109,7 +124,7 @@ public final class TestContainerFactory {
 		for (int i = 0; i < paramTypes.length; i++) {
 			for (Annotation ann : paramAnnotations[i]) {
 				if (ann instanceof Mock) {
-					mocks.add(SummerExtension.createMock(paramTypes[i]));
+					mocks.add(MockedBean.of(paramTypes[i], SummerExtension.createMock(paramTypes[i])));
 				}
 			}
 		}
