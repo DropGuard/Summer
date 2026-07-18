@@ -2,11 +2,17 @@ package summer.fixtures;
 
 import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
-import summer.web.WsRouteProvider;
 import summer.web.websocket.WebSocketContext;
 import summer.web.websocket.WsFilterChain;
 import summer.web.websocket.WsInterceptor;
 
+/**
+ * WebSocket interceptor test configuration. The {@code /ws-test} route is
+ * provided by {@link TestWsRouteProvider} (a {@code @Component}) so its bean
+ * name is the concrete class and does not collide with other
+ * {@code WsRouteProvider} implementations (e.g. {@link ChatWsRouteProvider}) in
+ * the test universe.
+ */
 @Configuration
 public class WsInterceptorTestConfig {
 	public WsInterceptorTestConfig() {
@@ -21,14 +27,5 @@ public class WsInterceptorTestConfig {
 				chain.doFilter(ctx, modifiedMessage);
 			}
 		};
-	}
-
-	@Bean
-	public WsRouteProvider wsRouteProvider() {
-		return builder -> builder.ws("/ws-test", ctx -> {
-			ctx.onMessage(msg -> {
-				ctx.send(msg);
-			});
-		});
 	}
 }

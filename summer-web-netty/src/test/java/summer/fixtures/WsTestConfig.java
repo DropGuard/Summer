@@ -1,30 +1,15 @@
 package summer.fixtures;
 
-import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
-import summer.web.WsRouteProvider;
-import summer.web.server.NettyWebSocketBroadcaster;
 
+/**
+ * WebSocket test configuration. The {@code /chat/{room}} route is provided by
+ * {@link ChatWsRouteProvider} (a {@code @Component}) so its bean name is the
+ * concrete class and does not collide with other {@code WsRouteProvider}
+ * implementations in the test universe.
+ */
 @Configuration
 public class WsTestConfig {
 	public WsTestConfig() {
-	}
-
-	@Bean
-	public WsRouteProvider wsRouteProvider(NettyWebSocketBroadcaster broadcaster) {
-		return builder -> builder.ws("/chat/{room}", ctx -> {
-			String room = ctx.pathParam("room");
-			broadcaster.join(room, ctx);
-
-			ctx.onMessage(msg -> {
-				if (msg.startsWith("BROADCAST:")) {
-					broadcaster.broadcast(room, msg.substring(10));
-				}
-			});
-
-			ctx.onClose(() -> {
-				broadcaster.leave(room, ctx);
-			});
-		});
 	}
 }
