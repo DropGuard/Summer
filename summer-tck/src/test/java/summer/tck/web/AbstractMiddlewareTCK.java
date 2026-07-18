@@ -8,7 +8,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
-import summer.tck.AbstractContextTCK;
+import summer.tck.AbstractTCK;
 import summer.web.HttpContext;
 import summer.web.HttpMethod;
 import summer.web.HttpRouter;
@@ -36,16 +36,28 @@ import summer.web.Request;
  * discovers it and invokes {@code provide()} during router assembly, verifying
  * the Pull Model end-to-end.
  * </p>
+ *
+ * <p>
+ * The container is supplied by the subclass constructor (the {@code @SummerTest}
+ * injection contract) — this base class no longer builds its own context. The
+ * {@code @Test} methods hold the assertions; a concrete {@code @SummerTest}
+ * subclass exposes them as {@code @DualEngine} methods so the framework runs
+ * them on both DI engines (Runtime + AOT), proving engine parity.
+ * </p>
  */
-public abstract class AbstractMiddlewareTCK extends AbstractContextTCK {
+public abstract class AbstractMiddlewareTCK extends AbstractTCK {
 
+	protected final BeanContainer context;
 	protected HttpRouter router;
 	protected List<Middleware> globalMiddlewares;
 
+	protected AbstractMiddlewareTCK(BeanContainer context) {
+		this.context = context;
+	}
+
 	@BeforeEach
 	void setUpRouter() {
-		// Force context initialization (not lazy)
-		BeanContainer ctx = context();
+		BeanContainer ctx = context;
 
 		summer.web.HttpRouter.Builder builder = new summer.web.HttpRouter.Builder(
 				summer.web.http.RadixTreeHttpRouter::new);
@@ -73,16 +85,16 @@ public abstract class AbstractMiddlewareTCK extends AbstractContextTCK {
 
 		router = builder.build();
 
-		// Global middlewares are assembled locally for the TCK — we don't start
-		// NettyServerRunner here, so the chain is built directly from the
-		// @Component middleware beans in the test universe. This matches the
-		// production wiring contract (GlobalMiddlewareChain wraps the discovered
-		// global middlewares) without depending on a container-provided chain.
-		summer.web.GlobalMiddlewareChain chain = new summer.web.GlobalMiddlewareChain(
-				java.util.List.of(summer.fixtures.web.dummy.GlobalLoggingMiddleware.class));
+		// Global middlewares are collected the same way the web runner does: every
+		// @GlobalMiddleware-annotated Middleware bean in the test universe, in
+		// container registration order. This keeps the TCK faithful to the
+		// production wiring contract (NettyServerRunner applies the same set)
+		// without starting Netty here.
 		globalMiddlewares = new java.util.ArrayList<>();
-		for (Class<? extends summer.web.Middleware> c : chain.middlewares()) {
-			globalMiddlewares.add(ctx.getBean(c));
+		for (summer.web.Middleware m : ctx.getBeans(summer.web.Middleware.class)) {
+			if (m.getClass().isAnnotationPresent(summer.web.annotation.GlobalMiddleware.class)) {
+				globalMiddlewares.add(m);
+			}
 		}
 	}
 

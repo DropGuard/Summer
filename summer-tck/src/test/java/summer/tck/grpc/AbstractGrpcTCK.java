@@ -8,59 +8,40 @@ import summer.core.BeanContainer;
 import summer.grpc.client.GrpcChannelManager;
 import summer.grpc.server.GrpcServerRunner;
 import summer.tck.AbstractTCK;
+import summer.test.annotation.DualEngine;
 
 /**
- * TCK test for gRPC component discovery and basic behavior.
+ * TCK for gRPC component discovery and basic behavior.
  *
  * <p>
- * Verifies that both DI engines correctly discover and wire gRPC components
- * without requiring an actual gRPC server.
- * </p>
- *
- * <p>
- * Note: This TCK uses a parameterized context factory
- * ({@code createContext(Class<?>...)}) because gRPC tests need to specify which
- * configuration classes to register.
+ * Verifies that both DI engines correctly discover and wire gRPC infrastructure
+ * beans without requiring an actual gRPC server. The container is supplied by the
+ * subclass constructor (the {@code @SummerTest} injection contract) — this base
+ * class no longer builds its own context, so subclasses run identically on
+ * Runtime and AOT via {@link DualEngine}.
  * </p>
  */
 public abstract class AbstractGrpcTCK extends AbstractTCK {
 
-	protected BeanContainer context;
+	protected final BeanContainer context;
 
-	/**
-	 * Create context with specified configuration classes.
-	 *
-	 * <p>
-	 * Implementations typically call:
-	 * 
-	 * <pre>
-	 * var ctx = new RuntimeBeanContainerBuilder();
-	 * ctx.scan();
-	 * // register extra components
-	 * ctx.initializeBeans();
-	 * return ctx;
-	 * </pre>
-	 */
-	protected abstract BeanContainer createContext(Class<?>... configClasses);
+	protected AbstractGrpcTCK(BeanContainer context) {
+		this.context = context;
+	}
 
 	@AfterEach
 	void cleanupContext() {
-		if (context != null) {
-			GrpcChannelManager mgr = context.getBean(GrpcChannelManager.class);
-			try {
-				mgr.close();
-			} catch (Exception ignored) {
-				// Cleanup failure is non-critical in tests
-			}
-			closeQuietly(context);
-			context = null;
+		GrpcChannelManager mgr = context.getBean(GrpcChannelManager.class);
+		try {
+			mgr.close();
+		} catch (Exception ignored) {
+			// Cleanup failure is non-critical in tests
 		}
 	}
 
+	@DualEngine
 	@Test
 	void testChannelManagerCachesPerTarget() {
-		context = createContext();
-
 		GrpcChannelManager mgr = context.getBean(GrpcChannelManager.class);
 		var ch1 = mgr.getChannel("localhost:9999");
 		var ch2 = mgr.getChannel("localhost:9999");
@@ -71,10 +52,9 @@ public abstract class AbstractGrpcTCK extends AbstractTCK {
 		assertFalse(ch1.isShutdown());
 	}
 
+	@DualEngine
 	@Test
 	void testServerRunnerDoesNotStartWithoutServices() {
-		context = createContext();
-
 		GrpcServerRunner runner = context.getBean(GrpcServerRunner.class);
 		assertNotNull(runner);
 		assertEquals(-1, runner.getPort(), "Port should be -1 when no gRPC services are registered");
