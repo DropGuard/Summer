@@ -18,8 +18,8 @@ import org.jboss.jandex.MethodParameterInfo;
 import summer.core.bean.BeanDefinition;
 
 /**
- * Generates {@code GeneratedExceptionHandlerAdapter} — the AOT counterpart of
- * {@code summer.runtime.RuntimeExceptionHandlerRegistrar}.
+ * Generates {@code GeneratedExceptionHandlerAdapter} — the AOT counterpart of the
+ * runtime engine's exception-handler registrar.
  *
  * <p>
  * Uses {@link BeanDefinition#exceptionHandlerMethods} to discover which beans

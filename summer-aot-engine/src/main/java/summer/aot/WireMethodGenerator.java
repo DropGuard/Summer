@@ -5,6 +5,7 @@ import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.MethodSpec;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.jboss.jandex.IndexView;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.ConfigPropertiesBean;
@@ -245,8 +246,39 @@ public final class WireMethodGenerator {
 	private void emitConfigPropertiesInstantiation(MethodSpec.Builder wire, ConfigPropertiesBean bean,
 			ClassName beanClass, String varName) {
 		ClassName configBinder = ClassName.get("summer.core.config", "ConfigBinder");
-		wire.addStatement("$T $N = $T.bind($S, $T.class)", beanClass, varName, configBinder,
-				bean.configPropertiesPrefix != null ? bean.configPropertiesPrefix : "", beanClass);
+		String prefix = bean.configPropertiesPrefix != null ? bean.configPropertiesPrefix : "";
+		if (bean.defaultValues.isEmpty()) {
+			wire.addStatement("$T $N = $T.bind($S, $T.class)", beanClass, varName, configBinder, prefix, beanClass);
+			return;
+		}
+		// Compile-time @DefaultValue metadata → converted at code-generation time via
+		// the reflection-free TypeConverter and passed as a pre-filled Map to the
+		// ConfigBinder overload. The generated wire code never touches the runtime
+		// engine's reflection-based resolver, nor Class.forName.
+		CodeBlock defaultsMap = buildDefaultsLiteral(bean.defaultValues, bean.fieldTypes);
+		wire.addStatement("$T $N = $T.bind($S, $T.class, $L)", beanClass, varName, configBinder, prefix, beanClass,
+				defaultsMap);
+	}
+
+	/**
+	 * Builds a {@code Map.of(name, TypeConverter.convert(raw, Type.class), ...)}
+	 * literal. Each default is converted at generated-code time (statically typed),
+	 * so the runtime bind call applies defaults with zero reflection.
+	 */
+	private static CodeBlock buildDefaultsLiteral(Map<String, String> defaults, Map<String, String> typeNames) {
+		CodeBlock.Builder cb = CodeBlock.builder();
+		cb.add("java.util.Map.of(");
+		boolean first = true;
+		for (Map.Entry<String, String> e : defaults.entrySet()) {
+			if (!first) {
+				cb.add(", ");
+			}
+			cb.add("$S, $T.convert($S, $T.class)", e.getKey(), ClassName.get("summer.core.config", "TypeConverter"),
+					e.getValue(), toTypeName(typeNames.get(e.getKey())));
+			first = false;
+		}
+		cb.add(")");
+		return cb.build();
 	}
 
 	private CodeBlock buildArgs(List<BeanDefinition> deps) {

@@ -196,16 +196,18 @@ final class BeanEnrichment {
 
 			if (param.hasAnnotation(PATH_PARAM_DOT)) {
 				String bindingName = extractBindingName(param, PATH_PARAM_DOT, paramName);
-				route.params
-						.add(new RouteInfo.ParamInfo(bindingName, paramType, RouteInfo.ParamBinding.PATH, hasValid));
+				route.params.add(new RouteInfo.ParamInfo(paramName, bindingName, paramType, RouteInfo.ParamBinding.PATH,
+						hasValid));
 			} else if (param.hasAnnotation(QUERY_PARAM_DOT)) {
 				String bindingName = extractBindingName(param, QUERY_PARAM_DOT, paramName);
-				route.params
-						.add(new RouteInfo.ParamInfo(bindingName, paramType, RouteInfo.ParamBinding.QUERY, hasValid));
+				route.params.add(new RouteInfo.ParamInfo(paramName, bindingName, paramType,
+						RouteInfo.ParamBinding.QUERY, hasValid));
 			} else if (isScrollRequest(paramType)) {
-				route.params.add(new RouteInfo.ParamInfo(paramName, paramType, RouteInfo.ParamBinding.PAGEABLE, false));
+				route.params
+						.add(new RouteInfo.ParamInfo(paramName, "", paramType, RouteInfo.ParamBinding.PAGEABLE, false));
 			} else if (!paramType.equals("summer.web.WebContext") && !paramType.equals("summer.web.HttpContext")) {
-				route.params.add(new RouteInfo.ParamInfo(paramName, paramType, RouteInfo.ParamBinding.BODY, hasValid));
+				route.params
+						.add(new RouteInfo.ParamInfo(paramName, "", paramType, RouteInfo.ParamBinding.BODY, hasValid));
 			}
 		}
 	}

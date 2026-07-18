@@ -6,9 +6,7 @@ import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeSpec;
 import java.io.IOException;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.RouteInfo;
 
@@ -47,7 +45,6 @@ public final class RouteAdapterGenerator {
 
 		// Generate the registerControllers method body
 		CodeBlock.Builder registerBody = CodeBlock.builder();
-		Set<String> declaredResolvers = new HashSet<>();
 
 		for (BeanDefinition controller : controllers) {
 			String varName = controller.variableName;
@@ -55,18 +52,6 @@ public final class RouteAdapterGenerator {
 			registerBody.addStatement("$T $N = context.getBean($T.class)", controllerClass, varName, controllerClass);
 
 			for (RouteInfo route : controller.routes) {
-				for (RouteInfo.ParamInfo param : route.params) {
-					if (param.binding == RouteInfo.ParamBinding.PAGEABLE) {
-						String resolverVar = param.name + "_resolver";
-						if (declaredResolvers.add(resolverVar)) {
-							registerBody.add("$T $N = context.getBean($T.class).compileAot($T.class, $S);\n",
-									ClassName.bestGuess("java.util.function.Function"), resolverVar,
-									ClassName.bestGuess("summer.runtime.DefaultPageResolver"),
-									ClassName.bestGuess(param.type), param.name);
-						}
-					}
-				}
-
 				CodeBlock handlerBody = generateHandlerBody(route, varName);
 
 				registerBody.add("builder.$L($S, ", route.httpMethod.toLowerCase(), route.path);
@@ -110,8 +95,17 @@ public final class RouteAdapterGenerator {
 				body.add("$T $N = ctx.$L($T.class);\n", resolveParamType(param.type), param.name, method,
 						ClassName.bestGuess(param.type));
 			} else if (param.binding == RouteInfo.ParamBinding.PAGEABLE) {
-				body.add("$T $N = ($T) $N_resolver.apply(ctx);\n", resolveParamType(param.type), param.name,
-						ClassName.bestGuess(param.type), param.name);
+				// @Pageable is the one user-extensible resolver (@Replaces swaps it), so
+				// resolve it through the same HttpParameterResolverChain the runtime uses.
+				// This keeps @Replaces behaviour identical across engines. PATH/QUERY/BODY
+				// stay inline because they have no swappable resolver.
+				body.add(
+						"$T $N = ($T) context.getBean($T.class).resolve(ctx, new $T($T.class, $S, $T.PAGEABLE, $L));\n",
+						resolveParamType(param.type), param.name, resolveParamType(param.type),
+						ClassName.get("summer.web", "HttpParameterResolverChain"),
+						ClassName.get("summer.web", "RouteInfoHandlerParam"), ClassName.bestGuess(param.type),
+						param.bindingName, ClassName.get("summer.core.bean.RouteInfo", "ParamBinding"),
+						param.validated);
 			}
 		}
 
