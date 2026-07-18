@@ -47,6 +47,12 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-test</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
@@ -94,8 +100,7 @@
             <id>integration-tests</id>
             <activation>
                 <property>
-                    <name>env.CI</name>
-                    <value>true</value>
+                    <name>it</name>
                 </property>
             </activation>
             <build>

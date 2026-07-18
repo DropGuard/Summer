@@ -1,53 +1,36 @@
 package summer.data.redis.config;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
 
 import io.lettuce.core.RedisClient;
-import io.lettuce.core.api.StatefulRedisConnection;
-import io.lettuce.core.api.sync.RedisCommands;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
 import summer.core.BeanContainer;
-import summer.data.redis.codec.JsonRedisCodec;
-import summer.runtime.RuntimeBeanContainerBuilder;
+import summer.data.redis.SummerRedisTemplate;
+import summer.test.Testing;
 
 public class RedisAutoConfigurationTest {
 
+	/**
+	 * Builds the full test universe through the framework's test channel (the same
+	 * path {@code @SummerTest} uses) and verifies the beans
+	 * {@code RedisAutoConfiguration} actually exposes after its lazy-connection
+	 * refactor: the connection and sync-commands objects are no longer beans — the
+	 * {@link SummerRedisTemplate} opens the connection lazily on first use, so the
+	 * container assembles without a reachable Redis.
+	 */
 	@Test
 	public void testContextLoadsAndCreatesRedisBeans() {
-		RedisClient mockClient = mock(RedisClient.class);
-		StatefulRedisConnection mockConnection = mock(StatefulRedisConnection.class);
-		RedisCommands mockCommands = mock(RedisCommands.class);
+		BeanContainer context = Testing.build();
 
-		when(mockClient.connect(any(JsonRedisCodec.class))).thenReturn(mockConnection);
-		when(mockConnection.sync()).thenReturn(mockCommands);
+		// The three beans the auto-configuration owns.
+		RedisProperties props = context.getBean(RedisProperties.class);
+		assertNotNull(props);
+		assertEquals("redis://localhost:6379", props.uri());
 
-		try (MockedStatic<RedisClient> mocked = mockStatic(RedisClient.class)) {
-			mocked.when(() -> RedisClient.create(anyString())).thenReturn(mockClient);
+		RedisClient client = context.getBean(RedisClient.class);
+		assertNotNull(client);
 
-			BeanContainer context = RuntimeBeanContainerBuilder.build();
-
-			// Then all beans should be created
-			RedisProperties props = context.getBean(RedisProperties.class);
-			assertNotNull(props);
-			assertEquals("redis://localhost:6379", props.uri());
-
-			RedisClient client = context.getBean(RedisClient.class);
-			assertNotNull(client);
-
-			StatefulRedisConnection connection = context.getBean(StatefulRedisConnection.class);
-			assertNotNull(connection);
-
-			RedisCommands commands = context.getBean(RedisCommands.class);
-			assertNotNull(commands);
-
-			// Cleanup resources cleanly via context
-			try {
-				context.close();
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-		}
+		SummerRedisTemplate template = context.getBean(SummerRedisTemplate.class);
+		assertNotNull(template);
 	}
 }
