@@ -28,7 +28,6 @@ summer-framework/
 ├── summer-tck-fixtures/   # Shared test fixtures
 ├── summer-archunit/       # Architecture constraint tests
 ├── summer-exceptions/     # Shared exception types
-├── summer-example/        # CRUD demo (JDBC, gRPC, WS)
 ├── summer-realworld/      # RealWorld clone (hurl e2e)
 ├── summer-twitter/        # Twitter clone (PG + Redis)
 └── summer-benchmark/      # k6 load tests (Summer vs Spring Boot)
@@ -48,7 +47,8 @@ summer-framework/
 | Test container builder | `summer-test/.../test/Testing.java` |
 | Dual-engine TCK tests | `summer-tck/src/test/java/summer/tck/` |
 | Architecture rules | `summer-archunit/src/test/java/summer/arch/` |
-| Example app | `summer-example/src/main/java/summer/example/` |
+| Showcase app | `summer-twitter/src/main/java/summer/twitter/` |
+| RealWorld app | `summer-realworld/src/main/java/summer/realworld/` |
 
 ## CONVENTIONS
 
@@ -87,7 +87,7 @@ mvn test -pl summer-core -am -Dtest="ClassName"  # Single test class
 mvn spotless:apply            # Format all Java code
 mvn spotless:check            # Format check (CI gate)
 mvn test -pl summer-archunit  # Architecture tests
-mvn compile exec:java -pl summer-example -am  # Run example app
+mvn compile exec:java -pl summer-twitter -am  # Run showcase app
 ```
 
 ## NOTES

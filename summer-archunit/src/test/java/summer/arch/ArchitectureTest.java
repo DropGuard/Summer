@@ -44,10 +44,8 @@ class ArchitectureTest {
 		// @formatter:off
 		Architectures.LayeredArchitecture rule = Architectures.layeredArchitecture()
 				.consideringOnlyDependenciesInAnyPackage("..summer..")
-				.ignoreDependency("summer.example..", "..")
 				.ignoreDependency("summer.realworld..", "..")
 				.ignoreDependency("summer.benchmark..", "..")
-				.ignoreDependency("..", "summer.example..")
 				.ignoreDependency("..", "summer.realworld..")
 				.ignoreDependency("..", "summer.benchmark..")
 
@@ -78,9 +76,9 @@ class ArchitectureTest {
 	@DisplayName("No circular dependencies between packages")
 	void noCircularDependencies() {
 		ArchRule rule = com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices().matching("summer.(*)")
-				.should().beFreeOfCycles().ignoreDependency("summer.example..", "..")
-				.ignoreDependency("summer.realworld..", "..").ignoreDependency("summer.benchmark..", "..")
-				.ignoreDependency("..", "summer.example..").ignoreDependency("..", "summer.realworld..")
+				.should().beFreeOfCycles().ignoreDependency("summer.realworld..", "..")
+				.ignoreDependency("summer.benchmark..", "..")
+				.ignoreDependency("..", "summer.realworld..")
 				.ignoreDependency("..", "summer.benchmark..");
 		rule.check(classes);
 	}

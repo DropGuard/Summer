@@ -48,7 +48,7 @@ class CrossModuleDiscoveryTest {
 				"summer.fixtures.dummy.ServiceC");
 
 		// Module B: provides a controller that depends on ServiceA
-		Index moduleBIndex = buildIndex("summer.example.UserController");
+		Index moduleBIndex = buildIndex("summer.fixtures.web.dummy.UserController");
 
 		// Merge indexes (simulates what the Maven plugin does)
 		CompositeIndex composite = CompositeIndex.create(List.of(moduleAIndex, moduleBIndex));

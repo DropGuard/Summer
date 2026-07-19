@@ -39,7 +39,6 @@
         <module>summer-data-redis</module>
         <module>summer-data-jdbc</module>
         <module>summer-test</module>
-        <module>summer-example</module>
         <module>summer-realworld</module>
         <module>summer-twitter</module>
         <module>summer-tck</module>

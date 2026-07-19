@@ -167,10 +167,10 @@ Once exposed, you can point your Prometheus instance to `/metrics` to begin scra
 
 Summer is designed for high-concurrency throughput using Java's virtual threads and a byte-level router that minimizes allocations. To see the framework's performance in action:
 
-1. **Start the Example App**:
+1. **Start the Showcase App**:
    ```bash
-   cd summer-example
-   mvn exec:java -Dexec.mainClass="summer.example.Application"
+   cd summer-twitter
+   mvn exec:java -Dexec.mainClass="summer.twitter.Application"
    ```
 
 2. **Run a Load Test** (using `wrk`):
@@ -356,11 +356,11 @@ public class GlobalErrorHandler {
 }
 ```
 
-For a fully working, runnable sample—featuring domain models, nested repositories, and database transaction management—run the `summer-example` module bundled within this repository:
+For a fully working, runnable sample—featuring domain models, nested repositories, and database transaction management—run one of the demo applications bundled within this repository (`summer-twitter` showcase or `summer-realworld`):
 
 ```bash
-cd summer-example
-mvn exec:java -Dexec.mainClass="summer.example.Application"
+cd summer-twitter
+mvn exec:java -Dexec.mainClass="summer.twitter.Application"
 ```
 
 * * *
