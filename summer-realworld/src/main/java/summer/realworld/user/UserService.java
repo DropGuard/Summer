@@ -3,8 +3,10 @@ package summer.realworld.user;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.mindrot.jbcrypt.BCrypt;
-import summer.realworld.user.User;
-import summer.realworld.user.UserRepository;
+import summer.realworld.user.*;
+import summer.realworld.common.ValidationException;
+import summer.realworld.common.ConflictException;
+import summer.realworld.user.*;
 
 public class UserService {
 	private final UserRepository userRepository;
@@ -91,39 +93,5 @@ public class UserService {
 		return userRepository.save(user);
 	}
 
-	public static class ValidationException extends RuntimeException {
-		private final String field;
-		private final String message;
 
-		public ValidationException(String field, String message) {
-			super(message);
-			this.field = field;
-			this.message = message;
-		}
-
-		public String getField() {
-			return field;
-		}
-		public String getMessage() {
-			return message;
-		}
-	}
-
-	public static class ConflictException extends RuntimeException {
-		private final String field;
-		private final String message;
-
-		public ConflictException(String field, String message) {
-			super(message);
-			this.field = field;
-			this.message = message;
-		}
-
-		public String getField() {
-			return field;
-		}
-		public String getMessage() {
-			return message;
-		}
-	}
 }

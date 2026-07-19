@@ -3,8 +3,10 @@ package summer.realworld.comment;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import summer.realworld.comment.Comment;
-import summer.realworld.comment.CommentRepository;
+import summer.realworld.comment.*;
+import summer.realworld.common.ValidationException;
+import summer.realworld.common.ConflictException;
+import summer.realworld.comment.*;
 
 public class CommentService {
 	private final CommentRepository commentRepository;
@@ -38,21 +40,4 @@ public class CommentService {
 		commentRepository.deleteById(id);
 	}
 
-	public static class ValidationException extends RuntimeException {
-		private final String field;
-		private final String message;
-
-		public ValidationException(String field, String message) {
-			super(message);
-			this.field = field;
-			this.message = message;
-		}
-
-		public String getField() {
-			return field;
-		}
-		public String getMessage() {
-			return message;
-		}
-	}
 }

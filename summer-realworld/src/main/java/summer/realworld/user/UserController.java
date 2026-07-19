@@ -34,14 +34,8 @@ public class UserController {
 		UserDtos.RegisterRequest body = ctx.body(UserDtos.RegisterRequest.class);
 		var u = body.user();
 
-		try {
-			User user = userService.register(u.username(), u.email(), u.password());
-			ctx.json(HttpStatus.CREATED, createUserResponse(user));
-		} catch (UserService.ValidationException e) {
-			ctx.json(HttpStatus.UNPROCESSABLE_ENTITY, Errors.of(e.getField(), e.getMessage()));
-		} catch (UserService.ConflictException e) {
-			ctx.json(HttpStatus.CONFLICT, Errors.of(e.getField(), e.getMessage()));
-		}
+		User user = userService.register(u.username(), u.email(), u.password());
+		ctx.json(HttpStatus.CREATED, createUserResponse(user));
 	}
 
 	@Post("/users/login")
@@ -130,14 +124,8 @@ public class UserController {
 		String bio = hasBio ? (u.bio() != null ? u.bio() : "") : null;
 		String image = hasImage ? (u.image() != null ? u.image() : "") : null;
 
-		try {
-			User updatedUser = userService.update(user, u.username(), u.email(), u.password(), bio, image);
-			ctx.json(HttpStatus.OK, createUserResponse(updatedUser));
-		} catch (UserService.ValidationException e) {
-			ctx.json(HttpStatus.UNPROCESSABLE_ENTITY, Errors.of(e.getField(), e.getMessage()));
-		} catch (UserService.ConflictException e) {
-			ctx.json(HttpStatus.CONFLICT, Errors.of(e.getField(), e.getMessage()));
-		}
+		User updatedUser = userService.update(user, u.username(), u.email(), u.password(), bio, image);
+		ctx.json(HttpStatus.OK, createUserResponse(updatedUser));
 	}
 
 	private UserDtos.UserResponse createUserResponse(User user) {

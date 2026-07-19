@@ -129,12 +129,8 @@ public class ArticleController {
 		ArticleDtos.CreateArticleRequest body = ctx.body(ArticleDtos.CreateArticleRequest.class);
 		var a = body.article();
 
-		try {
-			Article article = articleService.create(a.title(), a.description(), a.body(), a.tagList(), currentUserId);
-			ctx.json(HttpStatus.CREATED, new ArticleResponse(createArticleData(article, currentUserId, true)));
-		} catch (ArticleService.ValidationException e) {
-			ctx.json(HttpStatus.UNPROCESSABLE_ENTITY, Errors.of(e.getField(), e.getMessage()));
-		}
+		Article article = articleService.create(a.title(), a.description(), a.body(), a.tagList(), currentUserId);
+		ctx.json(HttpStatus.CREATED, new ArticleResponse(createArticleData(article, currentUserId, true)));
 	}
 
 	@Put("/articles/{slug}")
@@ -170,12 +166,8 @@ public class ArticleController {
 			return;
 		}
 
-		try {
-			Article updatedArticle = articleService.update(article, a.title(), a.description(), a.body(), a.tagList());
-			ctx.json(HttpStatus.OK, new ArticleResponse(createArticleData(updatedArticle, currentUserId, true)));
-		} catch (ArticleService.ValidationException e) {
-			ctx.json(HttpStatus.UNPROCESSABLE_ENTITY, Errors.of(e.getField(), e.getMessage()));
-		}
+		Article updatedArticle = articleService.update(article, a.title(), a.description(), a.body(), a.tagList());
+		ctx.json(HttpStatus.OK, new ArticleResponse(createArticleData(updatedArticle, currentUserId, true)));
 	}
 
 	@Delete("/articles/{slug}")

@@ -57,12 +57,8 @@ public class CommentController {
 		CommentDtos.CreateCommentRequest body = ctx.body(CommentDtos.CreateCommentRequest.class);
 		String commentBody = body.comment().body();
 
-		try {
-			Comment comment = commentService.create(commentBody, articleOpt.get().getId(), currentUserId);
-			ctx.json(HttpStatus.CREATED, new CommentResponse(createCommentData(comment)));
-		} catch (CommentService.ValidationException e) {
-			ctx.json(HttpStatus.UNPROCESSABLE_ENTITY, Errors.of(e.getField(), e.getMessage()));
-		}
+		Comment comment = commentService.create(commentBody, articleOpt.get().getId(), currentUserId);
+		ctx.json(HttpStatus.CREATED, new CommentResponse(createCommentData(comment)));
 	}
 
 	@Get("/articles/{slug}/comments")

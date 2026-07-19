@@ -4,8 +4,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
-import summer.realworld.article.Article;
-import summer.realworld.article.ArticleRepository;
+import summer.realworld.article.*;
+import summer.realworld.common.ValidationException;
+import summer.realworld.common.ConflictException;
+import summer.realworld.article.*;
 
 public class ArticleService {
 	private final ArticleRepository articleRepository;
@@ -105,21 +107,4 @@ public class ArticleService {
 				.replaceAll("^-|-$", "");
 	}
 
-	public static class ValidationException extends RuntimeException {
-		private final String field;
-		private final String message;
-
-		public ValidationException(String field, String message) {
-			super(message);
-			this.field = field;
-			this.message = message;
-		}
-
-		public String getField() {
-			return field;
-		}
-		public String getMessage() {
-			return message;
-		}
-	}
 }
