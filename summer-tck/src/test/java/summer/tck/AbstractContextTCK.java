@@ -2,7 +2,7 @@ package summer.tck;
 
 import org.junit.jupiter.api.AfterEach;
 import summer.core.BeanContainer;
-import summer.test.TestContainerBuilder;
+import summer.test.Testing;
 
 /**
  * Base class for TCK tests that require a {@link BeanContainer}.
@@ -48,7 +48,7 @@ public abstract class AbstractContextTCK extends AbstractTCK {
 	 * {@code TestContainerBuilder.buildAot()}).
 	 */
 	protected BeanContainer createContext() {
-		return TestContainerBuilder.build();
+		return Testing.build();
 	}
 
 	/**

@@ -82,6 +82,13 @@
                     <version>3.5.5</version>
                     <configuration>
                         <argLine>@{argLine} --sun-misc-unsafe-memory-access=allow</argLine>
+                        <!--
+                          Capture server-side logs (Netty/Summer framework log.error
+                          stacks) to target/surefire-reports/output-<class>.txt so a
+                          failing IT can be diagnosed from the report instead of only
+                          the console flood. Build output (target/) is git-ignored.
+                        -->
+                        <redirectTestOutputToFile>true</redirectTestOutputToFile>
                     </configuration>
                 </plugin>
                 <plugin>

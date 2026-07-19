@@ -32,7 +32,8 @@ public class DmHandler implements WebSocketHandler {
 
     @Override
     public void handle(WebSocketContext ctx) {
-        String token = ctx.header("sec-websocket-protocol");
+        String auth = ctx.header("authorization");
+        String token = auth != null && auth.startsWith("Bearer ") ? auth.substring(7) : auth;
         if (token == null || token.isEmpty()) {
             ctx.close();
             return;
@@ -65,15 +66,25 @@ public class DmHandler implements WebSocketHandler {
     
     private void handleSend(Long senderId, String senderUsername, String toUsername, String text, WebSocketContext ctx) {
         Optional<User> toUserOpt = userRepository.findByUsername(toUsername);
-        if (toUserOpt.isEmpty()) return;
-        
+        if (toUserOpt.isEmpty()) {
+            // Recipient does not exist: report the error to the sender instead of
+            // silently dropping the message (a silent drop makes the sender believe
+            // delivery succeeded). The message is not persisted.
+            ctx.sendJson(Map.of(
+                "type", "error",
+                "code", "user_not_found",
+                "message", "recipient @" + toUsername + " does not exist"
+            ));
+            return;
+        }
+
         User toUser = toUserOpt.get();
         OffsetDateTime now = OffsetDateTime.now();
-        
+
         DirectMessage msg = new DirectMessage(null, senderId, toUser.id(), text, null, now);
         msg = dmRepository.insertMessage(msg);
         dmRepository.upsertConversation(senderId, toUser.id(), now);
-        
+
         WebSocketContext toCtx = SESSIONS.get(toUser.id());
         if (toCtx != null) {
             toCtx.sendJson(Map.of(

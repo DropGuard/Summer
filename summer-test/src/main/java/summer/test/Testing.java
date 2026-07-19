@@ -6,8 +6,6 @@ import summer.core.BeanContainer;
 import summer.core.Component;
 import summer.core.Engine;
 import summer.core.bean.MockedBean;
-import summer.core.bean.ModuleIndex;
-import summer.core.bean.Scope;
 import summer.runtime.JandexIndexLoader;
 import summer.runtime.RuntimeBeanContainerBuilder;
 
@@ -50,14 +48,6 @@ public final class Testing {
 		return buildForTest(null);
 	}
 
-	/**
-	 * Auto-scans a package tree for components. Retained for one-off package scoped
-	 * builds; the test-universe default is preferred for {@code @SummerTest}.
-	 */
-	public static BeanContainer scan(String basePackage) {
-		return RuntimeBeanContainerBuilder.buildFromPackage(basePackage);
-	}
-
 	// ── TCK path: explicit engine, identical universe ───────────────────
 
 	/**
@@ -84,16 +74,43 @@ public final class Testing {
 	 * @return immutable bean container
 	 */
 	public static BeanContainer buildForTest(Class<?> testClass, Engine engine, List<MockedBean> mocks) {
-		Scope scope = testUniverseScope();
+		return buildForTest(testClass, engine, mocks, java.util.Map.of());
+	}
+
+	/**
+	 * Builds a container scoped to a {@code @SummerTest} class, on the requested
+	 * engine, applying the resolved {@code @TestProfile} overrides.
+	 *
+	 * <p>
+	 * The overrides are the single source of truth for both engines: the Runtime
+	 * engine threads them through {@link ConfigBinder.BindingContext} at binding
+	 * time, and the AOT engine bakes them into the generated {@code wire()} as the
+	 * same {@code BindingContext} literal. Because AOT resolves overrides at
+	 * generation time there is no ThreadLocal to leak, and the two engines can
+	 * never observe divergent profile state.
+	 * </p>
+	 *
+	 * @param testClass
+	 *            the annotated test class
+	 * @param engine
+	 *            Runtime or AOT
+	 * @param mocks
+	 *            mocked beans produced from {@code @Mock} parameters (internal)
+	 * @param overrides
+	 *            resolved {@code @TestProfile} content (empty map when none)
+	 * @return immutable bean container
+	 */
+	public static BeanContainer buildForTest(Class<?> testClass, Engine engine, List<MockedBean> mocks,
+			java.util.Map<String, Object> overrides) {
 		if (engine == Engine.AOT) {
-			return buildAot(AotKey.forTest(testClass), scope, mocks);
+			return buildAot(AotKey.forTest(testClass, overrides), mocks, overrides);
 		}
-		return RuntimeBeanContainerBuilder.build(scope, mocks);
+		return RuntimeBeanContainerBuilder.build(mocks, overrides);
 	}
 
 	/**
 	 * Builds a container for a {@code @SummerTest} class using the dev-mode default
-	 * engine (Runtime). See {@link #buildForTest(Class, Engine, List)}.
+	 * engine (Runtime). See {@link #buildForTest(Class, Engine, List, Map)}.
 	 */
 	public static BeanContainer buildForTest(Class<?> testClass) {
 		return buildForTest(testClass, Engine.RUNTIME, List.of());
@@ -102,26 +119,15 @@ public final class Testing {
 	// ── Internals ─────────────────────────────────────────────────────
 
 	/**
-	 * The test universe scope: every class in the test index (production beans plus
-	 * test-class beans). Shared by Runtime and AOT so both engines see the same
-	 * candidate set.
-	 */
-	private static Scope testUniverseScope() {
-		ModuleIndex testIndex = JandexIndexLoader.testIndex();
-		return testIndex.universeScope();
-	}
-
-	/**
-	 * Builds an AOT container for the given scope, using the test index (production
-	 * {@code jandex.idx} merged with {@code jandex-test.idx}).
+	 * Builds an AOT container for the test universe, using the test index
+	 * (production {@code jandex.idx} merged with {@code jandex-test.idx}).
 	 *
 	 * <p>
 	 * Merging the test index is what makes the AOT engine see the <em>same</em>
 	 * universe as the Runtime engine under test — without it, AOT would only ever
 	 * observe production classes and silently diverge from Runtime on any test that
-	 * exercises a test bean. The scope predicate still gates discovery, so the
-	 * merged index merely ensures condition targets and test-bean types are
-	 * resolvable, exactly as Runtime sees them.
+	 * exercises a test bean. The merged index simply ensures condition targets and
+	 * test-bean types are resolvable, exactly as Runtime sees them.
 	 * </p>
 	 *
 	 * <p>
@@ -130,15 +136,15 @@ public final class Testing {
 	 * beans are part of the generated graph.
 	 * </p>
 	 */
-	private static BeanContainer buildAot(AotKey key, Scope scope, List<MockedBean> mocks) {
+	private static BeanContainer buildAot(AotKey key, List<MockedBean> mocks, java.util.Map<String, Object> overrides) {
 		try {
 			IndexView index = JandexIndexLoader.testIndex().index();
 			Class<?> aotEngine = Class.forName("summer.aot.AotEngine");
 			MockedBean[] mockedBeans = mocks.toArray(new MockedBean[0]);
 			java.lang.reflect.Method buildAndCompile = aotEngine.getMethod("buildAndCompile", IndexView.class,
-					Scope.class, String.class, String.class, MockedBean[].class);
-			return (BeanContainer) buildAndCompile.invoke(null, index, scope, key.cacheKey(), key.className(),
-					mockedBeans);
+					String.class, String.class, MockedBean[].class, java.util.Map.class);
+			return (BeanContainer) buildAndCompile.invoke(null, index, key.cacheKey(), key.className(), mockedBeans,
+					overrides);
 		} catch (Exception e) {
 			throw new RuntimeException("Failed to build AOT container. Ensure summer-aot-engine is on the classpath.",
 					e);

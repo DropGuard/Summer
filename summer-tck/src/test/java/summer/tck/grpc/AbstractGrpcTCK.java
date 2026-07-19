@@ -15,9 +15,9 @@ import summer.test.annotation.DualEngine;
  *
  * <p>
  * Verifies that both DI engines correctly discover and wire gRPC infrastructure
- * beans without requiring an actual gRPC server. The container is supplied by the
- * subclass constructor (the {@code @SummerTest} injection contract) — this base
- * class no longer builds its own context, so subclasses run identically on
+ * beans without requiring an actual gRPC server. The container is supplied by
+ * the subclass constructor (the {@code @SummerTest} injection contract) — this
+ * base class no longer builds its own context, so subclasses run identically on
  * Runtime and AOT via {@link DualEngine}.
  * </p>
  */

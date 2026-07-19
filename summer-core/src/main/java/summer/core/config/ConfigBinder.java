@@ -14,7 +14,12 @@ import summer.core.json.SummerObjectMapper;
  * <p>
  * Both the runtime DI engine ({@code RuntimeBeanFactory}) and the AOT code
  * generator ({@code ConfigPropertiesGenerator}) delegate here instead of
- * duplicating the binding logic.
+ * duplicating the binding logic. Profile overrides and {@code @DefaultValue}
+ * defaults are carried explicitly in a {@link BindingContext} rather than a
+ * {@code ThreadLocal}, so the generated container's identity (derived from the
+ * override content) and the binding read from the same source and can never
+ * drift, and parallel engines (Runtime on one virtual thread, AOT on another)
+ * never cross-contaminate profile state.
  * </p>
  */
 public final class ConfigBinder {
@@ -22,70 +27,76 @@ public final class ConfigBinder {
 	private static final ObjectMapper YAML_MAPPER = SummerObjectMapper.createYaml();
 	private static final String YAML_RESOURCE = "application.yml";
 
-	/**
-	 * Per-thread configuration overrides installed by the test framework (e.g.
-	 * {@code @TestProfile}). Keys are dotted paths in the original YAML key form
-	 * (kebab/snake/dot), normalized on application so they line up with the
-	 * camelCased section produced by {@link #normalizeKeys(Map)}. Overrides win
-	 * over both YAML values and {@code @DefaultValue} defaults.
-	 *
-	 * <p>
-	 * Thread-local (not static) so parallel test engines — Runtime on one virtual
-	 * thread, AOT on another — never cross-contaminate profile state. Cleared by
-	 * the framework after the container is built.
-	 * </p>
-	 */
-	private static final ThreadLocal<Map<String, Object>> PROFILE_OVERRIDES = ThreadLocal
-			.withInitial(LinkedHashMap::new);
-
 	private ConfigBinder() {
 	}
 
 	/**
-	 * Installs profile overrides for the current thread. Replaces any previously
-	 * set overrides (call {@link #clearProfileOverrides()} when the container is
-	 * disposed). Intended to be called by the test framework immediately before a
-	 * container is built.
+	 * Immutable carrier for the two inputs that can alter a
+	 * {@code @ConfigurationProperties} binding beyond the YAML itself:
 	 *
-	 * @param overrides
-	 *            dotted-path keys → values, in original YAML key form
-	 */
-	public static void setProfileOverrides(Map<String, Object> overrides) {
-		Map<String, Object> copy = new LinkedHashMap<>(overrides);
-		PROFILE_OVERRIDES.set(copy);
-	}
-
-	/** Removes any profile overrides for the current thread. */
-	public static void clearProfileOverrides() {
-		PROFILE_OVERRIDES.remove();
-	}
-
-	/**
-	 * Returns the current thread's profile overrides (unmodifiable). Used by the
-	 * test framework to derive the AOT container identity from the actual config
-	 * content — so the identity and the binding read from the same source and can
-	 * never drift.
+	 * <ul>
+	 * <li>{@code defaults} — pre-converted {@code @DefaultValue} values, keyed by
+	 * record component name. Supplied by the caller (runtime extracts them
+	 * reflectively; AOT emits them inline via
+	 * {@link summer.core.util.TypeConverter}).</li>
+	 * <li>{@code overrides} — per-profile overrides, keyed by dotted YAML path, in
+	 * the original YAML key form. Baked in at code-generation time from
+	 * {@code @TestProfile} so no runtime {@code ThreadLocal} is needed.</li>
+	 * </ul>
 	 *
-	 * @return overrides map, or an empty map when none are set
+	 * <p>
+	 * Both win over YAML-absent fields; overrides win over defaults. The AOT
+	 * generator builds these literals at generation time, which is also what it
+	 * hashes to derive the generated container's identity.
+	 * </p>
 	 */
-	public static Map<String, Object> getProfileOverrides() {
-		Map<String, Object> current = PROFILE_OVERRIDES.get();
-		return current == null ? Map.of() : java.util.Collections.unmodifiableMap(current);
+	public static final class BindingContext {
+
+		private final Map<String, Object> defaults;
+		private final Map<String, Object> overrides;
+
+		private BindingContext(Map<String, Object> defaults, Map<String, Object> overrides) {
+			this.defaults = defaults != null ? defaults : Map.of();
+			this.overrides = overrides != null ? overrides : Map.of();
+		}
+
+		/** No defaults, no overrides — plain YAML binding. */
+		public static BindingContext of() {
+			return new BindingContext(Map.of(), Map.of());
+		}
+
+		/** Only profile overrides (no {@code @DefaultValue} metadata). */
+		public static BindingContext of(Map<String, Object> overrides) {
+			return new BindingContext(Map.of(), overrides);
+		}
+
+		/** Default values and profile overrides together. */
+		public static BindingContext of(Map<String, Object> defaults, Map<String, Object> overrides) {
+			return new BindingContext(defaults, overrides);
+		}
+
+		/**
+		 * Pre-converted {@code @DefaultValue} values, keyed by record component name.
+		 */
+		public Map<String, Object> defaults() {
+			return defaults;
+		}
+
+		/** Profile overrides, keyed by dotted YAML path in original key form. */
+		public Map<String, Object> overrides() {
+			return overrides;
+		}
 	}
 
 	/**
 	 * Full binding pipeline: read {@code application.yml}, extract the prefix
-	 * section, normalize keys, apply {@code @DefaultValue} defaults, and convert to
-	 * the target record type via Jackson.
+	 * section, normalize keys, apply {@code @DefaultValue} defaults from the
+	 * {@link BindingContext}, then profile overrides, and convert to the target
+	 * record type via Jackson.
 	 *
-	 * <p>
-	 * Convenience form with no explicit field defaults — equivalent to calling
-	 * {@link #bind(String, Class, Map)} with an empty default map. Both DI engines
-	 * (runtime and AOT) use the same two-method surface; the AOT generator simply
-	 * passes a statically-built default map for records annotated with
-	 * {@code @DefaultValue}.
-	 * </p>
-	 *
+	 * @param ctx
+	 *            carries defaults and overrides (never null; use
+	 *            {@link BindingContext#of()})
 	 * @param prefix
 	 *            the YAML prefix (e.g. "app", "server.tls"), or empty for root
 	 * @param targetType
@@ -93,35 +104,8 @@ public final class ConfigBinder {
 	 * @return the bound instance
 	 */
 	@SuppressWarnings("unchecked")
-	public static <T> T bind(String prefix, Class<T> targetType) {
-		return bind(prefix, targetType, Map.of());
-	}
-
-	/**
-	 * Binding pipeline with explicit field defaults supplied as already-converted
-	 * values.
-	 *
-	 * <p>
-	 * The {@code fieldDefaults} map associates a record component name with its
-	 * pre-converted {@code @DefaultValue}. It is supplied by the caller — the
-	 * runtime engine extracts it reflectively during discovery, the AOT engine
-	 * emits it inline at code-generation time (via {@link TypeConverter#convert}).
-	 * Both paths converge here; no reflection occurs inside this method. A missing
-	 * section field is filled with the supplied value, so YAML always wins over a
-	 * default. When {@code fieldDefaults} is empty this is identical to
-	 * {@link #bind(String, Class)}.
-	 * </p>
-	 *
-	 * @param prefix
-	 *            the YAML prefix, or empty for root
-	 * @param targetType
-	 *            the record class to bind to
-	 * @param fieldDefaults
-	 *            component name → pre-converted {@code @DefaultValue} value
-	 * @return the bound instance
-	 */
-	@SuppressWarnings("unchecked")
-	public static <T> T bind(String prefix, Class<T> targetType, Map<String, Object> fieldDefaults) {
+	public static <T> T bind(BindingContext ctx, String prefix, Class<T> targetType) {
+		Map<String, Object> fieldDefaults = ctx.defaults();
 		try (InputStream stream = Thread.currentThread().getContextClassLoader().getResourceAsStream(YAML_RESOURCE)) {
 			Map<String, Object> section;
 			if (stream != null) {
@@ -135,7 +119,7 @@ public final class ConfigBinder {
 				section = new LinkedHashMap<>();
 			}
 			applyFieldDefaults(section, fieldDefaults);
-			applyProfileOverrides(section, prefix);
+			applyProfileOverrides(section, prefix, ctx.overrides());
 			return YAML_MAPPER.convertValue(section, targetType);
 		} catch (ConfigurationException e) {
 			throw e;
@@ -216,22 +200,24 @@ public final class ConfigBinder {
 	}
 
 	/**
-	 * Merges the current thread's profile overrides into the (already normalized)
-	 * section map, just before Jackson conversion. Overrides are keyed by dotted
-	 * path in the original YAML key form; each key is normalized to camelCase so it
-	 * lands on the matching record component. Nested paths ({@code server.port})
-	 * descend into nested maps. Only overrides under the requested {@code prefix}
-	 * apply — an override for {@code server.port} is ignored when binding the
-	 * {@code app} section.
+	 * Merges the {@link BindingContext}'s profile overrides into the (already
+	 * normalized) section map, just before Jackson conversion. Overrides are keyed
+	 * by dotted path in the original YAML key form; each key is normalized to
+	 * camelCase so it lands on the matching record component. Nested paths
+	 * ({@code server.port}) descend into nested maps. Only overrides under the
+	 * requested {@code prefix} apply — an override for {@code server.port} is
+	 * ignored when binding the {@code app} section.
 	 *
 	 * @param section
 	 *            normalized section map (mutated in place)
 	 * @param prefix
 	 *            the binding prefix, or empty for the root
+	 * @param overrides
+	 *            dotted-path → value, in original YAML key form
 	 */
 	@SuppressWarnings("unchecked")
-	private static void applyProfileOverrides(Map<String, Object> section, String prefix) {
-		Map<String, Object> overrides = PROFILE_OVERRIDES.get();
+	private static void applyProfileOverrides(Map<String, Object> section, String prefix,
+			Map<String, Object> overrides) {
 		if (overrides == null || overrides.isEmpty()) {
 			return;
 		}

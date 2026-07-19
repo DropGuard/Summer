@@ -44,6 +44,17 @@
             <groupId>summer</groupId>
             <artifactId>summer-boot</artifactId>
         </dependency>
+
+        <!--
+          Logging binding. The Summer framework only depends on slf4j-api and never
+          ships a logback config, so the application owns the binding AND the
+          logback.xml / logback-test.xml. This is the single place that decides where
+          logs go. Version is managed by the summer-dependencies BOM.
+        -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+        </dependency>
         <dependency>
             <groupId>summer</groupId>
             <artifactId>summer-data-jdbc</artifactId>
@@ -224,6 +235,16 @@
                                     <systemPropertyVariables>
                                         <testcontainers.disableRyuk>true</testcontainers.disableRyuk>
                                     </systemPropertyVariables>
+                                    <!--
+                                      Capture each test class's stdout/stderr (incl. the Netty
+                                      server's log.error stacks) to
+                                      target/surefire-reports/output-<class>.txt so a red IT
+                                      can be triaged from the server-side exception instead of a
+                                      bare "Internal Server Error" on the client. Nothing is
+                                      leaked to clients; this only redirects already-logged
+                                      output. The file lives under target/ (git-ignored).
+                                    -->
+                                    <redirectTestOutputToFile>true</redirectTestOutputToFile>
                                 </configuration>
                             </execution>
                         </executions>

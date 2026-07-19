@@ -42,11 +42,18 @@ public final class AotContextGenerator {
 	private final IndexView index;
 	private final File outputDir;
 	private final WireMethodGenerator wireGen;
+	private final java.util.Map<String, Object> profileOverrides;
 
 	public AotContextGenerator(IndexView index, File outputDir, WireMethodGenerator wireGen) {
+		this(index, outputDir, wireGen, java.util.Map.of());
+	}
+
+	public AotContextGenerator(IndexView index, File outputDir, WireMethodGenerator wireGen,
+			java.util.Map<String, Object> profileOverrides) {
 		this.index = index;
 		this.outputDir = outputDir;
 		this.wireGen = wireGen;
+		this.profileOverrides = profileOverrides != null ? profileOverrides : java.util.Map.of();
 	}
 
 	public void generate(List<BeanDefinition> sortedBeans, MockedBean[] mocks) throws IOException {
@@ -160,7 +167,7 @@ public final class AotContextGenerator {
 	private void emitSharedBody(MethodSpec.Builder method, List<BeanDefinition> sortedBeans) {
 		method.addStatement("builder.register($T.class, new $T())", AOT_DI_MARKER, AOT_DI_MARKER);
 
-		wireGen.generateWireMethod(method, sortedBeans);
+		wireGen.generateWireMethod(method, sortedBeans, profileOverrides);
 
 		// Route adapter
 		if (sortedBeans.stream().anyMatch(b -> !b.routes.isEmpty())) {

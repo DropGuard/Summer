@@ -38,11 +38,12 @@ import summer.web.Request;
  * </p>
  *
  * <p>
- * The container is supplied by the subclass constructor (the {@code @SummerTest}
- * injection contract) — this base class no longer builds its own context. The
- * {@code @Test} methods hold the assertions; a concrete {@code @SummerTest}
- * subclass exposes them as {@code @DualEngine} methods so the framework runs
- * them on both DI engines (Runtime + AOT), proving engine parity.
+ * The container is supplied by the subclass constructor (the
+ * {@code @SummerTest} injection contract) — this base class no longer builds
+ * its own context. The {@code @Test} methods hold the assertions; a concrete
+ * {@code @SummerTest} subclass exposes them as {@code @DualEngine} methods so
+ * the framework runs them on both DI engines (Runtime + AOT), proving engine
+ * parity.
  * </p>
  */
 public abstract class AbstractMiddlewareTCK extends AbstractTCK {

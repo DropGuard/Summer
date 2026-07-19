@@ -119,8 +119,8 @@ class ArchitectureTest {
 		// bean discovery. Neither may compile-depend on the other, or the
 		// engine boundary collapses and the AOT path silently re-introduces
 		// runtime coupling.
-		ArchRule rule = noClasses().that().resideInAnyPackage("..summer.aot..")
-				.should().dependOnClassesThat().resideInAnyPackage("..summer.runtime..");
+		ArchRule rule = noClasses().that().resideInAnyPackage("..summer.aot..").should().dependOnClassesThat()
+				.resideInAnyPackage("..summer.runtime..");
 		rule.check(classes);
 	}
 
@@ -129,8 +129,8 @@ class ArchitectureTest {
 	void runtimeMustNotDependOnAot() {
 		// Symmetric counterpart of {@link #aotMustNotDependOnRuntime}: the
 		// runtime engine must not pull in the compile-time generator either.
-		ArchRule rule = noClasses().that().resideInAnyPackage("..summer.runtime..")
-				.should().dependOnClassesThat().resideInAnyPackage("..summer.aot..");
+		ArchRule rule = noClasses().that().resideInAnyPackage("..summer.runtime..").should().dependOnClassesThat()
+				.resideInAnyPackage("..summer.aot..");
 		rule.check(classes);
 	}
 

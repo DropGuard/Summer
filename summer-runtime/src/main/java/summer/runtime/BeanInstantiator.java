@@ -17,7 +17,6 @@ import summer.core.BeanContainer;
 import summer.core.Provider;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.ConfigPropertiesBean;
-import summer.core.config.ConfigBinder;
 import summer.core.exception.BeanCreationException;
 import summer.core.exception.NoSuchBeanException;
 
@@ -81,8 +80,10 @@ final class BeanInstantiator {
 	 * Instantiates a bean from its definition.
 	 */
 	void instantiateFromDefinition(BeanDefinition beanDef) {
-		if (beanDef instanceof ConfigPropertiesBean cpb) {
-			instantiateConfigPropertiesFromDefinition(cpb);
+		// @ConfigurationProperties beans are already bound and registered by
+		// RuntimeBeanContainerBuilder.bindConfigurationProperties — skip them here so
+		// the binding runs exactly once and no BindingContext leaks into this class.
+		if (beanDef instanceof ConfigPropertiesBean) {
 			return;
 		}
 		instantiateBean(beanDef);
@@ -117,16 +118,6 @@ final class BeanInstantiator {
 		Method producer = configClass.getMethod(fb.producerMethodName, paramTypes);
 		Object[] args = resolveArgsFromBeanDef(fb.producerParamTypes, fb.listElementTypes);
 		return producer.invoke(configBean, args);
-	}
-
-	private void instantiateConfigPropertiesFromDefinition(ConfigPropertiesBean cpb) {
-		Class<?> clazz = loadClassForInstantiation(cpb.qualifiedName);
-		if (builder.peek(clazz) != null) {
-			return;
-		}
-		Object instance = ConfigBinder.bind(cpb.configPropertiesPrefix != null ? cpb.configPropertiesPrefix : "",
-				clazz);
-		builder.register(clazz, instance);
 	}
 
 	private Object createInstance(BeanDefinition beanDef) throws ReflectiveOperationException {

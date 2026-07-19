@@ -66,11 +66,11 @@ public final class RowMapperRegistrar {
 	 * <p>
 	 * Uses {@link IndexUniverse#testIndexView()} so test-tree {@code @RowModel}
 	 * records (which live in {@code META-INF/jandex-test.idx}) are discovered
-	 * exactly the way the DI engines see them — the same beans a {@code @QuarkusTest}
-	 * would wire. Reading {@code jandex.idx} alone (the previous behaviour) made
-	 * test fixtures invisible to the data module and silently skipped their mappers.
-	 * {@link RowMapperFactory#scanJandex} then filters for {@code @RowModel}
-	 * regardless of which module owns the record.
+	 * exactly the way the DI engines see them — the same beans a
+	 * {@code @QuarkusTest} would wire. Reading {@code jandex.idx} alone (the
+	 * previous behaviour) made test fixtures invisible to the data module and
+	 * silently skipped their mappers. {@link RowMapperFactory#scanJandex} then
+	 * filters for {@code @RowModel} regardless of which module owns the record.
 	 * </p>
 	 */
 	private static IndexView loadProjectIndex() {

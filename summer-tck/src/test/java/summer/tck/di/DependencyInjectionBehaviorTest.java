@@ -2,11 +2,11 @@ package summer.tck.di;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import summer.test.annotation.DualEngine;
 import summer.core.BeanContainer;
 import summer.fixtures.dummy.ServiceA;
 import summer.fixtures.dummy.ServiceB;
 import summer.fixtures.dummy.ServiceC;
+import summer.test.annotation.DualEngine;
 import summer.test.annotation.SummerTest;
 
 /**

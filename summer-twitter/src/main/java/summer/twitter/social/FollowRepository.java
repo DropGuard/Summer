@@ -31,20 +31,20 @@ public class FollowRepository {
 
     public List<Follow> findFollowers(Long followingId, Long cursor, int limit) {
         if (cursor == null) {
-            String sql = "SELECT id, follower_id AS \"followerId\", following_id AS \"followingId\", created_at AS \"createdAt\" FROM follows WHERE following_id = ? ORDER BY id DESC LIMIT ?";
+            String sql = "SELECT id, follower_id, following_id, created_at FROM follows WHERE following_id = ? ORDER BY id DESC LIMIT ?";
             return jdbcTemplate.queryForList(sql, Follow.class, followingId, limit);
         } else {
-            String sql = "SELECT id, follower_id AS \"followerId\", following_id AS \"followingId\", created_at AS \"createdAt\" FROM follows WHERE following_id = ? AND id < ? ORDER BY id DESC LIMIT ?";
+            String sql = "SELECT id, follower_id, following_id, created_at FROM follows WHERE following_id = ? AND id < ? ORDER BY id DESC LIMIT ?";
             return jdbcTemplate.queryForList(sql, Follow.class, followingId, cursor, limit);
         }
     }
 
     public List<Follow> findFollowing(Long followerId, Long cursor, int limit) {
         if (cursor == null) {
-            String sql = "SELECT id, follower_id AS \"followerId\", following_id AS \"followingId\", created_at AS \"createdAt\" FROM follows WHERE follower_id = ? ORDER BY id DESC LIMIT ?";
+            String sql = "SELECT id, follower_id, following_id, created_at FROM follows WHERE follower_id = ? ORDER BY id DESC LIMIT ?";
             return jdbcTemplate.queryForList(sql, Follow.class, followerId, limit);
         } else {
-            String sql = "SELECT id, follower_id AS \"followerId\", following_id AS \"followingId\", created_at AS \"createdAt\" FROM follows WHERE follower_id = ? AND id < ? ORDER BY id DESC LIMIT ?";
+            String sql = "SELECT id, follower_id, following_id, created_at FROM follows WHERE follower_id = ? AND id < ? ORDER BY id DESC LIMIT ?";
             return jdbcTemplate.queryForList(sql, Follow.class, followerId, cursor, limit);
         }
     }

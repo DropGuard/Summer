@@ -51,10 +51,14 @@
             <groupId>org.slf4j</groupId>
             <artifactId>jul-to-slf4j</artifactId>
         </dependency>
-        <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-        </dependency>
+        <!--
+          The framework intentionally does NOT bind a concrete SLF4J implementation.
+          A library that ships logback-classic on compile scope would force its
+          logback.xml onto every consumer and clash with the consumer's own config
+          (only one logback.xml may exist on the classpath). The SLF4J API is the
+          only logging contract the framework depends on; the binding (logback,
+          log4j, etc.) is supplied by the application — see summer-twitter/pom.xml.
+        -->
 
         <!-- Testing -->
         <dependency>

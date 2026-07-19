@@ -2,10 +2,10 @@ package summer.tck.di;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import summer.test.annotation.DualEngine;
 import summer.core.BeanContainer;
 import summer.fixtures.di.ConditionalBean;
 import summer.fixtures.di.TestMarker;
+import summer.test.annotation.DualEngine;
 import summer.test.annotation.SummerTest;
 
 @SummerTest

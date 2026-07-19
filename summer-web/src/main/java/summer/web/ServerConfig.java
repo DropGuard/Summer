@@ -14,7 +14,7 @@ public record ServerConfig(@DefaultValue("8080") Integer port, @DefaultValue("30
 		@DefaultValue("RADIX_TREE") RouterType routerType) {
 
 	public boolean isOriginAllowed(String origin, String requestHost) {
-		if (allowedOrigins.isEmpty()) {
+		if (allowedOrigins == null || allowedOrigins.isEmpty()) {
 			return isSameOrigin(origin, requestHost);
 		}
 		if (allowedOrigins.contains("*")) {

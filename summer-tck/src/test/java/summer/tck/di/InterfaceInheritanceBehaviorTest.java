@@ -2,12 +2,12 @@ package summer.tck.di;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import summer.test.annotation.DualEngine;
 import summer.core.BeanContainer;
 import summer.fixtures.di.inheritance.BaseService;
 import summer.fixtures.di.inheritance.ExtendedService;
 import summer.fixtures.di.inheritance.ServiceClient;
 import summer.fixtures.di.inheritance.ServiceImpl;
+import summer.test.annotation.DualEngine;
 import summer.test.annotation.SummerTest;
 
 @SummerTest

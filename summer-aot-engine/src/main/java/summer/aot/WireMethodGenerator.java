@@ -25,52 +25,7 @@ public final class WireMethodGenerator {
 	private static final ClassName JDBC_TEMPLATE = ClassName.get("summer.data.jdbc", "JdbcTemplate");
 
 	public WireMethodGenerator() {
-	}
-
-	void generateWireMethod(MethodSpec.Builder wire, List<BeanDefinition> sortedBeans) {
-		for (int i = 0; i < sortedBeans.size(); i++) {
-			BeanDefinition bean = sortedBeans.get(i);
-			ClassName beanClass = safeClassName(bean.qualifiedName);
-			String varName = bean.variableName;
-
-			if (i > 0) {
-				wire.addCode("\n");
-			}
-
-			if (bean instanceof ConfigPropertiesBean cpb) {
-				emitConfigPropertiesInstantiation(wire, cpb, beanClass, varName);
-			} else if (bean.isFactoryMethod()) {
-				emitFactoryProductInstantiation(wire, bean, varName);
-			} else {
-				emitComponentInstantiation(wire, bean, beanClass, varName);
-			}
-
-			if (bean instanceof ConfigPropertiesBean) {
-				wire.addStatement("builder.register($T.class, $N)", beanClass, varName);
-			} else {
-				if (bean.needsProxy() && !bean.interfaceNames.isEmpty()) {
-					wire.addStatement("builder.register($T.class, $N)", beanClass, varName + "_impl");
-				} else {
-					wire.addStatement("builder.register($T.class, $N)", beanClass, varName);
-				}
-				for (String iface : bean.interfaceNames) {
-					wire.addStatement("builder.register($T.class, $N)", parseTypeName(iface), varName);
-				}
-			}
-		}
-
-		// Validation Phase: run all Validator beans
-		wire.addCode("\n");
-		wire.addComment("Validation Phase");
-		wire.beginControlFlow("for ($T bean : builder.singletons().values())", Object.class);
-		wire.beginControlFlow("if (bean instanceof $T validator)",
-				ClassName.get("summer.core.validation", "Validator"));
-		wire.addStatement("$T target = builder.peek(validator.targetType())", Object.class);
-		wire.beginControlFlow("if (target != null)");
-		wire.addStatement("validator.validate(target)");
-		wire.endControlFlow();
-		wire.endControlFlow();
-		wire.endControlFlow();
+		this(Map.of());
 	}
 
 	/**
@@ -243,21 +198,103 @@ public final class WireMethodGenerator {
 		}
 	}
 
+	// Override content is known at code-generation time (from @TestProfile), so it
+	// is inlined into the generated wire() method as a BindingContext literal
+	// rather than read from a runtime ThreadLocal.
+	private final Map<String, Object> profileOverrides;
+
+	WireMethodGenerator(Map<String, Object> profileOverrides) {
+		this.profileOverrides = profileOverrides != null ? profileOverrides : Map.of();
+	}
+
+	void generateWireMethod(MethodSpec.Builder wire, List<BeanDefinition> sortedBeans) {
+		generateWireMethod(wire, sortedBeans, profileOverrides);
+	}
+
+	void generateWireMethod(MethodSpec.Builder wire, List<BeanDefinition> sortedBeans, Map<String, Object> overrides) {
+		for (int i = 0; i < sortedBeans.size(); i++) {
+			BeanDefinition bean = sortedBeans.get(i);
+			ClassName beanClass = safeClassName(bean.qualifiedName);
+			String varName = bean.variableName;
+
+			if (i > 0) {
+				wire.addCode("\n");
+			}
+
+			if (bean instanceof ConfigPropertiesBean cpb) {
+				emitConfigPropertiesInstantiation(wire, cpb, beanClass, varName, overrides);
+			} else if (bean.isFactoryMethod()) {
+				emitFactoryProductInstantiation(wire, bean, varName);
+			} else {
+				emitComponentInstantiation(wire, bean, beanClass, varName);
+			}
+
+			if (bean instanceof ConfigPropertiesBean) {
+				wire.addStatement("builder.register($T.class, $N)", beanClass, varName);
+			} else {
+				if (bean.needsProxy() && !bean.interfaceNames.isEmpty()) {
+					wire.addStatement("builder.register($T.class, $N)", beanClass, varName + "_impl");
+				} else {
+					wire.addStatement("builder.register($T.class, $N)", beanClass, varName);
+				}
+				for (String iface : bean.interfaceNames) {
+					wire.addStatement("builder.register($T.class, $N)", parseTypeName(iface), varName);
+				}
+			}
+		}
+
+		// Validation Phase: run all Validator beans
+		wire.addCode("\n");
+		wire.addComment("Validation Phase");
+		wire.beginControlFlow("for ($T bean : builder.singletons().values())", Object.class);
+		wire.beginControlFlow("if (bean instanceof $T validator)",
+				ClassName.get("summer.core.validation", "Validator"));
+		wire.addStatement("$T target = builder.peek(validator.targetType())", Object.class);
+		wire.beginControlFlow("if (target != null)");
+		wire.addStatement("validator.validate(target)");
+		wire.endControlFlow();
+		wire.endControlFlow();
+		wire.endControlFlow();
+	}
+
 	private void emitConfigPropertiesInstantiation(MethodSpec.Builder wire, ConfigPropertiesBean bean,
-			ClassName beanClass, String varName) {
+			ClassName beanClass, String varName, Map<String, Object> overrides) {
 		ClassName configBinder = ClassName.get("summer.core.config", "ConfigBinder");
 		String prefix = bean.configPropertiesPrefix != null ? bean.configPropertiesPrefix : "";
-		if (bean.defaultValues.isEmpty()) {
-			wire.addStatement("$T $N = $T.bind($S, $T.class)", beanClass, varName, configBinder, prefix, beanClass);
-			return;
+		// Overrides and @DefaultValue results are baked into the generated context as
+		// a BindingContext literal, so the same container identity (derived from
+		// override content) and binding read from one explicit source and never
+		// drift. No ThreadLocal, no remove(). @DefaultValue metadata was collected
+		// from Jandex at discovery time and stored on the bean.
+		CodeBlock ctxLiteral;
+		if (bean.defaultValues.isEmpty() && overrides.isEmpty()) {
+			ctxLiteral = CodeBlock.of("$T.BindingContext.of()", configBinder);
+		} else if (bean.defaultValues.isEmpty()) {
+			ctxLiteral = CodeBlock.of("$T.BindingContext.of($L)", configBinder, buildOverridesLiteral(overrides));
+		} else if (overrides.isEmpty()) {
+			ctxLiteral = CodeBlock.of("$T.BindingContext.of($L)", configBinder,
+					buildDefaultsLiteral(bean.defaultValues, bean.fieldTypes));
+		} else {
+			ctxLiteral = CodeBlock.of("$T.BindingContext.of($L, $L)", configBinder,
+					buildDefaultsLiteral(bean.defaultValues, bean.fieldTypes), buildOverridesLiteral(overrides));
 		}
-		// Compile-time @DefaultValue metadata → converted at code-generation time via
-		// the reflection-free TypeConverter and passed as a pre-filled Map to the
-		// ConfigBinder overload. The generated wire code never touches the runtime
-		// engine's reflection-based resolver, nor Class.forName.
-		CodeBlock defaultsMap = buildDefaultsLiteral(bean.defaultValues, bean.fieldTypes);
-		wire.addStatement("$T $N = $T.bind($S, $T.class, $L)", beanClass, varName, configBinder, prefix, beanClass,
-				defaultsMap);
+		wire.addStatement("$T $N = $T.bind($L, $S, $T.class)", beanClass, varName, configBinder, ctxLiteral, prefix,
+				beanClass);
+	}
+
+	private static CodeBlock buildOverridesLiteral(Map<String, Object> overrides) {
+		CodeBlock.Builder cb = CodeBlock.builder();
+		cb.add("java.util.Map.of(");
+		boolean first = true;
+		for (Map.Entry<String, Object> e : overrides.entrySet()) {
+			if (!first) {
+				cb.add(", ");
+			}
+			cb.add("$S, $S", e.getKey(), String.valueOf(e.getValue()));
+			first = false;
+		}
+		cb.add(")");
+		return cb.build();
 	}
 
 	/**

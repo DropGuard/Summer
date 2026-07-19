@@ -8,8 +8,8 @@ import org.junit.jupiter.api.extension.TestInstantiationException;
 import summer.core.BeanContainer;
 import summer.core.Engine;
 import summer.core.bean.MockedBean;
-import summer.core.config.ConfigBinder;
 import summer.test.annotation.Mock;
+import summer.test.annotation.TestProfile;
 import summer.test.profile.TestProfileSpec;
 
 /**
@@ -33,10 +33,14 @@ import summer.test.profile.TestProfileSpec;
  * </p>
  *
  * <p>
- * Profile overrides are installed on the {@link ConfigBinder} thread-local
- * immediately before the container is built and cleared in a {@code finally}
- * block afterwards, so a profile can never leak into an unrelated test — even
- * when the two engines run on different virtual threads.
+ * Profile overrides are resolved from the test class's {@code @TestProfile} and
+ * passed explicitly down the build chain (as a {@code Map}) into both engines —
+ * the Runtime engine consumes them via {@code ConfigBinder.BindingContext} at
+ * binding time, while the AOT engine bakes them into the generated
+ * {@code wire()} as the same {@code BindingContext} literal. There is no
+ * thread-local and no {@code finally}-block cleanup, so a profile can never
+ * leak into an unrelated test, even when the two engines run on different
+ * virtual threads.
  * </p>
  */
 public final class TestContainerFactory {
@@ -58,17 +62,8 @@ public final class TestContainerFactory {
 	 */
 	public static BeanContainer build(Class<?> testClass, Engine engine) {
 		List<MockedBean> mocks = createMocks(testClass);
-		TestProfileSpec profile = resolveProfile(testClass);
-		try {
-			if (profile != null) {
-				ConfigBinder.setProfileOverrides(profile.configOverrides());
-			}
-			return Testing.buildForTest(testClass, engine, mocks);
-		} finally {
-			if (profile != null) {
-				ConfigBinder.clearProfileOverrides();
-			}
-		}
+		java.util.Map<String, Object> overrides = profileOverrides(testClass);
+		return Testing.buildForTest(testClass, engine, mocks, overrides);
 	}
 
 	/**
@@ -131,8 +126,18 @@ public final class TestContainerFactory {
 		return mocks;
 	}
 
+	/**
+	 * Resolves the {@code @TestProfile} overrides for the test class. Returns an
+	 * empty map when no profile is declared, so callers can thread the result
+	 * straight into {@code ConfigBinder.BindingContext} without branching.
+	 */
+	private static java.util.Map<String, Object> profileOverrides(Class<?> testClass) {
+		TestProfileSpec spec = resolveProfile(testClass);
+		return spec != null ? spec.configOverrides() : java.util.Map.of();
+	}
+
 	private static TestProfileSpec resolveProfile(Class<?> testClass) {
-		summer.test.annotation.TestProfile ann = testClass.getAnnotation(summer.test.annotation.TestProfile.class);
+		TestProfile ann = testClass.getAnnotation(TestProfile.class);
 		if (ann == null) {
 			return null;
 		}

@@ -5,7 +5,6 @@ import java.lang.reflect.Constructor;
 import java.security.MessageDigest;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import summer.core.config.ConfigBinder;
 import summer.test.annotation.Mock;
 
 /**
@@ -16,7 +15,7 @@ import summer.test.annotation.Mock;
  * should resolve to the <em>same</em> generated graph must share one identity,
  * and two requests that differ in any input that changes the graph must get
  * distinct identities. This is the AOT-side equivalent of the Runtime engine's
- * {@code Scope}: it is what "test isolation" means on the AOT path.
+ * universe scoping: it is what "test isolation" means on the AOT path.
  * </p>
  *
  * <p>
@@ -62,13 +61,20 @@ public final class AotKey {
 	 * shrunk discovery universe. The only inputs that change the generated graph
 	 * are the active profile's <em>content</em> (not its name) and the types
 	 * replaced by {@code @Mock}.
+	 *
+	 * @param testClass
+	 *            the annotated test class
+	 * @param overrides
+	 *            resolved {@code @TestProfile} content (empty map when none)
 	 */
-	public static AotKey forTest(Class<?> testClass) {
+	public static AotKey forTest(Class<?> testClass, java.util.Map<String, Object> overrides) {
 		SortedSet<String> dimensions = new TreeSet<>();
 		dimensions.add("kind=test");
 		dimensions.add("test=" + (testClass != null ? testClass.getName() : "<anonymous>"));
-		// Profile content (not name) — same overrides ⇒ same container.
-		dimensions.add("profile=" + hash(ConfigBinder.getProfileOverrides().toString()));
+		// Profile content (not name) — same overrides ⇒ same container. Shared with
+		// the AOT wire() generation, so identity and the baked-in BindingContext can
+		// never drift apart.
+		dimensions.add("profile=" + hash(overrides != null ? overrides.toString() : "{}"));
 		// Mocked types — AOT bakes the replacement in at generation time.
 		dimensions.add("mocks=" + hash(mockedTypes(testClass)));
 		return new AotKey(String.join("|", dimensions));

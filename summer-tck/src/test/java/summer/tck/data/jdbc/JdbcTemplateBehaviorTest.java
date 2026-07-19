@@ -1,6 +1,5 @@
 package summer.tck.data.jdbc;
 
-import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
 import summer.test.annotation.DualEngine;
 import summer.test.annotation.SummerTest;
@@ -13,10 +12,11 @@ import summer.test.annotation.SummerTest;
  * (wired by {@code summer.fixtures.data.jdbc.JdbcTestConfig}), so both engines
  * assemble it through their own path and {@code @RowModel} mappers are
  * registered by {@code RowMapperRegistrar}. Every case runs on Runtime and AOT
- * via {@link DualEngine} — the framework-enforced parity guarantee. The previous
- * {@code RuntimeJdbcTemplateTest} / {@code AotJdbcTemplateTest} siblings bypassed
- * the container with a manually-constructed {@code JdbcTemplate} whose bodies
- * were byte-identical, so they were a decoy with no real engine differentiation.
+ * via {@link DualEngine} — the framework-enforced parity guarantee. The
+ * previous {@code RuntimeJdbcTemplateTest} / {@code AotJdbcTemplateTest}
+ * siblings bypassed the container with a manually-constructed
+ * {@code JdbcTemplate} whose bodies were byte-identical, so they were a decoy
+ * with no real engine differentiation.
  * </p>
  */
 @SummerTest

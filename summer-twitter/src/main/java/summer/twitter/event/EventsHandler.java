@@ -21,7 +21,8 @@ public class EventsHandler implements WebSocketHandler {
 
     @Override
     public void handle(WebSocketContext ctx) {
-        String token = ctx.header("sec-websocket-protocol");
+        String auth = ctx.header("authorization");
+        String token = auth != null && auth.startsWith("Bearer ") ? auth.substring(7) : auth;
         if (token == null || token.isEmpty()) {
             ctx.close();
             return;
@@ -30,13 +31,12 @@ public class EventsHandler implements WebSocketHandler {
         try {
             Claims claims = jwtUtil.extractClaims(token);
             Long userId = Long.valueOf(claims.getSubject());
-            
+
             SESSIONS.put(userId, ctx);
-            
+
             ctx.onClose(() -> SESSIONS.remove(userId, ctx));
         } catch (Exception e) {
             ctx.close();
         }
     }
-    
 }

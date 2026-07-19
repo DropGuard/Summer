@@ -9,16 +9,10 @@ import org.jboss.jandex.IndexView;
 /**
  * Associates classes with their originating module and retains each module's
  * own {@link IndexView} separately — the index is <b>not</b> collapsed into a
- * single merged view. Bean discovery reads only the indexes of modules whose
- * classes are within the requested {@link Scope}, which means the engine
- * naturally honours module boundaries without post-hoc filtering.
- *
- * <p>
- * Built by {@code JandexIndexLoader} from each {@code META-INF/jandex.idx}
- * location. Enables module-scoped bean discovery — a test can request "only
- * beans from summer-twitter and its dependencies" rather than the full merged
- * index.
- * </p>
+ * single merged view. Bean discovery reads the indexes directly, and the set of
+ * "known classes" depends entirely on which index was loaded:
+ * {@link JandexIndexLoader#applicationIndex()} knows only production classes,
+ * while {@link JandexIndexLoader#testIndex()} also knows test-class beans.
  */
 public final class ModuleIndex {
 
@@ -90,33 +84,5 @@ public final class ModuleIndex {
 			}
 		}
 		return result;
-	}
-
-	/**
-	 * Creates a scope that includes all classes from the given module and its
-	 * transitive dependencies.
-	 */
-	public Scope toScope(String moduleName, Set<String> dependencyModules) {
-		Set<String> included = classesInModule(moduleName, dependencyModules);
-		return name -> included.contains(name);
-	}
-
-	/**
-	 * The universe scope: every class this index knows about.
-	 *
-	 * <p>
-	 * The set of "known classes" depends entirely on which index was loaded:
-	 * {@link JandexIndexLoader#applicationIndex()} knows only production classes,
-	 * while {@link JandexIndexLoader#testIndex()} also knows test-class beans. So
-	 * the same method yields the production universe on the application index and
-	 * the production-plus-test universe on the test index — the scope carries no
-	 * separate test/production flag, it simply reflects the index it was built
-	 * from. This is what makes the test container see test beans automatically
-	 * (Quarkus-style) without any narrowing switch.
-	 *
-	 * @return a scope covering every class in this index's universe
-	 */
-	public Scope universeScope() {
-		return name -> classToModule.containsKey(name);
 	}
 }

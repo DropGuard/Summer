@@ -9,11 +9,6 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import org.jboss.jandex.AnnotationInstance;
-import org.jboss.jandex.ClassInfo;
-import org.jboss.jandex.DotName;
-import org.jboss.jandex.IndexView;
-import org.jboss.jandex.RecordComponentInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import summer.core.annotation.Replaces;
@@ -35,10 +30,7 @@ public final class RuntimeBeanAdapter {
 
 	private static final Logger log = LoggerFactory.getLogger(RuntimeBeanAdapter.class);
 
-	private final IndexView index;
-
-	public RuntimeBeanAdapter(IndexView index) {
-		this.index = index;
+	public RuntimeBeanAdapter() {
 	}
 
 	/**
@@ -131,17 +123,16 @@ public final class RuntimeBeanAdapter {
 	}
 
 	/**
-	 * Adapts a @ConfigurationProperties class to a ConfigPropertiesBean.
+	 * Adapts a @ConfigurationProperties class to a ConfigPropertiesBean marker. The
+	 * marker carries the prefix and lets SharedDependencyResolver resolve the
+	 * config type when other beans inject it; binding itself is performed by
+	 * RuntimeBeanContainerBuilder.bindConfigurationProperties, which reads the
+	 * 
+	 * @DefaultValue metadata directly (no per-engine defaults map).
 	 */
 	public ConfigPropertiesBean adaptConfigProperties(Class<?> clazz, String prefix) {
 		ConfigPropertiesBean bean = new ConfigPropertiesBean(clazz.getName(), clazz.getSimpleName());
 		bean.configPropertiesPrefix = prefix;
-
-		// Extract @DefaultValue metadata from Jandex
-		extractDefaultValues(clazz, bean);
-
-		log.debug("[Summer] Adapted config properties: {} (prefix='{}')", clazz.getSimpleName(), prefix);
-
 		return bean;
 	}
 
@@ -316,21 +307,6 @@ public final class RuntimeBeanAdapter {
 		String normalizedBase = base.endsWith("/") ? base.substring(0, base.length() - 1) : base;
 		String normalizedMethod = method.startsWith("/") ? method : "/" + method;
 		return normalizedBase + normalizedMethod;
-	}
-
-	private void extractDefaultValues(Class<?> clazz, ConfigPropertiesBean bean) {
-		ClassInfo ci = index.getClassByName(DotName.createSimple(clazz.getName()));
-		if (ci == null || !ci.isRecord()) {
-			return;
-		}
-
-		for (RecordComponentInfo comp : ci.recordComponents()) {
-			AnnotationInstance defaultAnn = comp.annotation(DotName.createSimple("summer.core.config.DefaultValue"));
-			if (defaultAnn != null) {
-				bean.defaultValues.put(comp.name(), defaultAnn.value().asString());
-				bean.fieldTypes.put(comp.name(), comp.type().name().toString());
-			}
-		}
 	}
 
 	// ── @ExceptionHandler collection ───────────────────────────────────

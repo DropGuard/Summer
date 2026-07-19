@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Logging for integration tests (*IT) — overrides logback.xml on the test classpath.
+
+  Why a separate test config instead of relying on surefire's
+  redirectTestOutputToFile:
+  - surefire only writes output-<class>.txt when it FORKS a new JVM. Locally a plain
+    `mvn test -Dtest=...IT` often runs in-process and produces NO file, so the server
+    stack trace (the only place a red IT's root cause lives, since the client only
+    ever sees "Internal Server Error") becomes unsearchable.
+  - This config makes the sink deterministic regardless of fork mode: every server
+    ERROR/WARN goes to target/it-server.log (git-ignored under **/target/), with the
+    framework server/WS loggers bumped to DEBUG so handshake and upgrade failures are
+    visible. Console stays on at INFO for the usual green-bar feedback.
+
+  Do NOT echo exceptions into the HTTP/WS response body to "help debugging" — that
+  leaks internals. Read target/it-server.log instead.
+
+  To triage a red IT:
+    grep -nE 'ERROR|PSQLException|WebSocket upgrade failed' summer-twitter/target/it-server.log
+-->
+<configuration>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="IT_FILE" class="ch.qos.logback.core.FileAppender">
+        <file>target/it-server.log</file>
+        <append>false</append>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Server + WS upgrade paths: DEBUG so handshake/origin/upgrade failures show. -->
+    <logger name="summer.web.server" level="DEBUG"/>
+    <logger name="summer.twitter" level="DEBUG"/>
+
+    <!-- Tame noisy third parties during tests. -->
+    <logger name="io.netty" level="WARN"/>
+    <logger name="org.testcontainers" level="WARN"/>
+    <logger name="com.github.dockerjava" level="WARN"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="IT_FILE"/>
+    </root>
+
+</configuration>

@@ -2,7 +2,6 @@ package summer.tck.di;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import org.junit.jupiter.api.Test;
 import summer.core.BeanContainer;
 import summer.fixtures.di.MethodReplacesBean;
 import summer.test.annotation.DualEngine;

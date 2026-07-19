@@ -15,9 +15,9 @@ import summer.test.annotation.SummerTest;
  *
  * <p>
  * Runs on BOTH engines via {@link DualEngine} — {@code @Mock} replacement is a
- * known dual-engine divergence risk (the AOT path must drop the mocked type from
- * codegen and register the Mockito stub), so the Runtime-only default would hide
- * any AOT break.
+ * known dual-engine divergence risk (the AOT path must drop the mocked type
+ * from codegen and register the Mockito stub), so the Runtime-only default
+ * would hide any AOT break.
  * </p>
  */
 

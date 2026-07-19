@@ -45,8 +45,17 @@ public final class BeanDefinitionFactory {
 
 	private static Stream<BeanDefinition> toBeanDefinitions(Class<?> clazz, RuntimeBeanAdapter adapter) {
 		Stream<BeanDefinition> result;
+		String prefix = clazz.isAnnotationPresent(ConfigurationProperties.class)
+				? clazz.getAnnotation(ConfigurationProperties.class).prefix()
+				: "";
 		if (clazz.isAnnotationPresent(ConfigurationProperties.class)) {
-			String prefix = clazz.getAnnotation(ConfigurationProperties.class).prefix();
+			// @ConfigurationProperties beans are emitted as ConfigPropertiesBean markers
+			// so SharedDependencyResolver can resolve them when other beans inject them
+			// (e.g. NettyServerRunner depending on ServerConfig). The actual binding
+			// happens independently in
+			// RuntimeBeanContainerBuilder.bindConfigurationProperties;
+			// BeanInstantiator skips ConfigPropertiesBean instances because they are
+			// already registered in the builder by that pass.
 			result = Stream.of(adapter.adaptConfigProperties(clazz, prefix));
 		} else if (clazz.isAnnotationPresent(Configuration.class)) {
 			Stream<BeanDefinition> configBean = Stream.of(adapter.adaptComponent(clazz));
@@ -146,27 +155,6 @@ public final class BeanDefinitionFactory {
 	public static boolean hasMatchingBinding(BeanDefinition interceptorDef, BeanDefinition targetDef) {
 		return interceptorDef.interceptorBindingAnnotations.stream()
 				.anyMatch(targetDef.interceptorBindingAnnotations::contains);
-	}
-
-	/**
-	 * Loads a class by name, returning null if not found.
-	 *
-	 * @param className
-	 *            fully qualified class name
-	 * @return the loaded class, or null if not found
-	 */
-	/**
-	 * @deprecated No longer needed internally — all consumers now use pre-computed
-	 *             {@link BeanDefinition#interceptorBindingAnnotations} string sets.
-	 *             Will be removed in a future release.
-	 */
-	@Deprecated
-	public static Class<?> loadClass(String className) {
-		try {
-			return Class.forName(className);
-		} catch (ClassNotFoundException e) {
-			return null;
-		}
 	}
 
 	// ---- internal helpers ----

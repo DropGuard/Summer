@@ -12,7 +12,6 @@ import org.jboss.jandex.MethodInfo;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.ConfigPropertiesBean;
 import summer.core.bean.ModuleIndex;
-import summer.core.bean.Scope;
 
 /**
  * Discovers beans from a Jandex index and evaluates conditions.
@@ -31,9 +30,11 @@ import summer.core.bean.Scope;
  *
  * <p>
  * When backed by a {@link ModuleIndex}, discovery iterates only the indexes of
- * modules whose classes are within the requested {@link Scope} — the engine
- * honours module boundaries natively instead of iterating a merged index and
- * filtering after the fact.
+ * modules the index retains — the engine honours module boundaries natively
+ * instead of iterating a merged index and filtering after the fact. The set of
+ * classes visited is fully determined by the index loaded (application vs
+ * test), so a test universe sees exactly its classpath's production-plus-test
+ * beans.
  * </p>
  */
 public final class BeanDiscovery {
@@ -70,12 +71,10 @@ public final class BeanDiscovery {
 
 	/**
 	 * Full discovery pipeline: discover → condition evaluation → enrichment.
+	 * Discovers every class the underlying index knows about (application or test
+	 * universe); no separate narrowing argument is needed.
 	 */
 	public List<BeanDefinition> discover() {
-		return discover(Scope.classpath());
-	}
-
-	public List<BeanDefinition> discover(Scope scope) {
 		List<BeanDefinition> beans = new ArrayList<>();
 		Set<String> collected = new HashSet<>();
 
@@ -84,24 +83,11 @@ public final class BeanDiscovery {
 		beans.add(new BeanDefinition(summer.core.AotDiMarker.class.getName(), "AotDiMarker"));
 
 		if (moduleIndex != null) {
-			// ModuleIndex-aware path: iterate only the indexes of modules in scope.
+			// ModuleIndex-aware path: iterate the indexes the index retains.
 			for (String mod : moduleIndex.modules()) {
 				IndexView modIdx = moduleIndex.moduleIndex(mod);
-				// Quick check: if no class in this module is in scope, skip the
-				// whole module index. A fine-grained per-class check follows below.
-				boolean moduleInScope = false;
 				for (ClassInfo ci : modIdx.getKnownClasses()) {
-					String cn = ci.name().toString();
-					if (scope.includes(cn)) {
-						moduleInScope = true;
-						break;
-					}
-				}
-				if (!moduleInScope)
-					continue;
-
-				for (ClassInfo ci : modIdx.getKnownClasses()) {
-					if (ci.isAnnotation() || !scope.includes(ci.name().toString()))
+					if (ci.isAnnotation())
 						continue;
 					if (ci.isInterface() || ci.isAbstract()) {
 						if (hasMetaComponentAnnotation(ci, new HashSet<>())) {
@@ -121,7 +107,7 @@ public final class BeanDiscovery {
 		} else {
 			// Merged-index path (production AOT, SummerMojo).
 			for (ClassInfo ci : index.getKnownClasses()) {
-				if (ci.isAnnotation() || !scope.includes(ci.name().toString()))
+				if (ci.isAnnotation())
 					continue;
 				if (ci.isInterface() || ci.isAbstract()) {
 					if (hasMetaComponentAnnotation(ci, new HashSet<>())) {
@@ -139,10 +125,10 @@ public final class BeanDiscovery {
 			}
 		}
 		// Phase 2: Evaluate conditions.
-		// Both engines feed the same scoped candidate set, so condition
-		// evaluation only sees beans within that set. @ConditionalOnBean targets
-		// are expected to be reachable via scope (declared modules) + dependency
-		// resolution — no global type-name bypass.
+		// Both engines feed the same candidate set (whatever the loaded index
+		// contains), so condition evaluation only sees those beans. @ConditionalOnBean
+		// targets are reachable via the index's type graph — no global type-name
+		// bypass.
 		new summer.core.bean.SharedConditionEvaluator().evaluate(beans);
 
 		// Phase 3: Enrich remaining metadata

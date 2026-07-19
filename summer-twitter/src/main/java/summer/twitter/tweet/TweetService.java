@@ -59,15 +59,12 @@ public class TweetService {
             userOpt.ifPresent(mentionedUsers::add);
         }
 
-        // Fire and forget fan-out logic placeholder
-        Thread.startVirtualThread(() -> {
-            // TODO: Fan-out on write logic
-            // 1. Check if author followerCount < 5000
-            // 2. Fetch all followers
-            // 3. Batch ZADD timeline:{followerId} <timestamp> <tweetId>
-            // 4. WebSocket /ws/events push new_tweet to online followers
-            // 5. WebSocket /ws/events push mentioned to mentionedUsers
-        });
+        // Fan the tweet out to timelines. The author's follower count decides
+        // whether the follower fan-out runs inline or on a virtual thread (the
+        // threshold lives inside TimelineService.fanOut). The author's own tweet
+        // list is always written synchronously within fanOut.
+        User author = userRepository.findById(authorId).orElseThrow(() -> new IllegalArgumentException("Author not found"));
+        timelineService.fanOut(tweet, author.followerCount() != null ? author.followerCount() : 0);
 
         return tweet;
     }

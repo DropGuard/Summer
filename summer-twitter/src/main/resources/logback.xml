@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Runtime logging for the Summer Twitter demo application.
+
+  Logging policy (see ADR in the repo wiki):
+  - The framework (summer-*) only emits via SLF4J loggers named after its packages
+    (summer.web, summer.data.jdbc, ...). It never ships a logback.xml, so THIS file
+    is the single place that decides where logs go and at what level.
+  - Console is the primary sink for local runs. A rolling file under logs/ is the
+    durable sink; logs/ is git-ignored via the repo-wide *.log rule.
+  - Application code (summer.twitter) is INFO; the framework is INFO except for the
+    server/WS error paths which stay INFO (their ERRORs are already explicit).
+  - Netty's own logger is noisy at INFO; keep it WARN so the demo log stays readable.
+-->
+<configuration>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/app.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/app.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>14</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="io.netty" level="WARN"/>
+    <logger name="org.testcontainers" level="WARN"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+</configuration>

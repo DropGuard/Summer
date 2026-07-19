@@ -68,9 +68,21 @@ public class WebSocketUpgradeHandler {
 		c.setHandled(true);
 
 		FullHttpRequest retainedReq = nettyReq.retain();
+		final String upgradePath = path;
 		nettyCtx.executor().execute(() -> {
+			// Logs upgrade failures (e.g. an invalid handshake that Netty rejects
+			// with a 500 of its own) on the server side. Nothing is sent to the
+			// client beyond Netty's standard response — this is purely diagnostic
+			// so a red WS IT can be triaged from the server log, not guessed at.
+			nettyCtx.pipeline().addLast(new io.netty.channel.ChannelInboundHandlerAdapter() {
+				@Override
+				public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+					log.error("WebSocket upgrade failed for path={}", upgradePath, cause);
+					ctx.close();
+				}
+			});
 			nettyCtx.pipeline().addLast(new io.netty.handler.codec.http.websocketx.WebSocketServerProtocolHandler(uri,
-					null, true, config.maxWebSocketFrameSize()));
+					true, config.maxWebSocketFrameSize()));
 			nettyCtx.pipeline().addLast(new SummerWebSocketFrameHandler(wsContext, config.maxWebSocketFrameSize()));
 			nettyCtx.fireChannelRead(retainedReq);
 		});

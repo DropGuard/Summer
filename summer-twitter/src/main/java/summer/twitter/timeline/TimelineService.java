@@ -7,6 +7,7 @@ import summer.twitter.tweet.TweetRepository;
 import summer.twitter.social.FollowRepository;
 import summer.twitter.social.Follow;
 import summer.twitter.infra.HackerNewsScoring;
+import summer.twitter.event.EventPublisher;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -17,17 +18,20 @@ public class TimelineService {
     private final SummerRedisTemplate redisTemplate;
     private final TweetRepository tweetRepository;
     private final FollowRepository followRepository;
+    private final EventPublisher eventPublisher;
 
-    public TimelineService(SummerRedisTemplate redisTemplate, TweetRepository tweetRepository, FollowRepository followRepository) {
+    public TimelineService(SummerRedisTemplate redisTemplate, TweetRepository tweetRepository,
+            FollowRepository followRepository, EventPublisher eventPublisher) {
         this.redisTemplate = redisTemplate;
         this.tweetRepository = tweetRepository;
         this.followRepository = followRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     public void fanOut(Tweet tweet, int authorFollowerCount) {
         long timestamp = tweet.createdAt().toInstant().toEpochMilli();
         long authorId = tweet.authorId();
-        
+
         // Always add to the author's own tweet list
         redisTemplate.getCommands().zadd("user:" + authorId + ":tweets", timestamp, tweet.id().toString());
 
@@ -37,11 +41,21 @@ public class TimelineService {
                 do {
                     List<Follow> followers = followRepository.findFollowers(authorId, cursor, 1000);
                     if (followers.isEmpty()) break;
-                    
+
+                    Map<String, Object> event = Map.of(
+                            "type", "new_tweet",
+                            "tweetId", tweet.id().toString(),
+                            "authorId", String.valueOf(authorId),
+                            "content", tweet.content());
                     for (Follow follow : followers) {
-                        redisTemplate.getCommands().zadd("timeline:" + follow.followerId(), timestamp, tweet.id().toString());
+                        redisTemplate.getCommands().zadd("timeline:" + follow.followerId(), timestamp,
+                                tweet.id().toString());
+                        // Push a real-time new_tweet event to each follower who is
+                        // connected on /ws/events. EventPublisher is a no-op when the
+                        // follower has no open session, so offline followers are skipped.
+                        eventPublisher.publish(follow.followerId(), event);
                     }
-                    
+
                     cursor = followers.get(followers.size() - 1).id();
                 } while (true);
             });
@@ -106,10 +120,12 @@ public class TimelineService {
                 }
             }
             if (idx != -1) {
+                // Cursor found: return the page after it.
                 sorted = sorted.subList(idx + 1, sorted.size());
-            } else {
-                sorted = List.of();
             }
+            // Cursor stale (the tweet it pointed at was deleted — the common case for
+            // an infinite-scroll feed): leave `sorted` intact and return the head of
+            // the feed rather than swallowing the whole result set.
         }
         
         return sorted.stream().limit(limit).collect(Collectors.toList());

@@ -10,7 +10,6 @@ import summer.core.BeanContainer;
 import summer.core.DiEngine;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.MockedBean;
-import summer.core.bean.Scope;
 import summer.core.bean.SharedConditionEvaluator;
 import summer.core.bean.SharedDependencyResolver;
 
@@ -41,48 +40,54 @@ public final class AotEngine {
 	 *
 	 * @param index
 	 *            Jandex index
-	 * @param scope
-	 *            bean scope — same scope the Runtime engine uses, so both engines
-	 *            evaluate the identical candidate set
 	 * @param cacheKey
-	 *            unique cache key (deterministic). Must encode scope + profile +
-	 *            mocked types, or two tests that differ only by {@code @Mock} will
-	 *            silently share one container.
+	 *            unique cache key (deterministic). Must encode profile override
+	 *            content + mocked types, or two tests that differ only by
+	 *            {@code @Mock} will silently share one container.
 	 * @param mocks
 	 *            mocked beans ( type + instance) from {@code @Mock} parameters
 	 * @return AOT-compiled BeanContainer
 	 */
-	public static BeanContainer buildAndCompile(IndexView index, Scope scope, String cacheKey, MockedBean[] mocks) {
-		return buildAndCompile(index, scope, cacheKey, AotContextGenerator.CLASS_NAME, mocks);
+	public static BeanContainer buildAndCompile(IndexView index, String cacheKey, MockedBean[] mocks) {
+		return buildAndCompile(index, cacheKey, AotContextGenerator.CLASS_NAME, mocks, java.util.Map.of());
 	}
 
 	/**
-	 * Variant that names the generated class explicitly. The JVM loads a class name
-	 * at most once per run, so two distinct test containers must not share a
-	 * generated class name — tests pass a scope/profile-derived name while the
-	 * production path keeps the default {@link AotContextGenerator#CLASS_NAME}.
+	 * Full AOT pipeline: discover → resolve → generate → compile → load.
+	 *
+	 * <p>
+	 * Cache check happens once, here at the outermost boundary: if a container for
+	 * this {@code cacheKey} already exists it is returned immediately, skipping all
+	 * discovery/compilation work. The {@code cacheKey} must encode everything that
+	 * affects the generated graph — profile override content and mocked types — or
+	 * two distinct tests would silently share one container.
+	 * </p>
 	 *
 	 * @param index
 	 *            Jandex index
-	 * @param scope
-	 *            bean scope
 	 * @param cacheKey
-	 *            cache key (must encode scope + profile + mocked types)
+	 *            unique cache key (deterministic, must encode profile override
+	 *            content + mocked types)
 	 * @param className
-	 *            generated class name (without package)
+	 *            generated class name (without package). The JVM loads a class name
+	 *            at most once per run, so distinct test containers must not share a
+	 *            name — tests pass a profile-derived name while the production path
+	 *            keeps the default {@link AotContextGenerator#CLASS_NAME}.
 	 * @param mocks
 	 *            mocked beans (target type + instance) from {@code @Mock}
 	 *            parameters
+	 * @param overrides
+	 *            resolved {@code @TestProfile} content (empty map when none)
 	 * @return AOT-compiled BeanContainer
 	 */
-	public static BeanContainer buildAndCompile(IndexView index, Scope scope, String cacheKey, String className,
-			MockedBean[] mocks) {
+	public static BeanContainer buildAndCompile(IndexView index, String cacheKey, String className, MockedBean[] mocks,
+			java.util.Map<String, Object> overrides) {
 		BeanContainer cached = CACHE.get(cacheKey);
 		if (cached != null) {
 			return cached;
 		}
 
-		List<BeanDefinition> beans = new BeanDiscovery(index).discover(scope);
+		List<BeanDefinition> beans = new BeanDiscovery(index).discover();
 		// Discovery-stage mock replacement: remove the real definitions of every
 		// mocked type so they are never generated/instantiated. Shared with Runtime
 		// via SharedConditionEvaluator, so concrete-class @Mock behaves identically on
@@ -95,49 +100,40 @@ public final class AotEngine {
 		new SharedConditionEvaluator().evaluate(beans, mockedTypeNames);
 		List<BeanDefinition> sorted = new SharedDependencyResolver().resolve(beans, java.util.Arrays.asList(mocks));
 
-		return compile(index, sorted, cacheKey, className, mocks);
+		return compile(index, sorted, cacheKey, className, mocks, overrides);
 	}
 
 	/**
-	 * Generate, compile, load, and return a BeanContainer from pre-sorted bean
-	 * definitions.
+	 * Generates, compiles, loads, and caches a BeanContainer from pre-sorted bean
+	 * definitions. Internal compilation stage of {@link #buildAndCompile} — the
+	 * cache check lives in {@code buildAndCompile}, not here, so the early-return
+	 * optimization (skip discovery + compilation on a hit) is not duplicated.
 	 *
 	 * @param index
 	 *            Jandex index
 	 * @param sorted
 	 *            topologically-sorted bean definitions (conditions already
-	 *            evaluated)
+	 *            evaluated, mocks already removed)
 	 * @param cacheKey
-	 *            unique cache key (e.g. SHA-256 of seed names)
-	 * @param externalBeans
-	 *            pre-instantiated beans to register
+	 *            unique cache key (e.g. SHA-256 of seed names); must match the key
+	 *            checked in {@code buildAndCompile}
+	 * @param className
+	 *            generated class name (without package)
+	 * @param mocks
+	 *            mocked beans (target type + instance)
+	 * @param overrides
+	 *            resolved {@code @TestProfile} content (empty map when none)
 	 * @return AOT-compiled BeanContainer
 	 */
-	public static BeanContainer compile(IndexView index, List<BeanDefinition> sorted, String cacheKey,
-			MockedBean[] mocks) {
-		return compile(index, sorted, cacheKey, AotContextGenerator.CLASS_NAME, mocks);
-	}
-
-	/**
-	 * Variant that names the generated class explicitly.
-	 *
-	 * @see #buildAndCompile(IndexView, Scope, String, String, MockedBean[])
-	 */
-	public static BeanContainer compile(IndexView index, List<BeanDefinition> sorted, String cacheKey, String className,
-			MockedBean[] mocks) {
-		// Check cache
-		BeanContainer cached = CACHE.get(cacheKey);
-		if (cached != null) {
-			return cached;
-		}
-
+	private static BeanContainer compile(IndexView index, List<BeanDefinition> sorted, String cacheKey,
+			String className, MockedBean[] mocks, java.util.Map<String, Object> overrides) {
 		try {
 			// 1. Generate code to temp directory
 			File tempDir = Files.createTempDirectory("summer-aot-").toFile();
 			tempDir.deleteOnExit();
 
-			WireMethodGenerator wireGen = new WireMethodGenerator();
-			new AotContextGenerator(index, tempDir, wireGen).generate(sorted, className, mocks);
+			WireMethodGenerator wireGen = new WireMethodGenerator(overrides);
+			new AotContextGenerator(index, tempDir, wireGen, overrides).generate(sorted, className, mocks);
 			new AotProxyGenerator().generate(sorted, index, tempDir);
 			new RouteAdapterGenerator().generate(sorted, tempDir);
 
