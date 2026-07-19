@@ -2,7 +2,7 @@ package summer.twitter.config;
 
 import summer.core.Component;
 import summer.twitter.dm.DmHandler;
-import summer.twitter.event.EventsHandler;
+import summer.twitter.ws.EventsHandler;
 import summer.web.WsRouteProvider;
 import summer.web.WsRouter;
 

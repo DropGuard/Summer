@@ -73,12 +73,8 @@ public class TweetController {
             ctx.status(HttpStatus.UNAUTHORIZED);
             return;
         }
-        try {
-            Tweet tweet = tweetService.retweet(id, userId);
-            ctx.json(HttpStatus.CREATED, tweet);
-        } catch (IllegalArgumentException e) {
-            ctx.status(HttpStatus.NOT_FOUND);
-        }
+        Tweet tweet = tweetService.retweet(id, userId);
+        ctx.json(HttpStatus.CREATED, tweet);
     }
 
     public record QuoteTweetRequest(String content) {}
@@ -91,11 +87,7 @@ public class TweetController {
             return;
         }
         QuoteTweetRequest req = ctx.body(QuoteTweetRequest.class);
-        try {
-            Tweet tweet = tweetService.quoteTweet(id, userId, req.content());
-            ctx.json(HttpStatus.CREATED, tweet);
-        } catch (IllegalArgumentException e) {
-            ctx.status(HttpStatus.NOT_FOUND);
-        }
+        Tweet tweet = tweetService.quoteTweet(id, userId, req.content());
+        ctx.json(HttpStatus.CREATED, tweet);
     }
 }

@@ -1,4 +1,4 @@
-package summer.twitter.event;
+package summer.twitter.ws;
 
 import summer.core.Component;
 import summer.web.websocket.WebSocketContext;

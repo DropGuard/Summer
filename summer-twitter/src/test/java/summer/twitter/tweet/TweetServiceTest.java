@@ -7,6 +7,8 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import summer.twitter.common.ResourceNotFoundException;
+import summer.twitter.common.UserNotFoundException;
 import summer.twitter.infra.SnowflakeIdGenerator;
 import summer.twitter.timeline.TimelineService;
 import summer.twitter.user.User;
@@ -81,7 +83,7 @@ class TweetServiceTest {
 
 	@Test
 	void retweetThrowsWhenNotFound() {
-		assertThrows(IllegalArgumentException.class, () -> tweetService.retweet(99L, 1L));
+		assertThrows(ResourceNotFoundException.class, () -> tweetService.retweet(99L, 1L));
 	}
 
 	@Test

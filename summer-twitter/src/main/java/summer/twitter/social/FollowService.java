@@ -1,6 +1,8 @@
 package summer.twitter.social;
 
 import summer.core.Component;
+import summer.twitter.common.IllegalOperationException;
+import summer.twitter.common.UserNotFoundException;
 import summer.twitter.user.User;
 import summer.twitter.user.UserRepository;
 import summer.twitter.infra.SnowflakeIdGenerator;
@@ -23,10 +25,10 @@ public class FollowService {
 
     public void follow(Long currentUserId, String targetUsername) {
         User targetUser = userRepository.findByUsername(targetUsername)
-                .orElseThrow(() -> new IllegalArgumentException("Target user not found"));
+                .orElseThrow(() -> new UserNotFoundException("Target user not found"));
 
         if (currentUserId.equals(targetUser.id())) {
-            throw new IllegalArgumentException("Cannot follow yourself");
+            throw new IllegalOperationException("Cannot follow yourself");
         }
 
         if (followRepository.exists(currentUserId, targetUser.id())) {
@@ -42,7 +44,7 @@ public class FollowService {
 
     public void unfollow(Long currentUserId, String targetUsername) {
         User targetUser = userRepository.findByUsername(targetUsername)
-                .orElseThrow(() -> new IllegalArgumentException("Target user not found"));
+                .orElseThrow(() -> new UserNotFoundException("Target user not found"));
 
         if (!followRepository.exists(currentUserId, targetUser.id())) {
             return; // Not following
@@ -56,13 +58,13 @@ public class FollowService {
 
     public List<Follow> getFollowers(String username, Long cursor, int limit) {
         User targetUser = userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
         return followRepository.findFollowers(targetUser.id(), cursor, limit);
     }
 
     public List<Follow> getFollowing(String username, Long cursor, int limit) {
         User targetUser = userRepository.findByUsername(username)
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
         return followRepository.findFollowing(targetUser.id(), cursor, limit);
     }
 }

@@ -8,6 +8,8 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import summer.twitter.common.IllegalOperationException;
+import summer.twitter.common.UserNotFoundException;
 import summer.twitter.infra.SnowflakeIdGenerator;
 import summer.twitter.user.User;
 import summer.twitter.user.UserRepository;
@@ -64,14 +66,14 @@ class FollowServiceTest {
 	@Test
 	void followThrowsWhenTargetMissing() {
 		when(mockUserRepo.findByUsername("ghost")).thenReturn(Optional.empty());
-		assertThrows(IllegalArgumentException.class, () -> followService.follow(1L, "ghost"));
+		assertThrows(UserNotFoundException.class, () -> followService.follow(1L, "ghost"));
 	}
 
 	@Test
 	void followThrowsWhenSelf() {
 		User target = new User(1L, "me", "Me", "me@x.com", "h", "bio", null, null, null);
 		when(mockUserRepo.findByUsername("me")).thenReturn(Optional.of(target));
-		assertThrows(IllegalArgumentException.class, () -> followService.follow(1L, "me"));
+		assertThrows(IllegalOperationException.class, () -> followService.follow(1L, "me"));
 	}
 
 	@Test

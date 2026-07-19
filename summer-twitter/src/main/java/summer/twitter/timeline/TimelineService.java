@@ -7,7 +7,7 @@ import summer.twitter.tweet.TweetRepository;
 import summer.twitter.social.FollowRepository;
 import summer.twitter.social.Follow;
 import summer.twitter.infra.HackerNewsScoring;
-import summer.twitter.event.EventPublisher;
+import summer.twitter.ws.EventPublisher;
 
 import java.util.*;
 import java.util.stream.Collectors;

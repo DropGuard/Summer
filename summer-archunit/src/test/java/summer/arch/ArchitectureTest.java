@@ -77,8 +77,7 @@ class ArchitectureTest {
 	void noCircularDependencies() {
 		ArchRule rule = com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices().matching("summer.(*)")
 				.should().beFreeOfCycles().ignoreDependency("summer.realworld..", "..")
-				.ignoreDependency("summer.benchmark..", "..")
-				.ignoreDependency("..", "summer.realworld..")
+				.ignoreDependency("summer.benchmark..", "..").ignoreDependency("..", "summer.realworld..")
 				.ignoreDependency("..", "summer.benchmark..");
 		rule.check(classes);
 	}

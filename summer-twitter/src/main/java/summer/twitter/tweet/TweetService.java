@@ -1,6 +1,8 @@
 package summer.twitter.tweet;
 
 import summer.core.Component;
+import summer.twitter.common.ResourceNotFoundException;
+import summer.twitter.common.UserNotFoundException;
 import summer.twitter.infra.SnowflakeIdGenerator;
 import summer.twitter.user.User;
 import summer.twitter.user.UserRepository;
@@ -63,7 +65,7 @@ public class TweetService {
         // whether the follower fan-out runs inline or on a virtual thread (the
         // threshold lives inside TimelineService.fanOut). The author's own tweet
         // list is always written synchronously within fanOut.
-        User author = userRepository.findById(authorId).orElseThrow(() -> new IllegalArgumentException("Author not found"));
+        User author = userRepository.findById(authorId).orElseThrow(() -> new UserNotFoundException("Author not found"));
         timelineService.fanOut(tweet, author.followerCount() != null ? author.followerCount() : 0);
 
         return tweet;
@@ -72,9 +74,9 @@ public class TweetService {
     public Tweet retweet(Long originalId, Long userId) {
         Tweet original = tweetRepository.findById(originalId);
         if (original == null) {
-            throw new IllegalArgumentException("Original tweet not found");
+            throw new ResourceNotFoundException("Original tweet not found");
         }
-        
+
         Long tweetId = idGenerator.nextId();
         Tweet tweet = new Tweet(
             tweetId,
@@ -91,18 +93,18 @@ public class TweetService {
         tweetRepository.insert(tweet);
         tweetRepository.incrementRetweetCount(originalId);
         
-        User author = userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User author = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found"));
         timelineService.fanOut(tweet, author.followerCount() != null ? author.followerCount() : 0);
-        
+
         return tweet;
     }
 
     public Tweet quoteTweet(Long originalId, Long userId, String content) {
         Tweet original = tweetRepository.findById(originalId);
         if (original == null) {
-            throw new IllegalArgumentException("Original tweet not found");
+            throw new ResourceNotFoundException("Original tweet not found");
         }
-        
+
         Long tweetId = idGenerator.nextId();
         Tweet tweet = new Tweet(
             tweetId,
@@ -119,9 +121,9 @@ public class TweetService {
         tweetRepository.insert(tweet);
         tweetRepository.incrementRetweetCount(originalId);
         
-        User author = userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("User not found"));
+        User author = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found"));
         timelineService.fanOut(tweet, author.followerCount() != null ? author.followerCount() : 0);
-        
+
         return tweet;
     }
 

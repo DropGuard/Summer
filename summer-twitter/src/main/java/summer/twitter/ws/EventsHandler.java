@@ -1,4 +1,4 @@
-package summer.twitter.event;
+package summer.twitter.ws;
 
 import io.jsonwebtoken.Claims;
 import summer.core.Component;

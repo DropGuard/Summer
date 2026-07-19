@@ -9,7 +9,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import summer.data.redis.SummerRedisTemplate;
-import summer.twitter.event.EventPublisher;
+import summer.twitter.ws.EventPublisher;
 import summer.twitter.social.Follow;
 import summer.twitter.social.FollowRepository;
 import summer.twitter.tweet.Tweet;
