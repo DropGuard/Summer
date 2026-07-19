@@ -9,6 +9,16 @@
     <version>0.1.0</version>
     <packaging>pom</packaging>
 
+    <!-- This is a BOM (packaging=pom) with no Java sources, so the spotless
+         format check (declared in the parent reactor) has nothing to format and
+         refuses to run. Skip it here rather than giving the BOM a spotless
+         plugin of its own — that would be dead config and would leak a build
+         plugin to downstream consumers importing this BOM. -->
+    <properties>
+        <spotless.check.skip>true</spotless.check.skip>
+        <spotless.apply.skip>true</spotless.apply.skip>
+    </properties>
+
     <name>Summer Dependencies</name>
     <description>BOM (Bill of Materials) for Summer framework — import this to manage all Summer and third-party dependency versions</description>
 
