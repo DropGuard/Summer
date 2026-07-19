@@ -44,6 +44,7 @@ bin/
 ### Tooling ###
 .gitnexus/
 .claude/
+.aicode/
 .antigravitycli/
 .omo/
 *.log
