@@ -61,6 +61,16 @@
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- Shared test fixtures (generic DI/Web dummy beans used by
+             CrossModuleDiscoveryTest). Keeps fixture classes in one place
+             instead of duplicated inline in this module's test tree. -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-tck-fixtures</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
