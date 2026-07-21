@@ -112,7 +112,7 @@ public final class AotEngine {
 		for (MockedBean mocked : mocks) {
 			mockedTypeNames.add(mocked.targetTypeName());
 		}
-		new SharedConditionEvaluator().evaluate(beans, mockedTypeNames);
+		new SharedConditionEvaluator().evaluate(beans, mockedTypeNames, moduleIndex);
 		List<BeanDefinition> sorted = new SharedDependencyResolver().resolve(beans, java.util.Arrays.asList(mocks));
 
 		return compile(moduleIndex, sorted, cacheKey, className, mocks, overrides);

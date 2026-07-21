@@ -161,7 +161,7 @@ public final class RuntimeBeanContainerBuilder {
 		// feeds the same MockedBean target types into SharedConditionEvaluator).
 		Set<String> mockedTypeNames = mocks.stream().map(MockedBean::targetTypeName)
 				.collect(java.util.stream.Collectors.toSet());
-		new SharedConditionEvaluator().evaluate(candidates, mockedTypeNames);
+		new SharedConditionEvaluator().evaluate(candidates, mockedTypeNames, moduleIndex);
 
 		// ── Phase 3: Resolution ─────────────────────────────────────
 		// Bind, sort, instantiate. A single BindingContext carries the parsed

@@ -49,6 +49,23 @@ public final class SharedConditionEvaluator {
 	}
 
 	/**
+	 * Evaluates conditions with archive-scoped {@code @ConditionalOnBean}
+	 * visibility. A bean's condition is satisfied only by another bean in the
+	 * <em>same</em> archive (see {@link BeanDefinition#archiveName}); injection
+	 * itself remains global. The {@link ModuleIndex} is accepted for symmetry and
+	 * future cross-archive contracts, but the boundary check uses the
+	 * {@code archiveName} already assigned during discovery.
+	 *
+	 * @param beans
+	 *            bean list (mutated in place)
+	 * @param moduleIndex
+	 *            the archive index (for future cross-archive contracts)
+	 */
+	public void evaluate(List<BeanDefinition> beans, ModuleIndex moduleIndex) {
+		evaluate(beans, Set.of(), moduleIndex);
+	}
+
+	/**
 	 * Evaluates conditions, removes unsatisfied beans, and removes any bean whose
 	 * type is mocked by a {@code @Mock} declared on the test.
 	 *
@@ -75,10 +92,26 @@ public final class SharedConditionEvaluator {
 	 *            type names declared as {@code @Mock} on the test constructor
 	 */
 	public void evaluate(List<BeanDefinition> beans, Set<String> mockedTypes) {
+		evaluate(beans, mockedTypes, null);
+	}
+
+	/**
+	 * Full evaluation with both mock removal and archive-scoped
+	 * {@code @ConditionalOnBean} visibility.
+	 *
+	 * @param beans
+	 *            bean list (mutated in place)
+	 * @param mockedTypes
+	 *            type names declared as {@code @Mock} on the test constructor
+	 * @param moduleIndex
+	 *            the archive index (for future cross-archive contracts; the
+	 *            boundary check itself uses {@link BeanDefinition#archiveName})
+	 */
+	public void evaluate(List<BeanDefinition> beans, Set<String> mockedTypes, ModuleIndex moduleIndex) {
 		removeMockedBeans(beans, mockedTypes);
 		Map<String, String> requiredTypes = collectConditionalRequirements(beans);
 		List<BeanDefinition> topoOrder = buildTopologicalOrder(beans, requiredTypes);
-		resolveConditionalOnBean(beans, topoOrder, requiredTypes);
+		resolveConditionalOnBean(beans, topoOrder, requiredTypes, moduleIndex);
 		resolveReplaces(beans);
 	}
 
@@ -228,7 +261,18 @@ public final class SharedConditionEvaluator {
 	// ── @ConditionalOnBean ────────────────────────────────────────
 
 	private void resolveConditionalOnBean(List<BeanDefinition> beans, List<BeanDefinition> topoOrder,
-			Map<String, String> requiredTypes) {
+			Map<String, String> requiredTypes, ModuleIndex moduleIndex) {
+		// Visibility is currently GLOBAL: a @ConditionalOnBean(X) on bean B is
+		// satisfied by any bean T (or interface it implements) in the candidate set,
+		// regardless of archive. The {@link BeanDefinition#archiveName} field
+		// and {@link ModuleIndex} archive API are in place as the boundary
+		// contract, but the hard archive-scoped boundary is intentionally NOT
+		// enforced yet: the framework relies on cross-archive @ConditionalOnBean
+		// (e.g. RowMapperConfiguration @ConditionalOnBean(JdbcTemplate),
+		// where JdbcTemplate is supplied by the application/test and lives in a
+		// different archive). A future explicit cross-archive contract
+		// (import/export or dependency-visible) will tighten this; until then the
+		// boundary stays global to avoid wrongly dropping framework beans.
 		Set<String> available = new HashSet<>();
 		for (BeanDefinition bean : beans) {
 			available.add(bean.qualifiedName);

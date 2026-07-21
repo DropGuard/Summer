@@ -13,6 +13,7 @@ import summer.core.bean.BeanDefinition;
 import summer.core.bean.BeanEnrichment;
 import summer.core.bean.ConfigPropertiesBean;
 import summer.core.bean.ModuleIndex;
+import summer.core.bean.SharedConditionEvaluator;
 
 /**
  * Unified bean discovery shared by the Runtime and AOT engines.
@@ -77,10 +78,10 @@ public final class Discovery {
 		List<BeanDefinition> beans = new ArrayList<>();
 		Set<String> collected = new HashSet<>();
 
-		for (String mod : moduleIndex.modules()) {
-			IndexView modIdx = moduleIndex.moduleIndex(mod);
+		for (String mod : moduleIndex.archives()) {
+			IndexView modIdx = moduleIndex.archiveIndex(mod);
 			for (ClassInfo ci : modIdx.getKnownClasses()) {
-				registerClass(ci, beans, collected, merged);
+				registerClass(ci, beans, collected, merged, moduleIndex);
 			}
 		}
 
@@ -98,8 +99,8 @@ public final class Discovery {
 	 * abstract/interface types (after rejecting meta-annotated ones), and
 	 * already-collected types.
 	 */
-	private static void registerClass(ClassInfo ci, List<BeanDefinition> beans, Set<String> collected,
-			IndexView merged) {
+	private static void registerClass(ClassInfo ci, List<BeanDefinition> beans, Set<String> collected, IndexView merged,
+			ModuleIndex moduleIndex) {
 		if (ci.isAnnotation())
 			return;
 		if (ci.isInterface() || ci.isAbstract()) {
@@ -114,11 +115,11 @@ public final class Discovery {
 			return;
 
 		if (isConfigurationProperties(ci)) {
-			registerConfigProperties(ci, beans, merged);
+			registerConfigProperties(ci, beans, merged, moduleIndex);
 		} else if (isComponentLike(ci, merged)) {
-			registerComponent(ci, beans, merged);
+			registerComponent(ci, beans, merged, moduleIndex);
 			if (ci.hasAnnotation(CONFIG_DOT))
-				discoverBeanFactoryMethods(ci, beans, merged);
+				discoverBeanFactoryMethods(ci, beans, merged, moduleIndex);
 		}
 	}
 
@@ -131,8 +132,10 @@ public final class Discovery {
 				|| hasMetaComponentAnnotation(ci, merged, new HashSet<DotName>());
 	}
 
-	private static void registerConfigProperties(ClassInfo ci, List<BeanDefinition> beans, IndexView merged) {
+	private static void registerConfigProperties(ClassInfo ci, List<BeanDefinition> beans, IndexView merged,
+			ModuleIndex moduleIndex) {
 		ConfigPropertiesBean bean = new ConfigPropertiesBean(ci.name().toString(), ci.simpleName());
+		bean.archiveName = moduleIndex.archiveOf(ci.name().toString());
 		AnnotationInstance ann = ci.annotation(CONFIG_PROPERTIES_DOT);
 		bean.configPropertiesPrefix = (ann != null && ann.value("prefix") != null)
 				? ann.value("prefix").asString()
@@ -141,8 +144,9 @@ public final class Discovery {
 		beans.add(bean);
 	}
 
-	private static void registerComponent(ClassInfo ci, List<BeanDefinition> beans, IndexView merged) {
-		BeanDefinition bean = createBaseDefinition(ci, merged);
+	private static void registerComponent(ClassInfo ci, List<BeanDefinition> beans, IndexView merged,
+			ModuleIndex moduleIndex) {
+		BeanDefinition bean = createBaseDefinition(ci, merged, moduleIndex);
 		bean.isInterceptor = ci.annotation(INTERCEPTOR_DOT) != null;
 		// declaredAnnotation (not annotation): only @Replaces DIRECTLY on the class
 		// counts
@@ -192,7 +196,8 @@ public final class Discovery {
 		return false;
 	}
 
-	private static void discoverBeanFactoryMethods(ClassInfo configCi, List<BeanDefinition> beans, IndexView merged) {
+	private static void discoverBeanFactoryMethods(ClassInfo configCi, List<BeanDefinition> beans, IndexView merged,
+			ModuleIndex moduleIndex) {
 		for (MethodInfo method : configCi.methods()) {
 			if (!method.hasAnnotation(BEAN_DOT))
 				continue;
@@ -206,25 +211,28 @@ public final class Discovery {
 			// A @Bean takes priority over @ConfigurationProperties
 			beans.removeIf(b -> b instanceof ConfigPropertiesBean && b.qualifiedName.equals(returnTypeName));
 
-			beans.add(createFactoryBean(returnTypeName, configCi, method, merged));
+			beans.add(createFactoryBean(returnTypeName, configCi, method, merged, moduleIndex));
 		}
 	}
 
-	private static BeanDefinition createBaseDefinition(ClassInfo ci, IndexView merged) {
+	private static BeanDefinition createBaseDefinition(ClassInfo ci, IndexView merged, ModuleIndex moduleIndex) {
 		BeanDefinition bean = new BeanDefinition(ci.name().toString(), ci.simpleName());
+		bean.archiveName = moduleIndex.archiveOf(ci.name().toString());
 		collectInterfacesRecursive(bean, ci, merged, new HashSet<>());
 		return bean;
 	}
 
 	private static BeanDefinition createFactoryBean(String returnTypeName, ClassInfo configCi, MethodInfo method,
-			IndexView merged) {
+			IndexView merged, ModuleIndex moduleIndex) {
 		ClassInfo returnTypeCi = merged.getClassByName(method.returnType().name());
 		BeanDefinition fb;
 		if (returnTypeCi != null) {
-			fb = createBaseDefinition(returnTypeCi, merged);
+			fb = createBaseDefinition(returnTypeCi, merged, moduleIndex);
 		} else {
 			fb = new BeanDefinition(returnTypeName, method.returnType().name().withoutPackagePrefix());
 		}
+		// A @Bean product belongs to its declaring @Configuration's archive.
+		fb.archiveName = moduleIndex.archiveOf(configCi.name().toString());
 		fillFactoryBean(fb, configCi, method, merged);
 		return fb;
 	}

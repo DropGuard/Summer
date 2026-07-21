@@ -77,15 +77,15 @@ public final class JandexIndexLoader {
 	 * @return a module index whose universe is production beans across all modules
 	 */
 	public static ModuleIndex applicationIndex() {
-		Map<String, String> classToModule = new HashMap<>();
-		Map<String, IndexView> moduleIndexes = new HashMap<>();
+		Map<String, String> classToArchive = new HashMap<>();
+		Map<String, IndexView> archiveIndexes = new HashMap<>();
 		List<Index> indexes = new ArrayList<>();
-		loadIndexResource("META-INF/jandex.idx", classToModule, moduleIndexes, indexes, true);
+		loadIndexResource("META-INF/jandex.idx", classToArchive, archiveIndexes, indexes, true);
 		if (indexes.isEmpty()) {
 			throw new ConfigurationException(ErrorCode.CONFIG_MISSING_INDEX, "No jandex.idx found on classpath.");
 		}
 		List<IndexView> indexViews = new ArrayList<>(indexes);
-		return new ModuleIndex(CompositeIndex.create(indexViews), classToModule, moduleIndexes);
+		return new ModuleIndex(CompositeIndex.create(indexViews), classToArchive, archiveIndexes);
 	}
 
 	/**
@@ -113,15 +113,15 @@ public final class JandexIndexLoader {
 	 * @return a module index whose universe is production beans plus test beans
 	 */
 	public static ModuleIndex testIndex() {
-		Map<String, String> classToModule = new HashMap<>();
+		Map<String, String> classToArchive = new HashMap<>();
 		// Production per-module indexes (authoritative for the bean universe).
 		Map<String, IndexView> prodIndexes = new HashMap<>();
 		// Test per-module indexes (fixtures); merged onto prod when a module has both.
 		Map<String, IndexView> testIndexes = new HashMap<>();
 		List<Index> indexes = new ArrayList<>();
 
-		loadIndexResource("META-INF/jandex.idx", classToModule, prodIndexes, indexes, true);
-		loadIndexResource("META-INF/jandex-test.idx", classToModule, testIndexes, indexes, true);
+		loadIndexResource("META-INF/jandex.idx", classToArchive, prodIndexes, indexes, true);
+		loadIndexResource("META-INF/jandex-test.idx", classToArchive, testIndexes, indexes, true);
 
 		if (indexes.isEmpty()) {
 			throw new ConfigurationException(ErrorCode.CONFIG_MISSING_INDEX, "No jandex.idx found on classpath.");
@@ -131,15 +131,15 @@ public final class JandexIndexLoader {
 		// classes when both exist. This lets discovery iterate the full class set
 		// for a module (production beans + its test fixtures) instead of the test
 		// index silently shadowing the production one.
-		Map<String, IndexView> moduleIndexes = new HashMap<>(prodIndexes);
+		Map<String, IndexView> archiveIndexes = new HashMap<>(prodIndexes);
 		for (var entry : testIndexes.entrySet()) {
-			IndexView existing = moduleIndexes.get(entry.getKey());
-			moduleIndexes.put(entry.getKey(),
+			IndexView existing = archiveIndexes.get(entry.getKey());
+			archiveIndexes.put(entry.getKey(),
 					existing != null ? CompositeIndex.create(List.of(existing, entry.getValue())) : entry.getValue());
 		}
 
 		List<IndexView> indexViews = new ArrayList<>(indexes);
-		return new ModuleIndex(CompositeIndex.create(indexViews), classToModule, moduleIndexes);
+		return new ModuleIndex(CompositeIndex.create(indexViews), classToArchive, archiveIndexes);
 	}
 
 	/** DotName constants for bean-type discovery. */
@@ -205,22 +205,22 @@ public final class JandexIndexLoader {
 	 *
 	 * @param resourceName
 	 *            e.g. {@code META-INF/jandex.idx}
-	 * @param classToModule
+	 * @param classToArchive
 	 *            accumulator mapping class name → module
-	 * @param moduleIndexes
+	 * @param archiveIndexes
 	 *            accumulator mapping module name → its raw IndexView (only
 	 *            populated when {@code includeInBeanUniverse} is true)
 	 * @param indexes
 	 *            accumulator of indexes to include in the bean-discovery universe
 	 *            (skipped when {@code includeInBeanUniverse} is false)
 	 */
-	private static void loadIndexResource(String resourceName, Map<String, String> classToModule,
-			Map<String, IndexView> moduleIndexes, List<Index> indexes, boolean includeInBeanUniverse) {
+	private static void loadIndexResource(String resourceName, Map<String, String> classToArchive,
+			Map<String, IndexView> archiveIndexes, List<Index> indexes, boolean includeInBeanUniverse) {
 		try {
 			Enumeration<URL> urls = JandexIndexLoader.class.getClassLoader().getResources(resourceName);
 			while (urls.hasMoreElements()) {
 				URL url = urls.nextElement();
-				String module = moduleFromUrl(url);
+				String module = archiveFromUrl(url);
 				log.debug("[Summer] Found {} at: {} (module={})", resourceName, url, module);
 
 				Index index;
@@ -232,10 +232,10 @@ public final class JandexIndexLoader {
 				}
 
 				for (ClassInfo ci : index.getKnownClasses()) {
-					classToModule.put(ci.name().toString(), module);
+					classToArchive.put(ci.name().toString(), module);
 				}
 				if (includeInBeanUniverse) {
-					moduleIndexes.put(module, index);
+					archiveIndexes.put(module, index);
 					indexes.add(index);
 				}
 			}
@@ -256,7 +256,7 @@ public final class JandexIndexLoader {
 	 * name: {@code .../summer-core/target/classes/META-INF/jandex.idx} →
 	 * {@code summer-core}.
 	 */
-	static String moduleFromUrl(URL url) {
+	static String archiveFromUrl(URL url) {
 		String path = url.getPath();
 		// Jar URL: "file:.../summer-twitter-0.1.0.jar!/META-INF/jandex.idx"
 		// Extract jar name, strip "-<version>"
