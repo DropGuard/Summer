@@ -220,7 +220,7 @@ public final class RuntimeBeanAdapter {
 			String fullPath = combinePaths(basePath, methodPath);
 			String returnType = method.getReturnType().getName();
 
-			RouteInfo route = new RouteInfo(httpMethod, fullPath, clazz.getName(), method.getName(), returnType, clazz);
+			RouteInfo route = new RouteInfo(httpMethod, fullPath, clazz.getName(), method.getName(), returnType);
 
 			// Collect parameter info
 			collectParameters(method, route);

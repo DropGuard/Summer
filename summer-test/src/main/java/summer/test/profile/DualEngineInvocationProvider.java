@@ -2,7 +2,6 @@ package summer.test.profile;
 
 import java.util.List;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.Extension;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestInstanceFactory;
@@ -10,7 +9,6 @@ import org.junit.jupiter.api.extension.TestInstanceFactoryContext;
 import org.junit.jupiter.api.extension.TestInstantiationException;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContext;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
-import summer.core.BeanContainer;
 import summer.core.Engine;
 import summer.test.TestContainerFactory;
 import summer.test.annotation.SummerTest;
@@ -80,26 +78,19 @@ public final class DualEngineInvocationProvider implements TestTemplateInvocatio
 		}
 
 		/** Builds the engine's container and resolves the test constructor. */
-		private final class EngineTestInstanceFactory implements TestInstanceFactory, AfterAllCallback {
+		private final class EngineTestInstanceFactory implements TestInstanceFactory {
 
 			@Override
 			public Object createTestInstance(TestInstanceFactoryContext factoryContext,
 					ExtensionContext extensionContext) throws TestInstantiationException {
-				BeanContainer container = TestContainerFactory.build(testClass, engine);
-				extensionContext.getStore(NS).put(KEY, container);
-				return TestContainerFactory.instantiate(testClass, container);
-			}
-
-			@Override
-			public void afterAll(ExtensionContext ctx) throws Exception {
-				BeanContainer container = ctx.getStore(NS).get(KEY, BeanContainer.class);
-				if (container != null) {
-					try {
-						container.close();
-					} catch (Exception ignored) {
-					}
-					ctx.getStore(NS).remove(KEY);
-				}
+				// instantiateFor honours the @SummerTest(shouldFail=...) contract
+				// per engine, so a divergence where one engine accepts a broken
+				// graph and the other rejects it surfaces as a per-engine failure.
+				// The built container (or null on an expected failure) is stored for
+				// reference; lifecycle is owned by TestRunContext, not closed here.
+				TestContainerFactory.BuildOutcome outcome = TestContainerFactory.instantiateFor(testClass, engine);
+				extensionContext.getStore(NS).put(KEY, outcome.container());
+				return outcome.instance();
 			}
 		}
 	}

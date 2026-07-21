@@ -1,12 +1,10 @@
 package summer.test;
 
 import java.lang.reflect.Method;
-import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestInstanceFactory;
 import org.junit.jupiter.api.extension.TestInstanceFactoryContext;
 import org.junit.jupiter.api.extension.TestInstantiationException;
-import summer.core.BeanContainer;
 import summer.core.Engine;
 import summer.test.annotation.SummerTest;
 
@@ -16,12 +14,20 @@ import summer.test.annotation.SummerTest;
  * <p>
  * Builds a {@link BeanContainer} during test instance creation and resolves
  * constructor parameters against it — same injection contract as
- * {@code @Component}. The container scope is derived from the test class (its
- * module, widened by {@code modules}/{@code packages}), so the test sees
- * exactly the beans it should and nothing from unrelated tests.
+ * {@code @Component}. The build (and the {@code shouldFail} contract) is
+ * delegated to {@link TestContainerFactory#instantiateFor}, the single
+ * chokepoint shared with the dual-engine path, so both engines judge a negative
+ * test by the same rule.
+ * </p>
+ *
+ * <p>
+ * Container lifecycle is owned by {@link TestRunContext} (JVM-wide reuse,
+ * closed on environment change / JVM exit) — this extension deliberately does
+ * not close the container, matching the run-context's invariant that per-class
+ * callbacks must not tear down a shared universe.
  * </p>
  */
-public class SummerExtension implements TestInstanceFactory, AfterAllCallback {
+public class SummerExtension implements TestInstanceFactory {
 
 	private static final ExtensionContext.Namespace NS = ExtensionContext.Namespace.create(SummerExtension.class);
 	private static final String KEY = "BeanContainer";
@@ -37,32 +43,15 @@ public class SummerExtension implements TestInstanceFactory, AfterAllCallback {
 
 		// Engine selection is transparent to users; the dev switch (Summer:dev)
 		// can force a specific engine, otherwise Runtime is the dev default.
+		// instantiateFor honours the @SummerTest(shouldFail=...) contract, so a
+		// negative test (expected assembly failure) passes when assembly throws,
+		// and returns the built container (or null on an expected failure) for
+		// storage — no thread-local, no second build.
 		Engine engine = summerTest.engine();
-		BeanContainer container = TestContainerFactory.build(testClass, engine);
-		extensionContext.getStore(NS).put(KEY, container);
+		TestContainerFactory.BuildOutcome outcome = TestContainerFactory.instantiateFor(testClass, engine);
+		extensionContext.getStore(NS).put(KEY, outcome.container());
 
-		return TestContainerFactory.instantiate(testClass, container);
-	}
-
-	@Override
-	public void afterAll(ExtensionContext ctx) throws Exception {
-		BeanContainer container = getContext(ctx);
-		if (container != null) {
-			try {
-				container.close();
-			} catch (Exception ignored) {
-			}
-			ctx.getStore(NS).remove(KEY);
-		}
-	}
-
-	private BeanContainer getContext(ExtensionContext ctx) {
-		for (var current = ctx; current != null; current = current.getParent().orElse(null)) {
-			BeanContainer c = current.getStore(NS).get(KEY, BeanContainer.class);
-			if (c != null)
-				return c;
-		}
-		return null;
+		return outcome.instance();
 	}
 
 	// ── Mockito bridge ──────────────────────────────────────────

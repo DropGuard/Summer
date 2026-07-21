@@ -71,4 +71,37 @@ public @interface SummerTest {
 	 * </p>
 	 */
 	Engine engine() default Engine.RUNTIME;
+
+	/**
+	 * Optional seed classes for a narrow (scoped) test universe. When non-empty,
+	 * the container is built only from these classes plus their transitive
+	 * dependency closure — equivalent to Quarkus' {@code beanClasses(...)}. This is
+	 * how negative tests (circular dependencies, missing dependencies, ambiguous
+	 * resolution) isolate an intentionally broken graph without pulling in the
+	 * whole application.
+	 *
+	 * <p>
+	 * Leave empty (the default) to use the full Quarkus-style universe: every
+	 * production bean plus every test bean on the classpath. The two modes are
+	 * mutually exclusive per test class; a class either scopes itself or runs
+	 * against the whole universe.
+	 * </p>
+	 */
+	Class<?>[] classes() default {};
+
+	/**
+	 * Marks the container build as expected to FAIL. Quarkus-aligned
+	 * ({@code ArcTestContainer.shouldFail(true)}): the test asserts that assembly
+	 * throws, so a build exception is the PASS condition and a successful build is
+	 * the FAIL. Used for negative tests (circular dependencies, missing
+	 * dependencies, ambiguous resolution) without hand-rolled try/catch.
+	 *
+	 * <p>
+	 * On a {@code @DualEngine} test each engine is judged independently, which
+	 * enforces that both engines fail identically — a divergence (one engine throws
+	 * a typed exception, the other fails at code generation) surfaces as a
+	 * per-engine failure rather than a silent inconsistency.
+	 * </p>
+	 */
+	boolean shouldFail() default false;
 }

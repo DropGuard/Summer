@@ -8,8 +8,10 @@ import java.util.Set;
 import org.jboss.jandex.IndexView;
 import summer.core.BeanContainer;
 import summer.core.DiEngine;
+import summer.core.Discovery;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.MockedBean;
+import summer.core.bean.ModuleIndex;
 import summer.core.bean.SharedConditionEvaluator;
 import summer.core.bean.SharedDependencyResolver;
 
@@ -82,12 +84,25 @@ public final class AotEngine {
 	 */
 	public static BeanContainer buildAndCompile(IndexView index, String cacheKey, String className, MockedBean[] mocks,
 			java.util.Map<String, Object> overrides) {
+		// No per-module split available — treat the whole index as one module.
+		return buildAndCompile(ModuleIndex.single(index), cacheKey, className, mocks, overrides);
+	}
+
+	/**
+	 * Full AOT pipeline with an explicit {@link ModuleIndex}. Preferred for seeded
+	 * (narrow) universes: discovery iterates only the modules the index retains, so
+	 * a {@code @SummerTest(classes=...)} seed closure is honoured instead of the
+	 * whole classpath — the previous {@code IndexView}-only path silently
+	 * re-discovered the entire universe and ignored the seeds.
+	 */
+	public static BeanContainer buildAndCompile(ModuleIndex moduleIndex, String cacheKey, String className,
+			MockedBean[] mocks, java.util.Map<String, Object> overrides) {
 		BeanContainer cached = CACHE.get(cacheKey);
 		if (cached != null) {
 			return cached;
 		}
 
-		List<BeanDefinition> beans = new BeanDiscovery(index).discover();
+		List<BeanDefinition> beans = Discovery.discover(moduleIndex);
 		// Discovery-stage mock replacement: remove the real definitions of every
 		// mocked type so they are never generated/instantiated. Shared with Runtime
 		// via SharedConditionEvaluator, so concrete-class @Mock behaves identically on
@@ -100,7 +115,7 @@ public final class AotEngine {
 		new SharedConditionEvaluator().evaluate(beans, mockedTypeNames);
 		List<BeanDefinition> sorted = new SharedDependencyResolver().resolve(beans, java.util.Arrays.asList(mocks));
 
-		return compile(index, sorted, cacheKey, className, mocks, overrides);
+		return compile(moduleIndex, sorted, cacheKey, className, mocks, overrides);
 	}
 
 	/**
@@ -109,8 +124,9 @@ public final class AotEngine {
 	 * cache check lives in {@code buildAndCompile}, not here, so the early-return
 	 * optimization (skip discovery + compilation on a hit) is not duplicated.
 	 *
-	 * @param index
-	 *            Jandex index
+	 * @param moduleIndex
+	 *            the module index (its merged view is used for annotation
+	 *            resolution during code generation)
 	 * @param sorted
 	 *            topologically-sorted bean definitions (conditions already
 	 *            evaluated, mocks already removed)
@@ -125,12 +141,13 @@ public final class AotEngine {
 	 *            resolved {@code @TestProfile} content (empty map when none)
 	 * @return AOT-compiled BeanContainer
 	 */
-	private static BeanContainer compile(IndexView index, List<BeanDefinition> sorted, String cacheKey,
+	private static BeanContainer compile(ModuleIndex moduleIndex, List<BeanDefinition> sorted, String cacheKey,
 			String className, MockedBean[] mocks, java.util.Map<String, Object> overrides) {
 		try {
 			// 1. Generate code to temp directory
 			File tempDir = Files.createTempDirectory("summer-aot-").toFile();
 			tempDir.deleteOnExit();
+			IndexView index = moduleIndex.index();
 
 			WireMethodGenerator wireGen = new WireMethodGenerator(overrides);
 			new AotContextGenerator(index, tempDir, wireGen, overrides).generate(sorted, className, mocks);
@@ -144,9 +161,13 @@ public final class AotEngine {
 			// delegated to the single framework-recognized loader in DiEngine, so no
 			// reflection leaks into the AOT module. The generated build(MockedBean[])
 			// registers each mock under its declared target type (real definitions
-			// removed at discovery).
+			// removed at discovery). The scratch output dir is passed as an extra
+			// classpath element so the loader finds the just-compiled .class (it is
+			// not, and must not be, on the application classpath).
+			File classesDir = new File(tempDir, "classes");
+			java.net.URL classesUrl = classesDir.toURI().toURL();
 			BeanContainer container = DiEngine.loadCompiledEngine(AotContextGenerator.PACKAGE + "." + className,
-					(Object) mocks);
+					new java.net.URL[]{classesUrl}, (Object) mocks);
 
 			// 4. Cache and return
 			CACHE.put(cacheKey, container);

@@ -67,6 +67,29 @@ public final class AotKey {
 	 * @param overrides
 	 *            resolved {@code @TestProfile} content (empty map when none)
 	 */
+	/**
+	 * Identity for a scoped (narrow) {@code @SummerTest(classes=...)} container.
+	 * The fingerprint is derived from the seed-class signature, so two scoped tests
+	 * with the same closure share a generated graph while different closures stay
+	 * isolated — same isolation guarantee as {@link #forTest}, just keyed on the
+	 * seed list instead of the whole test universe.
+	 *
+	 * @param seedSignature
+	 *            deterministic signature of the seed classes (sorted names)
+	 */
+	public static AotKey forNarrow(String seedSignature) {
+		return new AotKey("kind=narrow|seeds=" + seedSignature);
+	}
+
+	/**
+	 * Identity for a whole-universe container built without a test class (e.g.
+	 * {@code Testing.build()} from an integration test). Fixed fingerprint — such
+	 * containers always observe the same full test universe.
+	 */
+	public static AotKey forUniverse() {
+		return new AotKey("kind=universe");
+	}
+
 	public static AotKey forTest(Class<?> testClass, java.util.Map<String, Object> overrides) {
 		SortedSet<String> dimensions = new TreeSet<>();
 		dimensions.add("kind=test");

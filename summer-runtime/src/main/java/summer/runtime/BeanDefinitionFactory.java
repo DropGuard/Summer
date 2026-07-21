@@ -1,20 +1,20 @@
 package summer.runtime;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import summer.core.annotation.Bean;
-import summer.core.annotation.Configuration;
-import summer.core.annotation.Replaces;
 import summer.core.bean.BeanDefinition;
-import summer.core.config.ConfigurationProperties;
 
 /**
- * Builds {@link BeanDefinition} objects from discovered component classes and
- * constructs AOP interceptor maps for proxy generation.
+ * Constructs AOP interceptor maps for proxy generation from already-discovered
+ * {@link BeanDefinition}s.
+ *
+ * <p>
+ * Discovery itself now lives in {@link summer.core.Discovery}, shared by both
+ * the Runtime and AOT engines — this factory only post-processes the unified
+ * candidate set (populating interceptor edges used by
+ * {@link summer.core.bean.SharedDependencyResolver} for topological ordering).
+ * </p>
  *
  * <p>
  * This class is stateless and thread-safe. All methods accept their
@@ -24,60 +24,6 @@ import summer.core.config.ConfigurationProperties;
 public final class BeanDefinitionFactory {
 
 	private BeanDefinitionFactory() {
-	}
-
-	/**
-	 * Converts discovered component classes and {@code @Bean} methods into a list
-	 * of {@link BeanDefinition} objects. Pure discovery — no condition evaluation,
-	 * no side effects.
-	 *
-	 * @param componentClasses
-	 *            set of discovered component classes
-	 * @param adapter
-	 *            runtime bean adapter for Jandex metadata
-	 * @return mutable list of bean definitions
-	 */
-	public static List<BeanDefinition> buildBeanDefinitions(Set<Class<?>> componentClasses,
-			RuntimeBeanAdapter adapter) {
-		return componentClasses.stream().flatMap(clazz -> toBeanDefinitions(clazz, adapter))
-				.collect(Collectors.toCollection(ArrayList::new));
-	}
-
-	private static Stream<BeanDefinition> toBeanDefinitions(Class<?> clazz, RuntimeBeanAdapter adapter) {
-		Stream<BeanDefinition> result;
-		String prefix = clazz.isAnnotationPresent(ConfigurationProperties.class)
-				? clazz.getAnnotation(ConfigurationProperties.class).prefix()
-				: "";
-		if (clazz.isAnnotationPresent(ConfigurationProperties.class)) {
-			// @ConfigurationProperties beans are emitted as ConfigPropertiesBean markers
-			// so SharedDependencyResolver can resolve them when other beans inject them
-			// (e.g. NettyServerRunner depending on ServerConfig). The actual binding
-			// happens independently in
-			// RuntimeBeanContainerBuilder.bindConfigurationProperties;
-			// BeanInstantiator skips ConfigPropertiesBean instances because they are
-			// already registered in the builder by that pass.
-			result = Stream.of(adapter.adaptConfigProperties(clazz, prefix));
-		} else if (clazz.isAnnotationPresent(Configuration.class)) {
-			Stream<BeanDefinition> configBean = Stream.of(adapter.adaptComponent(clazz));
-			Stream<BeanDefinition> factoryBeans = Stream.of(clazz.getDeclaredMethods())
-					.filter(m -> m.isAnnotationPresent(Bean.class)).map(adapter::adaptFactoryMethod);
-			result = Stream.concat(configBean, factoryBeans);
-		} else {
-			result = Stream.of(adapter.adaptComponent(clazz));
-		}
-		// Tag all BeanDefinitions from this class with its @Replaces target.
-		// SharedConditionEvaluator reads replacesTargetClass instead of
-		// querying the Jandex index — this ensures @Replaces works for
-		// any component source (indexed classes AND seeds from test sources).
-		Replaces replaces = clazz.getAnnotation(Replaces.class);
-		if (replaces != null) {
-			String targetName = replaces.value().getName();
-			result = result.map(bd -> {
-				bd.replacesTargetClass = targetName;
-				return bd;
-			});
-		}
-		return result;
 	}
 
 	/**
@@ -104,7 +50,7 @@ public final class BeanDefinitionFactory {
 	 * <p>
 	 * Interceptor matching reads
 	 * {@link BeanDefinition#interceptorBindingAnnotations} — pre-computed at
-	 * discovery time by {@link RuntimeBeanAdapter} — rather than scanning
+	 * discovery time by {@link summer.core.Discovery} — rather than scanning
 	 * annotations via reflection.
 	 * </p>
 	 *
@@ -131,24 +77,6 @@ public final class BeanDefinitionFactory {
 
 	/**
 	 * Checks if an interceptor definition has a binding annotation that matches the
-	 * target class or any of its methods.
-	 *
-	 * <p>
-	 * Reads binding annotations from
-	 * {@link BeanDefinition#interceptorBindingAnnotations}, which are pre-computed
-	 * strings populated at discovery time — no reflection call to
-	 * {@code findBindings()} needed.
-	 * </p>
-	 *
-	 * @param interceptorDef
-	 *            the interceptor's bean definition (with populated
-	 *            {@code interceptorBindingAnnotations})
-	 * @param targetClass
-	 *            the target class to match against
-	 * @return true if the interceptor should be applied to the target
-	 */
-	/**
-	 * Checks if an interceptor definition has a binding annotation that matches the
 	 * target definition. Pure string Set intersection on pre-computed
 	 * {@link BeanDefinition#interceptorBindingAnnotations} — no reflection.
 	 */
@@ -169,12 +97,6 @@ public final class BeanDefinitionFactory {
 
 	/**
 	 * Returns the qualified names of interceptors that match the given bean.
-	 *
-	 * <p>
-	 * Reads from the pre-computed {@link BeanDefinition#interceptors} list
-	 * populated by {@link #populateInterceptors(List)} rather than re-running
-	 * binding matching.
-	 * </p>
 	 */
 	private static List<String> matchingInterceptorNames(BeanDefinition bean) {
 		return bean.interceptors.stream().map(b -> b.qualifiedName).toList();

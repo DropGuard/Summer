@@ -1,4 +1,4 @@
-package summer.aot;
+package summer.core.bean;
 
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -10,19 +10,26 @@ import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
 import org.jboss.jandex.MethodInfo;
-import summer.core.bean.BeanDefinition;
-import summer.core.bean.ConfigPropertiesBean;
-import summer.core.bean.RouteInfo;
 
 /**
  * Enriches discovered bean definitions with constructor params, interface
  * names, route metadata, and AOP binding information.
  *
  * <p>
- * This is Phase 4 of the discovery pipeline — runs after condition evaluation.
+ * This is the enrichment phase of discovery — runs after the candidate set is
+ * enumerated (from a {@link ModuleIndex}) but before condition evaluation
+ * ({@code @ConditionalOnBean}/{@Replaces}) and dependency resolution. It only
+ * reads Jandex metadata into {@link BeanDefinition} fields; it never removes or
+ * reorders beans, so it is safe to run on the shared discovery output that both
+ * the Runtime and AOT engines consume.
+ * </p>
+ *
+ * <p>
+ * Lives in {@code summer.core} (not {@code summer.aot}) so the unified
+ * {@link Discovery} can call it without core depending on the AOT module.
  * </p>
  */
-final class BeanEnrichment {
+public final class BeanEnrichment {
 
 	private static final DotName REST_CONTROLLER_DOT = DotName.createSimple("summer.web.annotation.RestController");
 	private static final DotName PATH_PARAM_DOT = DotName.createSimple("summer.web.annotation.PathParam");
@@ -43,7 +50,7 @@ final class BeanEnrichment {
 
 	private final IndexView index;
 
-	BeanEnrichment(IndexView index) {
+	public BeanEnrichment(IndexView index) {
 		this.index = index;
 	}
 
@@ -51,7 +58,7 @@ final class BeanEnrichment {
 	 * Enriches beans with constructor params, interface names, route metadata, and
 	 * AOP bindings.
 	 */
-	void enrich(List<BeanDefinition> beans) {
+	public void enrich(List<BeanDefinition> beans) {
 		for (BeanDefinition bean : beans) {
 			if (bean instanceof ConfigPropertiesBean)
 				continue;
@@ -60,8 +67,6 @@ final class BeanEnrichment {
 				if (!bean.isFactoryMethod()) {
 					collectConstructorParams(bean, ci);
 				}
-				// interfaces are now collected during BeanDiscovery.createBaseDefinition
-				// collectInterfaces(bean, ci);
 				collectExceptionHandlers(bean, ci);
 				collectConditions(bean, ci);
 			}
@@ -103,9 +108,6 @@ final class BeanEnrichment {
 			}
 		}
 	}
-
-	// ── Interfaces ────────────────────────────────────────────────────
-	// (Interfaces are collected natively in BeanDiscovery during creation)
 
 	// ── Route Metadata ────────────────────────────────────────────────
 
@@ -247,8 +249,6 @@ final class BeanEnrichment {
 			ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
 			if (ci == null)
 				continue;
-			// ci.annotations() checks the actual annotation list directly,
-			// avoiding potential resolution issues with cross-module DotNames.
 			if (ci.annotation(INTERCEPTOR_DOT) == null)
 				continue;
 			Set<DotName> bindings = new HashSet<>();
@@ -271,11 +271,9 @@ final class BeanEnrichment {
 			if (ci == null)
 				continue;
 
-			// Skip interceptors -- they are not proxy targets.
 			if (ci.annotation(INTERCEPTOR_DOT) != null)
 				continue;
 
-			// Collect class-level bindings
 			Set<String> bindings = new HashSet<>();
 			Set<DotName> targetBindings = new HashSet<>();
 			for (AnnotationInstance ann : ci.declaredAnnotations()) {
@@ -286,7 +284,6 @@ final class BeanEnrichment {
 				}
 			}
 
-			// Collect method-level bindings
 			Map<String, Set<String>> methodBindings = new java.util.LinkedHashMap<>();
 			if (targetBindings.isEmpty()) {
 				for (MethodInfo method : ci.methods()) {
@@ -304,13 +301,11 @@ final class BeanEnrichment {
 				}
 			}
 
-			// Populate BeanDefinition enrichment fields (sets needsProxy() implicitly)
 			bean.interceptorBindingAnnotations = bindings.isEmpty() ? Set.of() : Set.copyOf(bindings);
 			if (!methodBindings.isEmpty()) {
 				bean.methodBindingAnnotations = methodBindings;
 			}
 
-			// Match interceptors when bindings exist
 			if (!bindings.isEmpty()) {
 				for (var entry : interceptorBindings.entrySet()) {
 					for (DotName binding : entry.getValue()) {

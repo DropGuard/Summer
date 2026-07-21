@@ -23,11 +23,11 @@ import org.jboss.jandex.IndexReader;
 import org.jboss.jandex.IndexView;
 import summer.aot.AotContextGenerator;
 import summer.aot.AotProxyGenerator;
-import summer.aot.BeanDiscovery;
 import summer.aot.RouteAdapterGenerator;
 import summer.aot.WireMethodGenerator;
-import summer.core.BeanContainer;
+import summer.core.Discovery;
 import summer.core.bean.BeanDefinition;
+import summer.core.bean.ModuleIndex;
 import summer.core.bean.SharedDependencyResolver;
 
 /**
@@ -78,17 +78,10 @@ public class SummerMojo extends AbstractMojo {
 
 			File generatedDir = prepareGeneratedDir(false);
 
-			// Assemble the AOT pipeline via BeanContainer.Builder (constructor injection)
-			WireMethodGenerator wireGen = new WireMethodGenerator();
-			BeanContainer.Builder pipelineBuilder = new BeanContainer.Builder();
-			pipelineBuilder.register(WireMethodGenerator.class, wireGen);
-			pipelineBuilder.register(BeanDiscovery.class, new BeanDiscovery(index));
-			pipelineBuilder.register(AotContextGenerator.class, new AotContextGenerator(index, generatedDir, wireGen));
-			pipelineBuilder.register(AotProxyGenerator.class, new AotProxyGenerator());
-			pipelineBuilder.register(RouteAdapterGenerator.class, new RouteAdapterGenerator());
-			BeanContainer pipeline = pipelineBuilder.build();
-
-			List<BeanDefinition> beans = pipeline.getBean(BeanDiscovery.class).discover();
+			// Unified discovery (shared by both engines) over the production index.
+			// Discovery is engine-agnostic and consumes a ModuleIndex; the production
+			// build wraps its merged CompositeIndex as a single-module universe.
+			List<BeanDefinition> beans = Discovery.discover(ModuleIndex.single(index));
 			getLog().debug("[Summer] Discovered " + beans.size() + " beans");
 
 			SharedDependencyResolver resolver = new SharedDependencyResolver();
@@ -103,9 +96,10 @@ public class SummerMojo extends AbstractMojo {
 				}
 			}
 
-			pipeline.getBean(AotContextGenerator.class).generate(sorted);
-			pipeline.getBean(AotProxyGenerator.class).generate(sorted, index, generatedDir);
-			pipeline.getBean(RouteAdapterGenerator.class).generate(sorted, generatedDir);
+			WireMethodGenerator wireGen = new WireMethodGenerator();
+			new AotContextGenerator(index, generatedDir, wireGen).generate(sorted);
+			new AotProxyGenerator().generate(sorted, index, generatedDir);
+			new RouteAdapterGenerator().generate(sorted, generatedDir);
 
 			compileGeneratedSources(generatedDir, false);
 

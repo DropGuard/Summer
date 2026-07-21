@@ -28,7 +28,7 @@ public class RoutingFixtureController {
 	}
 
 	@Get("/users/{id}")
-	public void getUser(@PathParam("id") String id, HttpContext ctx) {
+	public void getUser(HttpContext ctx, @PathParam("id") String id) {
 		ctx.text(HttpStatus.OK, "user:" + id);
 	}
 
@@ -39,13 +39,13 @@ public class RoutingFixtureController {
 	}
 
 	@Put("/users/{id}")
-	public void updateUser(@PathParam("id") String id, HttpContext ctx) {
+	public void updateUser(HttpContext ctx, @PathParam("id") String id) {
 		NameBody body = ctx.body(NameBody.class);
 		ctx.text(HttpStatus.OK, "updated:" + id + ":" + body.name());
 	}
 
 	@Delete("/users/{id}")
-	public void deleteUser(@PathParam("id") String id, HttpContext ctx) {
+	public void deleteUser(HttpContext ctx, @PathParam("id") String id) {
 		ctx.text(HttpStatus.OK, "deleted:" + id);
 	}
 

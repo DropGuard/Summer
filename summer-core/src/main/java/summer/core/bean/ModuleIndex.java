@@ -36,6 +36,23 @@ public final class ModuleIndex {
 		this.moduleIndexes = Collections.unmodifiableMap(moduleIndexes);
 	}
 
+	/**
+	 * Wraps a single merged {@link IndexView} as a one-module {@link ModuleIndex}.
+	 * Used when a caller has only the merged index (no per-module split) —
+	 * discovery iterates the whole index as one module, which is the
+	 * pre-unification behaviour. Also the bridge for legacy callers (e.g. the
+	 * production AOT build) that supply an {@code IndexView} directly.
+	 */
+	public static ModuleIndex single(IndexView mergedIndex) {
+		Map<String, String> classToModule = new java.util.HashMap<>();
+		Map<String, IndexView> moduleIndexes = new java.util.HashMap<>();
+		for (String typeName : mergedIndex.getKnownClasses().stream().map(Object::toString).toList()) {
+			classToModule.put(typeName, "main");
+		}
+		moduleIndexes.put("main", mergedIndex);
+		return new ModuleIndex(mergedIndex, classToModule, moduleIndexes);
+	}
+
 	/** The merged fallback index (all classes from all modules). */
 	public IndexView index() {
 		return mergedIndex;

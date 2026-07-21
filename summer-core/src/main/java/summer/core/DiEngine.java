@@ -125,8 +125,35 @@ public final class DiEngine {
 	 * @return the built container
 	 */
 	public static BeanContainer loadCompiledEngine(String className, Object... args) {
+		return loadCompiledEngine(className, new java.net.URL[0], args);
+	}
+
+	/**
+	 * Loads a compiled engine class and invokes its static {@code build} method,
+	 * optionally extending the search path with extra classpath elements (e.g. the
+	 * temp directory an AOT compiler just emitted {@code .class} files into). When
+	 * {@code extraClasspath} is empty the behavior is identical to the plain
+	 * overload — the class is resolved against the current context class loader, as
+	 * the production path expects (generated {@code GeneratedAotContext} lives in
+	 * {@code target/classes}). The extra-URL form is what lets the test-time AOT
+	 * compiler load classes it just compiled to a scratch directory that is not
+	 * (and must not be) on the application classpath.
+	 *
+	 * @param className
+	 *            fully-qualified name of the compiled engine / container class
+	 * @param extraClasspath
+	 *            directories/jars to search in addition to the context loader
+	 * @param args
+	 *            arguments passed to the static {@code build} method
+	 * @return the built container
+	 */
+	public static BeanContainer loadCompiledEngine(String className, java.net.URL[] extraClasspath, Object... args) {
 		try {
-			Class<?> clazz = Class.forName(className);
+			ClassLoader loader = Thread.currentThread().getContextClassLoader();
+			if (extraClasspath.length > 0) {
+				loader = new java.net.URLClassLoader(extraClasspath, loader);
+			}
+			Class<?> clazz = Class.forName(className, true, loader);
 			return (BeanContainer) clazz.getMethod("build", args.getClass()).invoke(null, (Object) args);
 		} catch (ClassNotFoundException e) {
 			throw new ConfigurationException(ErrorCode.CONFIG_AOT_CONTEXT_NOT_FOUND,

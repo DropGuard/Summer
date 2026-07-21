@@ -35,8 +35,9 @@ public class RuntimeRouteRegistrar implements RouteRegistrar {
 	@Override
 	public void registerControllers(HttpRouter.Builder builder, BeanContainer context) {
 		for (RouteInfo route : context.routes()) {
-			Object controller = context.getBean(route.controllerType);
-			Handler handler = HandlerFactory.create(controller, resolveHandler(route), resolverChain);
+			Class<?> controllerClass = resolveControllerClass(route);
+			Object controller = context.getBean(controllerClass);
+			Handler handler = HandlerFactory.create(controller, resolveHandler(route, controllerClass), resolverChain);
 			switch (route.httpMethod) {
 				case "GET" -> builder.get(route.path, handler);
 				case "POST" -> builder.post(route.path, handler);
@@ -48,13 +49,25 @@ public class RuntimeRouteRegistrar implements RouteRegistrar {
 	}
 
 	/**
-	 * Resolves the handler {@link java.lang.reflect.Method} from the controller
-	 * class and method name. The controller class is always present on the runtime
-	 * path (it is the discovered {@code @Component}); the method name is the
-	 * cross-engine string contract shared with the AOT engine.
+	 * Resolves the controller {@link Class} from the cross-engine string contract
+	 * ({@code controllerClass}). The AOT engine emits static handler calls from the
+	 * same string; the runtime engine resolves the reflective {@code Method} here.
 	 */
-	private static java.lang.reflect.Method resolveHandler(RouteInfo route) {
-		for (java.lang.reflect.Method m : route.controllerType.getMethods()) {
+	private static Class<?> resolveControllerClass(RouteInfo route) {
+		try {
+			return Class.forName(route.controllerClass);
+		} catch (ClassNotFoundException e) {
+			throw new IllegalStateException("Controller class not on classpath: " + route.controllerClass, e);
+		}
+	}
+
+	/**
+	 * Resolves the handler {@link java.lang.reflect.Method} from the controller
+	 * class and method name. The method name is the cross-engine string contract
+	 * shared with the AOT engine.
+	 */
+	private static java.lang.reflect.Method resolveHandler(RouteInfo route, Class<?> controllerClass) {
+		for (java.lang.reflect.Method m : controllerClass.getMethods()) {
 			if (m.getName().equals(route.methodName)) {
 				return m;
 			}

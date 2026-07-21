@@ -56,6 +56,9 @@ public final class BeanContainer implements AutoCloseable {
 	 */
 	@SuppressWarnings("unchecked")
 	public <T> T getBean(Class<T> type) {
+		if (type == null) {
+			throw new IllegalArgumentException("getBean requires a non-null type");
+		}
 		Object exact = singletons.get(type);
 		if (exact != null) {
 			return (T) exact;
@@ -75,6 +78,9 @@ public final class BeanContainer implements AutoCloseable {
 	 */
 	@SuppressWarnings("unchecked")
 	public <T> List<T> getBeans(Class<T> type) {
+		if (type == null) {
+			throw new IllegalArgumentException("getBeans requires a non-null type");
+		}
 		List<T> result = new ArrayList<>();
 		for (Object bean : singletons.values()) {
 			if (type.isInstance(bean) && !result.contains(bean)) {

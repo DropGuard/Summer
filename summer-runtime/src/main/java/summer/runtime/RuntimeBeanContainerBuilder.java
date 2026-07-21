@@ -8,9 +8,11 @@ import org.jboss.jandex.IndexView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import summer.core.BeanContainer;
+import summer.core.Discovery;
 import summer.core.Engine;
 import summer.core.RuntimeDiMarker;
 import summer.core.bean.BeanDefinition;
+import summer.core.bean.ConfigPropertiesBean;
 import summer.core.bean.MockedBean;
 import summer.core.bean.ModuleIndex;
 import summer.core.bean.RouteInfo;
@@ -18,7 +20,6 @@ import summer.core.bean.SharedConditionEvaluator;
 import summer.core.bean.SharedDependencyResolver;
 import summer.core.config.ConfigBinder;
 import summer.core.config.ConfigurationProperties;
-import summer.core.config.DefaultValue;
 import summer.core.config.TypeConverter;
 import summer.core.validation.Validator;
 
@@ -76,9 +77,7 @@ public final class RuntimeBeanContainerBuilder {
 	 */
 	public static BeanContainer build(Object... externalBeans) {
 		ModuleIndex moduleIndex = testUniverse();
-		IndexView index = moduleIndex.index();
-		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(moduleIndex, index);
-		return initialize(index, componentClasses, List.of(), java.util.Map.of(), externalBeans);
+		return initialize(moduleIndex, List.of(), java.util.Map.of(), externalBeans);
 	}
 
 	/**
@@ -98,6 +97,21 @@ public final class RuntimeBeanContainerBuilder {
 	}
 
 	/**
+	 * Builds a {@link BeanContainer} over a caller-supplied narrow
+	 * {@link IndexView} (e.g. a seed + transitive-closure index from
+	 * {@code @SummerTest(classes=...)}). The classpath-type mapping is collapsed to
+	 * a single synthetic module so {@code discoverComponents} enumerates exactly
+	 * the classes in the supplied index — no production or unrelated test beans
+	 * leak in. Discovery, mock, and profile handling are identical to the
+	 * full-universe path; only the candidate set shrinks.
+	 */
+	public static BeanContainer build(IndexView narrowIndex, List<MockedBean> mocks,
+			java.util.Map<String, Object> overrides) {
+		ModuleIndex moduleIndex = ModuleIndex.single(narrowIndex);
+		return initialize(moduleIndex, mocks, overrides);
+	}
+
+	/**
 	 * Builds a {@link BeanContainer} over a caller-supplied {@link ModuleIndex}.
 	 * The test container uses the test universe index; the production path is not
 	 * exposed here (production startup uses {@code SummerApplication} /
@@ -113,9 +127,7 @@ public final class RuntimeBeanContainerBuilder {
 	 */
 	public static BeanContainer build(ModuleIndex moduleIndex, List<MockedBean> mocks,
 			java.util.Map<String, Object> overrides) {
-		IndexView index = moduleIndex.index();
-		Set<Class<?>> componentClasses = RuntimeComponentScanner.discoverComponents(moduleIndex, index);
-		return initialize(index, componentClasses, mocks, overrides);
+		return initialize(moduleIndex, mocks, overrides);
 	}
 
 	/** The test universe index: application beans plus test-class beans. */
@@ -123,16 +135,20 @@ public final class RuntimeBeanContainerBuilder {
 		return JandexIndexLoader.testIndex();
 	}
 
-	private static BeanContainer initialize(IndexView index, Set<Class<?>> componentClasses, List<MockedBean> mocks,
+	private static BeanContainer initialize(ModuleIndex moduleIndex, List<MockedBean> mocks,
 			java.util.Map<String, Object> overrides, Object... externalBeans) {
 		BeanContainer.Builder builder = new BeanContainer.Builder();
 
 		builder.register(RuntimeDiMarker.class, new RuntimeDiMarker());
 
 		// ── Phase 1: Discovery ──────────────────────────────────────
-		// Build all candidate BeanDefinitions without filtering.
-		RuntimeBeanAdapter adapter = new RuntimeBeanAdapter();
-		List<BeanDefinition> candidates = BeanDefinitionFactory.buildBeanDefinitions(componentClasses, adapter);
+		// Unified discovery shared with the AOT engine: both engines observe the
+		// same candidate set, so dual-engine parity is structural, not conventional.
+		// Discovery yields enriched BeanDefinitions directly (no Class.forName at
+		// discovery time — class loading is deferred to the instantiator, matching
+		// AOT). It already registers AotDiMarker; we add the Runtime marker and the
+		// IndexView bean (needed by @Bean method param resolution).
+		List<BeanDefinition> candidates = Discovery.discover(moduleIndex);
 		candidates.add(new BeanDefinition(RuntimeDiMarker.class.getName(), "RuntimeDiMarker"));
 		// Register IndexView so the dependency resolver can find it for @Bean method
 		// params
@@ -153,7 +169,7 @@ public final class RuntimeBeanContainerBuilder {
 		// remove() discipline. The overrides parameter is consumed only here, at
 		// the binding step; it does not thread through the rest of initialization.
 		ConfigBinder.BindingContext ctx = ConfigBinder.BindingContext.of(overrides);
-		bindConfigurationProperties(componentClasses, builder, ctx);
+		bindConfigurationProperties(candidates, builder, ctx);
 		BeanDefinitionFactory.populateInterceptors(candidates);
 
 		// Pre-build exception handler metadata for RuntimeExceptionHandlerRegistrar.
@@ -173,7 +189,7 @@ public final class RuntimeBeanContainerBuilder {
 		}
 		BeanInstantiator instantiator = new BeanInstantiator(builder, interceptorMap, interceptorBindingMap);
 
-		builder.register(IndexView.class, index);
+		builder.register(IndexView.class, moduleIndex.index());
 		// Register mocked instances under their declared target type (and the
 		// target's interfaces) so dependent beans inject the mock. The real bean of
 		// each target type was already removed at discovery stage, so this never
@@ -205,10 +221,25 @@ public final class RuntimeBeanContainerBuilder {
 
 	// ---- @ConfigurationProperties binding ----
 
-	private static void bindConfigurationProperties(Set<Class<?>> componentClasses, BeanContainer.Builder builder,
+	/**
+	 * Binds every {@code @ConfigurationProperties} bean discovered in the candidate
+	 * set. Reads the Jandex-extracted {@link ConfigPropertiesBean} (prefix +
+	 * {@code @DefaultValue} metadata) so binding is identical to the AOT engine,
+	 * which consumes the same {@link BeanDefinition} fields. Class loading is
+	 * deferred to here (one {@code Class.forName} per config bean), keeping
+	 * discovery reflection-free.
+	 */
+	private static void bindConfigurationProperties(List<BeanDefinition> candidates, BeanContainer.Builder builder,
 			ConfigBinder.BindingContext ctx) {
-		for (Class<?> configClass : componentClasses) {
-			if (!configClass.isAnnotationPresent(ConfigurationProperties.class)) {
+		for (BeanDefinition beanDef : candidates) {
+			if (!(beanDef instanceof ConfigPropertiesBean configBean)) {
+				continue;
+			}
+			Class<?> configClass;
+			try {
+				configClass = Class.forName(configBean.qualifiedName);
+			} catch (ClassNotFoundException e) {
+				log.debug("[Summer] Could not load @ConfigurationProperties class: {}", configBean.qualifiedName);
 				continue;
 			}
 			if (builder.peek(configClass) != null) {
@@ -218,11 +249,20 @@ public final class RuntimeBeanContainerBuilder {
 			if (props == null) {
 				continue;
 			}
-			// @DefaultValue extraction via reflection is confined to summer-runtime
-			// (the ArchUnit rule allows it here). The converted defaults are passed
-			// into ConfigBinder via the BindingContext, keeping the binding logic
-			// in summer-core reflection-free.
-			Map<String, Object> defaults = extractDefaultValues(configClass);
+			// Convert the Jandex-extracted @DefaultValue strings into their declared
+			// types and feed them through the BindingContext, mirroring AOT's baked-in
+			// defaults — no separate reflection pass needed.
+			Map<String, Object> defaults = new HashMap<>();
+			for (var entry : configBean.defaultValues.entrySet()) {
+				String fieldType = configBean.fieldTypes.get(entry.getKey());
+				if (fieldType != null) {
+					try {
+						defaults.put(entry.getKey(), TypeConverter.convert(entry.getValue(), Class.forName(fieldType)));
+					} catch (Exception ignored) {
+						// leave unconverted; ConfigBinder handles the raw string
+					}
+				}
+			}
 			ConfigBinder.BindingContext perClassCtx = defaults.isEmpty()
 					? ctx
 					: ConfigBinder.BindingContext.of(defaults, ctx.overrides());
@@ -231,26 +271,6 @@ public final class RuntimeBeanContainerBuilder {
 			log.debug("[Summer] Bound @ConfigurationProperties: {} (prefix='{}')", configClass.getSimpleName(),
 					props.prefix());
 		}
-	}
-
-	/**
-	 * Reads {@code @DefaultValue} from a record's components via reflection and
-	 * converts each to its declared type. Reflection is confined to
-	 * {@code summer.runtime} per the architecture rule; the AOT engine performs the
-	 * equivalent extraction from the Jandex index at code-generation time.
-	 */
-	private static Map<String, Object> extractDefaultValues(Class<?> type) {
-		Map<String, Object> defaults = new HashMap<>();
-		if (!type.isRecord()) {
-			return defaults;
-		}
-		for (java.lang.reflect.RecordComponent component : type.getRecordComponents()) {
-			DefaultValue ann = component.getDeclaredAnnotation(DefaultValue.class);
-			if (ann != null) {
-				defaults.put(component.getName(), TypeConverter.convert(ann.value(), component.getType()));
-			}
-		}
-		return defaults;
 	}
 
 	// ---- Validation ----

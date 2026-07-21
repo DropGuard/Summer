@@ -134,6 +134,7 @@ public final class AotContextGenerator {
 		method.addStatement("builder.register(iface, mocked.instance())");
 		method.endControlFlow();
 		method.endControlFlow();
+		method.endControlFlow();
 		emitSharedBody(method, sortedBeans);
 		return method.build();
 	}

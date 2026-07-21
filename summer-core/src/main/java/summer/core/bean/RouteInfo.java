@@ -74,26 +74,18 @@ public final class RouteInfo {
 	public final List<ParamInfo> params = new ArrayList<>();
 
 	/**
-	 * Runtime-only convenience: the controller class object, used by the runtime
-	 * engine to resolve the handler {@code Method} without re-scanning. Always
-	 * {@code null} on the AOT path, which reads the string fields for code
-	 * generation. Holds a {@code Class} token (not a {@code Method}) so it stays
-	 * clear of {@code java.lang.reflect} types in the shared layer.
+	 * Builds route metadata from the cross-engine string contract. The runtime
+	 * engine resolves the controller {@link Class} from {@link #controllerClass} at
+	 * registration time — this shared type deliberately holds no
+	 * {@code java.lang.reflect} reference (neither {@code Method} nor
+	 * {@code Class}), keeping the dual-engine layer reflection-free.
 	 */
-	public final Class<?> controllerType;
-
 	public RouteInfo(String httpMethod, String path, String controllerClass, String methodName, String returnType) {
-		this(httpMethod, path, controllerClass, methodName, returnType, null);
-	}
-
-	public RouteInfo(String httpMethod, String path, String controllerClass, String methodName, String returnType,
-			Class<?> controllerType) {
 		this.httpMethod = httpMethod;
 		this.path = path;
 		this.controllerClass = controllerClass;
 		this.methodName = methodName;
 		this.returnType = returnType;
-		this.controllerType = controllerType;
 	}
 
 	@Override
