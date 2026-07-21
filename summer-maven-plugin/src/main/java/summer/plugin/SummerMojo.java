@@ -27,7 +27,7 @@ import summer.aot.RouteAdapterGenerator;
 import summer.aot.WireMethodGenerator;
 import summer.core.Discovery;
 import summer.core.bean.BeanDefinition;
-import summer.core.bean.ModuleIndex;
+import summer.core.bean.BeanDeployment;
 import summer.core.bean.SharedDependencyResolver;
 
 /**
@@ -79,9 +79,10 @@ public class SummerMojo extends AbstractMojo {
 			File generatedDir = prepareGeneratedDir(false);
 
 			// Unified discovery (shared by both engines) over the production index.
-			// Discovery is engine-agnostic and consumes a ModuleIndex; the production
+			// Discovery is engine-agnostic and consumes a BeanDeployment; the production
 			// build wraps its merged CompositeIndex as a single-module universe.
-			List<BeanDefinition> beans = Discovery.discover(ModuleIndex.single(index));
+			List<BeanDefinition> beans = Discovery.discover(BeanDeployment.forProduction(index,
+					java.util.Collections.emptyMap(), java.util.Collections.emptyMap()));
 			getLog().debug("[Summer] Discovered " + beans.size() + " beans");
 
 			SharedDependencyResolver resolver = new SharedDependencyResolver();

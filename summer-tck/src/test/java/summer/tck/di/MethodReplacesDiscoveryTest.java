@@ -9,7 +9,7 @@ import org.jboss.jandex.Indexer;
 import org.junit.jupiter.api.Test;
 import summer.core.Discovery;
 import summer.core.bean.BeanDefinition;
-import summer.core.bean.ModuleIndex;
+import summer.core.bean.BeanDeployment;
 import summer.core.bean.SharedConditionEvaluator;
 import summer.fixtures.di.MethodReplacesBean;
 import summer.fixtures.di.MethodReplacesConfig;
@@ -44,7 +44,7 @@ class MethodReplacesDiscoveryTest {
 	void methodLevelReplacesKeepsReplacerAndDropsOriginal() throws Exception {
 		IndexView index = indexOf(MethodReplacesConfig.class, MethodReplacesReplacementConfig.class,
 				MethodReplacesBean.class);
-		List<BeanDefinition> beans = Discovery.discover(ModuleIndex.single(index));
+		List<BeanDefinition> beans = Discovery.discover(BeanDeployment.forNarrow(index));
 
 		new SharedConditionEvaluator().evaluate(beans);
 

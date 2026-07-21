@@ -44,9 +44,9 @@ public sealed class BeanDefinition permits ConfigPropertiesBean {
 
 	/**
 	 * Name of the archive (immutable discovery unit) this bean belongs to.
-	 * Populated during discovery from {@link ModuleIndex#archiveOf(String)}. Drives
-	 * {@code @ConditionalOnBean} visibility: a condition is satisfied only by beans
-	 * in the same archive. Null until discovery assigns it.
+	 * Populated during discovery from {@link BeanDeployment#archiveOf(String)}.
+	 * Drives {@code @ConditionalOnBean} visibility: a condition is satisfied only
+	 * by beans in the same archive. Null until discovery assigns it.
 	 */
 	public String archiveName;
 

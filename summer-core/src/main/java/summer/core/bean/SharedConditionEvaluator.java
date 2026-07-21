@@ -52,8 +52,8 @@ public final class SharedConditionEvaluator {
 	 * Evaluates conditions with archive-scoped {@code @ConditionalOnBean}
 	 * visibility. A bean's condition is satisfied only by another bean in the
 	 * <em>same</em> archive (see {@link BeanDefinition#archiveName}); injection
-	 * itself remains global. The {@link ModuleIndex} is accepted for symmetry and
-	 * future cross-archive contracts, but the boundary check uses the
+	 * itself remains global. The {@link BeanDeployment} is accepted for symmetry
+	 * and future cross-archive contracts, but the boundary check uses the
 	 * {@code archiveName} already assigned during discovery.
 	 *
 	 * @param beans
@@ -61,7 +61,7 @@ public final class SharedConditionEvaluator {
 	 * @param moduleIndex
 	 *            the archive index (for future cross-archive contracts)
 	 */
-	public void evaluate(List<BeanDefinition> beans, ModuleIndex moduleIndex) {
+	public void evaluate(List<BeanDefinition> beans, BeanDeployment moduleIndex) {
 		evaluate(beans, Set.of(), moduleIndex);
 	}
 
@@ -107,7 +107,7 @@ public final class SharedConditionEvaluator {
 	 *            the archive index (for future cross-archive contracts; the
 	 *            boundary check itself uses {@link BeanDefinition#archiveName})
 	 */
-	public void evaluate(List<BeanDefinition> beans, Set<String> mockedTypes, ModuleIndex moduleIndex) {
+	public void evaluate(List<BeanDefinition> beans, Set<String> mockedTypes, BeanDeployment moduleIndex) {
 		removeMockedBeans(beans, mockedTypes);
 		Map<String, String> requiredTypes = collectConditionalRequirements(beans);
 		List<BeanDefinition> topoOrder = buildTopologicalOrder(beans, requiredTypes);
@@ -261,11 +261,11 @@ public final class SharedConditionEvaluator {
 	// ── @ConditionalOnBean ────────────────────────────────────────
 
 	private void resolveConditionalOnBean(List<BeanDefinition> beans, List<BeanDefinition> topoOrder,
-			Map<String, String> requiredTypes, ModuleIndex moduleIndex) {
+			Map<String, String> requiredTypes, BeanDeployment moduleIndex) {
 		// Visibility is currently GLOBAL: a @ConditionalOnBean(X) on bean B is
 		// satisfied by any bean T (or interface it implements) in the candidate set,
 		// regardless of archive. The {@link BeanDefinition#archiveName} field
-		// and {@link ModuleIndex} archive API are in place as the boundary
+		// and {@link BeanDeployment} archive API are in place as the boundary
 		// contract, but the hard archive-scoped boundary is intentionally NOT
 		// enforced yet: the framework relies on cross-archive @ConditionalOnBean
 		// (e.g. RowMapperConfiguration @ConditionalOnBean(JdbcTemplate),

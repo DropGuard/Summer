@@ -1,11 +1,10 @@
 package summer.data.jdbc;
 
 import org.jboss.jandex.IndexView;
-import summer.core.bean.IndexUniverse;
 
 /**
- * Registers a {@link RowMapper} for every {@code @RowModel} record on the
- * classpath.
+ * Registers a {@link RowMapper} for every {@code @RowModel} record in the
+ * deployment's discovery index.
  *
  * <p>
  * RowMapper registration is a data-module concern: the mapping between a
@@ -18,12 +17,14 @@ import summer.core.bean.IndexUniverse;
  * </p>
  *
  * <p>
- * The registrar reads the project's Jandex indexes itself (data-jdbc already
- * depends on Jandex) to discover {@code @RowModel} records. It does
- * <em>not</em> depend on the engine's {@link IndexView} bean —
- * {@code IndexView} is engine internal state, not a business dependency — so
- * this component is identical to wire on both engines and introduces no
- * synthetic-bean coupling.
+ * The registrar scans the engine's {@link IndexView} bean — the deployment's
+ * discovery index, which is the exact same index the DI engines discover beans
+ * from. This is the faithful Quarkus model: an extension (here, the data
+ * module) reads the deployment's index rather than re-deriving its own. Because
+ * it scans the deployment's discovery index, it sees the same test beans (the
+ * running test class's {@code test-classes} directory, indexed on demand) that
+ * the DI container sees, so a {@code @RowModel} test fixture is registered
+ * identically on both engines with no synthetic-bean coupling.
  * </p>
  *
  * <p>
@@ -35,18 +36,17 @@ import summer.core.bean.IndexUniverse;
  * </p>
  */
 /**
- * Registers a {@link RowMapper} for every {@code @RowModel} record on the
- * classpath. Created by {@link RowMapperConfiguration}; not a
- * {@code @Component} itself because {@link JdbcTemplate} is an
+ * Registers a {@link RowMapper} for every {@code @RowModel} record in the
+ * deployment's discovery index. Created by {@link RowMapperConfiguration}; not
+ * a {@code @Component} itself because {@link JdbcTemplate} is an
  * application-provided bean, not a framework bean.
  */
 public final class RowMapperRegistrar {
 
 	private final JdbcTemplate jdbcTemplate;
 
-	public RowMapperRegistrar(JdbcTemplate jdbcTemplate) {
+	public RowMapperRegistrar(JdbcTemplate jdbcTemplate, IndexView index) {
 		this.jdbcTemplate = jdbcTemplate;
-		IndexView index = loadProjectIndex();
 		for (RowMapperFactory.RowModelMeta meta : RowMapperFactory.scanJandex(index)) {
 			jdbcTemplate.registerMapper(modelClass(meta), RowMapperFactory.createReflective(meta));
 		}
@@ -58,22 +58,5 @@ public final class RowMapperRegistrar {
 		} catch (ClassNotFoundException e) {
 			throw new IllegalStateException("Cannot load @RowModel class: " + meta.modelClassName(), e);
 		}
-	}
-
-	/**
-	 * Loads the discovery universe through the framework's single index contract.
-	 *
-	 * <p>
-	 * Uses {@link IndexUniverse#testIndexView()} so test-tree {@code @RowModel}
-	 * records (which live in {@code META-INF/jandex-test.idx}) are discovered
-	 * exactly the way the DI engines see them — the same beans a
-	 * {@code @QuarkusTest} would wire. Reading {@code jandex.idx} alone (the
-	 * previous behaviour) made test fixtures invisible to the data module and
-	 * silently skipped their mappers. {@link RowMapperFactory#scanJandex} then
-	 * filters for {@code @RowModel} regardless of which module owns the record.
-	 * </p>
-	 */
-	private static IndexView loadProjectIndex() {
-		return IndexUniverse.testIndexView();
 	}
 }

@@ -10,9 +10,9 @@ import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
 import org.jboss.jandex.MethodInfo;
 import summer.core.bean.BeanDefinition;
+import summer.core.bean.BeanDeployment;
 import summer.core.bean.BeanEnrichment;
 import summer.core.bean.ConfigPropertiesBean;
-import summer.core.bean.ModuleIndex;
 import summer.core.bean.SharedConditionEvaluator;
 
 /**
@@ -20,7 +20,7 @@ import summer.core.bean.SharedConditionEvaluator;
  *
  * <p>
  * This is the single source of truth for "what beans exist in a universe". Both
- * engines feed the same {@link ModuleIndex} in and get the same
+ * engines feed the same {@link BeanDeployment} in and get the same
  * {@link BeanDefinition} candidate list out, so they can never observe
  * divergent candidate sets — parity is enforced by construction, not
  * convention.
@@ -32,8 +32,8 @@ import summer.core.bean.SharedConditionEvaluator;
  * <ol>
  * <li>Enumerate component classes ({@code @Component}, {@code @Configuration},
  * {@code @ConfigurationProperties}, meta-annotations) and {@code @Bean} factory
- * methods, iterating the per-module indexes retained by the {@link ModuleIndex}
- * so module boundaries are honoured natively.</li>
+ * methods, iterating the per-module indexes retained by the
+ * {@link BeanDeployment} so module boundaries are honoured natively.</li>
  * <li>Enrich each definition with constructor params, interfaces, routes, and
  * AOP bindings (Jandex metadata → {@link BeanDefinition} fields).</li>
  * </ol>
@@ -64,7 +64,7 @@ public final class Discovery {
 	}
 
 	/**
-	 * Discovers and enriches beans from a {@link ModuleIndex}. Iterates only the
+	 * Discovers and enriches beans from a {@link BeanDeployment}. Iterates only the
 	 * per-module indexes the index retains (falling back to the merged index for
 	 * annotation resolution), so a test universe observes exactly the
 	 * production-plus-test beans on its classpath — no post-hoc narrowing.
@@ -73,8 +73,8 @@ public final class Discovery {
 	 *            the module index naming which classes form the universe
 	 * @return enriched candidate bean definitions (conditions not yet evaluated)
 	 */
-	public static List<BeanDefinition> discover(ModuleIndex moduleIndex) {
-		IndexView merged = moduleIndex.index();
+	public static List<BeanDefinition> discover(BeanDeployment moduleIndex) {
+		IndexView merged = moduleIndex.discoveryIndex();
 		List<BeanDefinition> beans = new ArrayList<>();
 		Set<String> collected = new HashSet<>();
 
@@ -100,7 +100,7 @@ public final class Discovery {
 	 * already-collected types.
 	 */
 	private static void registerClass(ClassInfo ci, List<BeanDefinition> beans, Set<String> collected, IndexView merged,
-			ModuleIndex moduleIndex) {
+			BeanDeployment moduleIndex) {
 		if (ci.isAnnotation())
 			return;
 		if (ci.isInterface() || ci.isAbstract()) {
@@ -133,7 +133,7 @@ public final class Discovery {
 	}
 
 	private static void registerConfigProperties(ClassInfo ci, List<BeanDefinition> beans, IndexView merged,
-			ModuleIndex moduleIndex) {
+			BeanDeployment moduleIndex) {
 		ConfigPropertiesBean bean = new ConfigPropertiesBean(ci.name().toString(), ci.simpleName());
 		bean.archiveName = moduleIndex.archiveOf(ci.name().toString());
 		AnnotationInstance ann = ci.annotation(CONFIG_PROPERTIES_DOT);
@@ -145,7 +145,7 @@ public final class Discovery {
 	}
 
 	private static void registerComponent(ClassInfo ci, List<BeanDefinition> beans, IndexView merged,
-			ModuleIndex moduleIndex) {
+			BeanDeployment moduleIndex) {
 		BeanDefinition bean = createBaseDefinition(ci, merged, moduleIndex);
 		bean.isInterceptor = ci.annotation(INTERCEPTOR_DOT) != null;
 		// declaredAnnotation (not annotation): only @Replaces DIRECTLY on the class
@@ -197,7 +197,7 @@ public final class Discovery {
 	}
 
 	private static void discoverBeanFactoryMethods(ClassInfo configCi, List<BeanDefinition> beans, IndexView merged,
-			ModuleIndex moduleIndex) {
+			BeanDeployment moduleIndex) {
 		for (MethodInfo method : configCi.methods()) {
 			if (!method.hasAnnotation(BEAN_DOT))
 				continue;
@@ -215,7 +215,7 @@ public final class Discovery {
 		}
 	}
 
-	private static BeanDefinition createBaseDefinition(ClassInfo ci, IndexView merged, ModuleIndex moduleIndex) {
+	private static BeanDefinition createBaseDefinition(ClassInfo ci, IndexView merged, BeanDeployment moduleIndex) {
 		BeanDefinition bean = new BeanDefinition(ci.name().toString(), ci.simpleName());
 		bean.archiveName = moduleIndex.archiveOf(ci.name().toString());
 		collectInterfacesRecursive(bean, ci, merged, new HashSet<>());
@@ -223,7 +223,7 @@ public final class Discovery {
 	}
 
 	private static BeanDefinition createFactoryBean(String returnTypeName, ClassInfo configCi, MethodInfo method,
-			IndexView merged, ModuleIndex moduleIndex) {
+			IndexView merged, BeanDeployment moduleIndex) {
 		ClassInfo returnTypeCi = merged.getClassByName(method.returnType().name());
 		BeanDefinition fb;
 		if (returnTypeCi != null) {

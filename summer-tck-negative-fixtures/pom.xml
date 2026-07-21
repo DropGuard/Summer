@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>summer</groupId>
+        <artifactId>summer-framework</artifactId>
+        <version>0.1.0</version>
+    </parent>
+
+    <artifactId>summer-tck-negative-fixtures</artifactId>
+    <name>Summer TCK Negative Fixtures</name>
+    <description>
+        Intentionally-broken beans for sad-path TCK tests (circular dependency,
+        missing dependency, ambiguous resolution, self-injection). These are reached
+        ONLY by the narrow @SummerTest(classes=...) path, which indexes their
+        .class bytes directly via NarrowIndexBuilder (Quarkus ArcTestContainer
+        beanClasses(...) model).
+
+        This module deliberately does NOT declare the jandex-maven-plugin, so it
+        produces no jandex.idx. The compiled .class files still ship in the jar
+        and are on the test classpath (so NarrowIndexBuilder can read them). They
+        are invisible to the whole-universe @SummerTest container because that
+        container indexes exactly the running test class's OWN test-classes
+        directory (Quarkus @QuarkusTest model, via TestClassIndexer) -- a separate
+        module's test-classes are simply not on that path. No exclude list is
+        needed: the boundary is the (absence of an) archive on the indexed path,
+        not an allow/deny pattern.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+</project>

@@ -8,6 +8,7 @@ import summer.core.Engine;
 import summer.core.bean.MockedBean;
 import summer.runtime.JandexIndexLoader;
 import summer.runtime.RuntimeBeanContainerBuilder;
+import summer.runtime.TestClassIndexer;
 
 /**
  * Unified test container builder for Summer's DI engines.
@@ -106,22 +107,23 @@ public final class Testing {
 		if (seeds.length > 0) {
 			// Narrow (scoped) universe: build only from the explicit seeds plus
 			// their transitive closure, Quarkus beanClasses(...) style. This is the
-			// ONLY path that lets a sad-path fixture (which is excluded from the
-			// shared jandex-test.idx) be discovered — NarrowIndexBuilder indexes the
-			// seed .class bytes directly from the classpath, so it never depends on
-			// the default universe index. Both engines must take this same branch so
-			// @DualEngine narrow tests observe identical graphs.
+			// ONLY path that lets a sad-path fixture (which lives in its own module
+			// and is never on the path of a whole-universe test-classes directory) be
+			// discovered — NarrowIndexBuilder indexes the seed .class bytes directly
+			// from the classpath, so it never depends on the default universe index.
+			// Both engines must take this same branch so @DualEngine narrow tests
+			// observe identical graphs.
 			if (engine == Engine.AOT) {
 				return buildNarrowAot(seeds, mocks, overrides);
 			}
 			org.jboss.jandex.IndexView narrowIndex = NarrowIndexBuilder.build(seeds);
-			summer.core.bean.ModuleIndex moduleIndex = summer.core.bean.ModuleIndex.single(narrowIndex);
+			summer.core.bean.BeanDeployment moduleIndex = summer.core.bean.BeanDeployment.forNarrow(narrowIndex);
 			return RuntimeBeanContainerBuilder.build(moduleIndex, mocks, overrides);
 		}
 		if (engine == Engine.AOT) {
 			return buildAot(AotKey.forTest(testClass, overrides), mocks, overrides);
 		}
-		return RuntimeBeanContainerBuilder.build(mocks, overrides);
+		return RuntimeBeanContainerBuilder.build(testUniverse(testClass), mocks, overrides);
 	}
 
 	/**
@@ -148,30 +150,52 @@ public final class Testing {
 	// ── Internals ─────────────────────────────────────────────────────
 
 	/**
-	 * Builds an AOT container for the test universe, using the test index
-	 * (production {@code jandex.idx} merged with {@code jandex-test.idx}).
+	 * The whole-universe test deployment: the production application archives plus
+	 * the current test class's {@code test-classes} directory, indexed on demand.
 	 *
 	 * <p>
-	 * Merging the test index is what makes the AOT engine see the <em>same</em>
-	 * universe as the Runtime engine under test — without it, AOT would only ever
-	 * observe production classes and silently diverge from Runtime on any test that
-	 * exercises a test bean. The merged index simply ensures condition targets and
-	 * test-bean types are resolvable, exactly as Runtime sees them.
+	 * This is a faithful copy of Quarkus' {@code @QuarkusTest} model: the test
+	 * container re-indexes <em>exactly</em> the running test class's
+	 * {@code test-classes} directory (via {@link TestClassIndexer}) and treats it
+	 * as one additional archive, never a bulk scan of every module's test classes
+	 * and never a pre-baked {@code jandex-test.idx}. Mirrors the Runtime path so
+	 * both engines observe the identical candidate set — the foundation of
+	 * dual-engine parity. A negative (sad-path) fixture lives in its own module and
+	 * is simply not on the path of this {@code test-classes} directory, so no
+	 * exclude list is needed.
 	 * </p>
 	 *
-	 * <p>
-	 * Unlike the production AOT path (which compiles the full {@code jandex.idx}
-	 * universe via {@code SummerMojo}), the test path uses the test index so test
-	 * beans are part of the generated graph.
-	 * </p>
+	 * @param testClass
+	 *            the {@code @SummerTest} class (or any class on the test
+	 *            classpath); when {@code null}, the calling test class is inferred
+	 *            from the stack
 	 */
+	private static summer.core.bean.BeanDeployment testUniverse(Class<?> testClass) {
+		JandexIndexLoader.LoadedIndex prod = JandexIndexLoader.productionIndex();
+		Class<?> resolved = (testClass != null) ? testClass : TestClassIndexer.inferTestClass();
+		org.jboss.jandex.IndexView testIndex = (resolved != null)
+				? TestClassIndexer.indexTestClasses(resolved)
+				: org.jboss.jandex.CompositeIndex.create(java.util.List.of());
+		// Combine per-archive attribution maps: every production module, plus the
+		// test-classes directory as one "test" archive (Quarkus adds the test-classes
+		// archive as a single additional archive).
+		java.util.Map<String, String> classToArchive = new java.util.HashMap<>(prod.classToArchive());
+		for (String type : testIndex.getKnownClasses().stream().map(Object::toString).toList()) {
+			classToArchive.put(type, "test");
+		}
+		java.util.Map<String, org.jboss.jandex.IndexView> archiveIndexes = new java.util.HashMap<>(
+				prod.archiveIndexes());
+		archiveIndexes.put("test", testIndex);
+		return summer.core.bean.BeanDeployment.forTestUniverse(prod.index(), classToArchive, archiveIndexes);
+	}
+
 	private static BeanContainer buildAot(AotKey key, List<MockedBean> mocks, java.util.Map<String, Object> overrides) {
 		try {
-			summer.core.bean.ModuleIndex moduleIndex = JandexIndexLoader.testIndex();
+			summer.core.bean.BeanDeployment moduleIndex = testUniverse(null);
 			Class<?> aotEngine = Class.forName("summer.aot.AotEngine");
 			MockedBean[] mockedBeans = mocks.toArray(new MockedBean[0]);
 			java.lang.reflect.Method buildAndCompile = aotEngine.getMethod("buildAndCompile",
-					summer.core.bean.ModuleIndex.class, String.class, String.class, MockedBean[].class,
+					summer.core.bean.BeanDeployment.class, String.class, String.class, MockedBean[].class,
 					java.util.Map.class);
 			return (BeanContainer) buildAndCompile.invoke(null, moduleIndex, key.cacheKey(), key.className(),
 					mockedBeans, overrides);
@@ -212,15 +236,15 @@ public final class Testing {
 		String fullSignature = seedSignature + "|mocks=" + mockSignature;
 		AotKey key = AotKey.forNarrow(fullSignature);
 		IndexView narrowIndex = NarrowIndexBuilder.build(seeds);
-		// Build a ModuleIndex from the narrow index so discovery iterates only the
-		// seed closure (honouring @SummerTest(classes=...)) instead of the whole
-		// classpath — the previous IndexView-only path ignored the seeds.
-		summer.core.bean.ModuleIndex moduleIndex = summer.core.bean.ModuleIndex.single(narrowIndex);
+		// Build a BeanDeployment from the narrow index so discovery iterates only
+		// the seed closure (honouring @SummerTest(classes=...)) instead of the
+		// whole classpath — the previous IndexView-only path ignored the seeds.
+		summer.core.bean.BeanDeployment moduleIndex = summer.core.bean.BeanDeployment.forNarrow(narrowIndex);
 		try {
 			Class<?> aotEngine = Class.forName("summer.aot.AotEngine");
 			MockedBean[] mockedBeans = mocks.toArray(new MockedBean[0]);
 			java.lang.reflect.Method buildAndCompile = aotEngine.getMethod("buildAndCompile",
-					summer.core.bean.ModuleIndex.class, String.class, String.class, MockedBean[].class,
+					summer.core.bean.BeanDeployment.class, String.class, String.class, MockedBean[].class,
 					java.util.Map.class);
 			return (BeanContainer) buildAndCompile.invoke(null, moduleIndex, key.cacheKey(), key.className(),
 					mockedBeans, overrides);

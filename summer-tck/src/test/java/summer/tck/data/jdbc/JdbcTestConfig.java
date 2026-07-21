@@ -15,8 +15,9 @@ import summer.data.jdbc.JdbcTemplate;
  * <p>
  * With {@link JdbcTemplate} present as a bean, {@code RowMapperRegistrar}
  * (conditional on {@code JdbcTemplate}) auto-registers every {@code @RowModel}
- * it discovers through the unified test universe ({@code IndexUniverse} merges
- * {@code jandex.idx} + {@code jandex-test.idx}). The test-tree
+ * it discovers through the unified test universe (the deployment's discovery
+ * index combines {@code jandex.idx} with the running test class's
+ * {@code test-classes} directory, indexed on demand). The test-tree
  * {@code @RowModel} {@code User} is therefore discovered and mapped on BOTH
  * engines — the real dual-engine path this TCK must verify. No manual
  * {@code registerMapper} here: doing so would bypass {@code RowMapperRegistrar}

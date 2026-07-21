@@ -17,7 +17,7 @@ import org.jboss.jandex.MethodInfo;
  *
  * <p>
  * This is the enrichment phase of discovery — runs after the candidate set is
- * enumerated (from a {@link ModuleIndex}) but before condition evaluation
+ * enumerated (from a {@link BeanDeployment}) but before condition evaluation
  * ({@code @ConditionalOnBean}/{@Replaces}) and dependency resolution. It only
  * reads Jandex metadata into {@link BeanDefinition} fields; it never removes or
  * reorders beans, so it is safe to run on the shared discovery output that both

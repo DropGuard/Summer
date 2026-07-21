@@ -6,216 +6,126 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.CompositeIndex;
-import org.jboss.jandex.DotName;
 import org.jboss.jandex.Index;
 import org.jboss.jandex.IndexReader;
 import org.jboss.jandex.IndexView;
-import org.jboss.jandex.MethodInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import summer.core.ErrorCode;
-import summer.core.bean.ModuleIndex;
 import summer.core.exception.ConfigurationException;
 
 /**
- * Loads and merges pre-built Jandex indexes ({@code META-INF/jandex.idx}) from
- * the classpath.
+ * Loads pre-built Jandex indexes from the classpath.
  *
  * <p>
- * Both the Runtime and AOT engines use the same discovery mechanism: pre-built
- * Jandex indexes. Modules that ship beans must have {@code jandex-maven-plugin}
- * configured to generate {@code META-INF/jandex.idx}.
+ * This is the single source of truth for reading the <b>production</b> index.
+ * It enforces the Quarkus-style <b>disjoint-pipeline</b> model: the production
+ * pipeline and the test pipeline are entirely separate concerns.
  * </p>
+ *
+ * <ul>
+ * <li><b>Production / AOT pipeline</b> — every {@code META-INF/jandex.idx} on
+ * the classpath (one per module, written at compile time). Read <em>only</em>
+ * by this loader's {@link #productionIndex()}. A test class is never part of
+ * this result, so a production container (runtime startup or AOT code
+ * generation) can never instantiate a test bean. This is the boundary that
+ * keeps {@code SummerMojo}-generated AOT containers free of test classes.</li>
+ * <li><b>Test pipeline</b> — has <em>no</em> pre-baked index file. A
+ * whole-universe {@code @SummerTest} container indexes the current test class's
+ * {@code test-classes} directory on demand (see {@code TestClassIndexer}),
+ * exactly like Quarkus' {@code @QuarkusTest} re-indexing its own test-classes
+ * as an additional archive. A narrow {@code @SummerTest(classes=...)} container
+ * reads the named {@code .class} bytes directly ({@code NarrowIndexBuilder}).
+ * Because the test pipeline is built from {@code .class} bytes — never from a
+ * merged {@code jandex-test.idx} — there is no full classpath sweep and no
+ * exclude list; a negative (sad-path) fixture, which lives in its own module,
+ * is simply not on the path of any application's {@code test-classes}
+ * directory.</li>
+ * </ul>
  */
 public final class JandexIndexLoader {
 
 	private static final Logger log = LoggerFactory.getLogger(JandexIndexLoader.class);
 
+	/** Production index resource (no test classes). */
+	public static final String PRODUCTION_INDEX = "META-INF/jandex.idx";
+
 	private JandexIndexLoader() {
 	}
 
 	/**
-	 * Loads all {@code META-INF/jandex.idx} files from the classpath and merges
-	 * them into a single index.
+	 * The production pipeline: every {@code META-INF/jandex.idx} on the classpath.
+	 * Test-class indexes are <b>never</b> part of this result — so a production
+	 * container (runtime startup or AOT generation) can never instantiate a test
+	 * bean. This is the boundary that keeps {@code SummerMojo}-generated AOT
+	 * containers free of test classes.
 	 *
-	 * @return the merged index
+	 * @return the production view and its per-archive maps
 	 */
-	public static IndexView buildIndex() {
-		List<Index> indexes = loadIndexes();
-		if (indexes.isEmpty()) {
-			throw new ConfigurationException(ErrorCode.CONFIG_MISSING_INDEX, "No jandex.idx found on classpath. "
-					+ "Ensure jandex-maven-plugin is configured for modules that ship beans.");
-		}
-		List<IndexView> indexViews = new ArrayList<>(indexes);
-		return CompositeIndex.create(indexViews);
-	}
-
-	/**
-	 * The application universe: production beans only.
-	 *
-	 * <p>
-	 * Merges every {@code META-INF/jandex.idx} (production) on the classpath and
-	 * attributes each class to its module. Test-class indexes
-	 * ({@code jandex-test.idx}) are <b>never</b> part of this universe — so a
-	 * production container (runtime startup or AOT generation) can never
-	 * instantiate a test bean. This is the boundary that keeps
-	 * {@code SummerMojo}-generated AOT containers free of test classes.
-	 * </p>
-	 *
-	 * <p>
-	 * Mirrors Quarkus: the application under test is the production code; test
-	 * classes live on a separate classpath slice and are only consulted by the test
-	 * container.
-	 * </p>
-	 *
-	 * @return a module index whose universe is production beans across all modules
-	 */
-	public static ModuleIndex applicationIndex() {
+	public static LoadedIndex productionIndex() {
 		Map<String, String> classToArchive = new HashMap<>();
 		Map<String, IndexView> archiveIndexes = new HashMap<>();
-		List<Index> indexes = new ArrayList<>();
-		loadIndexResource("META-INF/jandex.idx", classToArchive, archiveIndexes, indexes, true);
-		if (indexes.isEmpty()) {
-			throw new ConfigurationException(ErrorCode.CONFIG_MISSING_INDEX, "No jandex.idx found on classpath.");
+		loadIndexResource(PRODUCTION_INDEX, classToArchive, archiveIndexes);
+		if (archiveIndexes.isEmpty()) {
+			throw new ConfigurationException(ErrorCode.CONFIG_MISSING_INDEX, "No " + PRODUCTION_INDEX
+					+ " found on classpath. Ensure jandex-maven-plugin is configured for modules that ship beans.");
 		}
-		List<IndexView> indexViews = new ArrayList<>(indexes);
-		return new ModuleIndex(CompositeIndex.create(indexViews), classToArchive, archiveIndexes);
+		List<IndexView> indexViews = new ArrayList<>(archiveIndexes.values());
+		return new LoadedIndex(CompositeIndex.create(indexViews), classToArchive, archiveIndexes);
 	}
 
 	/**
-	 * The test universe: the application universe plus every test-class bean on the
-	 * test classpath.
+	 * Convenience for debugging: the production index only.
 	 *
-	 * <p>
-	 * Merges {@code META-INF/jandex.idx} (production) <b>and</b>
-	 * {@code META-INF/jandex-test.idx} (test fixtures) per module, so a
-	 * {@code @SummerTest} container sees the same beans Quarkus'
-	 * {@code @QuarkusTest} would: the whole application, plus whatever test beans
-	 * are on the classpath (controllers, stub configs, etc.) — no explicit fixture
-	 * list, no narrowing switch. A test bean is discovered exactly like a
-	 * production bean: if it is indexed and in scope, the container wires it.
-	 * </p>
-	 *
-	 * <p>
-	 * This is the only universe the test container uses. The split between
-	 * {@code jandex.idx} and {@code jandex-test.idx} exists purely so the
-	 * <em>production</em> path ({@link #applicationIndex()}, used by AOT
-	 * generation) never sees test classes — it is not a mechanism for excluding
-	 * test beans from a test container.
-	 * </p>
-	 *
-	 * @return a module index whose universe is production beans plus test beans
+	 * @see #productionIndex()
 	 */
-	public static ModuleIndex testIndex() {
-		Map<String, String> classToArchive = new HashMap<>();
-		// Production per-module indexes (authoritative for the bean universe).
-		Map<String, IndexView> prodIndexes = new HashMap<>();
-		// Test per-module indexes (fixtures); merged onto prod when a module has both.
-		Map<String, IndexView> testIndexes = new HashMap<>();
-		List<Index> indexes = new ArrayList<>();
-
-		loadIndexResource("META-INF/jandex.idx", classToArchive, prodIndexes, indexes, true);
-		loadIndexResource("META-INF/jandex-test.idx", classToArchive, testIndexes, indexes, true);
-
-		if (indexes.isEmpty()) {
-			throw new ConfigurationException(ErrorCode.CONFIG_MISSING_INDEX, "No jandex.idx found on classpath.");
-		}
-
-		// Per-module index = production classes, merged with the module's test
-		// classes when both exist. This lets discovery iterate the full class set
-		// for a module (production beans + its test fixtures) instead of the test
-		// index silently shadowing the production one.
-		Map<String, IndexView> archiveIndexes = new HashMap<>(prodIndexes);
-		for (var entry : testIndexes.entrySet()) {
-			IndexView existing = archiveIndexes.get(entry.getKey());
-			archiveIndexes.put(entry.getKey(),
-					existing != null ? CompositeIndex.create(List.of(existing, entry.getValue())) : entry.getValue());
-		}
-
-		List<IndexView> indexViews = new ArrayList<>(indexes);
-		return new ModuleIndex(CompositeIndex.create(indexViews), classToArchive, archiveIndexes);
+	public static IndexView buildIndex() {
+		return productionIndex().index();
 	}
 
-	/** DotName constants for bean-type discovery. */
-	private static final DotName COMPONENT_DN = DotName.createSimple("summer.core.Component");
-	private static final DotName CONFIG_DN = DotName.createSimple("summer.core.annotation.Configuration");
-	private static final DotName CONFIG_PROPS_DN = DotName.createSimple("summer.core.config.ConfigurationProperties");
-	private static final DotName BEAN_DN = DotName.createSimple("summer.core.annotation.Bean");
-
 	/**
-	 * Computes the set of fully-qualified type names that are actual beans across
-	 * the entire merged index. A type is a "bean type" when it is annotated with
-	 * {@code @Component}, {@code @Configuration}, or
-	 * {@code @ConfigurationProperties}, or when it is the return type of a
-	 * {@code @Bean} factory method in any {@code @Configuration} class.
-	 *
-	 * <p>
-	 * This set is used as {@code visibleTypes} in scoped discovery: it prevents
-	 * {@code @ConditionalOnBean} from being satisfied by plain indexed types
-	 * (unannotated POJOs or non-bean types) while still allowing cross-module
-	 * visibility for real beans. Plain POJOs (e.g. {@code MissingComponent}) only
-	 * satisfy the condition when they are actual beans in the container, not just
-	 * because they appear in a Jandex index.
-	 * </p>
-	 *
-	 * @param index
-	 *            the merged Jandex index
-	 * @return set of type names that are actual beans
+	 * Holds a loaded index together with the per-archive attribution maps, so the
+	 * caller ({@code BeanDeployment}) can build a production deployment without
+	 * re-scanning the classpath.
 	 */
-	public static Set<String> computeBeanTypeNames(IndexView index) {
-		Set<String> types = new HashSet<>();
-		DotName componentDn = COMPONENT_DN;
-		DotName configDn = CONFIG_DN;
-		DotName configPropsDn = CONFIG_PROPS_DN;
-		DotName beanDn = BEAN_DN;
+	public static final class LoadedIndex {
+		private final IndexView index;
+		private final Map<String, String> classToArchive;
+		private final Map<String, IndexView> archiveIndexes;
 
-		// Phase 1: scan all classes for @Component / @Configuration /
-		// @ConfigurationProperties
-		for (ClassInfo ci : index.getKnownClasses()) {
-			if (ci.isAnnotation())
-				continue;
-			if (ci.hasAnnotation(componentDn) || ci.hasAnnotation(configDn) || ci.hasAnnotation(configPropsDn)) {
-				types.add(ci.name().toString());
-			}
+		LoadedIndex(IndexView index, Map<String, String> classToArchive, Map<String, IndexView> archiveIndexes) {
+			this.index = index;
+			this.classToArchive = classToArchive;
+			this.archiveIndexes = archiveIndexes;
 		}
 
-		// Phase 2: collect @Bean return types from @Configuration classes
-		for (ClassInfo ci : index.getKnownClasses()) {
-			if (!ci.hasAnnotation(configDn))
-				continue;
-			for (MethodInfo method : ci.methods()) {
-				if (method.hasAnnotation(beanDn) && method.returnType() != null) {
-					types.add(method.returnType().name().toString());
-				}
-			}
+		public IndexView index() {
+			return index;
 		}
 
-		return types;
+		public Map<String, String> classToArchive() {
+			return classToArchive;
+		}
+
+		public Map<String, IndexView> archiveIndexes() {
+			return archiveIndexes;
+		}
 	}
 
 	/**
 	 * Loads every classpath resource with the given name, attributing each class to
-	 * the module derived from its origin URL.
-	 *
-	 * @param resourceName
-	 *            e.g. {@code META-INF/jandex.idx}
-	 * @param classToArchive
-	 *            accumulator mapping class name → module
-	 * @param archiveIndexes
-	 *            accumulator mapping module name → its raw IndexView (only
-	 *            populated when {@code includeInBeanUniverse} is true)
-	 * @param indexes
-	 *            accumulator of indexes to include in the bean-discovery universe
-	 *            (skipped when {@code includeInBeanUniverse} is false)
+	 * the module derived from its origin URL. Multiple copies of the same module on
+	 * the classpath (e.g. {@code target/classes} and the installed jar) are merged
+	 * into one archive index rather than last-wins, so a stale jar index cannot
+	 * drop classes that the freshly compiled output still has.
 	 */
 	private static void loadIndexResource(String resourceName, Map<String, String> classToArchive,
-			Map<String, IndexView> archiveIndexes, List<Index> indexes, boolean includeInBeanUniverse) {
+			Map<String, IndexView> archiveIndexes) {
+		Map<String, List<IndexView>> perModule = new HashMap<>();
 		try {
 			Enumeration<URL> urls = JandexIndexLoader.class.getClassLoader().getResources(resourceName);
 			while (urls.hasMoreElements()) {
@@ -234,10 +144,12 @@ public final class JandexIndexLoader {
 				for (ClassInfo ci : index.getKnownClasses()) {
 					classToArchive.put(ci.name().toString(), module);
 				}
-				if (includeInBeanUniverse) {
-					archiveIndexes.put(module, index);
-					indexes.add(index);
-				}
+				perModule.computeIfAbsent(module, k -> new ArrayList<>()).add(index);
+			}
+			for (var entry : perModule.entrySet()) {
+				List<IndexView> indexes = entry.getValue();
+				archiveIndexes.put(entry.getKey(),
+						indexes.size() == 1 ? indexes.get(0) : CompositeIndex.create(indexes));
 			}
 		} catch (IOException e) {
 			log.warn("[Summer] Failed to enumerate {} resources: {}", resourceName, e.getMessage());
@@ -250,43 +162,36 @@ public final class JandexIndexLoader {
 	 * <p>
 	 * For jar files, uses the artifact name (stripped of version):
 	 * {@code summer-data-jdbc-0.1.0.jar} → {@code summer-data-jdbc}.
+	 * </p>
 	 *
 	 * <p>
 	 * For directory-based indexes (local build output), uses the project directory
 	 * name: {@code .../summer-core/target/classes/META-INF/jandex.idx} →
 	 * {@code summer-core}.
+	 * </p>
 	 */
 	static String archiveFromUrl(URL url) {
 		String path = url.getPath();
-		// Jar URL: "file:.../summer-twitter-0.1.0.jar!/META-INF/jandex.idx"
-		// Extract jar name, strip "-<version>"
 		if (path.contains(".jar!")) {
 			int start = path.lastIndexOf('/', path.lastIndexOf(".jar!")) + 1;
 			String jarName = path.substring(start, path.indexOf(".jar!"));
-			// Strip trailing "-<version>" (e.g. summer-twitter-0.1.0 → summer-twitter)
 			return jarName.replaceAll("-\\d+\\.\\d+.*", "");
 		}
-		// Directory URL: ".../summer-core/target/classes/META-INF/jandex.idx"
-		// Walk up from "META-INF" to find the project directory
 		String normalized = path.replace('\\', '/');
 		int metaInfIdx = normalized.indexOf("/META-INF/");
 		if (metaInfIdx > 0) {
 			String beforeMetaInf = normalized.substring(0, metaInfIdx);
-			// .../summer-core/target/classes → find first segment that has no "target/"
-			// Actually, just take the last segment before target/ or classes/
 			if (beforeMetaInf.contains("/target/")) {
 				int tgt = beforeMetaInf.lastIndexOf("/target/");
 				int proj = beforeMetaInf.lastIndexOf('/', tgt - 1);
 				return normalized.substring(proj + 1, tgt);
 			}
-			// Fallback: segment right before "classes/"
 			int classesIdx = beforeMetaInf.lastIndexOf("/classes");
 			if (classesIdx > 0) {
 				int projIdx = beforeMetaInf.lastIndexOf('/', classesIdx - 1);
 				return normalized.substring(projIdx + 1, classesIdx);
 			}
 		}
-		// Last resort: use the dir that contains META-INF
 		String[] parts = normalized.split("/");
 		for (int i = 0; i < parts.length - 2; i++) {
 			if ("META-INF".equals(parts[i + 1])) {
@@ -294,29 +199,5 @@ public final class JandexIndexLoader {
 			}
 		}
 		return "unknown";
-	}
-
-	private static List<Index> loadIndexes() {
-		List<Index> indexes = new ArrayList<>();
-		try {
-			Enumeration<URL> urls = JandexIndexLoader.class.getClassLoader().getResources("META-INF/jandex.idx");
-			while (urls.hasMoreElements()) {
-				URL url = urls.nextElement();
-				log.debug("[Summer] Found jandex.idx at: {}", url);
-				loadIndexFromUrl(url, indexes);
-			}
-			log.debug("[Summer] Loaded {} index(es)", indexes.size());
-		} catch (IOException e) {
-			log.warn("[Summer] Failed to enumerate jandex.idx resources: {}", e.getMessage());
-		}
-		return indexes;
-	}
-
-	private static void loadIndexFromUrl(URL url, List<Index> indexes) {
-		try (InputStream is = url.openStream()) {
-			indexes.add(new IndexReader(is).read());
-		} catch (IOException e) {
-			log.debug("[Summer] Failed to read jandex.idx from {}: {}", url, e.getMessage());
-		}
 	}
 }

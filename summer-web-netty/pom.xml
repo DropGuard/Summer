@@ -71,21 +71,6 @@
                         <id>make-index</id>
                         <goals><goal>jandex</goal></goals>
                     </execution>
-                    <execution>
-                        <id>make-test-index</id>
-                        <phase>test-compile</phase>
-                        <goals><goal>jandex</goal></goals>
-                        <configuration>
-                            <processDefaultFileSet>false</processDefaultFileSet>
-                            <indexName>jandex-test.idx</indexName>
-                            <indexDir>${project.build.testOutputDirectory}/META-INF</indexDir>
-                            <fileSets>
-                                <fileSet>
-                                    <directory>${project.build.testOutputDirectory}</directory>
-                                </fileSet>
-                            </fileSets>
-                        </configuration>
-                    </execution>
                 </executions>
             </plugin>
             <plugin>

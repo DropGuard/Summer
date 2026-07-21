@@ -1,5 +1,6 @@
 package summer.data.jdbc;
 
+import org.jboss.jandex.IndexView;
 import summer.core.annotation.Bean;
 import summer.core.annotation.ConditionalOnBean;
 import summer.core.annotation.Configuration;
@@ -22,7 +23,7 @@ import summer.core.annotation.Configuration;
 public class RowMapperConfiguration {
 
 	@Bean
-	public RowMapperRegistrar rowMapperRegistrar(JdbcTemplate jdbcTemplate) {
-		return new RowMapperRegistrar(jdbcTemplate);
+	public RowMapperRegistrar rowMapperRegistrar(JdbcTemplate jdbcTemplate, IndexView discoveryIndex) {
+		return new RowMapperRegistrar(jdbcTemplate, discoveryIndex);
 	}
 }

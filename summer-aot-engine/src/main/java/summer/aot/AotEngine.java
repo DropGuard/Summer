@@ -10,8 +10,8 @@ import summer.core.BeanContainer;
 import summer.core.DiEngine;
 import summer.core.Discovery;
 import summer.core.bean.BeanDefinition;
+import summer.core.bean.BeanDeployment;
 import summer.core.bean.MockedBean;
-import summer.core.bean.ModuleIndex;
 import summer.core.bean.SharedConditionEvaluator;
 import summer.core.bean.SharedDependencyResolver;
 
@@ -85,17 +85,17 @@ public final class AotEngine {
 	public static BeanContainer buildAndCompile(IndexView index, String cacheKey, String className, MockedBean[] mocks,
 			java.util.Map<String, Object> overrides) {
 		// No per-module split available — treat the whole index as one module.
-		return buildAndCompile(ModuleIndex.single(index), cacheKey, className, mocks, overrides);
+		return buildAndCompile(BeanDeployment.forNarrow(index), cacheKey, className, mocks, overrides);
 	}
 
 	/**
-	 * Full AOT pipeline with an explicit {@link ModuleIndex}. Preferred for seeded
-	 * (narrow) universes: discovery iterates only the modules the index retains, so
-	 * a {@code @SummerTest(classes=...)} seed closure is honoured instead of the
-	 * whole classpath — the previous {@code IndexView}-only path silently
-	 * re-discovered the entire universe and ignored the seeds.
+	 * Full AOT pipeline with an explicit {@link BeanDeployment}. Preferred for
+	 * seeded (narrow) universes: discovery iterates only the modules the index
+	 * retains, so a {@code @SummerTest(classes=...)} seed closure is honoured
+	 * instead of the whole classpath — the previous {@code IndexView}-only path
+	 * silently re-discovered the entire universe and ignored the seeds.
 	 */
-	public static BeanContainer buildAndCompile(ModuleIndex moduleIndex, String cacheKey, String className,
+	public static BeanContainer buildAndCompile(BeanDeployment moduleIndex, String cacheKey, String className,
 			MockedBean[] mocks, java.util.Map<String, Object> overrides) {
 		BeanContainer cached = CACHE.get(cacheKey);
 		if (cached != null) {
@@ -141,13 +141,13 @@ public final class AotEngine {
 	 *            resolved {@code @TestProfile} content (empty map when none)
 	 * @return AOT-compiled BeanContainer
 	 */
-	private static BeanContainer compile(ModuleIndex moduleIndex, List<BeanDefinition> sorted, String cacheKey,
+	private static BeanContainer compile(BeanDeployment moduleIndex, List<BeanDefinition> sorted, String cacheKey,
 			String className, MockedBean[] mocks, java.util.Map<String, Object> overrides) {
 		try {
 			// 1. Generate code to temp directory
 			File tempDir = Files.createTempDirectory("summer-aot-").toFile();
 			tempDir.deleteOnExit();
-			IndexView index = moduleIndex.index();
+			IndexView index = moduleIndex.discoveryIndex();
 
 			WireMethodGenerator wireGen = new WireMethodGenerator(overrides);
 			new AotContextGenerator(index, tempDir, wireGen, overrides).generate(sorted, className, mocks);

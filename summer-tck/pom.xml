@@ -21,6 +21,11 @@
             <artifactId>summer-tck-fixtures</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-tck-negative-fixtures</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency><groupId>summer</groupId><artifactId>summer-test</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>summer</groupId><artifactId>summer-core</artifactId></dependency>
         <dependency><groupId>summer</groupId><artifactId>summer-runtime</artifactId><version>${project.version}</version></dependency>
@@ -44,46 +49,6 @@
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>io.smallrye</groupId>
-                <artifactId>jandex-maven-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>make-test-index</id>
-                        <phase>test-compile</phase>
-                        <goals>
-                            <goal>jandex</goal>
-                        </goals>
-                        <configuration>
-                            <processDefaultFileSet>false</processDefaultFileSet>
-                            <indexName>jandex-test.idx</indexName>
-                            <indexDir>${project.build.testOutputDirectory}/META-INF</indexDir>
-                            <fileSets>
-                                <fileSet>
-                                    <directory>${project.build.testOutputDirectory}</directory>
-                                    <!--
-                                      Sad-path fixtures (fixtures/di/errors) are deliberately-broken
-                                      beans used ONLY by narrow @SummerTest(classes=...) tests. They
-                                      must NOT enter the shared jandex-test.idx: doing so poisons every
-                                      whole-universe @SummerTest container (it tries to wire a bean whose
-                                      dependency is unregistered). This mirrors Quarkus, where negative
-                                      test fixtures live only in the ArcTestContainer's own Indexer-built
-                                      index and never in the shared application index. Narrow tests reach
-                                      these fixtures via NarrowIndexBuilder, which indexes the seed .class
-                                      bytes directly from the classpath and does not read jandex-test.idx
-                                      at all — so excluding them here has zero effect on the owning tests.
-                                      The fixtures/ tree contains ONLY sad-path fixtures, so this single
-                                      exclusion is a clean archive-boundary, not a fragile name glob.
-                                    -->
-                                    <excludes>
-                                        <exclude>**/fixtures/di/errors/**</exclude>
-                                    </excludes>
-                                </fileSet>
-                            </fileSets>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
             <plugin>
                 <groupId>summer</groupId>
                 <artifactId>summer-maven-plugin</artifactId>

@@ -109,31 +109,6 @@
                                 <goal>jandex</goal>
                             </goals>
                         </execution>
-                        <!--
-                          Test-class index (jandex-test.idx). Required so @SummerTest can
-                          resolve a test class's own module via ModuleIndex, and so the AOT
-                          test path sees the same fixture universe as the Runtime path.
-                          Without this, scopeFor() throws for every test class not already
-                          indexed — @SummerTest was previously unusable on modules that did
-                          not hand-roll this execution.
-                        -->
-                        <execution>
-                            <id>make-test-index</id>
-                            <phase>test-compile</phase>
-                            <goals>
-                                <goal>jandex</goal>
-                            </goals>
-                            <configuration>
-                                <processDefaultFileSet>false</processDefaultFileSet>
-                                <indexName>jandex-test.idx</indexName>
-                                <indexDir>${project.build.testOutputDirectory}/META-INF</indexDir>
-                                <fileSets>
-                                    <fileSet>
-                                        <directory>${project.build.testOutputDirectory}</directory>
-                                    </fileSet>
-                                </fileSets>
-                            </configuration>
-                        </execution>
                     </executions>
                 </plugin>
                 <!-- Add Spotless for static analysis and formatting -->

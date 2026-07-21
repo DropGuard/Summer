@@ -18,8 +18,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import summer.core.Discovery;
 import summer.core.bean.BeanDefinition;
+import summer.core.bean.BeanDeployment;
 import summer.core.bean.ConfigPropertiesBean;
-import summer.core.bean.ModuleIndex;
 import summer.core.bean.RouteInfo;
 import summer.core.bean.SharedDependencyResolver;
 
@@ -133,7 +133,7 @@ class CrossModuleDiscoveryTest {
 		Index index = buildIndex("summer.fixtures.dummy.DummyController", "summer.web.annotation.RestController",
 				"summer.core.Component", "summer.web.annotation.Get", "summer.web.annotation.Put",
 				"summer.web.annotation.Delete", "summer.web.annotation.PathParam");
-		List<BeanDefinition> beans = Discovery.discover(ModuleIndex.single(index));
+		List<BeanDefinition> beans = Discovery.discover(BeanDeployment.forNarrow(index));
 
 		// Find the DummyController bean
 		BeanDefinition controller = beans.stream()
@@ -180,7 +180,7 @@ class CrossModuleDiscoveryTest {
 		Index index = buildIndex("summer.fixtures.dummy.DummyConfigProperties",
 				"summer.core.config.ConfigurationProperties");
 
-		List<BeanDefinition> beans = Discovery.discover(ModuleIndex.single(index));
+		List<BeanDefinition> beans = Discovery.discover(BeanDeployment.forNarrow(index));
 
 		assertTrue(
 				beans.stream()
@@ -199,7 +199,7 @@ class CrossModuleDiscoveryTest {
 				"summer.fixtures.dummy.PlainServiceA", "summer.fixtures.dummy.PlainServiceB", "summer.core.Component",
 				"summer.core.annotation.Configuration", "summer.core.annotation.Bean");
 
-		List<BeanDefinition> beans = Discovery.discover(ModuleIndex.single(index));
+		List<BeanDefinition> beans = Discovery.discover(BeanDeployment.forNarrow(index));
 
 		// With classpath scope, should discover ALL beans regardless of package
 		long componentCount = beans.stream().filter(b -> !b.isFactoryMethod() && !(b instanceof ConfigPropertiesBean))
@@ -222,7 +222,7 @@ class CrossModuleDiscoveryTest {
 				"summer.core.annotation.Bean", "summer.fixtures.dummy.PlainServiceA",
 				"summer.fixtures.dummy.PlainServiceB");
 
-		List<BeanDefinition> beans = Discovery.discover(ModuleIndex.single(index));
+		List<BeanDefinition> beans = Discovery.discover(BeanDeployment.forNarrow(index));
 
 		long factoryCount = beans.stream().filter(b -> b.isFactoryMethod()).count();
 		assertEquals(2, factoryCount, "Should discover 2 @Bean factory products, found " + factoryCount + ": "

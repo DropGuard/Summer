@@ -34,7 +34,7 @@ import summer.test.Testing;
  * The universe is deliberately the cleanest possible DI graph —
  * {@code ServiceA -> ServiceB -> ServiceC} — built via a narrow index that
  * contains ONLY those three classes plus their transitive closure. This avoids
- * the full {@code jandex-test.idx} universe, which carries web controllers,
+ * the whole-universe test deployment, which carries web controllers,
  * {@code @Replaces} targets, and route-validation fixtures that fail discovery
  * BEFORE generation is ever reached and would masquerade as a generator bug. If
  * this test is green, the dual-method path is fine and the earlier "broken"

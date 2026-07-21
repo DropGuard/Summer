@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jboss.jandex.CompositeIndex;
 import org.jboss.jandex.IndexView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,9 +13,9 @@ import summer.core.Discovery;
 import summer.core.Engine;
 import summer.core.RuntimeDiMarker;
 import summer.core.bean.BeanDefinition;
+import summer.core.bean.BeanDeployment;
 import summer.core.bean.ConfigPropertiesBean;
 import summer.core.bean.MockedBean;
-import summer.core.bean.ModuleIndex;
 import summer.core.bean.RouteInfo;
 import summer.core.bean.SharedConditionEvaluator;
 import summer.core.bean.SharedDependencyResolver;
@@ -76,8 +77,10 @@ public final class RuntimeBeanContainerBuilder {
 	 * through {@link #build(List)} and must not hand-register beans.
 	 */
 	public static BeanContainer build(Object... externalBeans) {
-		ModuleIndex moduleIndex = testUniverse();
-		return initialize(moduleIndex, List.of(), java.util.Map.of(), externalBeans);
+		JandexIndexLoader.LoadedIndex prod = JandexIndexLoader.productionIndex();
+		BeanDeployment deployment = BeanDeployment.forProduction(prod.index(), prod.classToArchive(),
+				prod.archiveIndexes());
+		return initialize(deployment, List.of(), java.util.Map.of(), externalBeans);
 	}
 
 	/**
@@ -107,35 +110,65 @@ public final class RuntimeBeanContainerBuilder {
 	 */
 	public static BeanContainer build(IndexView narrowIndex, List<MockedBean> mocks,
 			java.util.Map<String, Object> overrides) {
-		ModuleIndex moduleIndex = ModuleIndex.single(narrowIndex);
-		return initialize(moduleIndex, mocks, overrides);
+		BeanDeployment deployment = BeanDeployment.forNarrow(narrowIndex);
+		return initialize(deployment, mocks, overrides);
 	}
 
 	/**
-	 * Builds a {@link BeanContainer} over a caller-supplied {@link ModuleIndex}.
-	 * The test container uses the test universe index; the production path is not
-	 * exposed here (production startup uses {@code SummerApplication} /
-	 * {@code SummerMojo}, which read only {@code jandex.idx}).
+	 * Builds a {@link BeanContainer} over a caller-supplied {@link BeanDeployment}.
+	 * The test container uses the whole-universe deployment (application archives
+	 * plus test archives); the production path is not exposed here (production
+	 * startup uses {@code SummerApplication} / {@code SummerMojo}, which read only
+	 * {@code jandex.idx}).
 	 *
-	 * @param moduleIndex
-	 *            the module index to discover from (test universe)
+	 * @param deployment
+	 *            the deployment to discover from (test universe)
 	 * @param mocks
 	 *            mocked beans produced from {@code @Mock} parameters (internal)
 	 * @param overrides
 	 *            resolved {@code @TestProfile} content (empty map when none)
 	 * @return immutable bean container
 	 */
-	public static BeanContainer build(ModuleIndex moduleIndex, List<MockedBean> mocks,
+	public static BeanContainer build(BeanDeployment deployment, List<MockedBean> mocks,
 			java.util.Map<String, Object> overrides) {
-		return initialize(moduleIndex, mocks, overrides);
+		return initialize(deployment, mocks, overrides);
 	}
 
-	/** The test universe index: application beans plus test-class beans. */
-	private static ModuleIndex testUniverse() {
-		return JandexIndexLoader.testIndex();
+	/**
+	 * The whole-universe test deployment, faithful to Quarkus'
+	 * {@code @QuarkusTest}: the production application archives plus exactly the
+	 * current test class's {@code test-classes} directory, indexed on demand via
+	 * {@link TestClassIndexer} (never a pre-baked {@code jandex-test.idx}, never a
+	 * bulk scan of every module's test classes, never an exclude list). A negative
+	 * (sad-path) fixture lives in its own module and is simply not on the path of
+	 * any application's {@code test-classes} directory, so it cannot enter the
+	 * whole-universe container — structurally, with no allow-list.
+	 *
+	 * <p>
+	 * When no explicit test class is available (e.g. {@code build()} called without
+	 * one), the calling test class is inferred from the stack so the same
+	 * single-directory model still applies.
+	 * </p>
+	 */
+	private static BeanDeployment testUniverse() {
+		JandexIndexLoader.LoadedIndex prod = JandexIndexLoader.productionIndex();
+		Class<?> inferred = TestClassIndexer.inferTestClass();
+		IndexView testIndex = (inferred != null)
+				? TestClassIndexer.indexTestClasses(inferred)
+				: CompositeIndex.create(List.of());
+		// Per-archive attribution: every production module, plus the test-classes
+		// directory as one "test" archive (Quarkus adds the test-classes archive as
+		// a single additional archive).
+		Map<String, String> classToArchive = new java.util.HashMap<>(prod.classToArchive());
+		for (String type : testIndex.getKnownClasses().stream().map(Object::toString).toList()) {
+			classToArchive.put(type, "test");
+		}
+		Map<String, IndexView> archiveIndexes = new java.util.HashMap<>(prod.archiveIndexes());
+		archiveIndexes.put("test", testIndex);
+		return BeanDeployment.forTestUniverse(prod.index(), classToArchive, archiveIndexes);
 	}
 
-	private static BeanContainer initialize(ModuleIndex moduleIndex, List<MockedBean> mocks,
+	private static BeanContainer initialize(BeanDeployment deployment, List<MockedBean> mocks,
 			java.util.Map<String, Object> overrides, Object... externalBeans) {
 		BeanContainer.Builder builder = new BeanContainer.Builder();
 
@@ -148,7 +181,7 @@ public final class RuntimeBeanContainerBuilder {
 		// discovery time — class loading is deferred to the instantiator, matching
 		// AOT). It already registers AotDiMarker; we add the Runtime marker and the
 		// IndexView bean (needed by @Bean method param resolution).
-		List<BeanDefinition> candidates = Discovery.discover(moduleIndex);
+		List<BeanDefinition> candidates = Discovery.discover(deployment);
 		candidates.add(new BeanDefinition(RuntimeDiMarker.class.getName(), "RuntimeDiMarker"));
 		// Register IndexView so the dependency resolver can find it for @Bean method
 		// params
@@ -161,7 +194,7 @@ public final class RuntimeBeanContainerBuilder {
 		// feeds the same MockedBean target types into SharedConditionEvaluator).
 		Set<String> mockedTypeNames = mocks.stream().map(MockedBean::targetTypeName)
 				.collect(java.util.stream.Collectors.toSet());
-		new SharedConditionEvaluator().evaluate(candidates, mockedTypeNames, moduleIndex);
+		new SharedConditionEvaluator().evaluate(candidates, mockedTypeNames, deployment);
 
 		// ── Phase 3: Resolution ─────────────────────────────────────
 		// Bind, sort, instantiate. A single BindingContext carries the parsed
@@ -189,7 +222,7 @@ public final class RuntimeBeanContainerBuilder {
 		}
 		BeanInstantiator instantiator = new BeanInstantiator(builder, interceptorMap, interceptorBindingMap);
 
-		builder.register(IndexView.class, moduleIndex.index());
+		builder.register(IndexView.class, deployment.discoveryIndex());
 		// Register mocked instances under their declared target type (and the
 		// target's interfaces) so dependent beans inject the mock. The real bean of
 		// each target type was already removed at discovery stage, so this never
