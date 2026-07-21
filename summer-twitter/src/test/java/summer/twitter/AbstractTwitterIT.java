@@ -16,7 +16,7 @@ import java.util.Map;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import summer.core.BeanContainer;
-import summer.test.TestRunContext;
+import summer.test.internal.TestRunContext;
 import summer.test.devservices.TestcontainersDevServicesHolder;
 import summer.web.server.NettyServerRunner;
 

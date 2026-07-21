@@ -6,7 +6,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.extension.ExtendWith;
-import summer.test.profile.DualEngineInvocationProvider;
+import summer.test.internal.DualEngineInvocationProvider;
 
 /**
  * Method-level trigger for a dual-engine behavioural test.

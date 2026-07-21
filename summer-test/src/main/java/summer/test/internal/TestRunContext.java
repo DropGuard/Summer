@@ -1,4 +1,4 @@
-package summer.test;
+package summer.test.internal;
 
 import java.lang.reflect.Constructor;
 import java.util.List;
@@ -10,6 +10,7 @@ import java.util.logging.Logger;
 import summer.core.BeanContainer;
 import summer.core.Engine;
 import summer.core.bean.MockedBean;
+import summer.test.Testing;
 import summer.test.annotation.TestProfile;
 
 /**

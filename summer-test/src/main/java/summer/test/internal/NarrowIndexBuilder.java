@@ -1,8 +1,8 @@
-package summer.test;
-
+package summer.test.internal;
 import java.io.InputStream;
 import org.jboss.jandex.IndexView;
 import org.jboss.jandex.Indexer;
+import summer.core.Internal;
 
 /**
  * Builds a Jandex {@link IndexView} for a narrow bean universe, used by
@@ -27,12 +27,13 @@ import org.jboss.jandex.Indexer;
  * (which is what makes a broken graph fail assembly as the test promises).
  * </p>
  */
-final class NarrowIndexBuilder {
+@Internal
+public final class NarrowIndexBuilder {
 
 	private NarrowIndexBuilder() {
 	}
 
-	static IndexView build(Class<?>... seeds) {
+	public static IndexView build(Class<?>... seeds) {
 		Indexer indexer = new Indexer();
 		for (Class<?> seed : seeds) {
 			indexClass(seed, indexer);

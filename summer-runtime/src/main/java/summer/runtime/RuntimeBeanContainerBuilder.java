@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import summer.core.BeanContainer;
 import summer.core.Discovery;
 import summer.core.Engine;
+import summer.core.Internal;
 import summer.core.RuntimeDiMarker;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.BeanDeployment;
@@ -53,6 +54,7 @@ public final class RuntimeBeanContainerBuilder {
 	 *            mocked beans produced from {@code @Mock} parameters (internal)
 	 * @return immutable bean container
 	 */
+	@Internal
 	public static BeanContainer build(List<MockedBean> mocks) {
 		return build(testUniverse(), mocks, java.util.Map.of());
 	}
@@ -95,6 +97,7 @@ public final class RuntimeBeanContainerBuilder {
 	 *            resolved {@code @TestProfile} content (empty map when none)
 	 * @return immutable bean container
 	 */
+	@Internal
 	public static BeanContainer build(List<MockedBean> mocks, java.util.Map<String, Object> overrides) {
 		return build(testUniverse(), mocks, overrides);
 	}
@@ -108,6 +111,7 @@ public final class RuntimeBeanContainerBuilder {
 	 * leak in. Discovery, mock, and profile handling are identical to the
 	 * full-universe path; only the candidate set shrinks.
 	 */
+	@Internal
 	public static BeanContainer build(IndexView narrowIndex, List<MockedBean> mocks,
 			java.util.Map<String, Object> overrides) {
 		BeanDeployment deployment = BeanDeployment.forNarrow(narrowIndex);
@@ -129,6 +133,7 @@ public final class RuntimeBeanContainerBuilder {
 	 *            resolved {@code @TestProfile} content (empty map when none)
 	 * @return immutable bean container
 	 */
+	@Internal
 	public static BeanContainer build(BeanDeployment deployment, List<MockedBean> mocks,
 			java.util.Map<String, Object> overrides) {
 		return initialize(deployment, mocks, overrides);

@@ -1,5 +1,4 @@
-package summer.test;
-
+package summer.test.internal;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
@@ -7,7 +6,9 @@ import java.util.List;
 import org.junit.jupiter.api.extension.TestInstantiationException;
 import summer.core.BeanContainer;
 import summer.core.Engine;
+import summer.core.Internal;
 import summer.core.bean.MockedBean;
+import summer.test.Testing;
 import summer.test.annotation.Mock;
 import summer.test.annotation.SummerTest;
 import summer.test.annotation.TestProfile;
@@ -44,6 +45,7 @@ import summer.test.profile.TestProfileSpec;
  * virtual threads.
  * </p>
  */
+@Internal
 public final class TestContainerFactory {
 
 	private TestContainerFactory() {

@@ -1,10 +1,10 @@
-package summer.test;
-
+package summer.test.internal;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.security.MessageDigest;
 import java.util.SortedSet;
 import java.util.TreeSet;
+import summer.core.Internal;
 import summer.test.annotation.Mock;
 
 /**
@@ -42,6 +42,7 @@ import summer.test.annotation.Mock;
  * fingerprint, so they can never drift apart.
  * </p>
  */
+@Internal
 public final class AotKey {
 
 	private final String fingerprint;

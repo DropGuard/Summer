@@ -1,7 +1,7 @@
-package summer.test;
-
+package summer.test.internal;
 import java.util.List;
 import java.util.Objects;
+import summer.core.Internal;
 
 /**
  * The explicit identity of a test universe within the shared
@@ -32,6 +32,7 @@ import java.util.Objects;
  * verbatim rather than as an opaque fingerprint.
  * </p>
  */
+@Internal
 public final class EnvKey {
 
 	/** Marker used when a test declares no profile. */

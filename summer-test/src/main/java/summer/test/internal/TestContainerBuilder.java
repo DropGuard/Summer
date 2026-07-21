@@ -1,9 +1,10 @@
-package summer.test;
-
+package summer.test.internal;
 import java.lang.annotation.Annotation;
 import summer.core.BeanContainer;
 import summer.core.Component;
 import summer.core.DiEngine;
+import summer.core.Internal;
+import summer.test.Testing;
 
 /**
  * Test container builder for Summer DI engines.
@@ -37,6 +38,7 @@ import summer.core.DiEngine;
  * same mechanism the dual-engine path uses internally.
  * </p>
  */
+@Internal
 public final class TestContainerBuilder {
 
 	private TestContainerBuilder() {

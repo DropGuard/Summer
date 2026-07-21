@@ -1,6 +1,7 @@
 package summer.core.bean;
 
 import java.util.Objects;
+import summer.core.Internal;
 
 /**
  * A single Mockito mock bound to the bean type it replaces.
@@ -31,6 +32,7 @@ import java.util.Objects;
  * without a dependency cycle.
  * </p>
  */
+@Internal
 public final class MockedBean {
 
 	private final Class<?> targetType;

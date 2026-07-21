@@ -8,8 +8,8 @@ import summer.core.annotation.Configuration;
 import summer.core.annotation.Replaces;
 import summer.data.jdbc.JdbcTemplate;
 import summer.data.jdbc.tx.TransactionAwareDataSourceProxy;
-import summer.test.DevServicesHolder;
-import summer.test.TestRunContext;
+import summer.test.internal.DevServicesHolder;
+import summer.test.internal.TestRunContext;
 
 /**
  * Test-only database configuration that replaces production {@code DatabaseConfig}.

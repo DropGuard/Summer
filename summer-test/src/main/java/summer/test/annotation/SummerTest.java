@@ -6,7 +6,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 import org.junit.jupiter.api.extension.ExtendWith;
 import summer.core.Engine;
-import summer.test.SummerExtension;
+import summer.test.internal.SummerExtension;
 
 /**
  * Marks a test class as a Summer-managed test.

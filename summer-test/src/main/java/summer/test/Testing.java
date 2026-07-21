@@ -5,10 +5,13 @@ import org.jboss.jandex.IndexView;
 import summer.core.BeanContainer;
 import summer.core.Component;
 import summer.core.Engine;
+import summer.core.Internal;
 import summer.core.bean.MockedBean;
 import summer.runtime.JandexIndexLoader;
 import summer.runtime.RuntimeBeanContainerBuilder;
 import summer.runtime.TestClassIndexer;
+import summer.test.internal.AotKey;
+import summer.test.internal.NarrowIndexBuilder;
 
 /**
  * Unified test container builder for Summer's DI engines.
@@ -74,6 +77,7 @@ public final class Testing {
 	 *            not a public registration API)
 	 * @return immutable bean container
 	 */
+	@Internal
 	public static BeanContainer buildForTest(Class<?> testClass, Engine engine, List<MockedBean> mocks) {
 		return buildForTest(testClass, engine, mocks, java.util.Map.of());
 	}
@@ -101,6 +105,7 @@ public final class Testing {
 	 *            resolved {@code @TestProfile} content (empty map when none)
 	 * @return immutable bean container
 	 */
+	@Internal
 	public static BeanContainer buildForTest(Class<?> testClass, Engine engine, List<MockedBean> mocks,
 			java.util.Map<String, Object> overrides) {
 		Class<?>[] seeds = summerTestSeeds(testClass);
@@ -221,6 +226,7 @@ public final class Testing {
 	 * purpose.
 	 * </p>
 	 */
+	@Internal
 	public static BeanContainer buildNarrowAot(Class<?>[] seeds, List<MockedBean> mocks,
 			java.util.Map<String, Object> overrides) {
 		String seedSignature = java.util.Arrays.stream(seeds).map(Class::getName).sorted()

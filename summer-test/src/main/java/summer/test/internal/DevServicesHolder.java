@@ -1,7 +1,7 @@
-package summer.test;
-
+package summer.test.internal;
 import java.util.Map;
 import javax.sql.DataSource;
+import summer.core.Internal;
 
 /**
  * Supplies shared external resources (a real database, a message broker, …) for
@@ -31,6 +31,7 @@ import javax.sql.DataSource;
  * actually run integration tests need those on their test classpath.
  * </p>
  */
+@Internal
 public interface DevServicesHolder {
 
 	/**

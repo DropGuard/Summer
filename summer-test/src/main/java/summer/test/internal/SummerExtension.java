@@ -1,11 +1,11 @@
-package summer.test;
-
+package summer.test.internal;
 import java.lang.reflect.Method;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestInstanceFactory;
 import org.junit.jupiter.api.extension.TestInstanceFactoryContext;
 import org.junit.jupiter.api.extension.TestInstantiationException;
 import summer.core.Engine;
+import summer.core.Internal;
 import summer.test.annotation.SummerTest;
 
 /**
@@ -27,6 +27,7 @@ import summer.test.annotation.SummerTest;
  * callbacks must not tear down a shared universe.
  * </p>
  */
+@Internal
 public class SummerExtension implements TestInstanceFactory {
 
 	private static final ExtensionContext.Namespace NS = ExtensionContext.Namespace.create(SummerExtension.class);

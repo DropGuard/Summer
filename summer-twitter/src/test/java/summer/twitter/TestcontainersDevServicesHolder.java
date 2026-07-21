@@ -11,7 +11,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.GenericContainer;
 
-import summer.test.DevServicesHolder;
+import summer.test.internal.DevServicesHolder;
 
 /**
  * Testcontainers-backed dev-services for the Summer Twitter integration tests.
