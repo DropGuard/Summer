@@ -14,9 +14,6 @@
     <artifactId>summer-twitter</artifactId>
     <name>Summer Twitter</name>
     <description>Summer Framework showcase application: A micro Twitter clone</description>
-    <properties>
-        <checkstyle.skip>true</checkstyle.skip>
-    </properties>
 
     <dependencies>
         <!-- Summer Modules -->

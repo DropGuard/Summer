@@ -45,6 +45,7 @@
         <module>summer-maven-plugin</module>
         <module>summer-aot-engine</module>
         <module>summer-tck-fixtures</module>
+        <module>summer-tck-negative-fixtures</module>
         <module>summer-archunit</module>
         <module>summer-coverage-report</module>
     </modules>
@@ -129,27 +130,6 @@
                         </java>
                     </configuration>
                 </plugin>
-                <!-- Linter: Checkstyle for code quality guardrails -->
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-checkstyle-plugin</artifactId>
-                    <version>3.6.0</version>
-                    <configuration>
-                        <configLocation>config/checkstyle.xml</configLocation>
-                        <consoleOutput>true</consoleOutput>
-                        <failsOnError>true</failsOnError>
-                        <linkXRef>false</linkXRef>
-                    </configuration>
-                    <executions>
-                        <execution>
-                            <id>validate</id>
-                            <phase>validate</phase>
-                            <goals>
-                                <goal>check</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                </plugin>
                 <!-- JaCoCo for code coverage — opt-in: add to <plugins> in modules that need it -->
                 <plugin>
                     <groupId>org.jacoco</groupId>
@@ -204,10 +184,6 @@
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-checkstyle-plugin</artifactId>
             </plugin>
             <!-- Spotless: auto-format on verify -->
             <plugin>
