@@ -22,8 +22,8 @@ import summer.core.exception.NoSuchBeanException;
  * <li>Evaluate {@code @ConditionalOnBean} in topological order, remove
  * unsatisfied beans</li>
  * <li>Resolve {@code @Replaces} (class-level and method-level), remove replaced
- * beans</li>
- * <li>Remove orphaned {@code @Bean} method products</li>
+ * beans and any {@code @Bean} product whose {@code @Configuration} was
+ * replaced</li>
  * </ol>
  *
  * <p>
@@ -80,7 +80,6 @@ public final class SharedConditionEvaluator {
 		List<BeanDefinition> topoOrder = buildTopologicalOrder(beans, requiredTypes);
 		resolveConditionalOnBean(beans, topoOrder, requiredTypes);
 		resolveReplaces(beans);
-		removeOrphanedFactoryProducts(beans);
 	}
 
 	/**
@@ -216,6 +215,13 @@ public final class SharedConditionEvaluator {
 			log.debug("[Summer]   Removing: {} ({})", desc, r.getClass().getSimpleName());
 		}
 		beans.removeAll(replaced);
+		// A @Bean product is owned by its @Configuration class. When that class is
+		// removed by @Replaces, the product is orphaned and must go too.
+		// Keyed by configClassName against the qualifiedNames of beans still
+		// present (the previous version matched qualifiedName against configClassName,
+		// conflating two distinct fields and wrongly purging valid @Bean products).
+		Set<String> liveNames = beans.stream().map(b -> b.qualifiedName).collect(java.util.stream.Collectors.toSet());
+		beans.removeIf(p -> p.isFactoryMethod() && !liveNames.contains(p.configClassName));
 		log.debug("[Summer] Beans after resolveReplaces: {} remaining", beans.size());
 	}
 
@@ -243,14 +249,6 @@ public final class SharedConditionEvaluator {
 				beans.remove(bean);
 			}
 		}
-	}
-
-	private void removeOrphanedFactoryProducts(List<BeanDefinition> beans) {
-		Set<String> allBeanNames = new HashSet<>();
-		for (BeanDefinition bean : beans) {
-			allBeanNames.add(bean.qualifiedName);
-		}
-		beans.removeIf(b -> b.isFactoryMethod() && !allBeanNames.contains(b.configClassName));
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────
