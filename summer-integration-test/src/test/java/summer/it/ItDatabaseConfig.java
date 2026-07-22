@@ -8,7 +8,7 @@ import summer.core.annotation.Configuration;
 import summer.data.jdbc.JdbcTemplate;
 import summer.data.jdbc.tx.TransactionAwareDataSourceProxy;
 import summer.test.internal.DevServicesHolder;
-import summer.test.internal.TestRunContext;
+import summer.test.internal.SummerTestLifecycle;
 
 /**
  * Framework-IT database config: replaces production {@code DatabaseConfig} and
@@ -29,10 +29,10 @@ public class ItDatabaseConfig {
 		String url = System.getProperty("summer.test.datasource.url");
 		if (url == null) {
 			throw new IllegalStateException(
-					"Framework IT requires a real database. Call TestRunContext.ensureDevServices(...) "
+					"Framework IT requires a real database. Call SummerTestLifecycle.ensureDevServices(...) "
 							+ "first (it sets summer.test.datasource.url), or set it explicitly.");
 		}
-		DevServicesHolder devServices = TestRunContext.instance().devServices();
+		DevServicesHolder devServices = SummerTestLifecycle.instance().devServices();
 		if (devServices.owns(url)) {
 			return new TransactionAwareDataSourceProxy(devServices.sharedDataSource(url));
 		}

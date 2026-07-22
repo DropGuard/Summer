@@ -15,7 +15,7 @@ import summer.test.internal.DevServicesHolder;
  *
  * <p>
  * This is the {@code summer-test} framework's well-known holder implementation
- * (located by {@code TestRunContext} via reflection), kept in the
+ * (located by {@code SummerTestLifecycle} via reflection), kept in the
  * {@code summer-integration-test} module so {@code summer-test} itself never
  * depends on Testcontainers or Docker. The holder starts the real
  * infrastructure the framework IT needs — a single Postgres and a single Redis

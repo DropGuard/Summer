@@ -10,7 +10,7 @@ import summer.core.BeanContainer;
 import summer.data.redis.SummerRedisTemplate;
 import summer.test.annotation.DualEngine;
 import summer.test.annotation.SummerTest;
-import summer.test.internal.TestRunContext;
+import summer.test.internal.SummerTestLifecycle;
 
 /**
  * Framework integration test on a REAL Postgres + Redis stack.
@@ -74,7 +74,7 @@ public class GreetingIT extends AbstractFrameworkIT {
 	 */
 	@AfterAll
 	static void universeReuseIsExercised() {
-		assertEquals(5, TestRunContext.instance().cacheHits(),
+		assertEquals(5, SummerTestLifecycle.instance().cacheHits(),
 				"expected 3 @DualEngine methods × 2 engines − 1 first build = 5 cache hits");
 	}
 }

@@ -5,7 +5,7 @@ import summer.core.Internal;
 
 /**
  * The explicit identity of a test universe within the shared
- * {@link TestRunContext}.
+ * {@link SummerTestLifecycle}.
  *
  * <p>
  * Quarkus keys its single shared application on an implicit "environment" it

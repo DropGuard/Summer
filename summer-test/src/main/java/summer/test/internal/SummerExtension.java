@@ -21,10 +21,10 @@ import summer.test.annotation.SummerTest;
  * </p>
  *
  * <p>
- * Container lifecycle is owned by {@link TestRunContext} (JVM-wide reuse,
- * closed on environment change / JVM exit) — this extension deliberately does
- * not close the container, matching the run-context's invariant that per-class
- * callbacks must not tear down a shared universe.
+ * Container lifecycle is owned by {@link SummerTestLifecycle} (JVM-wide reuse,
+ * closed on JVM exit) — this extension deliberately does not close the
+ * container, matching the lifecycle owner's invariant that per-class callbacks
+ * must not tear down a shared universe.
  * </p>
  */
 @Internal

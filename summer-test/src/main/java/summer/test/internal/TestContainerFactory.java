@@ -133,12 +133,11 @@ public final class TestContainerFactory {
 
 		BeanContainer container;
 		try {
-			// Route through TestRunContext so universes that share an EnvKey are built
-			// once and reused across @SummerTest classes (JVM-wide), instead of being
-			// rebuilt per class. The shouldFail contract below is unaffected: a cached
-			// success returns the container, and a class whose assembly must fail is
-			// never cached (it throws before put).
-			container = TestRunContext.instance().acquireUniverse(testClass, engine, mocks);
+			// Route through SummerTestLifecycle so universes that share an EnvKey are
+			// built once and reused (JVM-wide), instead of being rebuilt per class.
+			// The shouldFail contract below is unaffected: a cached success returns the
+			// container, and a class whose assembly must fail is never cached.
+			container = SummerTestLifecycle.instance().acquireUniverse(testClass, engine, mocks);
 		} catch (Exception buildFailure) {
 			if (!shouldFail) {
 				throw new TestInstantiationException(

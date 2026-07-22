@@ -6,15 +6,15 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import summer.core.BeanContainer;
 import summer.test.devservices.TestcontainersDevServicesHolder;
-import summer.test.internal.TestRunContext;
+import summer.test.internal.SummerTestLifecycle;
 
 /**
  * Shared bootstrap for the framework's real-stack integration tests.
  *
  * <p>
  * Uses the <b>internal</b> {@code DevServicesHolder} convenience (via
- * {@code TestRunContext}) to start one shared Postgres + Redis for the JVM and
- * point the test config at it. This is framework-internal — demos must not
+ * {@code SummerTestLifecycle}) to start one shared Postgres + Redis for the JVM
+ * and point the test config at it. This is framework-internal — demos must not
  * depend on {@code summer.test.internal}; they start Testcontainers directly
  * and set {@code summer.test.datasource.url} / {@code summer.redis.uri}
  * themselves (see {@code RedisIntegrationIT}).
@@ -26,7 +26,7 @@ abstract class AbstractFrameworkIT {
 
 	@BeforeAll
 	static void startEnvironment() throws Exception {
-		TestRunContext ctx = TestRunContext.instance();
+		SummerTestLifecycle ctx = SummerTestLifecycle.instance();
 		ctx.ensureDevServices(java.util.Map.of("database", "summer_it"));
 		TestcontainersDevServicesHolder holder = (TestcontainersDevServicesHolder) ctx.devServices();
 

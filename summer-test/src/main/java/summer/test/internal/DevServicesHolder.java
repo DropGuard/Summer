@@ -8,9 +8,9 @@ import summer.core.Internal;
  * the {@code @SummerTest} universe.
  *
  * <p>
- * A holder is the <b>subject</b> of the shared test-run context, not a field
- * hanging off it: the whole point of the static {@link TestRunContext} is to
- * start heavy resources at most once per JVM and tear them down only at JVM
+ * A holder is the <b>subject</b> of the shared test-run lifecycle, not a field
+ * hanging off it: the whole point of the static {@link SummerTestLifecycle} is
+ * to start heavy resources at most once per JVM and tear them down only at JVM
  * exit. That lifetime is what eliminates the per-class connection-pool leak a
  * naive per-test universe caused.
  * </p>
