@@ -14,60 +14,55 @@ import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import summer.core.BeanContainer;
-import summer.test.internal.TestRunContext;
-import summer.test.devservices.TestcontainersDevServicesHolder;
-import summer.web.server.NettyServerRunner;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
+
+import summer.core.BeanContainer;
+import summer.test.Testing;
+import summer.web.server.NettyServerRunner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Shared bootstrap for the Twitter integration tests.
+ * Shared bootstrap for the Twitter integration tests — PURE USER PERSPECTIVE.
  *
  * <p>
- * Every {@code *IT} class inherits the same real-stack setup: one shared
- * Postgres + one shared Redis (started once per JVM via {@link TestRunContext}),
- * the schema and seed loaded <b>from the demo's own {@code docker/} SQL</b>
- * (single source of truth — no copy, so the IT database can never drift from the
- * demo database), and a Netty server bound to a random port. The shared
- * dev-services are owned by {@link TestRunContext}; this base class only points
- * the test configs at them and starts the application server.
+ * This demo uses only the <b>public</b> test API: it starts Testcontainers
+ * directly (exactly like {@code RedisIntegrationIT}) and points the framework
+ * at the real database via the {@code summer.test.datasource.url} /
+ * {@code summer.redis.uri} system properties. It does NOT use any
+ * {@code summer.test.internal} type — that is reserved for framework-owned
+ * integration tests (see {@code summer-integration-test}), not for demos.
  * </p>
  *
  * <p>
- * REST integration tests extend this and reuse the HTTP helpers; the WebSocket
- * integration test (MessageWSIT) extends it too but brings its own WS client.
+ * Every {@code *IT} class inherits the same real-stack setup: one shared
+ * Postgres + one shared Redis (started once per JVM via the {@code static}
+ * {@code @Container} fields), the schema and seed loaded from the demo's own
+ * {@code docker/} SQL (single source of truth), and a Netty server on a random
+ * port. The shared dev-services are owned by this base class; subclasses only
+ * point their configs at them and start the application server.
  * </p>
  *
  * <p>
  * <b>Diagnosing a red IT.</b> The client only ever sees a generic
- * {@code "Internal Server Error"} (the framework deliberately does not leak
- * server internals to the response). The real root cause lives in the
- * <b>server-side log</b> - the framework logs it via {@code log.error}
- * (e.g. {@code HttpContext.error} for HTTP 500s, and
- * {@code WebSocketUpgradeHandler} for WS upgrade failures).
- * </p>
- * <p>
- * <b>Where the log lands</b> (see {@code logback-test.xml} on the test
- * classpath, which overrides the app's {@code logback.xml}): every server
- * ERROR/WARN is written to {@code target/it-server.log} - a deterministic sink
- * that does NOT depend on surefire forking a new JVM. To triage a red IT:
+ * {@code "Internal Server Error"}. The real root cause lives in the server-side
+ * log. See {@code logback-test.xml} on the test classpath; every server
+ * ERROR/WARN is written to {@code target/it-server.log}. To triage:
  * {@code grep -nE 'ERROR|PSQLException|WebSocket upgrade failed' summer-twitter/target/it-server.log}.
- * The console also shows INFO-level output for the usual green-bar feedback.
- * Surefire/failsafe's own {@code output-<class>.txt} (under
- * {@code target/surefire-reports/}, only when {@code redirectTestOutputToFile}
- * is on AND the run forks) is a CI-only fallback, not the local primary.
- * Do NOT work around a red IT by echoing the exception into the HTTP response
- * body - that would leak internals; read {@code target/it-server.log} instead.
  * </p>
  */
+@Testcontainers
 abstract class AbstractTwitterIT {
 
 	protected static BeanContainer context;
@@ -76,28 +71,45 @@ abstract class AbstractTwitterIT {
 			.connectTimeout(Duration.ofSeconds(5)).build();
 	protected static final ObjectMapper mapper = new ObjectMapper();
 
+	@Container
+	static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(DockerImageName.parse("postgres:15"))
+			.withDatabaseName("twitter_test")
+			.withUsername("test")
+			.withPassword("test");
+
+	@Container
+	static final GenericContainer<?> REDIS = new GenericContainer<>(DockerImageName.parse("redis:7"))
+			.withExposedPorts(6379);
+
 	@BeforeAll
 	static void startEnvironment() throws Exception {
-		TestRunContext ctx = TestRunContext.instance();
-		ctx.ensureDevServices(java.util.Map.of("database", "twitter_test"));
-		TestcontainersDevServicesHolder holder = (TestcontainersDevServicesHolder) ctx.devServices();
-
-		try (Connection conn = holder.openAdminConnection()) {
-			// The shared Postgres is JVM-wide, so every *IT class reuses the same
-			// database. Reset it to a clean schema before (re)loading, so each IT
-			// starts from the demo's seed data regardless of run order.
+		String jdbcUrl = POSTGRES.getJdbcUrl();
+		HikariDataSource adminDs = new HikariDataSource(new HikariConfig() {
+			{
+				setJdbcUrl(jdbcUrl);
+				setUsername("test");
+				setPassword("test");
+				setDriverClassName("org.postgresql.Driver");
+			}
+		});
+		try (Connection conn = adminDs.getConnection()) {
 			try (Statement reset = conn.createStatement()) {
 				reset.execute("DROP SCHEMA IF EXISTS public CASCADE");
 				reset.execute("CREATE SCHEMA public");
 			}
 			applySql(conn, "docker/init/01-schema.sql");
 			applySql(conn, "docker/seed.sql");
+		} finally {
+			adminDs.close();
 		}
 
-		System.setProperty("summer.test.datasource.url", "summer:devservices:postgres");
-		System.setProperty("summer.redis.uri", holder.redisUri());
+		System.setProperty("summer.test.datasource.url", jdbcUrl);
+		System.setProperty("summer.test.datasource.username", "test");
+		System.setProperty("summer.test.datasource.password", "test");
+		System.setProperty("summer.redis.uri",
+				"redis://" + REDIS.getHost() + ":" + REDIS.getMappedPort(6379));
 
-		context = summer.test.Testing.buildForTest(AbstractTwitterIT.class);
+		context = Testing.buildForTest(AbstractTwitterIT.class);
 
 		for (Object runner : context.getBeans(NettyServerRunner.class)) {
 			((NettyServerRunner) runner).run(context);
@@ -110,6 +122,8 @@ abstract class AbstractTwitterIT {
 	@AfterAll
 	static void stopEnvironment() {
 		System.clearProperty("summer.test.datasource.url");
+		System.clearProperty("summer.test.datasource.username");
+		System.clearProperty("summer.test.datasource.password");
 		System.clearProperty("summer.redis.uri");
 		context = null;
 	}
@@ -207,4 +221,3 @@ abstract class AbstractTwitterIT {
 		}
 	}
 }
-
