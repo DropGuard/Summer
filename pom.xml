@@ -46,6 +46,7 @@
         <module>summer-aot-engine</module>
         <module>summer-tck-fixtures</module>
         <module>summer-tck-negative-fixtures</module>
+        <module>summer-integration-test</module>
         <module>summer-archunit</module>
         <module>summer-coverage-report</module>
     </modules>
