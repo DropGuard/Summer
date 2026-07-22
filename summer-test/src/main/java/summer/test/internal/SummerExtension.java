@@ -15,9 +15,9 @@ import summer.test.annotation.SummerTest;
  * Builds a {@link BeanContainer} during test instance creation and resolves
  * constructor parameters against it — same injection contract as
  * {@code @Component}. The build (and the {@code shouldFail} contract) is
- * delegated to {@link TestContainerFactory#instantiateFor}, the single
- * chokepoint shared with the dual-engine path, so both engines judge a negative
- * test by the same rule.
+ * delegated to {@link SummerTestLifecycle#createUniverse}, the single owner of
+ * the universe lifecycle, so both the single-engine and dual-engine paths judge
+ * a negative test by the same rule.
  * </p>
  *
  * <p>
@@ -44,12 +44,8 @@ public class SummerExtension implements TestInstanceFactory {
 
 		// Engine selection is transparent to users; the dev switch (Summer:dev)
 		// can force a specific engine, otherwise Runtime is the dev default.
-		// instantiateFor honours the @SummerTest(shouldFail=...) contract, so a
-		// negative test (expected assembly failure) passes when assembly throws,
-		// and returns the built container (or null on an expected failure) for
-		// storage — no thread-local, no second build.
 		Engine engine = summerTest.engine();
-		TestContainerFactory.BuildOutcome outcome = TestContainerFactory.instantiateFor(testClass, engine);
+		TestContainerFactory.BuildOutcome outcome = SummerTestLifecycle.createUniverse(testClass, engine);
 		extensionContext.getStore(NS).put(KEY, outcome.container());
 
 		return outcome.instance();

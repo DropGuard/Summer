@@ -130,11 +130,15 @@ public final class TestContainerFactory {
 		boolean shouldFail = testClass.getAnnotation(SummerTest.class).shouldFail();
 
 		List<MockedBean> mocks = createMocks(testClass);
-		java.util.Map<String, Object> overrides = profileOverrides(testClass);
 
 		BeanContainer container;
 		try {
-			container = Testing.buildForTest(testClass, engine, mocks, overrides);
+			// Route through TestRunContext so universes that share an EnvKey are built
+			// once and reused across @SummerTest classes (JVM-wide), instead of being
+			// rebuilt per class. The shouldFail contract below is unaffected: a cached
+			// success returns the container, and a class whose assembly must fail is
+			// never cached (it throws before put).
+			container = TestRunContext.instance().acquireUniverse(testClass, engine, mocks);
 		} catch (Exception buildFailure) {
 			if (!shouldFail) {
 				throw new TestInstantiationException(

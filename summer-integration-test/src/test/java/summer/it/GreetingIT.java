@@ -5,10 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.LocalDateTime;
+import org.junit.jupiter.api.AfterAll;
 import summer.core.BeanContainer;
 import summer.data.redis.SummerRedisTemplate;
 import summer.test.annotation.DualEngine;
 import summer.test.annotation.SummerTest;
+import summer.test.internal.TestRunContext;
 
 /**
  * Framework integration test on a REAL Postgres + Redis stack.
@@ -55,5 +57,24 @@ public class GreetingIT extends AbstractFrameworkIT {
 		// Both engines must discover the same real-JDBC component.
 		BeanContainer c = context;
 		assertTrue(c.getBeans(GreetingRepository.class).iterator().hasNext());
+	}
+
+	/**
+	 * Pins the universe-reuse mechanism: this class has 3 {@code @DualEngine}
+	 * methods, each run on both engines, so {@code acquireUniverse} is entered 6
+	 * times. All 6 share one EnvKey (same class, no profile, no mocks), so the
+	 * first build is a miss and the remaining 5 are cache hits. If reuse ever
+	 * regresses (e.g. the cache is bypassed or the EnvKey stops distinguishing
+	 * per-class), this assertion fails — no opt-in switch required.
+	 *
+	 * <p>
+	 * Adding/removing {@code @DualEngine} methods here must update this expected
+	 * count (methods × engines − 1).
+	 * </p>
+	 */
+	@AfterAll
+	static void universeReuseIsExercised() {
+		assertEquals(5, TestRunContext.instance().cacheHits(),
+				"expected 3 @DualEngine methods × 2 engines − 1 first build = 5 cache hits");
 	}
 }

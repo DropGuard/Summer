@@ -1,12 +1,14 @@
 package summer.test.internal;
 
 import java.lang.reflect.Constructor;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Logger;
+import java.util.concurrent.atomic.AtomicLong;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import summer.core.BeanContainer;
 import summer.core.Engine;
 import summer.core.bean.MockedBean;
@@ -48,7 +50,7 @@ import summer.test.annotation.TestProfile;
  */
 public final class TestRunContext {
 
-	private static final Logger log = Logger.getLogger(TestRunContext.class.getName());
+	private static final Logger log = LoggerFactory.getLogger(TestRunContext.class);
 
 	/** System property to disable universe reuse (debugging escape hatch). */
 	public static final String REUSE_DISABLED_PROPERTY = "summer.test.reuseUniverse";
@@ -57,8 +59,26 @@ public final class TestRunContext {
 
 	/**
 	 * EnvKey → cached universe skeleton. Skeletons carry no per-test mock state.
+	 *
+	 * <p>
+	 * JUnit builds test instances serially by default (no parallel configuration in
+	 * this project), so {@code acquireUniverse} is only ever called from one thread
+	 * at a time — a plain {@link HashMap} is sufficient and avoids the false
+	 * impression of concurrency that a {@code ConcurrentHashMap} would imply. The
+	 * earlier double-checked locking with an additional {@code synchronized} block
+	 * was defending a concurrency model that does not exist here.
+	 * </p>
 	 */
-	private final Map<EnvKey, CachedUniverse> universeCache = new ConcurrentHashMap<>();
+	private final Map<EnvKey, CachedUniverse> universeCache = new HashMap<>();
+
+	/**
+	 * Count of universe-cache hits (reused, not rebuilt). Always incremented on a
+	 * cache hit — it backs the framework's own integration-test assertion that the
+	 * reuse mechanism actually fires, rather than a user-facing stats switch.
+	 * Atomic only so a future parallel mode would stay correct; under the current
+	 * serial model a single thread touches it.
+	 */
+	private final AtomicLong cacheHits = new AtomicLong();
 
 	/** The shared dev-services holder, started lazily and closed on JVM exit. */
 	private volatile DevServicesHolder devServices;
@@ -89,6 +109,14 @@ public final class TestRunContext {
 	 * reuse disabled, this is a straight pass-through to a fresh build.
 	 * </p>
 	 *
+	 * <p>
+	 * Concurrency: JUnit creates test instances serially by default (no parallel
+	 * configuration in this project), so this method is only ever entered by one
+	 * thread at a time. There is no double-checked locking and no concurrent map —
+	 * a plain lookup-then-put against a {@link HashMap} is correct and does not
+	 * pretend otherwise.
+	 * </p>
+	 *
 	 * @param testClass
 	 *            the annotated test class (metadata carrier for profile + mocks)
 	 * @param engine
@@ -106,25 +134,21 @@ public final class TestRunContext {
 		EnvKey key = envKeyFor(testClass, mocks);
 		CachedUniverse cached = universeCache.get(key);
 		if (cached != null) {
-			// Fail-fast key-consistency assertion (§7.3.1): the map already guarantees
-			// equality by key, but comparing the stored key's printed fields against
-			// the recomputed one catches an EnvKey.equals/hashCode drift from its
-			// toString — a real implementation-bug class, surfaced loudly rather than
-			// reusing a possibly-wrong skeleton.
-			cached.assertMatches(key);
+			cacheHits.incrementAndGet();
 			return cached.container();
 		}
 
-		synchronized (universeCache) {
-			cached = universeCache.get(key);
-			if (cached != null) {
-				cached.assertMatches(key);
-				return cached.container();
-			}
-			BeanContainer built = Testing.buildForTest(testClass, engine, mocks, overrides);
-			universeCache.put(key, new CachedUniverse(key, built));
-			return built;
-		}
+		BeanContainer built = Testing.buildForTest(testClass, engine, mocks, overrides);
+		universeCache.put(key, new CachedUniverse(built));
+		return built;
+	}
+
+	/**
+	 * Read-only view of the hit count, for the framework's own integration-test
+	 * assertion.
+	 */
+	public long cacheHits() {
+		return cacheHits.get();
 	}
 
 	/**
@@ -210,16 +234,11 @@ public final class TestRunContext {
 	}
 
 	/**
-	 * A cached universe plus the exact key that produced it (for §7.3 assertions).
+	 * A cached universe. The map key already guarantees equality, so no extra
+	 * key-consistency check is needed here — {@link EnvKey}'s equals/hashCode are
+	 * pinned by {@code EnvKeyTest}.
 	 */
-	private record CachedUniverse(EnvKey key, BeanContainer container) {
-		/** §7.3.1 fail-fast: stored key must be .equals to the live recomputed key. */
-		void assertMatches(EnvKey live) {
-			if (!key.equals(live)) {
-				throw new IllegalStateException(
-						"EnvKey consistency failure on reuse. recomputed=" + live + " stored=" + key);
-			}
-		}
+	private record CachedUniverse(BeanContainer container) {
 	}
 
 	private java.util.Map<String, Object> profileOverrides(Class<?> testClass) {

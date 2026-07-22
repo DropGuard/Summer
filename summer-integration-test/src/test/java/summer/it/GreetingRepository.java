@@ -20,10 +20,8 @@ public class GreetingRepository {
 	public void insert(Greeting greeting) {
 		// Idempotent: both DI engines (Runtime + AOT) run against the SAME shared
 		// Postgres, so the second run must not clash on the primary key.
-		jdbcTemplate.update(
-				"INSERT INTO greetings (id, text) VALUES (?, ?) "
-						+ "ON CONFLICT (id) DO UPDATE SET text = EXCLUDED.text",
-				greeting.id(), greeting.text());
+		jdbcTemplate.update("INSERT INTO greetings (id, text) VALUES (?, ?) "
+				+ "ON CONFLICT (id) DO UPDATE SET text = EXCLUDED.text", greeting.id(), greeting.text());
 	}
 
 	public void delete(Long id) {

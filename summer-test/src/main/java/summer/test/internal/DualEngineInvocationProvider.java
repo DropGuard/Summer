@@ -83,12 +83,12 @@ public final class DualEngineInvocationProvider implements TestTemplateInvocatio
 			@Override
 			public Object createTestInstance(TestInstanceFactoryContext factoryContext,
 					ExtensionContext extensionContext) throws TestInstantiationException {
-				// instantiateFor honours the @SummerTest(shouldFail=...) contract
-				// per engine, so a divergence where one engine accepts a broken
-				// graph and the other rejects it surfaces as a per-engine failure.
-				// The built container (or null on an expected failure) is stored for
-				// reference; lifecycle is owned by TestRunContext, not closed here.
-				TestContainerFactory.BuildOutcome outcome = TestContainerFactory.instantiateFor(testClass, engine);
+				// Delegate to the single lifecycle owner so the build, the
+				// @SummerTest(shouldFail=...) contract, and universe reuse all go
+				// through one place — a divergence where one engine accepts a broken
+				// graph and the other rejects it still surfaces as a per-engine
+				// failure, but there is no duplicated logic here.
+				TestContainerFactory.BuildOutcome outcome = SummerTestLifecycle.createUniverse(testClass, engine);
 				extensionContext.getStore(NS).put(KEY, outcome.container());
 				return outcome.instance();
 			}

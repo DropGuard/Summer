@@ -10,8 +10,12 @@ import summer.core.Internal;
  * <p>
  * Quarkus keys its single shared application on an implicit "environment" it
  * derives from classloader equivalence. Summer has no classloader isolation, so
- * the environment must be modelled explicitly. The only inputs that change the
- * content of a {@code @SummerTest} universe are:
+ * the environment must be modelled explicitly. A {@code @SummerTest} universe
+ * is <b>per test class</b> — each class assembles its own graph, and
+ * {@code @SummerTest(shouldFail=true)} must always re-attempt its own (failing)
+ * assembly rather than reuse another class's container. So the test class
+ * identity is itself a key dimension. Within a class, the inputs that change
+ * the content of the universe are:
  * <ul>
  * <li><b>profile content</b> — {@code @TestProfile#configOverrides()}
  * values;</li>
@@ -22,7 +26,8 @@ import summer.core.Internal;
  * is always full-width, so a scope dimension would offer no distinguishing
  * power (it would be a redundant abstraction). Engine is also absent: Runtime
  * and AOT are two parallel instances keyed by the same EnvKey, not two
- * environments.
+ * environments — reuse therefore happens across the two engines of one class,
+ * not across classes.
  * </p>
  *
  * <p>
@@ -81,12 +86,19 @@ public final class EnvKey {
 			return true;
 		if (!(o instanceof EnvKey other))
 			return false;
-		return profile.equals(other.profile) && mockedTypes.equals(other.mockedTypes);
+		// firstBuilder (the test class) IS a key dimension: Summer's universe is
+		// per-test-class (each @SummerTest assembles its own graph, and
+		// shouldFail depends on the specific class). Without it, distinct classes
+		// with the same profile+mocks would share a universe and a
+		// @SummerTest(shouldFail=true) would reuse a passing container instead
+		// of re-attempting its own (failing) assembly.
+		return profile.equals(other.profile) && mockedTypes.equals(other.mockedTypes)
+				&& firstBuilder.equals(other.firstBuilder);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(profile, mockedTypes);
+		return Objects.hash(profile, mockedTypes, firstBuilder);
 	}
 
 	/**
