@@ -1,6 +1,6 @@
 package summer.tck.di;
 
-import summer.tck.fixtures.di.errors.SelfInjectingBean;
+import summer.tck.negative.fixtures.di.errors.SelfInjectingBean;
 import summer.test.annotation.DualEngine;
 import summer.test.annotation.SummerTest;
 

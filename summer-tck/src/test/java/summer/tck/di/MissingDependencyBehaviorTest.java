@@ -1,7 +1,7 @@
 package summer.tck.di;
 
-import summer.tck.fixtures.di.errors.MissingDep;
-import summer.tck.fixtures.di.errors.NeedsMissingDep;
+import summer.tck.negative.fixtures.di.errors.MissingDep;
+import summer.tck.negative.fixtures.di.errors.NeedsMissingDep;
 import summer.test.annotation.DualEngine;
 import summer.test.annotation.SummerTest;
 

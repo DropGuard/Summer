@@ -1,7 +1,7 @@
 package summer.tck.di;
 
-import summer.tck.fixtures.di.errors.CycleNodeA;
-import summer.tck.fixtures.di.errors.CycleNodeB;
+import summer.tck.negative.fixtures.di.errors.CycleNodeA;
+import summer.tck.negative.fixtures.di.errors.CycleNodeB;
 import summer.test.annotation.DualEngine;
 import summer.test.annotation.SummerTest;
 

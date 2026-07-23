@@ -1,4 +1,4 @@
-package summer.tck.fixtures.di.errors;
+package summer.tck.negative.fixtures.di.errors;
 
 import summer.core.Component;
 

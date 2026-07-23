@@ -3,9 +3,9 @@ package summer.tck.di;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import summer.core.BeanContainer;
-import summer.tck.fixtures.di.errors.AmbiguousService;
-import summer.tck.fixtures.di.errors.AmbiguousServiceImplOne;
-import summer.tck.fixtures.di.errors.AmbiguousServiceImplTwo;
+import summer.tck.negative.fixtures.di.errors.AmbiguousService;
+import summer.tck.negative.fixtures.di.errors.AmbiguousServiceImplOne;
+import summer.tck.negative.fixtures.di.errors.AmbiguousServiceImplTwo;
 import summer.test.annotation.DualEngine;
 import summer.test.annotation.SummerTest;
 

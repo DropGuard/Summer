@@ -28,12 +28,31 @@
         module's test-classes are simply not on that path. No exclude list is
         needed: the boundary is the (absence of an) archive on the indexed path,
         not an allow/deny pattern.
+
+        The "no jandex.idx" choice is the explicit, defensive half of that
+        boundary -- even though the test-classes path already excludes this
+        module, producing no index removes any chance of these broken beans
+        surfacing as a whole-universe archive. Do NOT add the jandex-maven-plugin
+        here: a scanned @Component in this module would be discovered and rejected
+        by every normal TCK, not just the sad-path ones.
+
+        Package note: fixtures live under summer.tck.negative.fixtures.* so the
+        package prefix mirrors the module name (summer-tck-negative-fixtures).
+        This keeps "which module owns this fixture" readable from the import
+        alone -- the positive fixtures in summer-tck-fixtures use
+        summer.tck.fixtures.*, so the two modules no longer share a package
+        prefix.
     </description>
 
     <dependencies>
         <dependency>
             <groupId>summer</groupId>
             <artifactId>summer-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-aop</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

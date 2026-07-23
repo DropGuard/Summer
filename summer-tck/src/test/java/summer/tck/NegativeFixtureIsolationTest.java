@@ -33,7 +33,7 @@ import summer.test.Testing;
  */
 class NegativeFixtureIsolationTest {
 
-	private static final String ERRORS_PACKAGE = "summer.tck.fixtures.di.errors";
+	private static final String ERRORS_PACKAGE = "summer.tck.negative.fixtures.di.errors";
 
 	@Test
 	void negativeFixturesAreNotInWholeUniverseContainer() {

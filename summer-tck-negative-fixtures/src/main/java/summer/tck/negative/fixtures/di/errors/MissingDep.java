@@ -1,4 +1,4 @@
-package summer.tck.fixtures.di.errors;
+package summer.tck.negative.fixtures.di.errors;
 
 /**
  * Intentionally unregistered type. {@link NeedsMissingDep} depends on it to

@@ -1,4 +1,4 @@
-package summer.tck.fixtures.di.errors;
+package summer.tck.negative.fixtures.di.errors;
 
 /**
  * Interface with two concrete {@code @Component} implementations and no
