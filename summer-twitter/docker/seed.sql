@@ -8,7 +8,7 @@ INSERT INTO users (id, username, display_name, email, password_hash, bio, follow
 (1004, 'karpathy', 'Andrej Karpathy', 'andrej@example.com', '$2a$10$vI8aWBnW3fID.021/sOWa.VD5.MccD5QTE.Y3B2bU6KzZ1x.Y317O', 'AI', 1, 3, NOW() - INTERVAL '7 days');
 
 -- 2. 创建关注关系 (Follow)
--- 注意：大V阈值是 5000。Elon 有 6000 粉丝（伪造计数，因为懒得插入 6000 条真实记录），其他人是小 V。
+-- follower_count 是冗余计数、手填的；Elon 故意设 6000 以触发大V阈值(5000)分支。
 INSERT INTO follows (id, follower_id, following_id, created_at) VALUES
 (2001, 1002, 1001, NOW() - INTERVAL '6 days'), -- Zuck 关注 Elon
 (2002, 1003, 1001, NOW() - INTERVAL '5 days'), -- Bill 关注 Elon
@@ -22,7 +22,7 @@ INSERT INTO follows (id, follower_id, following_id, created_at) VALUES
 -- 3. 创建推文与回复 (Tweet)
 -- 推文 1: Bill Gates 的名场面
 INSERT INTO tweets (id, author_id, content, parent_id, like_count, reply_count, created_at) VALUES
-(3001, 1003, 'What does the "vibe" in vibe coding actually mean? Keep seeing it everywhere.', NULL, 2, 1, NOW() - INTERVAL '5 hours');
+(3001, 1003, 'What does the "vibe" in vibe coding actually mean? Keep seeing it everywhere.', NULL, 0, 1, NOW() - INTERVAL '5 hours');
 
 -- 推文 2: Andrej 的神回复 (parent_id = 3001)
 INSERT INTO tweets (id, author_id, content, parent_id, like_count, reply_count, created_at) VALUES
@@ -30,7 +30,7 @@ INSERT INTO tweets (id, author_id, content, parent_id, like_count, reply_count, 
 
 -- 推文 3: Elon 搞事情
 INSERT INTO tweets (id, author_id, content, parent_id, like_count, reply_count, created_at) VALUES
-(3003, 1001, 'Just rewrote Twitter in Summer Framework. Compile time is 0.01s. Let that sink in.', NULL, 4, 1, NOW() - INTERVAL '3 hours');
+(3003, 1001, 'Just rewrote Twitter in Summer Framework. Compile time is 0.01s. Let that sink in.', NULL, 3, 1, NOW() - INTERVAL '3 hours');
 
 -- 推文 4: Zuck 怼 Elon (parent_id = 3003)
 INSERT INTO tweets (id, author_id, content, parent_id, like_count, reply_count, created_at) VALUES

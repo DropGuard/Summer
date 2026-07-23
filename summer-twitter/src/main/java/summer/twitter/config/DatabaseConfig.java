@@ -7,7 +7,6 @@ import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
 import summer.core.config.ConfigurationProperties;
 import summer.data.jdbc.JdbcTemplate;
-import summer.data.jdbc.tx.TransactionAwareDataSourceProxy;
 
 @ConfigurationProperties(prefix = "summer.datasource")
 record DataSourceProperties(String url, String username, String password, String driverClassName) {
@@ -23,9 +22,7 @@ public class DatabaseConfig {
         config.setUsername(props.username());
         config.setPassword(props.password());
         config.setDriverClassName(props.driverClassName());
-        
-        HikariDataSource hikariDataSource = new HikariDataSource(config);
-        return new TransactionAwareDataSourceProxy(hikariDataSource);
+        return new HikariDataSource(config);
     }
 
     @Bean

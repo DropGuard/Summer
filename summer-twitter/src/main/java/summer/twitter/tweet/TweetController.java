@@ -11,7 +11,7 @@ import summer.web.annotation.Post;
 import summer.web.annotation.QueryParam;
 import summer.web.annotation.RestController;
 
-import summer.twitter.common.CursorPageable;
+import summer.web.CursorPageable;
 import java.util.List;
 
 @RestController

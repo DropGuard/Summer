@@ -7,7 +7,6 @@ import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
 import summer.core.annotation.Replaces;
 import summer.data.jdbc.JdbcTemplate;
-import summer.data.jdbc.tx.TransactionAwareDataSourceProxy;
 
 /**
  * Test-only database configuration that replaces production {@code DatabaseConfig}.
@@ -53,7 +52,7 @@ public class TestDatabaseConfig {
         config.setMaximumPoolSize(2);
 
         HikariDataSource hikariDataSource = new HikariDataSource(config);
-        return new TransactionAwareDataSourceProxy(hikariDataSource);
+        return hikariDataSource;
     }
 
     @Bean
