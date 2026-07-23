@@ -6,7 +6,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import summer.aop.MethodInterceptor;
-import summer.core.exception.BeanCreationException;
+import summer.aop.SummerAopException;
+import summer.core.ErrorCode;
 
 /**
  * Applies AOP proxies to bean instances. Matching interceptors are pre-filtered
@@ -32,7 +33,7 @@ final class RuntimeAopProcessor {
 
 		// Summer uses JDK dynamic proxies -- requires at least one interface.
 		if (clazz.getInterfaces().length == 0) {
-			throw new BeanCreationException(clazz.getName()
+			throw new SummerAopException(ErrorCode.AOP_NO_INTERFACE, clazz.getName()
 					+ " is annotated with AOP bindings but implements no interfaces. "
 					+ "Summer uses JDK dynamic proxies -- extract an interface and inject it by the interface type instead.");
 		}

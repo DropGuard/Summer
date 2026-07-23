@@ -31,7 +31,8 @@ public enum ErrorCode {
 			"Data serialization/deserialization error"),
 
 	// AOP (5xxx)
-	AOP_ERROR(5001, "AOP proxy creation failed"),
+	AOP_ERROR(5001, "AOP proxy creation failed"), AOP_NO_INTERFACE(5002,
+			"AOP proxy requires the target bean to implement at least one interface"),
 
 	// Transaction (6xxx)
 	TRANSACTION_ERROR(6001, "Transaction operation failed"),

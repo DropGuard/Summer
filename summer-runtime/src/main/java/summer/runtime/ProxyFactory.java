@@ -35,7 +35,8 @@ public class ProxyFactory {
 		// Check if target implements any interfaces
 		Class<?>[] interfaces = target.getClass().getInterfaces();
 		if (interfaces.length == 0) {
-			throw new SummerAopException(ErrorCode.AOP_ERROR, "Target object must implement at least one interface");
+			throw new SummerAopException(ErrorCode.AOP_NO_INTERFACE,
+					"Target object must implement at least one interface");
 		}
 
 		return (T) Proxy.newProxyInstance(target.getClass().getClassLoader(), interfaces,
