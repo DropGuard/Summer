@@ -32,7 +32,13 @@ public class DefaultPageResolver implements HttpParameterResolver {
 
 	@Override
 	public boolean supports(HandlerParam param) {
-		return ScrollRequest.class.isAssignableFrom(param.type());
+		// This resolver owns only the built-in DefaultPageRequest. Other
+		// ScrollRequest subtypes (cursor-based, limit/offset, ...) register their
+		// own resolver; matching on the broad ScrollRequest marker would let this
+		// resolver wrongly claim them. The framework still recognises any
+		// ScrollRequest as a pageable parameter upstream — it just routes each
+		// subtype to its dedicated resolver.
+		return DefaultPageRequest.class.equals(param.type());
 	}
 
 	@Override

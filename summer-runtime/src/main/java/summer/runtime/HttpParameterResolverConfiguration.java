@@ -5,6 +5,8 @@ import summer.core.RuntimeDiMarker;
 import summer.core.annotation.Bean;
 import summer.core.annotation.ConditionalOnBean;
 import summer.core.annotation.Configuration;
+import summer.core.config.PageableProperties;
+import summer.web.CursorPageResolver;
 import summer.web.DefaultPageResolver;
 import summer.web.HttpParameterResolver;
 import summer.web.HttpParameterResolverChain;
@@ -58,24 +60,34 @@ public class HttpParameterResolverConfiguration {
 	}
 
 	@Bean
-	public HttpParameterResolverChain resolverChain(List<HttpParameterResolver> resolvers) {
-		// Sort resolvers to match original exact order required by framework
-		java.util.List<HttpParameterResolver> sorted = new java.util.ArrayList<>(resolvers);
-		sorted.sort(java.util.Comparator.comparingInt(r -> {
-			if (r instanceof ValidatingParameterResolver)
-				return 1;
-			if (r instanceof DefaultPageResolver || r.getClass().getName().contains("Pageable"))
-				return 2;
-			if (r instanceof TypeParameterResolver)
-				return 3;
-			if (r instanceof PathParamResolver)
-				return 4;
-			if (r instanceof QueryParamResolver)
-				return 5;
-			if (r instanceof ThrowableResolver)
-				return 6;
-			return 10;
-		}));
-		return new HttpParameterResolverChain(sorted);
+	public DefaultPageResolver defaultPageResolver(PageableProperties pageableProperties) {
+		return new DefaultPageResolver(pageableProperties);
+	}
+
+	@Bean
+	public CursorPageResolver cursorPageResolver(PageableProperties pageableProperties) {
+		return new CursorPageResolver(pageableProperties);
+	}
+
+	@Bean
+	public HttpParameterResolverChain resolverChain(List<HttpParameterResolver> resolvers,
+			PageableProperties pageableProperties) {
+		// Explicit, reviewable resolver order. The built-in resolvers are listed
+		// here in priority order (narrow claimants first among themselves, the
+		// @Valid wrapper ahead of the body resolver it wraps). User-supplied
+		// resolvers are appended after the built-ins, so they never silently
+		// override a built-in unless declared with @Replaces (which Spring applies
+		// at bean registration, before this list is built). No name sniffing, no
+		// magic-number ordering — the sequence is the contract.
+		java.util.List<HttpParameterResolver> builtIns = java.util.List.of(validatingResolver(),
+				defaultPageResolver(pageableProperties), cursorPageResolver(pageableProperties), typeResolver(),
+				pathParamResolver(), queryParamResolver(), throwableResolver());
+		java.util.Set<Class<?>> builtInTypes = builtIns.stream().map(HttpParameterResolver::getClass)
+				.collect(java.util.stream.Collectors.toSet());
+		java.util.List<HttpParameterResolver> userResolvers = resolvers.stream()
+				.filter(r -> !builtInTypes.contains(r.getClass())).toList();
+		java.util.List<HttpParameterResolver> ordered = new java.util.ArrayList<>(builtIns);
+		ordered.addAll(userResolvers);
+		return new HttpParameterResolverChain(ordered);
 	}
 }

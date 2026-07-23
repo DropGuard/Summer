@@ -12,6 +12,7 @@ import summer.web.HttpContext;
 import summer.web.HttpMethod;
 import summer.web.HttpParameterResolver;
 import summer.web.Request;
+import summer.web.ScrollRequest;
 
 class DefaultPageResolverTest {
 
@@ -90,6 +91,16 @@ class DefaultPageResolverTest {
 		assertFalse(resolver.supports(stringParam()));
 	}
 
+	@Test
+	void shouldNotClaimOtherScrollRequestSubtypes() throws Exception {
+		// The resolver owns only DefaultPageRequest; other ScrollRequest subtypes
+		// (cursor-based, limit/offset, ...) register their own resolver. Matching
+		// on the broad ScrollRequest marker would let it wrongly claim them.
+		Parameter param = TestController.class.getDeclaredMethod("withOtherScroll", OtherScrollRequest.class)
+				.getParameters()[0];
+		assertFalse(resolver.supports(new RuntimeHandlerParam(param)));
+	}
+
 	// Test controller for parameter reflection
 	static class TestController {
 		public void withPageable(DefaultPageRequest pageable) {
@@ -97,5 +108,13 @@ class DefaultPageResolverTest {
 
 		public void withString(String str) {
 		}
+
+		public void withOtherScroll(OtherScrollRequest other) {
+		}
+	}
+
+	// Local ScrollRequest subtype that is NOT DefaultPageRequest, standing in for
+	// cursor/limit-offset pageables defined in demo modules.
+	record OtherScrollRequest(int x) implements ScrollRequest {
 	}
 }
