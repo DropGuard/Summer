@@ -12,8 +12,11 @@ import summer.tx.TransactionManager;
  *
  * <p>
  * Provides {@link SimpleJdbcTransactionManager} and
- * {@link TransactionInterceptor}. The conditional logic is handled by the bean
- * classes themselves via {@code @ConditionalOnBean}.
+ * {@link TransactionInterceptor}. Connection sharing between
+ * {@code @Transactional} and {@link summer.data.jdbc.JdbcTemplate} is handled
+ * inside {@code JdbcTemplate} itself (it reuses the active transaction's
+ * connection when one exists on the current thread), so users never wrap their
+ * {@code DataSource} by hand.
  * </p>
  */
 @Configuration

@@ -6,7 +6,6 @@ import javax.sql.DataSource;
 import summer.core.annotation.Bean;
 import summer.core.annotation.Configuration;
 import summer.data.jdbc.JdbcTemplate;
-import summer.data.jdbc.tx.TransactionAwareDataSourceProxy;
 import summer.test.internal.DevServicesHolder;
 import summer.test.internal.SummerTestLifecycle;
 
@@ -34,7 +33,7 @@ public class ItDatabaseConfig {
 		}
 		DevServicesHolder devServices = SummerTestLifecycle.instance().devServices();
 		if (devServices.owns(url)) {
-			return new TransactionAwareDataSourceProxy(devServices.sharedDataSource(url));
+			return devServices.sharedDataSource(url);
 		}
 		HikariConfig config = new HikariConfig();
 		config.setJdbcUrl(url);
@@ -42,7 +41,7 @@ public class ItDatabaseConfig {
 		config.setPassword(System.getProperty("summer.test.datasource.password", "test"));
 		config.setDriverClassName("org.postgresql.Driver");
 		config.setMaximumPoolSize(2);
-		return new TransactionAwareDataSourceProxy(new HikariDataSource(config));
+		return new HikariDataSource(config);
 	}
 
 	@Bean

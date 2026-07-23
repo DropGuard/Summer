@@ -10,10 +10,19 @@ import java.util.List;
 import java.util.Map;
 import javax.sql.DataSource;
 import summer.core.exception.DataAccessException;
+import summer.data.jdbc.tx.ThreadLocalTransactionContext;
 
 /**
  * Core JDBC operations class. Thread-safe and designed to be a singleton.
- * Integrates seamlessly with summer-tx's TransactionAwareDataSourceProxy.
+ *
+ * <p>
+ * Connection acquisition is transaction-aware: when a {@code @Transactional}
+ * boundary is active on the current thread, {@link #getConnection()} reuses the
+ * transaction's connection (so writes inside the boundary commit/rollback
+ * together). Outside a transaction it falls back to the underlying
+ * {@link DataSource}. Users never wrap their {@code DataSource} by hand — the
+ * framework handles connection sharing here.
+ * </p>
  */
 public class JdbcTemplate {
 
@@ -25,6 +34,19 @@ public class JdbcTemplate {
 	}
 
 	/**
+	 * Resolves a connection, preferring the active transaction's connection when
+	 * one exists on the current thread. Exposed for callers that need raw JDBC
+	 * access consistent with {@code @Transactional} semantics.
+	 */
+	public Connection getConnection() throws SQLException {
+		Connection txConnection = ThreadLocalTransactionContext.getCurrentConnection();
+		if (txConnection != null) {
+			return txConnection;
+		}
+		return dataSource.getConnection();
+	}
+
+	/**
 	 * Registers a {@code RowMapper} for the given row type. Called by the DI engine
 	 * at startup; not part of the public API.
 	 */
@@ -33,7 +55,7 @@ public class JdbcTemplate {
 	}
 
 	public int update(String sql, Object... args) {
-		try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+		try (Connection conn = getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 			setParameters(ps, args);
 			return ps.executeUpdate();
 		} catch (SQLException e) {
@@ -42,7 +64,7 @@ public class JdbcTemplate {
 	}
 
 	public int[] batchUpdate(String sql, List<Object[]> batchArgs) {
-		try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+		try (Connection conn = getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 			for (Object[] args : batchArgs) {
 				setParameters(ps, args);
 				ps.addBatch();
@@ -76,7 +98,7 @@ public class JdbcTemplate {
 			};
 		}
 		List<T> results = new ArrayList<>();
-		try (Connection conn = dataSource.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+		try (Connection conn = getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
 			setParameters(ps, args);
 			try (ResultSet rs = ps.executeQuery()) {
 				int rowNum = 0;
