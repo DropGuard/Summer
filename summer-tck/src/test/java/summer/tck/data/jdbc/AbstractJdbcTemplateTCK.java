@@ -17,12 +17,12 @@ import summer.tck.AbstractTCK;
  * <p>
  * The {@link JdbcTemplate} is obtained from the DI container (via
  * {@link #context}), so both engines (Runtime + AOT) wire it through their own
- * assembly path. {@code RowMapperRegistrar} (conditional on
- * {@code JdbcTemplate}) auto-registers every {@code @RowModel} (e.g.
- * {@link User}) — the real engine-specific behaviour this TCK must verify. The
- * container is supplied by the {@code @SummerTest} subclass constructor; a
- * concrete subclass exposes the {@code @Test} methods as {@code @DualEngine} so
- * the framework runs them on both engines, proving parity.
+ * assembly path. {@code ReflectiveRowMapperRegistrar} (Runtime engine)
+ * auto-registers every {@code @RowModel} (e.g. {@link User}) — the real
+ * engine-specific behaviour this TCK must verify. The container is supplied by
+ * the {@code @SummerTest} subclass constructor; a concrete subclass exposes the
+ * {@code @Test} methods as {@code @DualEngine} so the framework runs them on
+ * both engines, proving parity.
  * </p>
  */
 public abstract class AbstractJdbcTemplateTCK extends AbstractTCK {

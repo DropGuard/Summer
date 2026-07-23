@@ -57,6 +57,10 @@ public final class WireMethodGenerator {
 		wire.beginControlFlow("if (_jt != null)");
 
 		for (var meta : metas) {
+			// Fail fast at code-generation time on unsupported field types, mirroring
+			// the runtime EntityMetadataRegistrar contract.
+			summer.data.jdbc.RowMapperFactory.assertSupported(meta);
+
 			ClassName modelClass = safeClassName(meta.modelClassName());
 			var mapperVar = meta.simpleName().toLowerCase(java.util.Locale.ROOT) + "Mapper";
 
@@ -65,8 +69,9 @@ public final class WireMethodGenerator {
 			wire.addStatement("$T<$T> $N = ($N, $N) -> {", ClassName.get("summer.data.jdbc", "RowMapper"), modelClass,
 					mapperVar, "rs", "rowNum");
 			for (var field : meta.fields()) {
-				var fieldType = toTypeName(field.typeName());
-				wire.addStatement("    $T $N = $L", fieldType, field.name(), field.jdbcGetter().replace("rs.", "rs."));
+				String colName = summer.data.jdbc.RowMapperFactory.camelToSnake(field.name());
+				String readExpr = summer.data.jdbc.RowMapperFactory.jdbcReadExpression(colName, field.typeName());
+				wire.addStatement("    $T $N = $L", toTypeName(field.typeName()), field.name(), readExpr);
 			}
 			StringBuilder ctorArgs = new StringBuilder();
 			for (int i = 0; i < meta.fields().size(); i++) {
@@ -102,7 +107,7 @@ public final class WireMethodGenerator {
 		// Summer does not support class-based proxying -- JDK dynamic proxy
 		// requires at least one interface. Fail fast.
 		if (bean.needsProxy() && bean.interfaceNames.isEmpty()) {
-			throw new summer.core.exception.BeanCreationException(bean.qualifiedName
+			throw new summer.aop.SummerAopException(summer.core.ErrorCode.AOP_NO_INTERFACE, bean.qualifiedName
 					+ " is annotated with AOP bindings but implements no interfaces. "
 					+ "Summer uses JDK dynamic proxies -- extract an interface and inject it by the interface type instead.");
 		}

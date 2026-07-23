@@ -11,12 +11,12 @@ import summer.test.annotation.SummerTest;
  * The {@link summer.data.jdbc.JdbcTemplate} is resolved from the DI container
  * (wired by {@code summer.fixtures.data.jdbc.JdbcTestConfig}), so both engines
  * assemble it through their own path and {@code @RowModel} mappers are
- * registered by {@code RowMapperRegistrar}. Every case runs on Runtime and AOT
- * via {@link DualEngine} — the framework-enforced parity guarantee. The
- * previous {@code RuntimeJdbcTemplateTest} / {@code AotJdbcTemplateTest}
- * siblings bypassed the container with a manually-constructed
- * {@code JdbcTemplate} whose bodies were byte-identical, so they were a decoy
- * with no real engine differentiation.
+ * registered by {@code ReflectiveRowMapperRegistrar}. Every case runs on
+ * Runtime and AOT via {@link DualEngine} — the framework-enforced parity
+ * guarantee. The previous {@code RuntimeJdbcTemplateTest} /
+ * {@code AotJdbcTemplateTest} siblings bypassed the container with a
+ * manually-constructed {@code JdbcTemplate} whose bodies were byte-identical,
+ * so they were a decoy with no real engine differentiation.
  * </p>
  */
 @SummerTest
