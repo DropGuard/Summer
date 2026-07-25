@@ -63,12 +63,24 @@ public final class BeanDeployment {
 	private final Set<String> allTypeNames;
 	private final Map<String, IndexView> archiveIndexes;
 
+	/**
+	 * Engine-provided (synthetic) beans — instances the engines inject rather than
+	 * discover by scanning (e.g. the discovery {@link IndexView}, the
+	 * {@code RuntimeDiMarker}). This is the blueprint's declaration of what to
+	 * merge into the candidate set; the actual merge happens in {@code Discovery}
+	 * (its returned {@code beansView}). Quarkus models the same concept as
+	 * {@code BeanDeployment.syntheticBeans}, kept here as a pure blueprint — the
+	 * merged candidate list is Discovery's output, not held back here.
+	 */
+	private final List<BeanDefinition> syntheticBeans = new ArrayList<>();
+
 	private BeanDeployment(IndexView productionIndex, Map<String, String> classToArchive,
 			Map<String, IndexView> archiveIndexes) {
 		this.productionIndex = productionIndex;
 		this.classToArchive = Collections.unmodifiableMap(classToArchive);
 		this.allTypeNames = Collections.unmodifiableSet(classToArchive.keySet());
 		this.archiveIndexes = Collections.unmodifiableMap(archiveIndexes);
+		registerEngineSyntheticBeans();
 	}
 
 	/**
@@ -79,6 +91,20 @@ public final class BeanDeployment {
 		this.classToArchive = Collections.unmodifiableMap(classToArchive);
 		this.allTypeNames = Collections.unmodifiableSet(classToArchive.keySet());
 		this.archiveIndexes = Collections.unmodifiableMap(archiveIndexes);
+		registerEngineSyntheticBeans();
+	}
+
+	/**
+	 * Declares engine-provided (synthetic) beans shared by every engine. The
+	 * discovery {@link IndexView} is one — both Runtime and AOT need it
+	 * (data-jdbc's EntityMetadataRegistrar depends on it). Registering it here, on
+	 * the blueprint, means neither engine hand-registers it; Discovery folds it
+	 * into the beansView. Engine-specific synthetic beans (e.g. RuntimeDiMarker)
+	 * are added by the respective engine, not here.
+	 */
+	private void registerEngineSyntheticBeans() {
+		addSyntheticBean(IndexView.class, discoveryIndex(),
+				"summer.runtime.JandexIndexLoader.productionIndex().index()");
 	}
 
 	/**
@@ -118,6 +144,22 @@ public final class BeanDeployment {
 	 */
 	public static BeanDeployment forProduction(IndexView productionIndex, Map<String, String> classToArchive,
 			Map<String, IndexView> archiveIndexes) {
+		return new BeanDeployment(productionIndex, classToArchive, archiveIndexes);
+	}
+
+	/**
+	 * Builds a production deployment from a single merged index, treating it as one
+	 * archive named {@code "production"}. Convenience overload mirroring
+	 * {@link #forNarrow(IndexView)} so callers don't have to build the archive maps
+	 * by hand — the whole index is the universe, as production expects.
+	 */
+	public static BeanDeployment forProduction(IndexView productionIndex) {
+		Map<String, String> classToArchive = new java.util.HashMap<>();
+		Map<String, IndexView> archiveIndexes = new java.util.HashMap<>();
+		for (String typeName : productionIndex.getKnownClasses().stream().map(Object::toString).toList()) {
+			classToArchive.put(typeName, "production");
+		}
+		archiveIndexes.put("production", productionIndex);
 		return new BeanDeployment(productionIndex, classToArchive, archiveIndexes);
 	}
 
@@ -164,5 +206,26 @@ public final class BeanDeployment {
 	/** The raw {@link IndexView} for a single archive. */
 	public IndexView archiveIndex(String archiveName) {
 		return archiveIndexes.get(archiveName);
+	}
+
+	/**
+	 * Registers an engine-provided (synthetic) bean to be merged into the candidate
+	 * set by {@code Discovery}. The instance is stored directly on the resulting
+	 * {@link BeanDefinition} ({@code syntheticInstance}) so the runtime engine
+	 * registers it without re-instantiating. {@code aotExpression} is the Java
+	 * source the AOT engine emits to obtain the same instance at build time —
+	 * supplied here at the definition site so the code generator never needs to
+	 * know how each synthetic type is constructed.
+	 */
+	public void addSyntheticBean(Class<?> type, Object instance, String aotExpression) {
+		BeanDefinition bd = new BeanDefinition(type.getName(), type.getSimpleName());
+		bd.syntheticInstance = instance;
+		bd.aotInstanceExpression = aotExpression;
+		syntheticBeans.add(bd);
+	}
+
+	/** Engine-provided (synthetic) beans declared for this deployment. */
+	public List<BeanDefinition> syntheticBeans() {
+		return syntheticBeans;
 	}
 }

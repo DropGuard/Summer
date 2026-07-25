@@ -158,21 +158,19 @@ public final class SharedDependencyResolver {
 		if (bean instanceof ConfigPropertiesBean)
 			return;
 
-		List<String> paramTypes = bean.isFactoryMethod() ? bean.producerParamTypes : bean.constructorParamTypes;
-		Map<Integer, String> listElementTypes = bean.listElementTypes;
-
-		bean.resolvedDependencies.clear();
-		for (int i = 0; i < paramTypes.size(); i++) {
-			String paramType = paramTypes.get(i);
-			if (paramType.equals("summer.core.BeanContainer"))
-				continue;
-
-			if (paramType.equals("java.util.List") && listElementTypes.containsKey(i)) {
-				String elementType = listElementTypes.get(i);
-				List<BeanDefinition> matches = findAllBeans(elementType, allBeans, mockedTypeNames);
-				bean.resolvedDependencies.addAll(matches);
+		for (InjectionParameter parameter : bean.parameters) {
+			String paramType = parameter.typeName();
+			if (paramType.startsWith("java.util.List<")) {
+				// A List<T> dependency resolves to all matching beans (or none for a
+				// List<MockedType>, satisfied by the single mock at injection time).
+				List<BeanDefinition> matches = findAllBeans(parameter.elementType(), allBeans, mockedTypeNames);
+				parameter.resolved().addAll(matches);
 				continue;
 			}
+
+			// Scalar (non-List) parameter.
+			if (paramType.equals("summer.core.BeanContainer"))
+				continue; // container unavailable at build time; engines pass null
 
 			BeanDefinition resolved = findBean(paramType, allBeans);
 			if (resolved == null) {
@@ -182,11 +180,42 @@ public final class SharedDependencyResolver {
 				if (isMocked(paramType, mockedTypeNames, mockedInterfaces)) {
 					continue;
 				}
-				throw new NoSuchBeanException(
-						"No bean found for dependency type: " + paramType + " required by " + bean.qualifiedName);
+				throw new NoSuchBeanException(paramType, bean.qualifiedName, registeredTypes(allBeans),
+						nearMisses(paramType, allBeans));
 			}
-			bean.resolvedDependencies.add(resolved);
+			parameter.resolved().add(resolved);
 		}
+	}
+
+	/** Distinct registered bean types, for failure diagnostics. */
+	private static List<String> registeredTypes(List<BeanDefinition> allBeans) {
+		List<String> types = new ArrayList<>();
+		for (BeanDefinition b : allBeans) {
+			if (!types.contains(b.qualifiedName)) {
+				types.add(b.qualifiedName);
+			}
+		}
+		return types;
+	}
+
+	/**
+	 * Registered types whose simple name matches the missing type (spelling/archive
+	 * hint).
+	 */
+	private static List<String> nearMisses(String paramType, List<BeanDefinition> allBeans) {
+		String want = simpleName(paramType);
+		List<String> near = new ArrayList<>();
+		for (String t : registeredTypes(allBeans)) {
+			if (simpleName(t).equals(want) && !t.equals(paramType)) {
+				near.add(t);
+			}
+		}
+		return near;
+	}
+
+	private static String simpleName(String fqcn) {
+		int idx = fqcn.lastIndexOf('.');
+		return idx < 0 ? fqcn : fqcn.substring(idx + 1);
 	}
 
 	/**
@@ -295,9 +324,11 @@ public final class SharedDependencyResolver {
 			incoming.put(b, new LinkedHashSet<>());
 
 		for (BeanDefinition b : beans) {
-			for (BeanDefinition dep : b.resolvedDependencies) {
-				if (dep != null)
-					incoming.get(b).add(dep);
+			for (InjectionParameter parameter : b.parameters) {
+				for (BeanDefinition dep : parameter.resolved()) {
+					if (dep != null)
+						incoming.get(b).add(dep);
+				}
 			}
 			if (b.configBeanDefinition != null)
 				incoming.get(b).add(b.configBeanDefinition);

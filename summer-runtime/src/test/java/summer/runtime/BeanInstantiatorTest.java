@@ -32,7 +32,7 @@ class BeanInstantiatorTest {
 
 		BeanDefinition def = new BeanDefinition(ContainerInjectingComponent.class.getName(),
 				"containerInjectingComponent");
-		def.constructorParamTypes.add(BeanContainer.class.getName());
+		def.addParameter(BeanContainer.class.getName());
 
 		BeanCreationException ex = assertThrows(BeanCreationException.class,
 				() -> instantiator.instantiateFromDefinition(def));

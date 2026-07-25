@@ -3,8 +3,6 @@ package summer.runtime;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -48,11 +46,23 @@ public final class RuntimeBeanAdapter {
 		// Constructor parameters
 		Constructor<?> ctor = findSinglePublicConstructor(clazz);
 		if (ctor != null) {
-			for (Class<?> param : ctor.getParameterTypes()) {
-				bean.constructorParamTypes.add(param.getName());
+			java.lang.reflect.Type[] genericTypes = ctor.getGenericParameterTypes();
+			Class<?>[] rawTypes = ctor.getParameterTypes();
+			for (int i = 0; i < rawTypes.length; i++) {
+				Class<?> raw = rawTypes[i];
+				if (raw == java.util.List.class && genericTypes[i] instanceof java.lang.reflect.ParameterizedType pt
+						&& pt.getActualTypeArguments()[0] instanceof Class<?> ec) {
+					bean.addParameter("java.util.List<" + ec.getName() + ">");
+				} else if (raw == java.util.List.class
+						&& genericTypes[i] instanceof java.lang.reflect.ParameterizedType pt
+						&& pt.getActualTypeArguments()[0] instanceof java.lang.reflect.ParameterizedType) {
+					throw new summer.core.exception.UnsupportedInjectionException(
+							"Nested generic type injection is not supported: List<" + genericTypes[i].getTypeName()
+									+ "> in " + bean.qualifiedName);
+				} else {
+					bean.addParameter(raw.getName());
+				}
 			}
-			// Detect List<T> parameters
-			detectListParameters(ctor, bean);
 		}
 
 		// AOP binding metadata: collect @InterceptorBinding annotations for ALL beans.
@@ -84,20 +94,20 @@ public final class RuntimeBeanAdapter {
 		bean.configClassName = method.getDeclaringClass().getName();
 		bean.producerMethodName = method.getName();
 		java.lang.reflect.Type[] genericTypes = method.getGenericParameterTypes();
-		for (int i = 0; i < method.getParameterTypes().length; i++) {
-			Class<?> param = method.getParameterTypes()[i];
-			bean.producerParamTypes.add(param.getName());
-
-			if (genericTypes[i] instanceof java.lang.reflect.ParameterizedType pt
-					&& pt.getRawType() == java.util.List.class) {
-				java.lang.reflect.Type elementType = pt.getActualTypeArguments()[0];
-				if (elementType instanceof Class<?> ec) {
-					bean.listElementTypes.put(i, ec.getName());
-				} else if (elementType instanceof java.lang.reflect.ParameterizedType) {
-					throw new summer.core.exception.UnsupportedInjectionException(
-							"Nested generic type injection is not supported: List<" + elementType.getTypeName()
-									+ "> in " + bean.qualifiedName);
-				}
+		Class<?>[] rawTypes = method.getParameterTypes();
+		for (int i = 0; i < rawTypes.length; i++) {
+			Class<?> param = rawTypes[i];
+			if (param == java.util.List.class && genericTypes[i] instanceof java.lang.reflect.ParameterizedType pt
+					&& pt.getActualTypeArguments()[0] instanceof Class<?> ec) {
+				bean.addParameter("java.util.List<" + ec.getName() + ">");
+			} else if (param == java.util.List.class
+					&& genericTypes[i] instanceof java.lang.reflect.ParameterizedType pt
+					&& pt.getActualTypeArguments()[0] instanceof java.lang.reflect.ParameterizedType) {
+				throw new summer.core.exception.UnsupportedInjectionException(
+						"Nested generic type injection is not supported: List<" + genericTypes[i].getTypeName()
+								+ "> in " + bean.qualifiedName);
+			} else {
+				bean.addParameter(param.getName());
 			}
 		}
 
@@ -146,22 +156,6 @@ public final class RuntimeBeanAdapter {
 			return null;
 		}
 		return ctors[0];
-	}
-
-	private void detectListParameters(Constructor<?> ctor, BeanDefinition bean) {
-		Type[] genericTypes = ctor.getGenericParameterTypes();
-		for (int i = 0; i < genericTypes.length; i++) {
-			if (genericTypes[i] instanceof ParameterizedType pt && pt.getRawType() == List.class) {
-				Type elementType = pt.getActualTypeArguments()[0];
-				if (elementType instanceof Class<?> ec) {
-					bean.listElementTypes.put(i, ec.getName());
-				} else if (elementType instanceof ParameterizedType) {
-					throw new summer.core.exception.UnsupportedInjectionException(
-							"Nested generic type injection is not supported: List<" + elementType.getTypeName()
-									+ "> in " + bean.qualifiedName);
-				}
-			}
-		}
 	}
 
 	private void collectInterfaces(Class<?> clazz, List<String> target, Set<String> visited) {

@@ -86,7 +86,13 @@ public final class Discovery {
 		}
 
 		new BeanEnrichment(merged).enrich(beans);
-		return beans;
+
+		// Merge engine-provided (synthetic) beans into the candidate set. This is the
+		// single convergence point (Quarkus' beansView): scanned beans + synthetic
+		// beans flow through one list, so both engines observe the same candidates.
+		List<BeanDefinition> beansView = new ArrayList<>(beans);
+		beansView.addAll(moduleIndex.syntheticBeans());
+		return beansView;
 	}
 
 	// ── Phase 1: Discovery ────────────────────────────────────────────
@@ -254,17 +260,16 @@ public final class Discovery {
 	private static void fillFactoryBean(BeanDefinition fb, ClassInfo configCi, MethodInfo method, IndexView merged) {
 		fb.configClassName = configCi.name().toString();
 		fb.producerMethodName = method.name();
-		fb.producerParamTypes.clear();
 		for (int i = 0; i < method.parametersCount(); i++) {
 			org.jboss.jandex.Type paramType = method.parameterType(i);
-			fb.producerParamTypes.add(paramType.name().toString());
-
 			if (paramType.kind() == org.jboss.jandex.Type.Kind.PARAMETERIZED_TYPE) {
 				org.jboss.jandex.ParameterizedType pt = paramType.asParameterizedType();
 				if (pt.name().toString().equals("java.util.List") && pt.arguments().size() == 1) {
-					fb.listElementTypes.put(i, pt.arguments().get(0).name().toString());
+					fb.addParameter("java.util.List<" + pt.arguments().get(0).name().toString() + ">");
+					continue;
 				}
 			}
+			fb.addParameter(paramType.name().toString());
 		}
 
 		AnnotationInstance methodReplaces = method.annotation(REPLACES_DOT);

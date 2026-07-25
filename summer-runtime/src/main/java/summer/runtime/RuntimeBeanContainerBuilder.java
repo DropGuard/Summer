@@ -177,20 +177,23 @@ public final class RuntimeBeanContainerBuilder {
 			java.util.Map<String, Object> overrides, Object... externalBeans) {
 		BeanContainer.Builder builder = new BeanContainer.Builder();
 
-		builder.register(RuntimeDiMarker.class, new RuntimeDiMarker());
+		// Engine-provided (synthetic) beans. The discovery IndexView is declared on
+		// the blueprint (BeanDeployment) so both engines merge it into the candidate
+		// set identically; RuntimeDiMarker is runtime-only and declared here. Discovery
+		// folds both into the returned beansView, so neither engine hand-registers
+		// them.
+		deployment.addSyntheticBean(RuntimeDiMarker.class, new RuntimeDiMarker(), "new summer.core.RuntimeDiMarker()");
 
 		// ── Phase 1: Discovery ──────────────────────────────────────
 		// Unified discovery shared with the AOT engine: both engines observe the
-		// same candidate set, so dual-engine parity is structural, not conventional.
-		// Discovery yields enriched BeanDefinitions directly (no Class.forName at
-		// discovery time — class loading is deferred to the instantiator, matching
-		// AOT). It already registers AotDiMarker; we add the Runtime marker and the
-		// IndexView bean (needed by @Bean method param resolution).
+		// same candidate set (scanned beans + synthetic beans), so dual-engine parity
+		// is structural, not conventional. Discovery yields enriched BeanDefinitions
+		// directly (no Class.forName at discovery time — class loading is deferred to
+		// the instantiator, matching AOT). The AotDiMarker is registered by Discovery
+		// itself; IndexView and RuntimeDiMarker arrive as synthetic beans above.
+		log.info("[Summer] BeanDeployment: archives={} syntheticBeans={}", deployment.archives(), deployment
+				.syntheticBeans().stream().map(b -> b.qualifiedName).collect(java.util.stream.Collectors.joining(",")));
 		List<BeanDefinition> candidates = Discovery.discover(deployment);
-		candidates.add(new BeanDefinition(RuntimeDiMarker.class.getName(), "RuntimeDiMarker"));
-		// Register IndexView so the dependency resolver can find it for @Bean method
-		// params
-		candidates.add(new BeanDefinition(IndexView.class.getName(), IndexView.class.getSimpleName()));
 
 		// ── Phase 2: Evaluation ─────────────────────────────────────
 		// Evaluate @ConditionalOnBean and @Replaces against the scoped candidate
@@ -227,7 +230,6 @@ public final class RuntimeBeanContainerBuilder {
 		}
 		BeanInstantiator instantiator = new BeanInstantiator(builder, interceptorMap, interceptorBindingMap);
 
-		builder.register(IndexView.class, deployment.discoveryIndex());
 		// Register mocked instances under their declared target type (and the
 		// target's interfaces) so dependent beans inject the mock. The real bean of
 		// each target type was already removed at discovery stage, so this never
@@ -239,6 +241,9 @@ public final class RuntimeBeanContainerBuilder {
 			}
 		}
 		for (BeanDefinition beanDef : sorted) {
+			log.debug("[Summer] Instantiating bean {} [factory {}#{}] archive={} params={}{}", beanDef.qualifiedName,
+					beanDef.configClassName, beanDef.producerMethodName, beanDef.archiveName, beanDef.parameters.size(),
+					beanDef.syntheticInstance != null ? " [synthetic]" : "");
 			instantiator.instantiateFromDefinition(beanDef);
 		}
 		// Collect route metadata from candidates for route registration
@@ -254,6 +259,7 @@ public final class RuntimeBeanContainerBuilder {
 			}
 		}
 
+		log.info("[Summer] Built RUNTIME container: {} beans, {} routes", sorted.size(), allRoutes.size());
 		return builder.build(Engine.RUNTIME);
 	}
 

@@ -1,7 +1,6 @@
 package summer.core.bean;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -23,9 +22,10 @@ import java.util.Set;
  * </p>
  *
  * <p>
- * <b>Phase 3 (resolution):</b> {@link #resolvedDependencies},
- * {@link #configBeanDefinition}, {@link #interceptors}. Set by the dependency
- * resolver after condition evaluation.
+ * <b>Phase 3 (resolution):</b> the resolver fills each {@link #parameters}
+ * entry's {@code resolved} list (plus {@link #configBeanDefinition},
+ * {@link #interceptors}). Set by the dependency resolver after condition
+ * evaluation.
  * </p>
  *
  * <p>
@@ -58,14 +58,17 @@ public sealed class BeanDefinition permits ConfigPropertiesBean {
 	/** Routes (for @RestController beans). Enrichment populates. */
 	public final List<RouteInfo> routes = new ArrayList<>();
 
-	/** Constructor parameter type names (@Component path). */
-	public final List<String> constructorParamTypes = new ArrayList<>();
-
-	/** Constructor/@Bean index → generic List&lt;T&gt; element type name. */
-	public final Map<Integer, String> listElementTypes = new HashMap<>();
-
-	/** @Bean method parameter type names. */
-	public final List<String> producerParamTypes = new ArrayList<>();
+	/**
+	 * Injection parameters, in declaration order — one entry per constructor /
+	 * {@code @Bean} method parameter. Each entry is a self-contained
+	 * {@link InjectionParameter} (its type + the dependencies resolved for it).
+	 * Replaces the previously shredded {@code constructorParamTypes} /
+	 * {@code producerParamTypes} / {@code listElementTypes} + flat
+	 * {@code resolvedDependencies} — position is the list index, no parallel
+	 * collection to keep in sync, and consumers read parameters directly instead of
+	 * rebuilding the structure with cursors or reflection.
+	 */
+	public final List<InjectionParameter> parameters = new ArrayList<>();
 
 	/**
 	 * Implemented interface names (includes transitive). Populated during
@@ -86,6 +89,24 @@ public sealed class BeanDefinition permits ConfigPropertiesBean {
 	 * = class-level bindings. Empty map = no AOP bindings.
 	 */
 	public Map<String, Set<String>> methodBindingAnnotations = Map.of();
+
+	/**
+	 * Non-null only for engine-provided (synthetic) beans: the pre-built instance
+	 * to register directly, instead of instantiating from a class. Mirrors Quarkus'
+	 * synthetic bean instance. Null for all scanned beans. Consumed by the runtime
+	 * engine, which registers this object as-is.
+	 */
+	public Object syntheticInstance = null;
+
+	/**
+	 * AOT construction expression for a synthetic bean — the Java source a code
+	 * generator emits verbatim to obtain the synthetic instance at container build
+	 * time. Supplied at the definition site (where the synthetic bean is declared),
+	 * so the code generator stays ignorant of each synthetic type's construction.
+	 * Null for scanned beans and for synthetic beans with no AOT form (the runtime
+	 * engine ignores it and registers {@link #syntheticInstance} instead).
+	 */
+	public String aotInstanceExpression = null;
 
 	/**
 	 * @ExceptionHandler methods discovered on this bean. Populated during
@@ -118,8 +139,16 @@ public sealed class BeanDefinition permits ConfigPropertiesBean {
 
 	// ── Phase 3: Resolution outputs ───────────────────────────────────
 
-	/** Resolved dependency edges. Populated by dependency resolver. */
-	public final List<BeanDefinition> resolvedDependencies = new ArrayList<>();
+	/**
+	 * Discovery/enrichment-phase helper: append one injection parameter with no
+	 * resolved dependencies yet (the resolver fills {@code resolved} later). For a
+	 * {@code List<T>} parameter, {@code typeName} carries its generic argument
+	 * (e.g. {@code "java.util.List<summer.fx.Foo>"}) so the element type stays
+	 * derivable — no separate field or flag.
+	 */
+	public void addParameter(String typeName) {
+		parameters.add(new InjectionParameter(typeName, new ArrayList<>()));
+	}
 
 	/** The @Configuration bean for this @Bean product. */
 	public BeanDefinition configBeanDefinition;

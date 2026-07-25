@@ -77,10 +77,10 @@ class CrossModuleDiscoveryTest {
 	@Test
 	void dependencyResolverFindsBeanByQualifiedName() {
 		BeanDefinition serviceA = new BeanDefinition("summer.fixtures.dummy.ServiceA", "ServiceA");
-		serviceA.constructorParamTypes.add("summer.fixtures.dummy.ServiceB");
+		serviceA.addParameter("summer.fixtures.dummy.ServiceB");
 
 		BeanDefinition serviceB = new BeanDefinition("summer.fixtures.dummy.ServiceB", "ServiceB");
-		serviceB.constructorParamTypes.add("summer.fixtures.dummy.ServiceC");
+		serviceB.addParameter("summer.fixtures.dummy.ServiceC");
 
 		BeanDefinition serviceC = new BeanDefinition("summer.fixtures.dummy.ServiceC", "ServiceC");
 
@@ -98,7 +98,7 @@ class CrossModuleDiscoveryTest {
 		impl.interfaceNames.add("summer.fixtures.dummy.ServiceB");
 
 		BeanDefinition consumer = new BeanDefinition("summer.fixtures.dummy.ServiceA", "ServiceA");
-		consumer.constructorParamTypes.add("summer.fixtures.dummy.ServiceB");
+		consumer.addParameter("summer.fixtures.dummy.ServiceB");
 
 		List<BeanDefinition> beans = List.of(impl, consumer);
 		SharedDependencyResolver resolver = new SharedDependencyResolver();
