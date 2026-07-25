@@ -2,8 +2,8 @@ package summer.data.jdbc.query;
 
 import java.util.List;
 import java.util.Map;
-import summer.core.Component;
 import summer.core.annotation.ConditionalOnBean;
+import summer.core.annotation.Configuration;
 import summer.data.jdbc.EntityMetadata;
 import summer.data.jdbc.EntityMetadataRegistry;
 import summer.data.jdbc.JdbcTemplate;
@@ -25,7 +25,7 @@ import summer.data.jdbc.JdbcTemplate;
  * .where(eq("status", "OPEN"))}.
  * </p>
  */
-@Component
+@Configuration
 @ConditionalOnBean(JdbcTemplate.class)
 public class QueryTemplate {
 

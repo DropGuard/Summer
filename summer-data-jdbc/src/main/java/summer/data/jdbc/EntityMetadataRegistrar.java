@@ -19,9 +19,9 @@ import summer.data.jdbc.query.QueryBuilder;
  * </p>
  *
  * <p>
- * Field-type validation ({@link RowMapperFactory#assertSupported}) also lives
- * here so an unsupported field type fails fast on <em>both</em> engines, rather
- * than only on the runtime path.
+ * Field-type validation happens inside
+ * {@link RowMapperFactory#scanJandex(IndexView)} so an unsupported field type
+ * fails fast on <em>both</em> engines, rather than only on the runtime path.
  * </p>
  */
 public final class EntityMetadataRegistrar {
@@ -30,8 +30,7 @@ public final class EntityMetadataRegistrar {
 
 	public EntityMetadataRegistrar(IndexView discoveryIndex, EntityMetadataRegistry entityMetadataRegistry) {
 		this.entityMetadataRegistry = entityMetadataRegistry;
-		for (RowMapperFactory.RowModelMeta meta : RowMapperFactory.scanJandex(discoveryIndex)) {
-			RowMapperFactory.assertSupported(meta);
+		for (RowModelMeta meta : RowMapperFactory.scanJandex(discoveryIndex)) {
 			entityMetadataRegistry.register(meta);
 		}
 	}

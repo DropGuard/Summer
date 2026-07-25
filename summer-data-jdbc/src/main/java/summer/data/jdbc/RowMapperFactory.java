@@ -14,9 +14,24 @@ import org.jboss.jandex.IndexView;
 import org.jboss.jandex.RecordComponentInfo;
 
 /**
- * Shared RowMapper metadata extraction and construction. Both the AOT engine
- * and the runtime engine use this to discover {@code @RowModel} records and
- * create appropriate {@code RowMapper} instances.
+ * Discovers {@code @RowModel} records through a Jandex index and builds the
+ * {@link RowMapper} instances both engines need.
+ *
+ * <p>
+ * Two responsibilities live here, kept as stateless entry points because they
+ * are pure functions of their inputs (no shared mutable state):
+ * <ul>
+ * <li>{@link #scanJandex(IndexView)} — the single discovery pass; it also
+ * validates every field type up front, so an unsupported mapping fails fast at
+ * assembly rather than at row-mapping time.</li>
+ * <li>{@link #createReflective(RowModelMeta)} — builds the runtime reflective
+ * mapper used by the Runtime DI engine when no code generation is
+ * available.</li>
+ * </ul>
+ * The AOT engine instead emits inline mappers at build time (see
+ * {@code WireMethodGenerator} + {@code TypeReads.jdbcRead}); it reuses
+ * {@link #scanJandex(IndexView)} and the {@link #resolveFieldType(String)}
+ * contract so both engines share one type truth.
  */
 public final class RowMapperFactory {
 
@@ -25,18 +40,12 @@ public final class RowMapperFactory {
 	private RowMapperFactory() {
 	}
 
-	/** Metadata for a single {@code @RowModel} record field. */
-	public record FieldMeta(String name, String typeName) {
-	}
-
-	/** Metadata for a {@code @RowModel} record. */
-	public record RowModelMeta(String modelClassName, String packageName, String simpleName, String tableName,
-			List<FieldMeta> fields) {
-	}
-
 	/**
-	 * Scans a Jandex index for {@code @RowModel} records and extracts field
-	 * metadata suitable for code generation or reflective mapping.
+	 * The single discovery pass: scans a Jandex index for {@code @RowModel} records
+	 * and extracts field metadata. Every field type is validated here via
+	 * {@link #resolveFieldType(String)}, so an unsupported mapping surfaces as a
+	 * clear error at assembly time on both engines — not as a row-mapping surprise
+	 * at runtime.
 	 */
 	public static List<RowModelMeta> scanJandex(IndexView index) {
 		List<RowModelMeta> result = new ArrayList<>();
@@ -47,13 +56,22 @@ public final class RowMapperFactory {
 			if (!ci.hasAnnotation(ROW_MODEL_DOT)) {
 				continue;
 			}
-			List<RecordComponentInfo> components = ci.recordComponents();
+			// recordComponents() returns components in sorted (non-declaration)
+			// order in this Jandex version; the canonical constructor and therefore
+			// the record's actual field order follow the declaration order. Use
+			// recordComponentsInDeclarationOrder() so downstream consumers that
+			// build a constructor invocation positionally (the AOT inline RowMapper)
+			// stay aligned with the record's real signature. Runtime reflective
+			// mapping is unaffected (it maps by name, not position).
+			List<RecordComponentInfo> components = ci.recordComponentsInDeclarationOrder();
 			if (components == null || components.isEmpty()) {
 				continue;
 			}
 
 			List<FieldMeta> fields = new ArrayList<>();
 			for (RecordComponentInfo comp : components) {
+				// Validate the type up front (fail-fast, shared by both engines).
+				resolveFieldType(comp.type().name().toString());
 				fields.add(new FieldMeta(comp.name(), comp.type().name().toString()));
 			}
 
@@ -76,19 +94,6 @@ public final class RowMapperFactory {
 	 * Creates a reflective {@code RowMapper} at runtime using Jackson
 	 * {@code ObjectMapper}. Used by the runtime DI engine when no code generation
 	 * is available.
-	 */
-	@SuppressWarnings("unchecked")
-	public static <T> RowMapper<T> createReflective(Class<T> modelClass, RowModelMeta meta) {
-		return new ReflectiveRowMapper<>(modelClass, meta);
-	}
-
-	/**
-	 * Convenience overload that resolves the model {@link Class} from the metadata
-	 * before delegating to {@link #createReflective(Class, RowModelMeta)}. Used by
-	 * the {@link ReflectiveRowMapperRegistrar} component, which discovers
-	 * {@code @RowModel} records through the Jandex index and loads each model class
-	 * within this module (loading a user-declared model is a data-module
-	 * responsibility, not a cross-module reflection).
 	 */
 	@SuppressWarnings("unchecked")
 	public static RowMapper<?> createReflective(RowModelMeta meta) {
@@ -153,13 +158,20 @@ public final class RowMapperFactory {
 	}
 
 	/**
-	 * Maps a {@code @RowModel} field type name to the Java type used for JDBC's
-	 * native {@code ResultSet.getObject(col, type)} read. Only JDBC-native types
-	 * are supported; anything else fails fast so an unsupported mapping never
-	 * reaches row-mapping time. Public so the AOT engine can reuse the exact same
-	 * type contract when emitting inline mappers.
+	 * The single type contract for {@code @RowModel} fields: maps a field's type
+	 * name to the Java type used for JDBC's native {@code ResultSet.getObject(col,
+	 * type)} read. Only JDBC-native types are supported; anything else fails fast
+	 * so an unsupported mapping never reaches row-mapping time.
+	 *
+	 * <p>
+	 * This is the one source of truth shared by the runtime reflective mapper and
+	 * the AOT engine's generated inline mappers (the AOT side resolves the
+	 * canonical name to emit {@code X.class} literals).
 	 */
 	public static Class<?> resolveFieldType(String typeName) {
+		// JDBC reads every numeric primitive as its boxed Class (e.g. "int" and
+		// "java.lang.Integer" both -> Integer.class); this is the mapper's own
+		// domain and is intentionally not shared with codegen's raw-type table.
 		return switch (typeName) {
 			case "int", "java.lang.Integer" -> Integer.class;
 			case "long", "java.lang.Long" -> Long.class;
@@ -176,27 +188,5 @@ public final class RowMapperFactory {
 					+ ". @RowModel supports JDBC-native types only (primitives, String, BigDecimal, UUID, "
 					+ "java.time.*). Complex types such as jsonb or nested records require explicit extension.");
 		};
-	}
-
-	/**
-	 * Builds the JDBC-native read expression emitted by the AOT engine for a field,
-	 * e.g. {@code rs.getObject("created_at", LocalDateTime.class)}. Keeps the
-	 * generated mapper aligned with the reflective one (same type contract, no
-	 * Jackson fallback).
-	 */
-	public static String jdbcReadExpression(String columnName, String typeName) {
-		Class<?> type = resolveFieldType(typeName);
-		return "rs.getObject(\"" + columnName + "\", " + type.getCanonicalName() + ".class)";
-	}
-
-	/**
-	 * Fails fast at assembly if any {@code @RowModel} field uses a type the
-	 * reflective mapper cannot map, so an unsupported mapping surfaces as a clear
-	 * error rather than a runtime row-mapping surprise.
-	 */
-	public static void assertSupported(RowModelMeta meta) {
-		for (FieldMeta f : meta.fields()) {
-			resolveFieldType(f.typeName());
-		}
 	}
 }

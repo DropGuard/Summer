@@ -21,7 +21,7 @@ import java.util.Set;
  * another index scan.
  * </p>
  */
-public record EntityMetadata(String tableName, Set<String> columns, List<RowMapperFactory.FieldMeta> fields) {
+public record EntityMetadata(String tableName, Set<String> columns, List<FieldMeta> fields) {
 
 	public EntityMetadata {
 		columns = Set.copyOf(columns);

@@ -4,7 +4,7 @@ import java.lang.reflect.Method;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import summer.data.jdbc.EntityMetadata;
-import summer.data.jdbc.RowMapperFactory.FieldMeta;
+import summer.data.jdbc.FieldMeta;
 
 /**
  * Reads an entity's field values for mutation statements (INSERT/UPDATE).

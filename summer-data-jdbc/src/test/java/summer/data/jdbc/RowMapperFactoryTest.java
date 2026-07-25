@@ -1,48 +1,52 @@
 package summer.data.jdbc;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
-import summer.data.jdbc.RowMapperFactory.FieldMeta;
-import summer.data.jdbc.RowMapperFactory.RowModelMeta;
 
 /**
- * Unit tests for {@link RowMapperFactory}'s type support contract — verifies
- * that supported field types are accepted and unsupported ones fail fast at
- * assembly, so a user mapping a {@code jsonb} / nested / collection column gets
- * a clear error rather than a runtime row-mapping surprise.
+ * Unit tests for {@link RowMapperFactory#resolveFieldType(String)} — the single
+ * type contract shared by the runtime reflective mapper and the AOT engine's
+ * generated inline mappers.
+ * {@link RowMapperFactory#scanJandex(org.jboss.jandex.IndexView)} validates
+ * every field through this method, so an unsupported mapping fails fast at
+ * assembly rather than as a row-mapping surprise at runtime.
  */
 class RowMapperFactoryTest {
 
-	private static RowModelMeta metaWith(String... typeNames) {
-		List<FieldMeta> fields = new java.util.ArrayList<>();
-		int i = 0;
-		for (String t : typeNames) {
-			fields.add(new FieldMeta("f" + (i++), t));
-		}
-		return new RowModelMeta("com.example.Model", "com.example", "Model", "model", fields);
-	}
-
 	@Test
 	void acceptsJdbcNativeTypes() {
-		assertDoesNotThrow(() -> RowMapperFactory.assertSupported(metaWith("java.lang.Long", "java.lang.String",
-				"java.math.BigDecimal", "java.util.UUID", "java.time.LocalDateTime")));
+		assertSame(Long.class, RowMapperFactory.resolveFieldType("java.lang.Long"));
+		assertSame(String.class, RowMapperFactory.resolveFieldType("java.lang.String"));
+		assertSame(BigDecimal.class, RowMapperFactory.resolveFieldType("java.math.BigDecimal"));
+		assertSame(UUID.class, RowMapperFactory.resolveFieldType("java.util.UUID"));
+		assertSame(LocalDateTime.class, RowMapperFactory.resolveFieldType("java.time.LocalDateTime"));
+		assertSame(Integer.class, RowMapperFactory.resolveFieldType("int"));
 	}
 
 	@Test
-	void rejectsCollectionFieldAtAssembly() {
+	void rejectsCollectionField() {
 		IllegalStateException ex = assertThrows(IllegalStateException.class,
-				() -> RowMapperFactory.assertSupported(metaWith("java.util.List<java.lang.String>")));
+				() -> RowMapperFactory.resolveFieldType("java.util.List<java.lang.String>"));
 		assertTrue(ex.getMessage().contains("Unsupported @RowModel field type"));
 	}
 
 	@Test
-	void rejectsNestedRecordFieldAtAssembly() {
+	void rejectsNestedRecordField() {
 		IllegalStateException ex = assertThrows(IllegalStateException.class,
-				() -> RowMapperFactory.assertSupported(metaWith("com.example.Address")));
+				() -> RowMapperFactory.resolveFieldType("com.example.Address"));
 		assertTrue(ex.getMessage().contains("Unsupported @RowModel field type"));
+	}
+
+	@Test
+	void acceptsSupportedTypesWithoutThrowing() {
+		assertDoesNotThrow(() -> RowMapperFactory.resolveFieldType("java.lang.Long"));
+		assertDoesNotThrow(() -> RowMapperFactory.resolveFieldType("java.time.LocalDate"));
 	}
 }

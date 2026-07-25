@@ -4,8 +4,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
-import summer.core.Component;
-import summer.data.jdbc.RowMapperFactory.RowModelMeta;
+import summer.core.annotation.Configuration;
 
 /**
  * In-memory registry of {@link EntityMetadata}, populated once during container
@@ -18,7 +17,7 @@ import summer.data.jdbc.RowMapperFactory.RowModelMeta;
  * by {@code ReflectiveRowMapperRegistrar} for every discovered model.
  * </p>
  */
-@Component
+@Configuration
 public final class EntityMetadataRegistry {
 
 	private final Map<String, EntityMetadata> byClassName = new LinkedHashMap<>();

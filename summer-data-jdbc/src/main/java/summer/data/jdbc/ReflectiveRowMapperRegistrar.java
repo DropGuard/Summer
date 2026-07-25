@@ -25,12 +25,12 @@ public final class ReflectiveRowMapperRegistrar {
 
 	public ReflectiveRowMapperRegistrar(JdbcTemplate jdbcTemplate, IndexView discoveryIndex) {
 		this.jdbcTemplate = jdbcTemplate;
-		for (RowMapperFactory.RowModelMeta meta : RowMapperFactory.scanJandex(discoveryIndex)) {
+		for (RowModelMeta meta : RowMapperFactory.scanJandex(discoveryIndex)) {
 			jdbcTemplate.registerMapper(modelClass(meta), RowMapperFactory.createReflective(meta));
 		}
 	}
 
-	private static Class<?> modelClass(RowMapperFactory.RowModelMeta meta) {
+	private static Class<?> modelClass(RowModelMeta meta) {
 		try {
 			return Class.forName(meta.modelClassName());
 		} catch (ClassNotFoundException e) {
