@@ -4,9 +4,6 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -19,9 +16,14 @@ import summer.core.ErrorCode;
  * Proxy factory that creates JDK dynamic proxies for interface-based AOP.
  *
  * <p>
- * Interceptor binding annotations are read from a pre-computed map (populated
- * from {@link BeanDefinition#interceptorBindingAnnotations}) at proxy creation
- * time — no annotation scanning via reflection on the hot path.
+ * The interception decision (which interface method is wrapped, and by which
+ * interceptors) is computed at assembly time by {@link RuntimeAopProcessor}
+ * from the bean's pre-enriched binding data ({@code BeanDefinition}), not by
+ * reflection on the hot path. This factory is therefore a pure lookup table: it
+ * receives a {@link ProxyMethodSpec} per interface method and, at dispatch,
+ * either forwards straight to the target or runs the method's interceptor
+ * chain. No annotation scanning, no impl-vs-interface ambiguity to resolve
+ * here.
  * </p>
  */
 public class ProxyFactory {
@@ -29,10 +31,19 @@ public class ProxyFactory {
 	private ProxyFactory() {
 	}
 
+	/**
+	 * Per-method proxy plan: the interceptors to run for a method, plus the binding
+	 * annotation types that method carries (exposed to interceptors via
+	 * {@link summer.aop.InterceptedMethod#isAnnotationPresent}). Computed once at
+	 * assembly time, never on the hot path.
+	 */
+	public record ProxyMethodSpec(List<MethodInterceptor> interceptors, Set<Class<? extends Annotation>> bindings) {
+		/** Methods with no interceptors are dispatched straight through. */
+		static final ProxyMethodSpec NONE = new ProxyMethodSpec(List.of(), Set.of());
+	}
+
 	@SuppressWarnings("unchecked")
-	public static <T> T createProxy(T target, List<MethodInterceptor> interceptors,
-			Map<Class<?>, Set<Class<? extends Annotation>>> interceptorBindings) {
-		// Check if target implements any interfaces
+	public static <T> T createProxy(T target, Map<Method, ProxyMethodSpec> methodSpecs) {
 		Class<?>[] interfaces = target.getClass().getInterfaces();
 		if (interfaces.length == 0) {
 			throw new SummerAopException(ErrorCode.AOP_NO_INTERFACE,
@@ -40,50 +51,16 @@ public class ProxyFactory {
 		}
 
 		return (T) Proxy.newProxyInstance(target.getClass().getClassLoader(), interfaces,
-				new ProxyInvocationHandler(target, interceptors, interceptorBindings));
+				new ProxyInvocationHandler(target, methodSpecs));
 	}
 
 	private static class ProxyInvocationHandler implements InvocationHandler {
 		private final Object target;
-		private final List<MethodInterceptor> interceptors;
-		private final Map<Class<?>, Set<Class<? extends Annotation>>> interceptorBindings;
-		private final Map<Method, MethodCache> methodCache;
+		private final Map<Method, ProxyMethodSpec> methodSpecs;
 
-		private static class MethodCache {
-			final Method targetMethod;
-			final boolean shouldIntercept;
-			final summer.aop.InterceptedMethod metadata;
-
-			MethodCache(Method targetMethod, boolean shouldIntercept, summer.aop.InterceptedMethod metadata) {
-				this.targetMethod = targetMethod;
-				this.shouldIntercept = shouldIntercept;
-				this.metadata = metadata;
-			}
-		}
-
-		ProxyInvocationHandler(Object target, List<MethodInterceptor> interceptors,
-				Map<Class<?>, Set<Class<? extends Annotation>>> interceptorBindings) {
+		ProxyInvocationHandler(Object target, Map<Method, ProxyMethodSpec> methodSpecs) {
 			this.target = target;
-			this.interceptors = interceptors;
-			this.interceptorBindings = interceptorBindings;
-			this.methodCache = new HashMap<>();
-
-			// Pre-compile methods to avoid reflection lookup and annotation scanning on hot
-			// path
-			for (Class<?> iface : target.getClass().getInterfaces()) {
-				for (Method method : iface.getMethods()) {
-					try {
-						Method targetMethod = target.getClass().getMethod(method.getName(), method.getParameterTypes());
-						boolean shouldIntercept = shouldIntercept(targetMethod);
-						summer.aop.InterceptedMethod metadata = shouldIntercept
-								? new summer.aop.InterceptedMethod(targetMethod.getName(), bindingsOn(targetMethod))
-								: null;
-						methodCache.put(method, new MethodCache(targetMethod, shouldIntercept, metadata));
-					} catch (NoSuchMethodException e) {
-						// Ignore
-					}
-				}
-			}
+			this.methodSpecs = methodSpecs;
 		}
 
 		@Override
@@ -93,84 +70,19 @@ public class ProxyFactory {
 				return method.invoke(target, args);
 			}
 
-			MethodCache cache = methodCache.get(method);
-			if (cache == null || !cache.shouldIntercept) {
+			ProxyMethodSpec spec = methodSpecs.getOrDefault(method, ProxyMethodSpec.NONE);
+			if (spec.interceptors().isEmpty()) {
 				return method.invoke(target, args);
 			}
 
 			try {
-				return new ProxyInterceptorChain(target, cache.metadata, args, interceptors,
-						() -> method.invoke(target, args)).proceed();
+				var chain = new ProxyInterceptorChain(target,
+						new summer.aop.InterceptedMethod(method.getName(), spec.bindings()), args, spec.interceptors(),
+						() -> method.invoke(target, args));
+				return chain.proceed();
 			} catch (java.lang.reflect.InvocationTargetException e) {
 				throw e.getCause();
 			}
-		}
-
-		/**
-		 * Determines if a method should be intercepted by checking if any interceptor's
-		 * binding annotations match the target method.
-		 *
-		 * <p>
-		 * Binding annotations are read from the pre-computed
-		 * {@link #interceptorBindings} map. If an interceptor is not present in the map
-		 * (e.g., created directly in tests), annotations are scanned as a fallback.
-		 * </p>
-		 */
-		private boolean shouldIntercept(Method targetMethod) {
-			for (MethodInterceptor interceptor : interceptors) {
-				Set<Class<? extends Annotation>> bindings = interceptorBindings.get(interceptor.getClass());
-				if (bindings == null) {
-					bindings = scanBindings(interceptor.getClass());
-				}
-				for (Class<? extends Annotation> binding : bindings) {
-					if (targetMethod.getDeclaringClass().isAnnotationPresent(binding)) {
-						return true;
-					}
-					if (targetMethod.isAnnotationPresent(binding)) {
-						return true;
-					}
-				}
-			}
-			return false;
-		}
-
-		/**
-		 * Collects the binding annotations actually present on the target method (or
-		 * its declaring class) — the set an {@link summer.aop.InterceptedMethod}
-		 * exposes to interceptors via {@code isAnnotationPresent}. Computed once at
-		 * proxy creation, never on the hot path.
-		 */
-		private Set<Class<? extends Annotation>> bindingsOn(Method targetMethod) {
-			Set<Class<? extends Annotation>> present = new HashSet<>();
-			for (MethodInterceptor interceptor : interceptors) {
-				Set<Class<? extends Annotation>> bindings = interceptorBindings.get(interceptor.getClass());
-				if (bindings == null) {
-					bindings = scanBindings(interceptor.getClass());
-				}
-				for (Class<? extends Annotation> binding : bindings) {
-					if (targetMethod.getDeclaringClass().isAnnotationPresent(binding)
-							|| targetMethod.isAnnotationPresent(binding)) {
-						present.add(binding);
-					}
-				}
-			}
-			return present;
-		}
-
-		/**
-		 * Fallback: scans an interceptor class's annotations for
-		 * {@code @InterceptorBinding} meta-annotations. Used when the pre-computed map
-		 * does not contain the interceptor (e.g., unit tests creating interceptors
-		 * directly).
-		 */
-		private static Set<Class<? extends Annotation>> scanBindings(Class<?> interceptorClass) {
-			Set<Class<? extends Annotation>> bindings = new HashSet<>();
-			for (java.lang.annotation.Annotation ann : interceptorClass.getAnnotations()) {
-				if (ann.annotationType().isAnnotationPresent(summer.aop.InterceptorBinding.class)) {
-					bindings.add(ann.annotationType());
-				}
-			}
-			return Collections.unmodifiableSet(bindings);
 		}
 	}
 }

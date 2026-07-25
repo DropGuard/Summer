@@ -17,6 +17,7 @@ import summer.core.BeanContainer;
 import summer.core.Provider;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.ConfigPropertiesBean;
+import summer.core.bean.InjectionParameter;
 import summer.core.exception.BeanCreationException;
 import summer.core.exception.NoSuchBeanException;
 
@@ -35,9 +36,8 @@ import summer.core.exception.NoSuchBeanException;
  * </ul>
  *
  * <p>
- * Parameter type information is read from {@link BeanDefinition} fields
- * ({@code constructorParamTypes}, {@code producerParamTypes},
- * {@code listElementTypes}) rather than re-derived via reflection. This ensures
+ * Parameter type information is read from the {@link InjectionParameter}s of a
+ * {@link BeanDefinition} rather than re-derived via reflection. This ensures
  * that once {@link RuntimeBeanAdapter} populates a {@link BeanDefinition}, it
  * becomes the single source of truth.
  * </p>
@@ -94,6 +94,12 @@ final class BeanInstantiator {
 		if (builder.peek(clazz) != null) {
 			return;
 		}
+		// Engine-provided (synthetic) beans: register the pre-built instance directly
+		// instead of instantiating from a class (Quarkus synthetic bean model).
+		if (bean.syntheticInstance != null) {
+			registerBean(bean, bean.syntheticInstance);
+			return;
+		}
 		try {
 			Object instance;
 			if (bean.isFactoryMethod()) {
@@ -101,7 +107,7 @@ final class BeanInstantiator {
 			} else {
 				instance = createInstance(bean);
 			}
-			registerBean(clazz, instance);
+			registerBean(bean, instance);
 		} catch (Exception e) {
 			if (e instanceof NoSuchBeanException nse) {
 				throw nse;
@@ -113,17 +119,18 @@ final class BeanInstantiator {
 	private Object invokeFactoryMethod(BeanDefinition fb) throws ReflectiveOperationException {
 		Class<?> configClass = loadClassForInstantiation(fb.configClassName);
 		Object configBean = builder.getBean(configClass);
-		Class<?>[] paramTypes = fb.producerParamTypes.stream().map(cn -> loadClassForInstantiation(cn))
+		Class<?>[] paramTypes = fb.parameters.stream().map(
+				p -> p.typeName().startsWith("java.util.List<") ? List.class : loadClassForInstantiation(p.typeName()))
 				.toArray(Class[]::new);
 		Method producer = configClass.getMethod(fb.producerMethodName, paramTypes);
-		Object[] args = resolveArgsFromBeanDef(fb.producerParamTypes, fb.listElementTypes);
+		Object[] args = resolveArgs(fb.parameters);
 		return producer.invoke(configBean, args);
 	}
 
 	private Object createInstance(BeanDefinition beanDef) throws ReflectiveOperationException {
 		Class<?> clazz = loadClassForInstantiation(beanDef.qualifiedName);
 		Constructor<?> constructor = findSinglePublicConstructor(clazz);
-		Object[] args = resolveArgsFromBeanDef(beanDef.constructorParamTypes, beanDef.listElementTypes);
+		Object[] args = resolveArgs(beanDef.parameters);
 		return constructor.newInstance(args);
 	}
 
@@ -137,55 +144,51 @@ final class BeanInstantiator {
 	}
 
 	/**
-	 * Resolves constructor / {@code @Bean} method arguments from the parameter type
-	 * names stored in a {@link BeanDefinition}, rather than re-deriving them from
-	 * {@link java.lang.reflect.Method#getParameterTypes()} or
-	 * {@link Constructor#getParameterTypes()}.
-	 *
-	 * <p>
-	 * {@code List<T>} parameters use the element type information from
-	 * {@code listElementTypes} to collect all beans of the element type.
-	 * </p>
+	 * Resolves constructor / {@code @Bean} method arguments from the
+	 * {@link InjectionParameter}s of a {@link BeanDefinition}. Each parameter owns
+	 * its type and (for a {@code List}) its element type, so there is no parallel
+	 * collection to re-derive — the runtime reads the same structure every other
+	 * consumer does.
 	 */
-	private Object[] resolveArgsFromBeanDef(List<String> paramTypeNames, Map<Integer, String> listElementTypes) {
-		Object[] args = new Object[paramTypeNames.size()];
-		for (int i = 0; i < paramTypeNames.size(); i++) {
-			String paramTypeName = paramTypeNames.get(i);
-			if (paramTypeName.equals("summer.core.BeanContainer")) {
-				throw new BeanCreationException(
-						"ApplicationContext injection is not supported by the runtime engine. Use BeanContainer from caller.");
-			}
-
-			Class<?> paramType = loadClassForInstantiation(paramTypeName);
-			if (paramType == List.class && listElementTypes.containsKey(i)) {
-				String elementTypeName = listElementTypes.get(i);
-				Class<?> elementClass = loadClassForInstantiation(elementTypeName);
+	private Object[] resolveArgs(List<InjectionParameter> parameters) {
+		Object[] args = new Object[parameters.size()];
+		for (int i = 0; i < parameters.size(); i++) {
+			InjectionParameter parameter = parameters.get(i);
+			if (parameter.typeName().startsWith("java.util.List<")) {
+				Class<?> elementClass = loadClassForInstantiation(parameter.elementType());
 				args[i] = builder.getBeans(elementClass);
 			} else {
+				if (parameter.typeName().equals("summer.core.BeanContainer")) {
+					throw new BeanCreationException(
+							"ApplicationContext injection is not supported by the runtime engine. Use BeanContainer from caller.");
+				}
+				Class<?> paramType = loadClassForInstantiation(parameter.typeName());
 				args[i] = builder.getBean(paramType);
 			}
 		}
 		return args;
 	}
 
-	private void registerBean(Class<?> clazz, Object instance) {
+	private void registerBean(BeanDefinition bean, Object instance) {
 		if (instance instanceof Provider<?> provider) {
-			registerProvider(clazz, provider);
+			registerProvider(bean, provider);
 		} else {
-			registerRegularBean(clazz, instance);
+			registerRegularBean(bean, instance);
 		}
 	}
 
-	private void registerProvider(Class<?> clazz, Provider<?> provider) {
+	private void registerProvider(BeanDefinition bean, Provider<?> provider) {
 		Object providedInstance = provider.provide();
-		Class<?> providedType = getProvidedType(clazz);
+		Class<?> providedType = getProvidedType(bean.qualifiedName);
+		Class<?> providerClass = loadClassForInstantiation(bean.qualifiedName);
 		builder.register(providedType, providedInstance);
-		builder.register(clazz, provider);
+		builder.register(providerClass, provider);
 	}
 
-	private void registerRegularBean(Class<?> clazz, Object instance) {
-		List<MethodInterceptor> matchingInterceptors = resolveMatchingInterceptors(clazz);
-		Object proxy = RuntimeAopProcessor.applyProxy(instance, clazz, matchingInterceptors, interceptorBindings);
+	private void registerRegularBean(BeanDefinition bean, Object instance) {
+		Class<?> clazz = instance.getClass();
+		List<MethodInterceptor> matchingInterceptors = resolveMatchingInterceptors(bean.qualifiedName);
+		Object proxy = RuntimeAopProcessor.applyProxy(instance, bean, matchingInterceptors, interceptorBindings);
 		// Concrete class key keeps the raw instance
 		builder.register(clazz, instance);
 		// Interfaces get the proxy (first-wins)
@@ -199,8 +202,8 @@ final class BeanInstantiator {
 		}
 	}
 
-	private List<MethodInterceptor> resolveMatchingInterceptors(Class<?> beanClass) {
-		List<String> interceptorNames = interceptorMap.getOrDefault(beanClass.getName(), List.of());
+	private List<MethodInterceptor> resolveMatchingInterceptors(String beanClassName) {
+		List<String> interceptorNames = interceptorMap.getOrDefault(beanClassName, List.of());
 		if (interceptorNames.isEmpty()) {
 			return List.of();
 		}
@@ -215,7 +218,8 @@ final class BeanInstantiator {
 		return result;
 	}
 
-	private static Class<?> getProvidedType(Class<?> providerClass) {
+	private static Class<?> getProvidedType(String providerClassName) {
+		Class<?> providerClass = loadClassForInstantiation(providerClassName);
 		for (Type iface : providerClass.getGenericInterfaces()) {
 			if (iface instanceof ParameterizedType pt && pt.getRawType() == Provider.class) {
 				return (Class<?>) pt.getActualTypeArguments()[0];

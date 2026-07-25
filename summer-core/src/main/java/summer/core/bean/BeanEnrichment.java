@@ -90,8 +90,6 @@ public final class BeanEnrichment {
 		}
 		MethodInfo ctor = publicCtors.get(0);
 		for (int i = 0; i < ctor.parametersCount(); i++) {
-			bean.constructorParamTypes.add(ctor.parameterType(i).name().toString());
-
 			org.jboss.jandex.Type paramType = ctor.parameterType(i);
 			if (paramType.kind() == org.jboss.jandex.Type.Kind.PARAMETERIZED_TYPE) {
 				org.jboss.jandex.ParameterizedType pt = paramType.asParameterizedType();
@@ -102,10 +100,11 @@ public final class BeanEnrichment {
 								"Nested generic type injection is not supported: List<" + elementTypeObj.toString()
 										+ "> in " + bean.qualifiedName);
 					}
-					String elementType = pt.arguments().get(0).name().toString();
-					bean.listElementTypes.put(bean.constructorParamTypes.size() - 1, elementType);
+					bean.addParameter("java.util.List<" + elementTypeObj.name().toString() + ">");
+					continue;
 				}
 			}
+			bean.addParameter(paramType.name().toString());
 		}
 	}
 
@@ -301,9 +300,52 @@ public final class BeanEnrichment {
 				}
 			}
 
+			// Binding annotations can also be declared on the bean's implemented
+			// interfaces — both type-level and method-level. A proxied service usually
+			// implements an interface (e.g. IssueService) that carries the binding
+			// annotation on its methods; the implementing class inherits it but Jandex
+			// ClassInfo.methods()/declaredAnnotations() do not include inherited
+			// interface members. Without this walk the interceptor is never applied.
+			for (String ifaceName : bean.interfaceNames) {
+				ClassInfo ifaceCi = index.getClassByName(DotName.createSimple(ifaceName));
+				if (ifaceCi == null) {
+					continue;
+				}
+				for (AnnotationInstance ann : ifaceCi.declaredAnnotations()) {
+					if (bindingAnnotations.contains(ann.name())) {
+						String name = ann.name().toString();
+						bindings.add(name);
+						targetBindings.add(ann.name());
+					}
+				}
+				for (MethodInfo method : ifaceCi.methods()) {
+					for (AnnotationInstance ann : method.annotations()) {
+						if (bindingAnnotations.contains(ann.name())) {
+							String name = ann.name().toString();
+							bindings.add(name);
+							methodBindings.computeIfAbsent(method.name(), k -> new HashSet<>()).add(name);
+						}
+					}
+				}
+			}
+
 			bean.interceptorBindingAnnotations = bindings.isEmpty() ? Set.of() : Set.copyOf(bindings);
-			if (!methodBindings.isEmpty()) {
-				bean.methodBindingAnnotations = methodBindings;
+
+			// A class-level binding (@Logged on the bean class) intercepts every
+			// method. AotProxyGenerator keys that as "" (empty method name), so we
+			// must record it there — BeanEnrichment otherwise only populates
+			// methodBindingAnnotations with method-level entries (keyed by method
+			// name). RUNTIME's ProxyFactory derives class-level coverage directly
+			// from the implementation class annotations, so this key is the AOT
+			// engine's signal that the whole bean is bound.
+			Map<String, Set<String>> finalMethodBindings = new java.util.LinkedHashMap<>(methodBindings);
+			if (!targetBindings.isEmpty()) {
+				Set<String> classLevel = targetBindings.stream().map(DotName::toString)
+						.collect(java.util.stream.Collectors.toCollection(HashSet::new));
+				finalMethodBindings.put("", classLevel);
+			}
+			if (!finalMethodBindings.isEmpty()) {
+				bean.methodBindingAnnotations = finalMethodBindings;
 			}
 
 			if (!bindings.isEmpty()) {
