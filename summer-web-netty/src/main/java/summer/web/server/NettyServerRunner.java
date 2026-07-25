@@ -26,7 +26,7 @@ import summer.web.annotation.GlobalMiddleware;
  * {@link RuntimeWebConfiguration}.
  * </p>
  */
-public class NettyServerRunner implements ApplicationRunner, AutoCloseable {
+public class NettyServerRunner implements ApplicationRunner {
 
 	private static final Logger log = LoggerFactory.getLogger(NettyServerRunner.class);
 
@@ -40,15 +40,16 @@ public class NettyServerRunner implements ApplicationRunner, AutoCloseable {
 
 	private final RouterRegistry routerRegistry;
 	private final ServerConfig config;
-	private final summer.core.config.ShutdownConfig shutdownConfig;
 	private NettyHttpServer runningServer;
-	private static volatile int actualPort = -1;
+	// Port is a property of THIS server instance, not JVM-global state. Each
+	// container owns its own runner, so the bound port is read through the
+	// instance — a static field would be shared across every concurrent IT class
+	// in the same JVM and race on the value (the original port-conflict bug).
+	private int actualPort = -1;
 
-	public NettyServerRunner(RouterRegistry routerRegistry, ServerConfig config,
-			summer.core.config.ShutdownConfig shutdownConfig) {
+	public NettyServerRunner(RouterRegistry routerRegistry, ServerConfig config) {
 		this.routerRegistry = routerRegistry;
 		this.config = config;
-		this.shutdownConfig = shutdownConfig;
 	}
 
 	@Override
@@ -62,7 +63,27 @@ public class NettyServerRunner implements ApplicationRunner, AutoCloseable {
 		runningServer = NettyHttpServer.create(context, config, httpRouter, wsRouter, exceptionRegistry,
 				globalMiddlewares);
 		runningServer.start();
-		actualPort = runningServer.getPort();
+		this.actualPort = runningServer.getPort();
+
+		long timeoutMs = context.getShutdownConfig().timeoutMs();
+		context.addShutdownTask(() -> shutdown(java.time.Duration.ofMillis(timeoutMs)));
+	}
+
+	/**
+	 * The actual port this server instance bound to. Valid after
+	 * {@link #run(BeanContainer)} has started the server; returns -1 before start
+	 * or after {@link #close()}.
+	 *
+	 * <p>
+	 * When {@code server.port} is 0 the OS assigns a free ephemeral port, and this
+	 * returns that resolved value — the correct way for a test to learn which port
+	 * its container's server is listening on. This is an instance method so a test
+	 * obtains its runner via {@code context.getBean(NettyServerRunner.class)} and
+	 * always sees its OWN port, never a sibling IT class's.
+	 * </p>
+	 */
+	public int getPort() {
+		return actualPort;
 	}
 
 	/**
@@ -102,14 +123,6 @@ public class NettyServerRunner implements ApplicationRunner, AutoCloseable {
 		return result;
 	}
 
-	/**
-	 * Returns the actual port the server bound to. Useful when {@code server.port}
-	 * is 0 (random port).
-	 */
-	public static int getActualPort() {
-		return actualPort;
-	}
-
 	private ExceptionRegistry buildExceptionRegistry(BeanContainer context) {
 		ExceptionRegistry registry = new ExceptionRegistry();
 		for (ExceptionHandlerRegistrar registrar : context.getBeans(ExceptionHandlerRegistrar.class)) {
@@ -138,13 +151,22 @@ public class NettyServerRunner implements ApplicationRunner, AutoCloseable {
 		return builder.build();
 	}
 
-	@Override
-	public void close() throws Exception {
-		if (runningServer != null) {
-			log.info("Shutting down Netty Server...");
-			runningServer.stop(java.time.Duration
-					.ofMillis(shutdownConfig.timeoutMs() != null ? shutdownConfig.timeoutMs() : 30000L));
-			runningServer = null;
+	private void shutdown(java.time.Duration timeout) {
+		if (runningServer == null) {
+			return;
 		}
+		log.info("Shutting down Netty Server...");
+		runningServer.shutdown(timeout);
+		runningServer = null;
+	}
+
+	/**
+	 * Convenience for direct/test use: stops the server immediately (zero drain
+	 * timeout). The container drives the same staging via the shutdown task
+	 * registered in {@link #run(BeanContainer)}, bounded by
+	 * {@code summer.shutdown.timeout-ms}.
+	 */
+	public void stop() {
+		shutdown(java.time.Duration.ZERO);
 	}
 }

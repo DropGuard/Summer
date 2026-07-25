@@ -11,29 +11,31 @@ import java.util.List;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import summer.core.BeanContainer;
 import summer.test.Testing;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class HttpMiddlewareIntegrationTest {
 
 	private static BeanContainer context;
 	private static NettyServerRunner serverRunner;
 
 	private final HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
-	private final String baseUrl = "http://localhost:" + NettyServerRunner.getActualPort();
+	private String baseUrl;
 
 	@BeforeAll
-	static void startServer() throws Exception {
+	void startServer() throws Exception {
 		context = Testing.buildForTest(HttpMiddlewareIntegrationTest.class);
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);
+		// Resolve the (possibly ephemeral) port from the runner instance, not a
+		// JVM-global static — keeps this test independent of sibling IT classes.
+		baseUrl = "http://localhost:" + serverRunner.getPort();
 	}
 
 	@AfterAll
-	static void stopServer() throws Exception {
-		if (serverRunner != null) {
-			serverRunner.close();
-		}
+	void stopServer() throws Exception {
 		if (context != null) {
 			context.close();
 		}

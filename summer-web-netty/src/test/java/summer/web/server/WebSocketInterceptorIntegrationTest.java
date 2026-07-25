@@ -14,28 +14,28 @@ import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import summer.core.BeanContainer;
 import summer.test.Testing;
 
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class WebSocketInterceptorIntegrationTest {
 
 	private static BeanContainer context;
 	private static NettyServerRunner serverRunner;
 
-	private final String baseUrl = "ws://localhost:" + NettyServerRunner.getActualPort();
+	private String baseUrl;
 
 	@BeforeAll
-	static void startServer() throws Exception {
+	void startServer() throws Exception {
 		context = Testing.buildForTest(WebSocketInterceptorIntegrationTest.class);
 		serverRunner = context.getBean(NettyServerRunner.class);
 		serverRunner.run(context);
+		baseUrl = "ws://localhost:" + serverRunner.getPort();
 	}
 
 	@AfterAll
-	static void stopServer() throws Exception {
-		if (serverRunner != null) {
-			serverRunner.close();
-		}
+	void stopServer() throws Exception {
 		if (context != null) {
 			context.close();
 		}

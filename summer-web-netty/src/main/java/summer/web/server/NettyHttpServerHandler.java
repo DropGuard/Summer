@@ -75,7 +75,13 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
 			HttpContext webCtx = new HttpContext(request, deps.jsonConverter());
 
 			Handler handler = createHandlerChain(ctx, nettyReq);
-			handler.handle(webCtx);
+			try {
+				handler.handle(webCtx);
+			} finally {
+				// Tear down the request-scoped context. Runs on a fresh virtual thread
+				// per request (no pooling), so this fully releases the binding.
+				summer.web.RequestContextHolder.clear();
+			}
 
 			if (webCtx.isHandled()) {
 				return;

@@ -63,6 +63,9 @@ public interface AuthMiddleware extends Middleware {
 			Long userId = authenticate(ctx);
 			if (userId != null) {
 				ctx.request().setAttribute(RequestAttributes.USER_ID, userId);
+				// Publish the authenticated context so services and AOP interceptors
+				// can read the current user without it being threaded as a parameter.
+				RequestContextHolder.set(new RequestContext(ctx.request(), userId));
 			}
 			handler.handle(ctx);
 		};

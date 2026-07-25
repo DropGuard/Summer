@@ -105,8 +105,8 @@ public class NettyHttpServer {
 																								// FullHttpRequest
 									.addLast(new NettyHttpServerHandler(NettyHttpServer.this, config, deps));
 						}
-					}).option(ChannelOption.SO_BACKLOG, 1024).childOption(ChannelOption.TCP_NODELAY, true)
-					.childOption(ChannelOption.SO_KEEPALIVE, true);
+					}).option(ChannelOption.SO_BACKLOG, 1024).option(ChannelOption.SO_REUSEADDR, true)
+					.childOption(ChannelOption.TCP_NODELAY, true).childOption(ChannelOption.SO_KEEPALIVE, true);
 
 			int targetPort = getActualTargetPort();
 			serverChannelFuture = b.bind(targetPort).sync();
@@ -123,42 +123,50 @@ public class NettyHttpServer {
 		}
 	}
 
-	public void stop() {
-		stop(java.time.Duration.ZERO);
-	}
-
-	public void stop(java.time.Duration timeout) {
+	/**
+	 * Graceful shutdown in three stages: stop accepting new connections, wait up to
+	 * {@code timeout} for in-flight requests to drain, then release the Netty event
+	 * loops (awaited so the bound port is actually freed). Called by the runner's
+	 * registered shutdown task; a zero timeout skips the drain wait.
+	 */
+	public void shutdown(java.time.Duration timeout) {
 		log.info("Stopping Netty server... {} active requests.", activeConnections.get());
-
+		// 1. Stop accepting new connections.
 		try {
-			// 1. Stop accepting new connections
 			if (serverChannelFuture != null) {
 				serverChannelFuture.channel().close().sync();
-			}
-
-			// 2. Wait for virtual threads (in-flight requests) to complete
-			if (!timeout.isZero() && activeConnections.get() > 0) {
-				log.info("Waiting up to {} for {} active requests to finish...", timeout, activeConnections.get());
-				long deadline = System.nanoTime() + timeout.toNanos();
-				while (activeConnections.get() > 0 && System.nanoTime() < deadline) {
-					Thread.sleep(50);
-				}
-				if (activeConnections.get() > 0) {
-					log.warn("{} active requests still open after timeout.", activeConnections.get());
-				}
 			}
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 		}
-
-		// 3. Shutdown Netty event loops
-		if (bossGroup != null) {
-			bossGroup.shutdownGracefully();
+		// 2. Wait for in-flight requests (virtual threads) to complete.
+		if (!timeout.isZero() && activeConnections.get() > 0) {
+			log.info("Waiting up to {} for {} active requests to finish...", timeout, activeConnections.get());
+			long deadline = System.nanoTime() + timeout.toNanos();
+			try {
+				while (activeConnections.get() > 0 && System.nanoTime() < deadline) {
+					Thread.sleep(50);
+				}
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+			if (activeConnections.get() > 0) {
+				log.warn("{} active requests still open after timeout.", activeConnections.get());
+			}
 		}
-		if (workerGroup != null) {
-			workerGroup.shutdownGracefully();
+		// 3. Shutdown Netty event loops — await so the bound port is actually
+		// released (otherwise a back-to-back server start hits "Address already in
+		// use").
+		try {
+			if (bossGroup != null) {
+				bossGroup.shutdownGracefully().sync();
+			}
+			if (workerGroup != null) {
+				workerGroup.shutdownGracefully().sync();
+			}
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
 		}
-
 		log.info("Netty Server stopped.");
 	}
 }
