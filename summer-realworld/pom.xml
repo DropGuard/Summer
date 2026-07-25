@@ -4,70 +4,44 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <!--
+      External demo project. Inherits summer-starter-parent (same convention as a
+      Spring Boot app inheriting spring-boot-starter-parent): the parent supplies the
+      AOT / Jandex / compiler build wiring so this pom stays thin, while the demo still
+      builds independently and consumes Summer purely as published artifacts. The
+      parent is NOT part of the framework reactor.
+    -->
     <parent>
         <groupId>summer</groupId>
         <artifactId>summer-starter-parent</artifactId>
         <version>0.1.0</version>
-        <relativePath>../summer-starter-parent/pom.xml</relativePath>
+        <relativePath/>
     </parent>
 
+    <groupId>com.example.realworld</groupId>
     <artifactId>summer-realworld</artifactId>
+    <version>0.1.0</version>
+    <packaging>jar</packaging>
     <name>Summer RealWorld</name>
     <description>RealWorld example application demonstrating the Summer framework</description>
 
     <dependencies>
-        <!-- Summer Modules -->
+        <!-- Summer starters: core pulled in transitively; web + JDBC persistence. -->
         <dependency>
             <groupId>summer</groupId>
-            <artifactId>summer-core</artifactId>
+            <artifactId>summer-boot-starter-web</artifactId>
+            <type>pom</type>
         </dependency>
         <dependency>
             <groupId>summer</groupId>
-            <artifactId>summer-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-web-netty</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-boot</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-aop</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-tx</artifactId>
+            <artifactId>summer-boot-starter-data-jdbc</artifactId>
+            <type>pom</type>
         </dependency>
 
-        <!-- H2 Database -->
+        <!-- H2 Database (realworld uses an in-memory DB) -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-        </dependency>
-
-        <!-- HikariCP -->
-        <dependency>
-            <groupId>com.zaxxer</groupId>
-            <artifactId>HikariCP</artifactId>
-        </dependency>
-
-        <!-- Summer Data JDBC -->
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-data-jdbc</artifactId>
-        </dependency>
-
-        <!-- Jackson for JSON -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.datatype</groupId>
-            <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
 
         <!-- BCrypt -->
@@ -115,11 +89,11 @@
     </dependencies>
 
     <build>
+        <finalName>summer-realworld</finalName>
         <plugins>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
-                <version>3.6.3</version>
                 <configuration>
                     <mainClass>summer.realworld.Application</mainClass>
                     <arguments>
@@ -130,7 +104,6 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.1</version>
                 <executions>
                     <execution>
                         <phase>package</phase>

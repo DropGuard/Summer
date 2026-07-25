@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>summer</groupId>
+        <artifactId>summer-starter-parent</artifactId>
+        <version>0.1.0</version>
+    </parent>
+
+    <artifactId>summer-boot-starter-web</artifactId>
+    <packaging>pom</packaging>
+    <name>Summer Boot Starter Web</name>
+    <description>
+        Starter for building Summer web applications. Depends on the core starter
+        (DI, AOP, transactions, bootstrap, logging) and adds the HTTP stack
+        (web routing, Netty server, middleware) plus the JSON binding. Pull this
+        in instead of listing the individual summer-* modules by hand.
+    </description>
+
+    <dependencies>
+        <!-- Core foundation -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-boot-starter</artifactId>
+            <type>pom</type>
+        </dependency>
+
+        <!-- HTTP stack -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-web</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-web-netty</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-web-middleware</artifactId>
+        </dependency>
+
+        <!-- JSON binding -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+    </dependencies>
+</project>

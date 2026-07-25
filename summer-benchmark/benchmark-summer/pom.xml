@@ -15,15 +15,12 @@
     <name>Benchmark Summer</name>
 
     <dependencies>
+        <!-- Use the web starter (pulls in core + HTTP stack + JSON) instead of the
+             raw framework modules. -->
         <dependency>
             <groupId>summer</groupId>
-            <artifactId>summer-web</artifactId>
-            <version>0.1.0</version>
-        </dependency>
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-boot</artifactId>
-            <version>0.1.0</version>
+            <artifactId>summer-boot-starter-web</artifactId>
+            <type>pom</type>
         </dependency>
     </dependencies>
 
@@ -32,7 +29,7 @@
             <plugin>
                 <groupId>summer</groupId>
                 <artifactId>summer-maven-plugin</artifactId>
-                <version>0.1.0</version>
+                <version>${summer.framework.version}</version>
                 <executions>
                     <execution>
                         <id>generate-aot</id>

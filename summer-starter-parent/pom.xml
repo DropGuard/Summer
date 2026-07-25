@@ -16,6 +16,15 @@
         <java.version>26</java.version>
         <maven.compiler.release>${java.version}</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <!--
+          The version of the Summer framework this parent is paired with. It must
+          match the version of the published summer-* artifacts (summer-maven-plugin,
+          summer-core, ...). Kept as an explicit property (rather than
+          ${project.version}) so the AOT plugin resolves to the framework version
+          even when an application inheriting this parent declares a different
+          project.version of its own.
+        -->
+        <summer.framework.version>0.1.0</summer.framework.version>
     </properties>
 
     <dependencyManagement>
@@ -51,9 +60,16 @@
                     <executions>
                         <execution>
                             <id>make-index</id>
+                            <phase>compile</phase>
                             <goals>
                                 <goal>jandex</goal>
                             </goals>
+                            <configuration>
+                                <classesDir>${project.build.outputDirectory}</classesDir>
+                                <indexDir>${project.build.outputDirectory}/META-INF</indexDir>
+                                <indexName>jandex.idx</indexName>
+                                <processDefaultFileSet>true</processDefaultFileSet>
+                            </configuration>
                         </execution>
                     </executions>
                 </plugin>
@@ -64,6 +80,32 @@
                     <configuration>
                         <argLine>-Xmx2048m --sun-misc-unsafe-memory-access=allow</argLine>
                     </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>summer</groupId>
+                    <artifactId>summer-maven-plugin</artifactId>
+                    <version>${summer.framework.version}</version>
+                    <executions>
+                        <execution>
+                            <id>generate-aot</id>
+                            <phase>process-classes</phase>
+                            <goals>
+                                <goal>generate-aot</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+                <!--
+                  Spotless is NOT auto-bound here: applications should not be forced
+                  through a formatting gate. It is declared in pluginManagement only
+                  so an external app/demo can opt in by adding the plugin to its own
+                  <build><plugins> (the framework's internal build keeps its own
+                  spotless binding via summer-framework).
+                -->
+                <plugin>
+                    <groupId>com.diffplug.spotless</groupId>
+                    <artifactId>spotless-maven-plugin</artifactId>
+                    <version>2.44.5</version>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -77,13 +119,8 @@
                 <artifactId>jandex-maven-plugin</artifactId>
             </plugin>
             <plugin>
-                <groupId>com.diffplug.spotless</groupId>
-                <artifactId>spotless-maven-plugin</artifactId>
-            </plugin>
-            <plugin>
                 <groupId>summer</groupId>
                 <artifactId>summer-maven-plugin</artifactId>
-                <version>${project.version}</version>
                 <executions>
                     <execution>
                         <id>generate-aot</id>

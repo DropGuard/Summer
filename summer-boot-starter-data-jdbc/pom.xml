@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>summer</groupId>
+        <artifactId>summer-starter-parent</artifactId>
+        <version>0.1.0</version>
+    </parent>
+
+    <artifactId>summer-boot-starter-data-jdbc</artifactId>
+    <packaging>pom</packaging>
+    <name>Summer Boot Starter Data JDBC</name>
+    <description>
+        Starter for Summer JDBC persistence. Depends on the core starter and adds
+        summer-data-jdbc plus the connection pool. The actual JDBC driver
+        (PostgreSQL, H2, ...) is intentionally NOT included — the application picks
+        the database it runs against.
+    </description>
+
+    <dependencies>
+        <!-- Core foundation -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-boot-starter</artifactId>
+            <type>pom</type>
+        </dependency>
+
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-data-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.zaxxer</groupId>
+            <artifactId>HikariCP</artifactId>
+        </dependency>
+    </dependencies>
+</project>

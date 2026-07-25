@@ -4,11 +4,18 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <!--
+      The benchmark is an external tool project (compares Summer against Spring
+      Boot), not framework code, so it inherits the application starter-parent
+      rather than the framework reactor parent. That gives it the framework's
+      compiler level (26) and AOT / Jandex build wiring for free, and keeps the
+      benchmark aligned with how the demos are built.
+    -->
     <parent>
         <groupId>summer</groupId>
-        <artifactId>summer-framework</artifactId>
+        <artifactId>summer-starter-parent</artifactId>
         <version>0.1.0</version>
-        <relativePath>../pom.xml</relativePath>
+        <relativePath/>
     </parent>
 
     <artifactId>summer-benchmark</artifactId>
@@ -19,10 +26,4 @@
         <module>benchmark-spring-boot</module>
         <module>benchmark-summer</module>
     </modules>
-
-    <properties>
-        <maven.compiler.source>21</maven.compiler.source>
-        <maven.compiler.target>21</maven.compiler.target>
-    </properties>
-
 </project>

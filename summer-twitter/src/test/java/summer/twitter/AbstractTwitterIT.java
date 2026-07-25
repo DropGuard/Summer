@@ -19,6 +19,8 @@ import com.zaxxer.hikari.HikariDataSource;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.parallel.Isolated;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -63,10 +65,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * </p>
  */
 @Testcontainers
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Isolated
 abstract class AbstractTwitterIT {
 
-	protected static BeanContainer context;
-	protected static String baseUrl;
+	// Per-class instance state: each IT subclass owns its own server + port, so
+	// concurrent IT classes never race on shared statics. Postgres/Redis
+	// @Container fields stay static (Testcontainers requirement).
+	protected BeanContainer context;
+	protected String baseUrl;
+	private NettyServerRunner serverRunner;
 	protected static final HttpClient client = HttpClient.newBuilder()
 			.connectTimeout(Duration.ofSeconds(5)).build();
 	protected static final ObjectMapper mapper = new ObjectMapper();
@@ -82,7 +90,7 @@ abstract class AbstractTwitterIT {
 			.withExposedPorts(6379);
 
 	@BeforeAll
-	static void startEnvironment() throws Exception {
+	void startEnvironment() throws Exception {
 		String jdbcUrl = POSTGRES.getJdbcUrl();
 		HikariDataSource adminDs = new HikariDataSource(new HikariConfig() {
 			{
@@ -112,15 +120,24 @@ abstract class AbstractTwitterIT {
 		context = Testing.buildForTest(AbstractTwitterIT.class);
 
 		for (Object runner : context.getBeans(NettyServerRunner.class)) {
-			((NettyServerRunner) runner).run(context);
+			serverRunner = (NettyServerRunner) runner;
+			serverRunner.run(context);
 		}
-		int port = NettyServerRunner.getActualPort();
+		int port = serverRunner.getPort();
 		assertTrue(port > 0, "Netty must bind to an actual port");
 		baseUrl = "http://localhost:" + port;
 	}
 
 	@AfterAll
-	static void stopEnvironment() {
+	void stopEnvironment() {
+		if (serverRunner != null) {
+			try {
+				serverRunner.stop();
+			} catch (Exception e) {
+				// best-effort teardown
+			}
+			serverRunner = null;
+		}
 		System.clearProperty("summer.test.datasource.url");
 		System.clearProperty("summer.test.datasource.username");
 		System.clearProperty("summer.test.datasource.password");

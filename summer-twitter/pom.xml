@@ -4,61 +4,53 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <!--
+      External demo project. Inherits summer-starter-parent (same convention as a
+      Spring Boot app inheriting spring-boot-starter-parent): the parent supplies the
+      AOT / Jandex / compiler build wiring so this pom stays thin, while the demo still
+      builds independently and consumes Summer purely as published artifacts. The
+      parent is NOT part of the framework reactor.
+    -->
     <parent>
         <groupId>summer</groupId>
         <artifactId>summer-starter-parent</artifactId>
         <version>0.1.0</version>
-        <relativePath>../summer-starter-parent/pom.xml</relativePath>
+        <relativePath/>
     </parent>
 
+    <groupId>com.example.twitter</groupId>
     <artifactId>summer-twitter</artifactId>
+    <version>0.1.0</version>
+    <packaging>jar</packaging>
     <name>Summer Twitter</name>
     <description>Summer Framework showcase application: A micro Twitter clone</description>
 
     <dependencies>
-        <!-- Summer Modules -->
+        <!-- Summer starters: core is pulled in transitively by each. -->
         <dependency>
             <groupId>summer</groupId>
-            <artifactId>summer-core</artifactId>
+            <artifactId>summer-boot-starter-web</artifactId>
+            <type>pom</type>
         </dependency>
         <dependency>
             <groupId>summer</groupId>
-            <artifactId>summer-web</artifactId>
+            <artifactId>summer-boot-starter-data-jdbc</artifactId>
+            <type>pom</type>
         </dependency>
         <dependency>
             <groupId>summer</groupId>
-            <artifactId>summer-web-netty</artifactId>
+            <artifactId>summer-boot-starter-data-redis</artifactId>
+            <type>pom</type>
         </dependency>
         <dependency>
             <groupId>summer</groupId>
-            <artifactId>summer-web-middleware</artifactId>
+            <artifactId>summer-boot-starter-websocket</artifactId>
+            <type>pom</type>
         </dependency>
         <dependency>
             <groupId>summer</groupId>
-            <artifactId>summer-web-websocket</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-boot</artifactId>
-        </dependency>
-
-        <!--
-          Logging binding. The Summer framework only depends on slf4j-api and never
-          ships a logback config, so the application owns the binding AND the
-          logback.xml / logback-test.xml. This is the single place that decides where
-          logs go. Version is managed by the summer-dependencies BOM.
-        -->
-        <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-data-jdbc</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>summer</groupId>
-            <artifactId>summer-data-redis</artifactId>
+            <artifactId>summer-boot-starter-grpc</artifactId>
+            <type>pom</type>
         </dependency>
 
         <!-- PostgreSQL Database -->
@@ -66,22 +58,6 @@
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <version>42.7.3</version>
-        </dependency>
-
-        <!-- HikariCP -->
-        <dependency>
-            <groupId>com.zaxxer</groupId>
-            <artifactId>HikariCP</artifactId>
-        </dependency>
-
-        <!-- Jackson for JSON -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.fasterxml.jackson.datatype</groupId>
-            <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
 
         <!-- BCrypt -->
@@ -134,7 +110,6 @@
         <dependency>
             <groupId>summer</groupId>
             <artifactId>summer-test</artifactId>
-            <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -145,21 +120,11 @@
     </dependencies>
 
     <build>
+        <finalName>summer-twitter</finalName>
         <plugins>
-            <plugin>
-                <groupId>summer</groupId>
-                <artifactId>summer-maven-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>generate-aot</id>
-                        <phase>none</phase>
-                    </execution>
-                </executions>
-            </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
-                <version>3.6.3</version>
                 <configuration>
                     <mainClass>summer.twitter.Application</mainClass>
                     <arguments>
@@ -168,13 +133,8 @@
                 </configuration>
             </plugin>
             <plugin>
-                <groupId>io.smallrye</groupId>
-                <artifactId>jandex-maven-plugin</artifactId>
-            </plugin>
-            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.1</version>
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -200,10 +160,7 @@
         <!--
           Integration tests (Testcontainers) need a running Docker daemon. They are
           NOT bound to `verify` by default — activate explicitly with `-Dit` so that
-          plain `mvn verify` / `make test` stay Docker-free and fast. The
-          DOCKER_HOST is intentionally omitted: on WSL the native Docker Engine
-          exposes the default unix socket, and hardcoding the old Docker Desktop
-          pipe would break discovery after Desktop was uninstalled.
+          plain `mvn verify` / `make test` stay Docker-free and fast.
         -->
         <profile>
             <id>it</id>
@@ -217,7 +174,6 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-failsafe-plugin</artifactId>
-                        <version>3.5.5</version>
                         <executions>
                             <execution>
                                 <id>integration-tests</id>
@@ -232,15 +188,6 @@
                                     <systemPropertyVariables>
                                         <testcontainers.disableRyuk>true</testcontainers.disableRyuk>
                                     </systemPropertyVariables>
-                                    <!--
-                                      Capture each test class's stdout/stderr (incl. the Netty
-                                      server's log.error stacks) to
-                                      target/surefire-reports/output-<class>.txt so a red IT
-                                      can be triaged from the server-side exception instead of a
-                                      bare "Internal Server Error" on the client. Nothing is
-                                      leaked to clients; this only redirects already-logged
-                                      output. The file lives under target/ (git-ignored).
-                                    -->
                                     <redirectTestOutputToFile>true</redirectTestOutputToFile>
                                 </configuration>
                             </execution>

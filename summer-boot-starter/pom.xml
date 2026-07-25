@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>summer</groupId>
+        <artifactId>summer-starter-parent</artifactId>
+        <version>0.1.0</version>
+    </parent>
+
+    <artifactId>summer-boot-starter</artifactId>
+    <packaging>pom</packaging>
+    <name>Summer Boot Starter (Core)</name>
+    <description>
+        Core starter for any Summer application: the DI container, AOP/transaction
+        support, bootstrap, and the logging binding every app owns. Pull this in
+        instead of listing the individual framework modules. Capability starters
+        (web, data-*) depend on this one.
+    </description>
+
+    <dependencies>
+        <!-- DI container + bootstrap (the foundation everything else builds on) -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-boot</artifactId>
+        </dependency>
+
+        <!-- Cross-cutting framework modules most apps need -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-aop</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-tx</artifactId>
+        </dependency>
+
+        <!-- Logging binding: the application owns logback; the framework only depends on slf4j-api. -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+        </dependency>
+    </dependencies>
+</project>

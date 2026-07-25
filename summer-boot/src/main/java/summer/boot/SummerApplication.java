@@ -54,38 +54,30 @@ public final class SummerApplication {
 		}
 
 		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+			// Signal shutdown first so the readiness probe (/health/ready) returns
+			// 503 and the load balancer stops routing before the server stops
+			// accepting. The drain window is then LB-polling-driven, bounded by
+			// summer.shutdown.timeout-ms.
 			summer.core.ApplicationState.beginShutdown();
-			summer.core.config.ShutdownConfig shutdownConfig;
-			try {
-				shutdownConfig = context.getBean(summer.core.config.ShutdownConfig.class);
-			} catch (Exception e) {
-				shutdownConfig = new summer.core.config.ShutdownConfig(0L, 30000L);
-			}
 
-			long sleepMs = shutdownConfig.sleepMs() != null ? shutdownConfig.sleepMs() : 0L;
-			if (sleepMs > 0) {
-				log.info("Shutdown initiated. Sleeping for {} ms for traffic isolation...", sleepMs);
-				try {
-					Thread.sleep(sleepMs);
-				} catch (InterruptedException e) {
-					Thread.currentThread().interrupt();
-				}
-			}
-
+			// BeanContainer.close() runs each registered shutdown task (servers stop
+			// accepting, drain in-flight, release resources) in reverse order, then
+			// closes the remaining AutoCloseable beans. This hook only guards the
+			// whole teardown with a JVM-level worst-case timeout so a stuck bean
+			// can't hang exit.
 			log.info("Shutting down BeanContainer...");
 			java.util.concurrent.ExecutorService shutdownExecutor = java.util.concurrent.Executors
 					.newSingleThreadExecutor();
 			try {
-				long timeoutMs = shutdownConfig.timeoutMs() != null ? shutdownConfig.timeoutMs() : 30000L;
 				shutdownExecutor.submit(() -> {
 					try {
 						context.close();
 					} catch (Exception e) {
 						log.error("Error during BeanContainer shutdown", e);
 					}
-				}).get(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+				}).get(30, java.util.concurrent.TimeUnit.SECONDS);
 			} catch (java.util.concurrent.TimeoutException e) {
-				log.warn("Shutdown grace period ({} ms) exceeded, forcing exit.", shutdownConfig.timeoutMs());
+				log.warn("Shutdown grace period (30s) exceeded, forcing exit.");
 			} catch (Exception e) {
 				log.error("Error waiting for shutdown", e);
 			} finally {

@@ -92,6 +92,42 @@
             </dependency>
             <dependency>
                 <groupId>summer</groupId>
+                <artifactId>summer-boot-starter</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+            </dependency>
+            <dependency>
+                <groupId>summer</groupId>
+                <artifactId>summer-boot-starter-web</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+            </dependency>
+            <dependency>
+                <groupId>summer</groupId>
+                <artifactId>summer-boot-starter-data-jdbc</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+            </dependency>
+            <dependency>
+                <groupId>summer</groupId>
+                <artifactId>summer-boot-starter-data-redis</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+            </dependency>
+            <dependency>
+                <groupId>summer</groupId>
+                <artifactId>summer-boot-starter-websocket</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+            </dependency>
+            <dependency>
+                <groupId>summer</groupId>
+                <artifactId>summer-boot-starter-grpc</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+            </dependency>
+            <dependency>
+                <groupId>summer</groupId>
                 <artifactId>summer-test</artifactId>
                 <version>${project.version}</version>
             </dependency>

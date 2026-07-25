@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>summer</groupId>
+        <artifactId>summer-starter-parent</artifactId>
+        <version>0.1.0</version>
+    </parent>
+
+    <artifactId>summer-boot-starter-websocket</artifactId>
+    <packaging>pom</packaging>
+    <name>Summer Boot Starter WebSocket</name>
+    <description>
+        Starter for Summer WebSocket support. Depends on the web starter (HTTP is
+        the foundation for WebSocket upgrades) and adds summer-web-websocket.
+    </description>
+
+    <dependencies>
+        <!-- HTTP foundation -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-boot-starter-web</artifactId>
+            <type>pom</type>
+        </dependency>
+
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-web-websocket</artifactId>
+        </dependency>
+    </dependencies>
+</project>

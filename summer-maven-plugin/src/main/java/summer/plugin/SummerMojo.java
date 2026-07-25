@@ -21,6 +21,8 @@ import org.apache.maven.project.MavenProject;
 import org.jboss.jandex.CompositeIndex;
 import org.jboss.jandex.IndexReader;
 import org.jboss.jandex.IndexView;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import summer.aot.AotContextGenerator;
 import summer.aot.AotProxyGenerator;
 import summer.aot.RouteAdapterGenerator;
@@ -28,6 +30,7 @@ import summer.aot.WireMethodGenerator;
 import summer.core.Discovery;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.BeanDeployment;
+import summer.core.bean.SharedConditionEvaluator;
 import summer.core.bean.SharedDependencyResolver;
 
 /**
@@ -37,6 +40,11 @@ import summer.core.bean.SharedDependencyResolver;
  */
 @Mojo(name = "generate-aot", defaultPhase = LifecyclePhase.PROCESS_CLASSES, requiresDependencyResolution = ResolutionScope.TEST, requiresProject = true)
 public class SummerMojo extends AbstractMojo {
+
+	private static final Logger log = LoggerFactory.getLogger(SummerMojo.class);
+
+	/** Tracks which generation step was in progress, for failure diagnostics. */
+	private String currentBean;
 
 	@Parameter(defaultValue = "${project}", readonly = true, required = true)
 	private MavenProject project;
@@ -54,40 +62,65 @@ public class SummerMojo extends AbstractMojo {
 	public void execute() throws MojoExecutionException, MojoFailureException {
 		boolean isTestPhase = testPhase;
 
+		// A POM-packaging module (aggregator / BOM) has no classes to AOT-compile;
+		// skip it so generate-aot doesn't run on parent/starter modules.
+		if ("pom".equals(project.getPackaging())) {
+			log.info("[Summer] Skipping AOT generation for POM-packaging module");
+			return;
+		}
+
 		// In the test phase, AOT code generation was previously driven by
 		// @WithFixtures annotations, which have been removed. The generated
 		// LocalContext classes served a TCK pattern that is now handled by
 		// the whole-application test universe (Quarkus-aligned @SummerTest) --
 		// AOT generation at process-test-classes is no longer needed by any test.
 		if (isTestPhase) {
-			getLog().info(
+			log.info(
 					"[Summer] Test-phase AOT disabled -- @WithFixtures has been removed. @SummerTest uses the full test universe.");
 			return;
 		}
 
+		File generatedDir = null;
 		try {
+			generatedDir = prepareGeneratedDir(false);
 			CompositeIndex index = loadIndexes(false);
 			if (index.getKnownClasses().isEmpty()) {
-				getLog().info("[Summer] No Jandex index found, skipping");
+				log.info("[Summer] No Jandex index found, skipping");
 				return;
 			}
 
 			// AOT code generation
-			getLog().info("[Summer] Starting AOT code generation");
-			getLog().debug("[Summer] Loaded Jandex index with " + index.getKnownClasses().size() + " classes");
-
-			File generatedDir = prepareGeneratedDir(false);
+			log.info("[Summer] Starting AOT code generation");
+			log.debug("[Summer] Loaded Jandex index with {} classes", index.getKnownClasses().size());
 
 			// Unified discovery (shared by both engines) over the production index.
 			// Discovery is engine-agnostic and consumes a BeanDeployment; the production
 			// build wraps its merged CompositeIndex as a single-module universe.
-			List<BeanDefinition> beans = Discovery.discover(BeanDeployment.forProduction(index,
-					java.util.Collections.emptyMap(), java.util.Collections.emptyMap()));
-			getLog().debug("[Summer] Discovered " + beans.size() + " beans");
+			BeanDeployment deployment = BeanDeployment.forProduction(index);
+			log.info("[Summer] BeanDeployment: archives={} syntheticBeans={}", deployment.archives(),
+					deployment.syntheticBeans().stream().map(b -> b.qualifiedName)
+							.collect(java.util.stream.Collectors.joining(",")));
+			List<BeanDefinition> beans = Discovery.discover(deployment);
+			log.info("[Summer] Discovered {} beans", beans.size());
+
+			// Evaluate @ConditionalOnBean / @Replaces before wiring. Without this, the
+			// production AOT path silently ignored conditions that the test AOT path
+			// (AotEngine) honours — e.g. RowMapperConfiguration's reflective registrar
+			// (@ConditionalOnBean(RuntimeDiMarker)) was emitted unconditionally, defeating
+			// the AOT zero-reflection design. Aligned with AotEngine.buildAndCompile.
+			new SharedConditionEvaluator().evaluate(beans, Set.of(), deployment);
+			log.info("[Summer] After condition evaluation: {} beans", beans.size());
 
 			SharedDependencyResolver resolver = new SharedDependencyResolver();
 			List<BeanDefinition> sorted = resolver.resolve(beans);
-			getLog().debug("[Summer] Resolved " + sorted.size() + " beans");
+			log.info("[Summer] Resolved {} beans", sorted.size());
+			if (log.isDebugEnabled()) {
+				for (BeanDefinition b : sorted) {
+					log.debug("[Summer]   bean: {} [factory {}#{}] archive={} params={}{}", b.qualifiedName,
+							b.configClassName, b.producerMethodName, b.archiveName, b.parameters.size(),
+							b.syntheticInstance != null ? " [synthetic]" : "");
+				}
+			}
 			java.util.Set<String> usedNames = new java.util.HashSet<>();
 			for (summer.core.bean.BeanDefinition bean : sorted) {
 				String baseName = bean.variableName;
@@ -98,16 +131,23 @@ public class SummerMojo extends AbstractMojo {
 			}
 
 			WireMethodGenerator wireGen = new WireMethodGenerator();
+			currentBean = "(context)";
 			new AotContextGenerator(index, generatedDir, wireGen).generate(sorted);
+			currentBean = "(proxies)";
 			new AotProxyGenerator().generate(sorted, index, generatedDir);
+			currentBean = "(route-adapters)";
 			new RouteAdapterGenerator().generate(sorted, generatedDir);
 
 			compileGeneratedSources(generatedDir, false);
 
-			getLog().info("[Summer] AOT generation complete");
+			currentBean = null;
+			log.info("[Summer] AOT generation complete");
 
 		} catch (Exception e) {
-			throw new MojoExecutionException("[Summer] AOT generation failed: " + e.getMessage(), e);
+			String loc = generatedDir != null ? generatedDir.getAbsolutePath() : "<before generation dir>";
+			String at = currentBean != null ? " at step " + currentBean : "";
+			throw new MojoExecutionException("[Summer] AOT generation failed" + at + ": " + e.getMessage()
+					+ " (generated sources in " + loc + ")", e);
 		}
 	}
 
@@ -134,7 +174,7 @@ public class SummerMojo extends AbstractMojo {
 		if (sourceFiles.isEmpty())
 			return;
 
-		getLog().debug("[Summer] Compiling " + sourceFiles.size() + " generated source(s)");
+		log.debug("[Summer] Compiling " + sourceFiles.size() + " generated source(s)");
 
 		var compiler = javax.tools.ToolProvider.getSystemJavaCompiler();
 		if (compiler == null)
@@ -150,7 +190,7 @@ public class SummerMojo extends AbstractMojo {
 				cp.add(a.getFile().getAbsolutePath());
 		}
 
-		getLog().debug("[Summer] Compilation classpath: " + cp);
+		log.debug("[Summer] Compilation classpath: " + cp);
 
 		File out = new File(getCompileOutputDir(isTestPhase));
 		out.mkdirs();
@@ -164,7 +204,7 @@ public class SummerMojo extends AbstractMojo {
 
 		if (!task.call()) {
 			for (var diag : diags.getDiagnostics()) {
-				getLog().error("[Summer] " + diag);
+				log.error("[Summer] " + diag);
 			}
 			throw new MojoExecutionException("[Summer] Compilation of generated sources failed");
 		}

@@ -35,12 +35,16 @@
         <module>summer-runtime</module>
         <module>summer-dependencies</module>
         <module>summer-starter-parent</module>
+        <module>summer-boot-starter</module>
+        <module>summer-boot-starter-web</module>
+        <module>summer-boot-starter-data-jdbc</module>
+        <module>summer-boot-starter-data-redis</module>
+        <module>summer-boot-starter-websocket</module>
+        <module>summer-boot-starter-grpc</module>
         <module>summer-grpc</module>
         <module>summer-data-redis</module>
         <module>summer-data-jdbc</module>
         <module>summer-test</module>
-        <module>summer-realworld</module>
-        <module>summer-twitter</module>
         <module>summer-tck</module>
         <module>summer-maven-plugin</module>
         <module>summer-aot-engine</module>
