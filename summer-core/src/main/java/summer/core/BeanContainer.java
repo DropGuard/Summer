@@ -6,7 +6,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import summer.core.bean.RouteInfo;
+import summer.core.config.ShutdownConfig;
 import summer.core.exception.AmbiguousBeanException;
 import summer.core.exception.NoSuchBeanException;
 
@@ -21,9 +24,12 @@ import summer.core.exception.NoSuchBeanException;
  */
 public final class BeanContainer implements AutoCloseable {
 
+	private static final Logger log = LoggerFactory.getLogger(BeanContainer.class);
+
 	private final Map<Class<?>, Object> singletons;
 	private final Engine engine;
 	private final List<RouteInfo> routes;
+	private final ShutdownContext shutdownContext = ShutdownContext.create();
 
 	private BeanContainer(Map<Class<?>, Object> singletons, Engine engine, List<RouteInfo> routes) {
 		// MUST preserve insertion order for correct shutdown (reverse order of
@@ -108,39 +114,45 @@ public final class BeanContainer implements AutoCloseable {
 
 	@Override
 	public void close() throws Exception {
+		// Phase 1: input drivers (servers) tear down first, each via its own
+		// registered task (stop accepting, drain in-flight, release resources),
+		// in reverse registration order — so external traffic stops before
+		// anything underneath is torn down.
+		shutdownContext.runAll();
+
+		// Phase 2: reverse-creation-order destruction of the remaining
+		// AutoCloseable beans (data sources, pools, ...) now that no traffic flows.
 		List<Object> reversed = new ArrayList<>(singletons.values());
 		Collections.reverse(reversed);
-
-		java.util.Set<Object> closedBeans = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-
-		// Pass 1: Input Drivers (ApplicationRunner implementations that are
-		// AutoCloseable)
-		// Stop receiving new external requests and wait for in-flight requests to
-		// drain.
 		for (Object bean : reversed) {
-			if (bean instanceof ApplicationRunner && bean instanceof AutoCloseable) {
+			if (bean instanceof AutoCloseable ac) {
 				try {
-					((AutoCloseable) bean).close();
-					closedBeans.add(bean);
+					ac.close();
 				} catch (Exception e) {
-					System.err.println("[Summer] Error closing input driver " + bean.getClass().getName() + ": " + e);
+					log.error("[Summer] Error closing bean {}: {}", bean.getClass().getName(), e);
 				}
 			}
 		}
+	}
 
-		// Pass 2: Reverse Topological Destruction
-		// Safely destroy internal beans, services, and databases now that no traffic is
-		// flowing.
-		for (Object bean : reversed) {
-			if (bean instanceof AutoCloseable && !closedBeans.contains(bean)) {
-				try {
-					((AutoCloseable) bean).close();
-					closedBeans.add(bean);
-				} catch (Exception e) {
-					System.err.println("[Summer] Error closing bean " + bean.getClass().getName() + ": " + e);
-				}
-			}
-		}
+	/**
+	 * Registers a shutdown task with the container's {@link ShutdownContext}. Tasks
+	 * run in reverse registration order on {@link #close()}, before the remaining
+	 * {@link AutoCloseable} beans are closed. Input drivers (servers) call this
+	 * from their startup callback to encapsulate their own teardown staging.
+	 */
+	public void addShutdownTask(Runnable task) {
+		shutdownContext.addShutdownTask(task);
+	}
+
+	/**
+	 * Resolves the global {@link ShutdownConfig}, falling back to defaults when no
+	 * {@code @ConfigurationProperties} bean is present. Used by input drivers at
+	 * registration time to read the in-flight drain timeout.
+	 */
+	public ShutdownConfig getShutdownConfig() {
+		Object bean = singletons.get(ShutdownConfig.class);
+		return bean instanceof ShutdownConfig c ? c : new ShutdownConfig(10000L);
 	}
 
 	// ---- Builder ----

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import summer.core.exception.BeanCreationException;
 import summer.core.exception.ConfigurationException;
 import summer.core.json.SummerObjectMapper;
@@ -120,6 +122,7 @@ public final class ConfigBinder {
 			}
 			applyFieldDefaults(section, fieldDefaults);
 			applyProfileOverrides(section, prefix, ctx.overrides());
+			resolveEnvPlaceholders(section);
 			return YAML_MAPPER.convertValue(section, targetType);
 		} catch (ConfigurationException e) {
 			throw e;
@@ -256,5 +259,61 @@ public final class ConfigBinder {
 			current = (Map<String, Object>) next;
 		}
 		current.put(path[path.length - 1], value);
+	}
+
+	/**
+	 * Resolves {@code ${VAR}} and {@code ${VAR:-default}} placeholders in string
+	 * configuration values, so configuration can be externalized (12-factor). An
+	 * environment variable wins, then a system property, then the supplied default.
+	 * A bare {@code ${VAR}} with no default and no value is left unchanged
+	 * (graceful degradation rather than a hard failure). Applied recursively to
+	 * nested sections.
+	 *
+	 * <p>
+	 * Only strings containing the {@code ${...}} pattern are touched, so existing
+	 * literal values (e.g. a JDBC URL with no placeholder) bind exactly as before.
+	 * </p>
+	 */
+	static void resolveEnvPlaceholders(Map<String, Object> section) {
+		for (Map.Entry<String, Object> entry : section.entrySet()) {
+			Object value = entry.getValue();
+			if (value instanceof Map<?, ?> nested) {
+				resolveEnvPlaceholders((Map<String, Object>) nested);
+			} else if (value instanceof String str) {
+				entry.setValue(resolveString(str));
+			}
+		}
+	}
+
+	private static final Pattern PLACEHOLDER = Pattern.compile("\\$\\{([\\w.]+)(?::(-?))?([^}]*)\\}");
+
+	private static String resolveString(String value) {
+		Matcher matcher = PLACEHOLDER.matcher(value);
+		if (!matcher.find()) {
+			return value;
+		}
+		StringBuffer sb = new StringBuffer();
+		do {
+			String name = matcher.group(1);
+			String resolved = lookup(name);
+			if (resolved == null) {
+				// group(3) carries the default for ${VAR:-default} / ${VAR:default}.
+				// Absent (or empty) for a bare ${VAR}, which degrades to the original
+				// token rather than resolving to an empty string.
+				String defaultVal = matcher.group(3);
+				resolved = defaultVal != null && !defaultVal.isEmpty() ? defaultVal : matcher.group(0);
+			}
+			matcher.appendReplacement(sb, Matcher.quoteReplacement(resolved));
+		} while (matcher.find());
+		matcher.appendTail(sb);
+		return sb.toString();
+	}
+
+	private static String lookup(String name) {
+		String value = System.getenv(name);
+		if (value != null) {
+			return value;
+		}
+		return System.getProperty(name);
 	}
 }
