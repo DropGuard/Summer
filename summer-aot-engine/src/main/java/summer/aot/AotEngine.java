@@ -6,6 +6,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import org.jboss.jandex.IndexView;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import summer.core.BeanContainer;
 import summer.core.DiEngine;
 import summer.core.Discovery;
@@ -31,6 +33,8 @@ import summer.core.bean.SharedDependencyResolver;
  * </p>
  */
 public final class AotEngine {
+
+	private static final Logger log = LoggerFactory.getLogger(AotEngine.class);
 
 	private static final java.util.concurrent.ConcurrentHashMap<String, BeanContainer> CACHE = new java.util.concurrent.ConcurrentHashMap<>();
 
@@ -144,26 +148,28 @@ public final class AotEngine {
 	private static BeanContainer compile(BeanDeployment moduleIndex, List<BeanDefinition> sorted, String cacheKey,
 			String className, MockedBean[] mocks, java.util.Map<String, Object> overrides) {
 		try {
+			log.debug("[Summer] AOT compile: cacheKey={} className={} beans={}", cacheKey, className, sorted.size());
 			// 1. Generate code to temp directory
 			File tempDir = Files.createTempDirectory("summer-aot-").toFile();
 			tempDir.deleteOnExit();
 			IndexView index = moduleIndex.discoveryIndex();
 
 			WireMethodGenerator wireGen = new WireMethodGenerator(overrides);
+			log.debug("[Summer] AOT phase: generate context");
 			new AotContextGenerator(index, tempDir, wireGen, overrides).generate(sorted, className, mocks);
 			new AotProxyGenerator().generate(sorted, index, tempDir);
 			new RouteAdapterGenerator().generate(sorted, tempDir);
 
 			// 2. Compile generated sources
+			log.debug("[Summer] AOT phase: compile generated sources");
 			compileGeneratedSources(tempDir);
 
-			// 3. Load and build — reflective loading of the compiled engine class is
-			// delegated to the single framework-recognized loader in DiEngine, so no
-			// reflection leaks into the AOT module. The generated build(MockedBean[])
-			// registers each mock under its declared target type (real definitions
-			// removed at discovery). The scratch output dir is passed as an extra
-			// classpath element so the loader finds the just-compiled .class (it is
-			// not, and must not be, on the application classpath).
+			// 3. Load and build. The generated context registers engine-provided beans
+			// (IndexView, RuntimeDiMarker, ...) from the candidate list — no reflection
+			// needed. Reflective loading is delegated to DiEngine, the single framework
+			// loader. The scratch output dir is passed as an extra classpath element so
+			// the loader finds the just-compiled .class (not on the application cp).
+			log.debug("[Summer] AOT phase: load and build");
 			File classesDir = new File(tempDir, "classes");
 			java.net.URL classesUrl = classesDir.toURI().toURL();
 			BeanContainer container = DiEngine.loadCompiledEngine(AotContextGenerator.PACKAGE + "." + className,
@@ -171,10 +177,12 @@ public final class AotEngine {
 
 			// 4. Cache and return
 			CACHE.put(cacheKey, container);
+			log.debug("[Summer] AOT compile complete: cacheKey={}", cacheKey);
 			return container;
 
 		} catch (Exception e) {
-			throw new RuntimeException("[Summer] AOT compilation failed", e);
+			throw new RuntimeException("[Summer] AOT compilation failed: cacheKey=" + cacheKey + " className="
+					+ className + " beans=" + sorted.size(), e);
 		}
 	}
 

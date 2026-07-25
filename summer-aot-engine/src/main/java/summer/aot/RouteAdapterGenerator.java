@@ -7,6 +7,8 @@ import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeSpec;
 import java.io.IOException;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.RouteInfo;
 
@@ -20,6 +22,8 @@ import summer.core.bean.RouteInfo;
  * </p>
  */
 public final class RouteAdapterGenerator {
+
+	private static final Logger log = LoggerFactory.getLogger(RouteAdapterGenerator.class);
 
 	private static final String WEB_PACKAGE = "summer.web";
 	private static final String CORE_PACKAGE = "summer.core";
@@ -47,6 +51,7 @@ public final class RouteAdapterGenerator {
 		CodeBlock.Builder registerBody = CodeBlock.builder();
 
 		for (BeanDefinition controller : controllers) {
+			log.debug("[Summer] Generating route adapter for {}", controller.qualifiedName);
 			String varName = controller.variableName;
 			ClassName controllerClass = safeClassName(controller.qualifiedName);
 			registerBody.addStatement("$T $N = context.getBean($T.class)", controllerClass, varName, controllerClass);
@@ -85,14 +90,14 @@ public final class RouteAdapterGenerator {
 		// Extract parameters
 		for (RouteInfo.ParamInfo param : route.params) {
 			if (param.binding == RouteInfo.ParamBinding.PATH) {
-				body.add("$T $N = ctx.request().pathParam($S);\n", resolveParamType(param.type), param.name,
-						param.name);
+				body.add("$T $N = $L;\n", TypeReads.typeName(param.type), param.name,
+						TypeReads.httpParse(param.type, "ctx.request().pathParam", param.name));
 			} else if (param.binding == RouteInfo.ParamBinding.QUERY) {
-				body.add("$T $N = ctx.request().queryParam($S);\n", resolveParamType(param.type), param.name,
-						param.name);
+				body.add("$T $N = $L;\n", TypeReads.typeName(param.type), param.name,
+						TypeReads.httpParse(param.type, "ctx.request().queryParam", param.name));
 			} else if (param.binding == RouteInfo.ParamBinding.BODY) {
 				String method = param.validated ? "validatedBody" : "body";
-				body.add("$T $N = ctx.$L($T.class);\n", resolveParamType(param.type), param.name, method,
+				body.add("$T $N = ctx.$L($T.class);\n", TypeReads.typeName(param.type), param.name, method,
 						ClassName.bestGuess(param.type));
 			} else if (param.binding == RouteInfo.ParamBinding.PAGEABLE) {
 				// @Pageable is the one user-extensible resolver (@Replaces swaps it), so
@@ -101,7 +106,7 @@ public final class RouteAdapterGenerator {
 				// stay inline because they have no swappable resolver.
 				body.add(
 						"$T $N = ($T) context.getBean($T.class).resolve(ctx, new $T($T.class, $S, $T.PAGEABLE, $L));\n",
-						resolveParamType(param.type), param.name, resolveParamType(param.type),
+						TypeReads.typeName(param.type), param.name, TypeReads.typeName(param.type),
 						ClassName.get("summer.web", "HttpParameterResolverChain"),
 						ClassName.get("summer.web", "RouteInfoHandlerParam"), ClassName.bestGuess(param.type),
 						param.bindingName, ClassName.get("summer.core.bean.RouteInfo", "ParamBinding"),
@@ -134,20 +139,6 @@ public final class RouteAdapterGenerator {
 	/**
 	 * Resolve parameter type string to TypeName.
 	 */
-	private com.palantir.javapoet.TypeName resolveParamType(String type) {
-		return switch (type) {
-			case "int" -> com.palantir.javapoet.TypeName.INT;
-			case "long" -> com.palantir.javapoet.TypeName.LONG;
-			case "double" -> com.palantir.javapoet.TypeName.DOUBLE;
-			case "boolean" -> com.palantir.javapoet.TypeName.BOOLEAN;
-			case "float" -> com.palantir.javapoet.TypeName.FLOAT;
-			case "short" -> com.palantir.javapoet.TypeName.SHORT;
-			case "byte" -> com.palantir.javapoet.TypeName.BYTE;
-			case "char" -> com.palantir.javapoet.TypeName.CHAR;
-			default -> ClassName.bestGuess(type);
-		};
-	}
-
 	private static ClassName safeClassName(String qualifiedName) {
 		return ClassName.bestGuess(qualifiedName.replace('$', '.'));
 	}

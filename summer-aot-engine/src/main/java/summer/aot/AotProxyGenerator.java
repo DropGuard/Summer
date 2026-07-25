@@ -22,6 +22,8 @@ import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
 import org.jboss.jandex.MethodInfo;
 import org.jboss.jandex.MethodParameterInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import summer.core.bean.BeanDefinition;
 
 /**
@@ -36,6 +38,8 @@ import summer.core.bean.BeanDefinition;
  * </p>
  */
 public final class AotProxyGenerator {
+
+	private static final Logger log = LoggerFactory.getLogger(AotProxyGenerator.class);
 
 	private static final ClassName PROXY_CHAIN = ClassName.get("summer.aop", "ProxyInterceptorChain");
 	private static final ClassName INTERCEPTED_METHOD = ClassName.get("summer.aop", "InterceptedMethod");
@@ -64,6 +68,7 @@ public final class AotProxyGenerator {
 
 		for (BeanDefinition bean : beans) {
 			if (bean.needsProxy() && !bean.interfaceNames.isEmpty()) {
+				log.debug("[Summer] Generating AOP proxy for {}", bean.qualifiedName);
 				generateProxy(bean, index, outputDir, allBindingAnnotations);
 			}
 		}
@@ -337,18 +342,12 @@ public final class AotProxyGenerator {
 		if (type.name() == null)
 			return ClassName.get(Object.class);
 		String name = type.name().toString();
-		return switch (name) {
-			case "void" -> TypeName.VOID;
-			case "int" -> TypeName.INT;
-			case "long" -> TypeName.LONG;
-			case "double" -> TypeName.DOUBLE;
-			case "boolean" -> TypeName.BOOLEAN;
-			case "float" -> TypeName.FLOAT;
-			case "byte" -> TypeName.BYTE;
-			case "short" -> TypeName.SHORT;
-			case "char" -> TypeName.CHAR;
-			default -> ClassName.bestGuess(name);
-		};
+		if (name.equals("void"))
+			return TypeName.VOID;
+		// Primitive mapping is shared with the rest of the AOT codegen via TypeReads.
+		if (PrimitiveTypes.isPrimitive(name))
+			return TypeReads.typeName(name);
+		return ClassName.bestGuess(name);
 	}
 
 	private static String defaultValue(TypeName type) {

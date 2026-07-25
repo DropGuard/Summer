@@ -9,6 +9,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import org.jboss.jandex.IndexView;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import summer.core.bean.BeanDefinition;
 import summer.core.bean.MockedBean;
 
@@ -21,6 +23,8 @@ import summer.core.bean.MockedBean;
  * </p>
  */
 public final class AotContextGenerator {
+
+	private static final Logger log = LoggerFactory.getLogger(AotContextGenerator.class);
 
 	public static final String PACKAGE = "summer.core.aot";
 	public static final String CLASS_NAME = "GeneratedAotContext";
@@ -82,6 +86,7 @@ public final class AotContextGenerator {
 	 *            generated class name (without package)
 	 */
 	public void generate(List<BeanDefinition> sortedBeans, String className, MockedBean[] mocks) throws IOException {
+		log.debug("[Summer] Generating AOT context {} for {} beans", className, sortedBeans.size());
 		new ExceptionHandlerAdapterGenerator().generate(sortedBeans, index, outputDir);
 
 		JavaFile javaFile = buildJavaFile(sortedBeans, className, mocks);
@@ -168,7 +173,17 @@ public final class AotContextGenerator {
 	private void emitSharedBody(MethodSpec.Builder method, List<BeanDefinition> sortedBeans) {
 		method.addStatement("builder.register($T.class, new $T())", AOT_DI_MARKER, AOT_DI_MARKER);
 
+		// Engine-provided beans (IndexView, RuntimeDiMarker, ...) arrive as synthetic
+		// beans in the candidate list and are registered by WireMethodGenerator — no
+		// hand-written registration here.
 		wireGen.generateWireMethod(method, sortedBeans, profileOverrides);
+
+		// AOT row mappers: emit inline (zero-reflection) RowMapper lambdas for every
+		// @RowModel record, registered directly on JdbcTemplate. This is the AOT
+		// counterpart of data-jdbc's reflective RowMapperRegistrar, which is
+		// @ConditionalOnBean(RuntimeDiMarker) and therefore skipped on the AOT engine
+		// (it uses AotDiMarker) — see WireMethodGenerator#emitRowMapperRegistrations.
+		wireGen.emitRowMapperRegistrations(method, index, null, sortedBeans);
 
 		// Route adapter
 		if (sortedBeans.stream().anyMatch(b -> !b.routes.isEmpty())) {
