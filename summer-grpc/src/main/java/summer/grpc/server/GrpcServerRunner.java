@@ -7,6 +7,7 @@ import io.grpc.ServerInterceptor;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import summer.core.ApplicationRunner;
@@ -23,13 +24,12 @@ import summer.grpc.exception.SummerGrpcException;
  * {@code GrpcInfrastructureConfiguration}.
  * </p>
  */
-public class GrpcServerRunner implements ApplicationRunner, AutoCloseable {
+public class GrpcServerRunner implements ApplicationRunner {
 
 	private static final Logger log = LoggerFactory.getLogger(GrpcServerRunner.class);
 
 	private final GrpcTlsConfig tlsConfig;
 	private final GrpcServerConfig serverConfig;
-	private static volatile int actualPort = -1;
 	private Server server;
 
 	public GrpcServerRunner(GrpcTlsConfig tlsConfig, GrpcServerConfig serverConfig) {
@@ -39,14 +39,6 @@ public class GrpcServerRunner implements ApplicationRunner, AutoCloseable {
 
 	public int getPort() {
 		return server != null ? server.getPort() : -1;
-	}
-
-	/**
-	 * Returns the actual port the gRPC server bound to. Useful when
-	 * {@code grpc.server.port} is 0 (random port).
-	 */
-	public static int getActualPort() {
-		return actualPort;
 	}
 
 	@Override
@@ -87,31 +79,45 @@ public class GrpcServerRunner implements ApplicationRunner, AutoCloseable {
 
 		try {
 			this.server.start();
-			actualPort = this.server.getPort();
-			log.info("gRPC Server started on port {}", actualPort);
-
-			// Add shutdown hook
-			Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-				try {
-					this.close();
-				} catch (Exception e) {
-					log.error("Error shutting down gRPC server", e);
-				}
-			}));
+			log.info("gRPC Server started on port {}", this.server.getPort());
 		} catch (IOException e) {
 			throw new SummerGrpcException("Failed to start gRPC Server on port " + port, e);
 		}
+
+		long timeoutMs = context.getShutdownConfig().timeoutMs();
+		context.addShutdownTask(() -> shutdown(java.time.Duration.ofMillis(timeoutMs)));
 	}
 
-	@Override
-	public void close() throws Exception {
-		if (server != null && !server.isShutdown()) {
-			server.shutdownNow().awaitTermination(5, java.util.concurrent.TimeUnit.SECONDS);
-			log.info("gRPC Server stopped");
+	private void shutdown(java.time.Duration timeout) {
+		if (server == null || server.isShutdown()) {
+			return;
 		}
+		log.info("Shutting down gRPC Server...");
+		// gRPC initiates graceful shutdown: rejects new calls, lets in-flight
+		// ones finish, then terminates.
+		server.shutdown();
+		try {
+			if (!timeout.isZero()) {
+				server.awaitTermination(timeout.toMillis(), TimeUnit.MILLISECONDS);
+			}
+			server.awaitTermination();
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
+		log.info("gRPC Server stopped");
 	}
 
-	private static int resolvePort(int defaultPort) {
+	/**
+	 * Convenience for direct/test use: stops the server immediately (zero drain
+	 * timeout). The container drives the same staging via the shutdown task
+	 * registered in {@link #run(BeanContainer)}, bounded by
+	 * {@code summer.shutdown.timeout-ms}.
+	 */
+	public void stop() {
+		shutdown(java.time.Duration.ZERO);
+	}
+
+	private int resolvePort(int defaultPort) {
 		String prop = System.getProperty("summer.grpc.port");
 		return prop != null ? Integer.parseInt(prop) : defaultPort;
 	}

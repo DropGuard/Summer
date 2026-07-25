@@ -36,7 +36,6 @@ public class GrpcInterceptorIntegrationTest {
 			assertEquals("Hello Intercepted!", response);
 		} finally {
 			channel.shutdown();
-			serverRunner.close();
 			ctx.close();
 		}
 	}
