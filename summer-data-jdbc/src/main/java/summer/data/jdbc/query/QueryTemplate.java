@@ -39,7 +39,7 @@ public class QueryTemplate {
 
 	public <T> QueryBuilder<T> select(Class<T> entityClass) {
 		EntityMetadata metadata = registry.get(entityClass);
-		return new QueryBuilder<>(jdbcTemplate, entityClass, metadata);
+		return new QueryBuilder<>(jdbcTemplate, entityClass, metadata, registry);
 	}
 
 	/**
@@ -99,6 +99,15 @@ public class QueryTemplate {
 
 	public static Criteria eq(String column, Object value) {
 		return new Criteria.Eq(column, value);
+	}
+
+	/**
+	 * Column-to-column equality for join / EXISTS {@code ON} predicates, where the
+	 * right-hand side is another column rather than a bind value. Both sides must
+	 * be qualified with a known table alias (or be a bare root column).
+	 */
+	public static Criteria eqCol(String leftColumn, String rightColumn) {
+		return new Criteria.ColEq(leftColumn, rightColumn);
 	}
 
 	public static Criteria gt(String column, Object value) {
