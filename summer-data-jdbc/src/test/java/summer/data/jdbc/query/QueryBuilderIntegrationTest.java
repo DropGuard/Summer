@@ -29,6 +29,10 @@ class QueryBuilderIntegrationTest {
 	record Issue(int id, String title, String status, String assignee) {
 	}
 
+	@RowModel(table = "issue_tags")
+	record IssueTag(int issueId, int tagId) {
+	}
+
 	private DataSource dataSource;
 	private JdbcTemplate jdbcTemplate;
 	private QueryTemplate queryTemplate;
@@ -48,8 +52,10 @@ class QueryBuilderIntegrationTest {
 		// Register metadata + mapper from a real Jandex index over the Issue record,
 		// mirroring what ReflectiveRowMapperRegistrar does during container assembly.
 		Indexer indexer = new Indexer();
-		try (var is = Issue.class.getResourceAsStream("/" + Issue.class.getName().replace('.', '/') + ".class")) {
-			indexer.index(is);
+		for (Class<?> model : List.of(Issue.class, IssueTag.class)) {
+			try (var is = model.getResourceAsStream("/" + model.getName().replace('.', '/') + ".class")) {
+				indexer.index(is);
+			}
 		}
 		IndexView index = indexer.complete();
 		EntityMetadataRegistry registry = new EntityMetadataRegistry();
@@ -63,11 +69,14 @@ class QueryBuilderIntegrationTest {
 		jdbcTemplate.update("INSERT INTO issues VALUES (1, 'First', 'OPEN', 'alice')");
 		jdbcTemplate.update("INSERT INTO issues VALUES (2, 'Second', 'OPEN', 'bob')");
 		jdbcTemplate.update("INSERT INTO issues VALUES (3, 'Third', 'CLOSED', 'alice')");
+		jdbcTemplate.update("CREATE TABLE IF NOT EXISTS issue_tags (issue_id INT, tag_id INT)");
+		jdbcTemplate.update("INSERT INTO issue_tags VALUES (1, 10), (1, 20), (2, 10)");
 	}
 
 	@AfterEach
 	void tearDown() {
 		if (dataSource != null) {
+			jdbcTemplate.update("TRUNCATE TABLE issue_tags");
 			((HikariDataSource) dataSource).close();
 		}
 	}
@@ -207,5 +216,51 @@ class QueryBuilderIntegrationTest {
 		IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
 				() -> queryTemplate.update(Issue.class).set("not_a_column", "x").where(eq("id", 1)).execute());
 		assertTrue(ex.getMessage().contains("Unknown column"));
+	}
+
+	// ── join / EXISTS (relationship queries) ─────────────────────────
+
+	@Test
+	void existsFiltersWithoutMultiplyingRootRows() {
+		// Issue 1 has TWO tags (10 and 20); an EXISTS filter must not duplicate it.
+		List<Issue> tagged = queryTemplate.select(Issue.class)
+				.exists(IssueTag.class, "it", and(eqCol("it.issue_id", "root.id"), eq("it.tag_id", 10))).list();
+		assertEquals(List.of(1, 2), tagged.stream().map(Issue::id).sorted().toList());
+		// count() must count distinct root rows, not joined rows
+		assertEquals(2L, queryTemplate.select(Issue.class).exists(IssueTag.class, "it", eqCol("it.issue_id", "root.id"))
+				.count());
+	}
+
+	@Test
+	void existsCombinesWithRootCriteria() {
+		List<Issue> result = queryTemplate.select(Issue.class).where(eq("status", "OPEN"))
+				.exists(IssueTag.class, "it", and(eqCol("it.issue_id", "root.id"), eq("it.tag_id", 20))).list();
+		// Only issue 1 is OPEN and tagged 20.
+		assertEquals(List.of(1), result.stream().map(Issue::id).toList());
+	}
+
+	@Test
+	void joinBringsRelatedTableIntoFrom() {
+		// join() is for 1:1/N:1 expansion; verify it emits a JOIN and validates
+		// the ON predicate's qualified columns.
+		List<Issue> result = queryTemplate.select(Issue.class)
+				.join(IssueTag.class, "it", eqCol("it.issue_id", "root.id")).list();
+		// JOIN multiplies root rows by matches: issue 1 has tags 10,20 (2 rows),
+		// issue 2 has tag 10 (1 row), issue 3 has none -> 3 rows total.
+		assertEquals(3, result.size());
+	}
+
+	@Test
+	void existsRejectsUnknownQualifiedColumn() {
+		IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> queryTemplate
+				.select(Issue.class).exists(IssueTag.class, "it", eqCol("it.bogus", "root.id")).list());
+		assertTrue(ex.getMessage().contains("Unknown column"));
+	}
+
+	@Test
+	void existsRejectsUnknownTableAlias() {
+		IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+				() -> queryTemplate.select(Issue.class).where(eq("nope.col", 1)).list());
+		assertTrue(ex.getMessage().contains("Unknown table alias"));
 	}
 }
