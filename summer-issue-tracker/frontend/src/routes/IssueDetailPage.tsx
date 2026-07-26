@@ -16,8 +16,6 @@ import { useOrgTags } from '@/api/tags';
 import {
   STATUSES,
   PRIORITIES,
-  STATUS_COLORS,
-  PRIORITY_COLORS,
 } from '@/lib/types';
 
 export default function IssueDetailPage() {
