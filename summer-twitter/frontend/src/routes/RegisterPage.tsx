@@ -1,23 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useActionState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useRegister } from '@/api/auth';
+import { registerAction, type AuthFormState } from '@/api/auth';
+
+const initialState: AuthFormState = { ok: false };
 
 export default function RegisterPage() {
-  const [username, setUsername] = useState('');
-  const [displayName, setDisplayName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [state, formAction, isPending] = useActionState(registerAction, initialState);
   const navigate = useNavigate();
-  const register = useRegister();
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (register.isPending) return;
-    register.mutate(
-      { username, displayName, email, password },
-      { onSuccess: () => navigate('/login', { replace: true }) },
-    );
-  };
+  // After a successful register, go to the login page (success toast already shown).
+  useEffect(() => {
+    if (state.ok) navigate('/login', { replace: true });
+  }, [state.ok, navigate]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">
@@ -28,52 +22,46 @@ export default function RegisterPage() {
 
         <h1 className="mb-6 text-2xl font-bold">Create your account</h1>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form action={formAction} className="flex flex-col gap-4">
           <input
             type="text"
+            name="username"
             placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            defaultValue=""
             className="border-twitter-border focus:border-twitter-blue w-full rounded-md border px-3 py-3 text-lg outline-none"
             required
           />
           <input
             type="text"
+            name="displayName"
             placeholder="Display name"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
+            defaultValue=""
             className="border-twitter-border focus:border-twitter-blue w-full rounded-md border px-3 py-3 text-lg outline-none"
             required
           />
           <input
             type="email"
+            name="email"
             placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            defaultValue=""
             className="border-twitter-border focus:border-twitter-blue w-full rounded-md border px-3 py-3 text-lg outline-none"
             required
           />
           <input
             type="password"
+            name="password"
             placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            defaultValue=""
             className="border-twitter-border focus:border-twitter-blue w-full rounded-md border px-3 py-3 text-lg outline-none"
             required
           />
 
-          {register.error && (
-            <p className="text-sm text-red-500">
-              Registration failed. Username or email may already be taken.
-            </p>
-          )}
-
           <button
             type="submit"
-            disabled={register.isPending}
+            disabled={isPending}
             className="bg-twitter-blue hover:bg-twitter-blue-hover w-full rounded-full py-3 font-bold text-white transition-colors disabled:opacity-50"
           >
-            {register.isPending ? 'Creating account...' : 'Sign up'}
+            {isPending ? 'Creating account...' : 'Sign up'}
           </button>
         </form>
 

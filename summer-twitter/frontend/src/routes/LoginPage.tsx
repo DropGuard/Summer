@@ -1,25 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useActionState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
-import { useLogin } from '@/api/auth';
+import { loginAction, type AuthFormState } from '@/api/auth';
 import { useAuthStore } from '@/stores/authStore';
 
+const initialState: AuthFormState = { ok: false };
+
 export default function LoginPage() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [state, formAction, isPending] = useActionState(loginAction, initialState);
   const navigate = useNavigate();
-  const login = useLogin();
   const token = useAuthStore((s) => s.token);
 
-  if (token) return <Navigate to="/" replace />;
+  // Navigate after a successful submit (state-driven, not during render).
+  useEffect(() => {
+    if (state.ok) navigate('/', { replace: true });
+  }, [state.ok, navigate]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (login.isPending) return;
-    login.mutate(
-      { username, password },
-      { onSuccess: () => navigate('/', { replace: true }) },
-    );
-  };
+  if (token) return <Navigate to="/" replace />;
 
   return (
     <div className="flex min-h-screen items-center justify-center">
@@ -31,32 +27,30 @@ export default function LoginPage() {
 
         <h1 className="mb-6 text-2xl font-bold">Sign in to Summer</h1>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form action={formAction} className="flex flex-col gap-4">
           <input
             type="text"
+            name="username"
             placeholder="Username"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            defaultValue=""
             className="border-twitter-border focus:border-twitter-blue w-full rounded-md border px-3 py-3 text-lg outline-none"
             required
           />
           <input
             type="password"
+            name="password"
             placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            defaultValue=""
             className="border-twitter-border focus:border-twitter-blue w-full rounded-md border px-3 py-3 text-lg outline-none"
             required
           />
 
-          {login.error && <p className="text-sm text-red-500">Invalid username or password</p>}
-
           <button
             type="submit"
-            disabled={login.isPending}
+            disabled={isPending}
             className="bg-twitter-blue hover:bg-twitter-blue-hover w-full rounded-full py-3 font-bold text-white transition-colors disabled:opacity-50"
           >
-            {login.isPending ? 'Signing in...' : 'Sign in'}
+            {isPending ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
 
