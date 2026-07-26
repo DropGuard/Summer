@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: issuetracker-pg
+    environment:
+      POSTGRES_DB: issuetracker
+      POSTGRES_USER: issuetracker
+      POSTGRES_PASSWORD: issuetracker
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U issuetracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 5

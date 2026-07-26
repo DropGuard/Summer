@@ -1,0 +1,36 @@
+# Test-only override of src/main/resources/application.yml.
+#
+# Maven puts src/test/resources ahead of src/main/resources on the test
+# classpath, so this file fully replaces the production one at test time
+# (ConfigBinder reads a single "application.yml" resource — there is no
+# profile-merged overlay). Keep every section in sync with the production
+# file EXCEPT the one we intentionally change:
+#
+#   server.port -> 0   (ephemeral / random port)
+#
+# Why port 0: every integration test class (TagIT, IssueFlowIT, RbacIT)
+# extends AbstractIssueTrackerIT, which starts its own Netty server in
+# @BeforeAll. A fixed port (8080) collides the moment two IT classes start
+# concurrently (parallel execution, leftover dev server, or a port held by a
+# prior crashed run) — "Address already in use". Binding port 0 lets the OS
+# assign a free port per server; AbstractIssueTrackerIT already reads the
+# real port back via NettyServerRunner.getActualPort().
+server:
+  port: 0
+
+summer:
+  datasource:
+    url: ${SUMMER_DB_URL:-jdbc:postgresql://localhost:5432/issuetracker}
+    username: issuetracker
+    password: issuetracker
+    driver-class-name: org.postgresql.Driver
+
+cors:
+  allowed-origins: "http://localhost:5173"
+  allowed-methods: "GET, POST, PUT, DELETE, OPTIONS"
+  allowed-headers: "Content-Type, Authorization"
+  max-age: 3600
+
+jwt:
+  secret: "demo-issue-tracker-secret-key-please-change-in-production"
+  expiration-ms: 86400000

@@ -1,0 +1,19 @@
+server:
+  port: 8080
+
+summer:
+  datasource:
+    url: ${SUMMER_DB_URL:-jdbc:postgresql://localhost:5432/issuetracker}
+    username: issuetracker
+    password: issuetracker
+    driver-class-name: org.postgresql.Driver
+
+cors:
+  allowed-origins: "http://localhost:5173"
+  allowed-methods: "GET, POST, PUT, DELETE, OPTIONS"
+  allowed-headers: "Content-Type, Authorization"
+  max-age: 3600
+
+jwt:
+  secret: "demo-issue-tracker-secret-key-please-change-in-production"
+  expiration-ms: 86400000

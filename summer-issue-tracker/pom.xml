@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+      External demo project. Inherits summer-starter-parent — the same convention
+      as a Spring Boot application inheriting spring-boot-starter-parent: the parent
+      supplies the AOT / Jandex / compiler build wiring so this pom stays thin, while
+      the demo still builds independently and consumes Summer purely as published
+      artifacts. The parent is NOT part of the framework reactor, so a framework
+      change can never silently break (or mask) the demo.
+    -->
+    <parent>
+        <groupId>summer</groupId>
+        <artifactId>summer-starter-parent</artifactId>
+        <version>0.1.0</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.example.issuetracker</groupId>
+    <artifactId>summer-issue-tracker</artifactId>
+    <version>0.1.0</version>
+    <packaging>jar</packaging>
+    <name>Summer Issue Tracker</name>
+    <description>External demo for the Summer framework: a lightweight issue/defect tracker (mini Jira).</description>
+
+    <dependencies>
+        <!-- Summer starters: core (DI/AOP/tx/logging) is pulled in transitively by
+             these two; web adds the HTTP stack + JSON, data-jdbc adds persistence. -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-boot-starter-web</artifactId>
+            <type>pom</type>
+        </dependency>
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-boot-starter-data-jdbc</artifactId>
+            <type>pom</type>
+        </dependency>
+
+        <!-- Database driver (the starter leaves the choice to the application) -->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.7.3</version>
+        </dependency>
+
+        <!-- JWT (not in the framework BOM; pinned explicitly) -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>0.12.6</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>0.12.6</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>0.12.6</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Test scope -->
+        <dependency>
+            <groupId>summer</groupId>
+            <artifactId>summer-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>summer-issue-tracker</finalName>
+    </build>
+</project>
