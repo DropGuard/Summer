@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>summer</groupId>
+    <groupId>com.github.dropguard</groupId>
     <artifactId>summer-dependencies</artifactId>
     <version>0.1.0</version>
     <packaging>pom</packaging>
@@ -26,108 +26,108 @@
         <dependencies>
             <!-- Summer Modules -->
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-core</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-web</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-web-http</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-web-netty</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-web-middleware</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-web-websocket</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-boot</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-aop</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-tx</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-runtime</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-grpc</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-data-redis</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-data-jdbc</artifactId>
                 <version>${project.version}</version>
             </dependency>
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-boot-starter</artifactId>
                 <version>${project.version}</version>
                 <type>pom</type>
             </dependency>
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-boot-starter-web</artifactId>
                 <version>${project.version}</version>
                 <type>pom</type>
             </dependency>
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-boot-starter-data-jdbc</artifactId>
                 <version>${project.version}</version>
                 <type>pom</type>
             </dependency>
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-boot-starter-data-redis</artifactId>
                 <version>${project.version}</version>
                 <type>pom</type>
             </dependency>
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-boot-starter-websocket</artifactId>
                 <version>${project.version}</version>
                 <type>pom</type>
             </dependency>
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-boot-starter-grpc</artifactId>
                 <version>${project.version}</version>
                 <type>pom</type>
             </dependency>
             <dependency>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-test</artifactId>
                 <version>${project.version}</version>
             </dependency>

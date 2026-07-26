@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>summer</groupId>
+        <groupId>com.github.dropguard</groupId>
         <artifactId>summer-framework</artifactId>
         <version>0.1.0</version>
     </parent>
@@ -36,22 +36,22 @@
         here: a scanned @Component in this module would be discovered and rejected
         by every normal TCK, not just the sad-path ones.
 
-        Package note: fixtures live under summer.tck.negative.fixtures.* so the
+        Package note: fixtures live under com.github.dropguard.summer.tck.negative.fixtures.* so the
         package prefix mirrors the module name (summer-tck-negative-fixtures).
         This keeps "which module owns this fixture" readable from the import
         alone -- the positive fixtures in summer-tck-fixtures use
-        summer.tck.fixtures.*, so the two modules no longer share a package
+        com.github.dropguard.summer.tck.fixtures.*, so the two modules no longer share a package
         prefix.
     </description>
 
     <dependencies>
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-core</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-aop</artifactId>
             <version>${project.version}</version>
         </dependency>

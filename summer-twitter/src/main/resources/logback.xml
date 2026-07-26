@@ -4,11 +4,11 @@
 
   Logging policy (see ADR in the repo wiki):
   - The framework (summer-*) only emits via SLF4J loggers named after its packages
-    (summer.web, summer.data.jdbc, ...). It never ships a logback.xml, so THIS file
+    (com.github.dropguard.summer.web, com.github.dropguard.summer.data.jdbc, ...). It never ships a logback.xml, so THIS file
     is the single place that decides where logs go and at what level.
   - Console is the primary sink for local runs. A rolling file under logs/ is the
     durable sink; logs/ is git-ignored via the repo-wide *.log rule.
-  - Application code (summer.twitter) is INFO; the framework is INFO except for the
+  - Application code (com.github.dropguard.summer.twitter) is INFO; the framework is INFO except for the
     server/WS error paths which stay INFO (their ERRORs are already explicit).
   - Netty's own logger is noisy at INFO; keep it WARN so the demo log stays readable.
 -->

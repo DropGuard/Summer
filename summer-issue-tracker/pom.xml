@@ -13,13 +13,13 @@
       change can never silently break (or mask) the demo.
     -->
     <parent>
-        <groupId>summer</groupId>
+        <groupId>com.github.dropguard</groupId>
         <artifactId>summer-starter-parent</artifactId>
         <version>0.1.0</version>
         <relativePath/>
     </parent>
 
-    <groupId>com.example.issuetracker</groupId>
+    <groupId>com.github.dropguard.summer.issuetracker</groupId>
     <artifactId>summer-issue-tracker</artifactId>
     <version>0.1.0</version>
     <packaging>jar</packaging>
@@ -30,12 +30,12 @@
         <!-- Summer starters: core (DI/AOP/tx/logging) is pulled in transitively by
              these two; web adds the HTTP stack + JSON, data-jdbc adds persistence. -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-boot-starter-web</artifactId>
             <type>pom</type>
         </dependency>
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-boot-starter-data-jdbc</artifactId>
             <type>pom</type>
         </dependency>
@@ -68,7 +68,7 @@
 
         <!-- Test scope -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-test</artifactId>
             <scope>test</scope>
         </dependency>

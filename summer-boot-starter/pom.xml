@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>summer</groupId>
+        <groupId>com.github.dropguard</groupId>
         <artifactId>summer-starter-parent</artifactId>
         <version>0.1.0</version>
     </parent>
@@ -23,21 +23,21 @@
     <dependencies>
         <!-- DI container + bootstrap (the foundation everything else builds on) -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-core</artifactId>
         </dependency>
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-boot</artifactId>
         </dependency>
 
         <!-- Cross-cutting framework modules most apps need -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-aop</artifactId>
         </dependency>
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-tx</artifactId>
         </dependency>
 

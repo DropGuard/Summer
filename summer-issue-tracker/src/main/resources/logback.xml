@@ -6,7 +6,7 @@
     </appender>
 
     <logger name="summer" level="INFO"/>
-    <logger name="summer.issuetracker" level="DEBUG"/>
+    <logger name="com.github.dropguard.summer.issuetracker" level="DEBUG"/>
 
     <root level="INFO">
         <appender-ref ref="STDOUT"/>

@@ -36,8 +36,8 @@
     </appender>
 
     <!-- Server + WS upgrade paths: DEBUG so handshake/origin/upgrade failures show. -->
-    <logger name="summer.web.server" level="DEBUG"/>
-    <logger name="summer.twitter" level="DEBUG"/>
+    <logger name="com.github.dropguard.summer.web.server" level="DEBUG"/>
+    <logger name="com.github.dropguard.summer.twitter" level="DEBUG"/>
 
     <!-- Tame noisy third parties during tests. -->
     <logger name="io.netty" level="WARN"/>

@@ -1,4 +1,4 @@
-package benchmark.summer;
+package com.github.dropguard.summer.benchmark;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

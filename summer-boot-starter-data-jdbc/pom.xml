@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>summer</groupId>
+        <groupId>com.github.dropguard</groupId>
         <artifactId>summer-starter-parent</artifactId>
         <version>0.1.0</version>
     </parent>
@@ -23,13 +23,13 @@
     <dependencies>
         <!-- Core foundation -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-boot-starter</artifactId>
             <type>pom</type>
         </dependency>
 
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-data-jdbc</artifactId>
         </dependency>
         <dependency>

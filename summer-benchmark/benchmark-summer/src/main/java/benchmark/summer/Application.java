@@ -1,8 +1,8 @@
-package benchmark.summer;
+package com.github.dropguard.summer.benchmark;
 
 
-import summer.core.annotation.Configuration;
-import summer.boot.SummerApplication;
+import com.github.dropguard.summer.core.annotation.Configuration;
+import com.github.dropguard.summer.boot.SummerApplication;
 
 @Configuration
 public class Application {
@@ -10,7 +10,7 @@ public class Application {
         new SummerApplication().start(args);
     }
 
-    @summer.core.annotation.Bean
+    @com.github.dropguard.summer.core.annotation.Bean
     public UserService userService() {
         return new UserService();
     }

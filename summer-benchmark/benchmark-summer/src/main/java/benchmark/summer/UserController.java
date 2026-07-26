@@ -1,9 +1,9 @@
-package benchmark.summer;
+package com.github.dropguard.summer.benchmark;
 
 
-import summer.web.annotation.Get;
-import summer.web.annotation.PathParam;
-import summer.web.annotation.RestController;
+import com.github.dropguard.summer.web.annotation.Get;
+import com.github.dropguard.summer.web.annotation.PathParam;
+import com.github.dropguard.summer.web.annotation.RestController;
 
 @RestController("/users")
 public class UserController {
@@ -19,17 +19,17 @@ public class UserController {
         return userService.getUser(id);
     }
 
-    @summer.web.annotation.Post
+    @com.github.dropguard.summer.web.annotation.Post
     public User createUser(User user) {
         return userService.createUser(user);
     }
 
-    @summer.web.annotation.Put("/{id}")
+    @com.github.dropguard.summer.web.annotation.Put("/{id}")
     public User updateUser(@PathParam("id") String id, User user) {
         return userService.updateUser(id, user);
     }
 
-    @summer.web.annotation.Delete("/{id}")
+    @com.github.dropguard.summer.web.annotation.Delete("/{id}")
     public void deleteUser(@PathParam("id") String id) {
         userService.deleteUser(id);
     }

@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>summer</groupId>
+        <groupId>com.github.dropguard</groupId>
         <artifactId>summer-framework</artifactId>
         <version>0.1.0</version>
     </parent>
@@ -62,28 +62,28 @@
 
         <!-- Summer Core (for annotations) -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-core</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <!-- Summer AOP (for AOP analysis) -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-aop</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <!-- Summer AOT Engine (core AOT logic) -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-aot-engine</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <!-- Summer Web (test - for annotation fixtures) -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-web</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>

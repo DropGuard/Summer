@@ -64,7 +64,7 @@ services:
         echo 'Warmup...'
         k6 run -e TARGET_URL=http://summer:8080/users -e VUS=10 -e DURATION=10s /scripts/load-test.js
         echo 'Benchmark...'
-        k6 run --summary-export=/scripts/summary-summer.json -e TARGET_URL=http://summer:8080/users -e VUS=100 -e DURATION=10s /scripts/load-test.js
+        k6 run --summary-export=/scripts/summary-com.github.dropguard.summer.json -e TARGET_URL=http://summer:8080/users -e VUS=100 -e DURATION=10s /scripts/load-test.js
     volumes:
       - ./k6-scripts:/scripts
     profiles:

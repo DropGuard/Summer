@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <artifactId>summer-framework</artifactId>
-        <groupId>summer</groupId>
+        <groupId>com.github.dropguard</groupId>
         <version>0.1.0</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
@@ -15,24 +15,24 @@
     <description>Aggregates JaCoCo coverage reports from all modules</description>
 
     <dependencies>
-        <dependency><groupId>summer</groupId><artifactId>summer-core</artifactId></dependency>
-        <dependency><groupId>summer</groupId><artifactId>summer-web</artifactId></dependency>
-        <dependency><groupId>summer</groupId><artifactId>summer-web-http</artifactId></dependency>
-        <dependency><groupId>summer</groupId><artifactId>summer-web-netty</artifactId></dependency>
-        <dependency><groupId>summer</groupId><artifactId>summer-web-middleware</artifactId></dependency>
-        <dependency><groupId>summer</groupId><artifactId>summer-web-websocket</artifactId></dependency>
-        <dependency><groupId>summer</groupId><artifactId>summer-boot</artifactId></dependency>
-        <dependency><groupId>summer</groupId><artifactId>summer-aop</artifactId></dependency>
-        <dependency><groupId>summer</groupId><artifactId>summer-tx</artifactId></dependency>
-        <dependency><groupId>summer</groupId><artifactId>summer-runtime</artifactId></dependency>
-        <dependency><groupId>summer</groupId><artifactId>summer-grpc</artifactId></dependency>
-        <dependency><groupId>summer</groupId><artifactId>summer-data-redis</artifactId></dependency>
-        <dependency><groupId>summer</groupId><artifactId>summer-data-jdbc</artifactId></dependency>
-        <dependency><groupId>summer</groupId><artifactId>summer-test</artifactId></dependency>
-        <dependency><groupId>summer</groupId><artifactId>summer-tck</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>summer</groupId><artifactId>summer-tck-fixtures</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>summer</groupId><artifactId>summer-aot-engine</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>summer</groupId><artifactId>summer-archunit</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-core</artifactId></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-web</artifactId></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-web-http</artifactId></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-web-netty</artifactId></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-web-middleware</artifactId></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-web-websocket</artifactId></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-boot</artifactId></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-aop</artifactId></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-tx</artifactId></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-runtime</artifactId></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-grpc</artifactId></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-data-redis</artifactId></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-data-jdbc</artifactId></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-test</artifactId></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-tck</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-tck-fixtures</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-aot-engine</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-archunit</artifactId><version>${project.version}</version></dependency>
     </dependencies>
 
     <build>

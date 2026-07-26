@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>summer</groupId>
+        <groupId>com.github.dropguard</groupId>
         <artifactId>summer-benchmark</artifactId>
         <version>0.1.0</version>
     </parent>
@@ -18,7 +18,7 @@
         <!-- Use the web starter (pulls in core + HTTP stack + JSON) instead of the
              raw framework modules. -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-boot-starter-web</artifactId>
             <type>pom</type>
         </dependency>
@@ -27,9 +27,9 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>summer</groupId>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-maven-plugin</artifactId>
-                <version>${summer.framework.version}</version>
+                <version>${com.github.dropguard.summer.framework.version}</version>
                 <executions>
                     <execution>
                         <id>generate-aot</id>
@@ -54,7 +54,7 @@
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>benchmark.summer.Application</mainClass>
+                                    <mainClass>benchmark.com.github.dropguard.summer.Application</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>

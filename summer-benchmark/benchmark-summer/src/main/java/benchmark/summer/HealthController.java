@@ -1,7 +1,7 @@
-package benchmark.summer;
+package com.github.dropguard.summer.benchmark;
 
-import summer.web.annotation.Get;
-import summer.web.annotation.RestController;
+import com.github.dropguard.summer.web.annotation.Get;
+import com.github.dropguard.summer.web.annotation.RestController;
 
 @RestController
 public class HealthController {

@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>summer</groupId>
+        <groupId>com.github.dropguard</groupId>
         <artifactId>summer-framework</artifactId>
         <version>0.1.0</version>
     </parent>
@@ -17,20 +17,20 @@
     <dependencies>
         <!-- Summer Core -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-core</artifactId>
             <version>${project.version}</version>
         </dependency>
 
             <!-- Summer Web (for HttpParameterResolver, annotations, web types) -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-web</artifactId>
             <version>${project.version}</version>
         </dependency>
         <!-- Summer Web HTTP (for router implementations in tests) -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-web-http</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
@@ -38,7 +38,7 @@
 
         <!-- Summer AOP (for ProxyFactory and MethodInterceptor) -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-aop</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -46,7 +46,7 @@
 
         <!-- Shared test fixtures -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-tck-fixtures</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>

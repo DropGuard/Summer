@@ -12,13 +12,13 @@
       parent is NOT part of the framework reactor.
     -->
     <parent>
-        <groupId>summer</groupId>
+        <groupId>com.github.dropguard</groupId>
         <artifactId>summer-starter-parent</artifactId>
         <version>0.1.0</version>
         <relativePath/>
     </parent>
 
-    <groupId>com.example.twitter</groupId>
+    <groupId>com.github.dropguard.summer.twitter</groupId>
     <artifactId>summer-twitter</artifactId>
     <version>0.1.0</version>
     <packaging>jar</packaging>
@@ -28,27 +28,27 @@
     <dependencies>
         <!-- Summer starters: core is pulled in transitively by each. -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-boot-starter-web</artifactId>
             <type>pom</type>
         </dependency>
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-boot-starter-data-jdbc</artifactId>
             <type>pom</type>
         </dependency>
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-boot-starter-data-redis</artifactId>
             <type>pom</type>
         </dependency>
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-boot-starter-websocket</artifactId>
             <type>pom</type>
         </dependency>
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-boot-starter-grpc</artifactId>
             <type>pom</type>
         </dependency>
@@ -108,7 +108,7 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-test</artifactId>
             <scope>test</scope>
         </dependency>
@@ -126,7 +126,7 @@
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>summer.twitter.Application</mainClass>
+                    <mainClass>com.github.dropguard.summer.twitter.Application</mainClass>
                     <arguments>
                         <argument>--aot</argument>
                     </arguments>
@@ -145,7 +145,7 @@
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>summer.twitter.Application</mainClass>
+                                    <mainClass>com.github.dropguard.summer.twitter.Application</mainClass>
                                 </transformer>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>

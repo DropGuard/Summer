@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>summer</groupId>
+        <groupId>com.github.dropguard</groupId>
         <artifactId>summer-framework</artifactId>
         <version>0.1.0</version>
     </parent>
@@ -29,28 +29,28 @@
 
         <!-- Summer Core (annotations, BeanContainer, exceptions, reflection-free config binding) -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-core</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <!-- Summer AOP (for interceptor analysis) -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-aop</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <!-- Summer Web (for route/controller annotation constants) -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-web</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <!-- Summer Data JDBC (for RowMapperFactory) -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-data-jdbc</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -66,8 +66,14 @@
              CrossModuleDiscoveryTest). Keeps fixture classes in one place
              instead of duplicated inline in this module's test tree. -->
         <dependency>
-            <groupId>summer</groupId>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-tck-fixtures</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-tck-negative-fixtures</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
@@ -78,7 +84,7 @@
             <!--
               JaCoCo: instruments this module's own tests (e.g.
               CrossModuleDiscoveryTest) so the hand-written AOT engine
-              (summer.aot.*) is measured directly, not only transitively
+              (com.github.dropguard.summer.aot.*) is measured directly, not only transitively
               through the TCK. prepare-agent is inherited from pluginManagement.
             -->
             <plugin>

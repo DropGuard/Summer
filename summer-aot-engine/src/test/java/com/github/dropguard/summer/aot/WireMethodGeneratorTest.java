@@ -1,0 +1,87 @@
+package com.github.dropguard.summer.aot;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import com.github.dropguard.summer.aot.testfixtures.Consumer;
+import com.github.dropguard.summer.aot.testfixtures.Dep;
+import com.github.dropguard.summer.aot.testfixtures.Service;
+import com.github.dropguard.summer.aot.testfixtures.ServiceA;
+import com.github.dropguard.summer.aot.testfixtures.ServiceB;
+import com.github.dropguard.summer.core.bean.BeanDefinition;
+import com.github.dropguard.summer.core.bean.InjectionParameter;
+import com.palantir.javapoet.CodeBlock;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Verifies that {@link WireMethodGenerator}'s constructor-argument emission
+ * reads each parameter's own resolved list directly — no positional cursor, no
+ * re-filtering by element type. The key regression this locks in: two
+ * {@code List<T>} parameters of the SAME element type must keep their own
+ * dependency slices, which the old cursor+filter approach could not guarantee.
+ */
+class WireMethodGeneratorTest {
+
+	private final WireMethodGenerator generator = new WireMethodGenerator();
+
+	private CodeBlock buildArgs(BeanDefinition bean) throws Exception {
+		Method m = WireMethodGenerator.class.getDeclaredMethod("buildConstructorArgs", BeanDefinition.class);
+		m.setAccessible(true);
+		return (CodeBlock) m.invoke(generator, bean);
+	}
+
+	private BeanDefinition dep(String name) {
+		BeanDefinition d = new BeanDefinition(name, name.substring(name.lastIndexOf('.') + 1));
+		d.variableName = Character.toLowerCase(d.simpleName.charAt(0)) + d.simpleName.substring(1);
+		return d;
+	}
+
+	@Test
+	void twoListsOfSameElementTypeKeepDistinctSlices() throws Exception {
+		BeanDefinition svcA = dep(ServiceA.class.getName());
+		BeanDefinition svcB = dep(ServiceB.class.getName());
+
+		BeanDefinition consumer = new BeanDefinition(Consumer.class.getName(), "Consumer");
+		// first List<Service> carries svcA, second List<Service> carries svcB
+		InjectionParameter first = new InjectionParameter("java.util.List<" + Service.class.getName() + ">",
+				new ArrayList<>(List.of(svcA)));
+		InjectionParameter second = new InjectionParameter("java.util.List<" + Service.class.getName() + ">",
+				new ArrayList<>(List.of(svcB)));
+		consumer.parameters.add(first);
+		consumer.parameters.add(second);
+
+		String args = buildArgs(consumer).toString();
+		// Each List emits its own slice: [svcA], [svcB] — not both lists getting
+		// the union, which a by-element-type re-filter would produce.
+		assertEquals("java.util.List.of(serviceA), java.util.List.of(serviceB)", args);
+	}
+
+	@Test
+	void emptyListEmitsEmptyListOf() throws Exception {
+		BeanDefinition consumer = new BeanDefinition(Consumer.class.getName(), "Consumer");
+		consumer.parameters
+				.add(new InjectionParameter("java.util.List<" + Service.class.getName() + ">", new ArrayList<>()));
+
+		assertEquals("java.util.List.of()", buildArgs(consumer).toString());
+	}
+
+	@Test
+	void beanContainerScalarEmitsNull() throws Exception {
+		BeanDefinition consumer = new BeanDefinition(Consumer.class.getName(), "Consumer");
+		consumer.parameters
+				.add(new InjectionParameter("com.github.dropguard.summer.core.BeanContainer", new ArrayList<>()));
+
+		assertEquals("null", buildArgs(consumer).toString());
+	}
+
+	@Test
+	void scalarDependencyEmitsVariableName() throws Exception {
+		BeanDefinition depBean = dep(Dep.class.getName());
+		BeanDefinition consumer = new BeanDefinition(Consumer.class.getName(), "Consumer");
+		consumer.parameters.add(new InjectionParameter(Dep.class.getName(), new ArrayList<>(List.of(depBean))));
+
+		assertEquals("dep", buildArgs(consumer).toString());
+	}
+}
