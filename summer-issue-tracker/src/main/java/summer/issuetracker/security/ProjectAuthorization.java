@@ -1,5 +1,7 @@
 package summer.issuetracker.security;
 
+import java.util.Objects;
+
 import summer.core.Component;
 import summer.issuetracker.common.BusinessException;
 import summer.issuetracker.issue.Issue;
@@ -100,7 +102,12 @@ public class ProjectAuthorization {
         if (isManagerOrLead(actorId, project)) {
             return;
         }
-        boolean owns = actorId == issue.assigneeId() || actorId == issue.reporterId();
+        // assigneeId is nullable (Long), so comparisons must be null-safe: a raw
+        // `actorId == issue.assigneeId()` would autounbox the null Long and throw
+        // NPE on an unassigned issue. Objects.equals also coerces the primitive
+        // actorId to Long, so the comparison is always box-safe.
+        boolean owns = Objects.equals(actorId, issue.assigneeId())
+                || Objects.equals(actorId, issue.reporterId());
         if (!owns) {
             throw BusinessException.forbidden(
                     "You can only " + action + " on issues assigned to or reported by you");

@@ -110,6 +110,13 @@ public class ProjectController {
 
     @Get("/api/projects/:id/members")
     public void members(HttpContext ctx, @PathParam("id") Long id) {
+        Project project = projectRepository.findById(id).orElseThrow(() -> BusinessException.notFound("Project"));
+        // Same resource-scoped read guard as get(): tenant isolation + membership,
+        // enforced here because ProjectRepository is hit directly (no proxied service).
+        User actor = userRepository.findById(SecurityContext.currentUserId())
+                .orElseThrow(() -> BusinessException.unauthorized("Unknown actor"));
+        authz.assertSameOrg(actor, project);
+        authz.assertCanAccess(actor, project);
         List<ProjectMember> members = projectRepository.findMembers(id);
         ctx.ok(members);
     }
