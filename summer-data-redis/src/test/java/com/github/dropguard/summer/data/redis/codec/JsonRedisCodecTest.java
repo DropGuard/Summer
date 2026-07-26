@@ -15,11 +15,9 @@ public class JsonRedisCodecTest {
 
 	@Test
 	public void testEncodeAndDecodeJavaRecordWithTime() {
-
-		ObjectMapper mapper = SummerObjectMapper
-				.create(m -> m.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule()));
-
-		JsonRedisCodec codec = new JsonRedisCodec(mapper);
+		// Relies on SummerObjectMapper.create() registering JavaTimeModule by
+		// default — no per-test module registration needed.
+		JsonRedisCodec codec = new JsonRedisCodec();
 
 		TestUserRecord original = new TestUserRecord("Alice", 25, LocalDateTime.of(2023, 10, 1, 12, 30));
 
@@ -30,10 +28,17 @@ public class JsonRedisCodecTest {
 		Object decoded = codec.decodeValue(encodedBytes);
 		assertNotNull(decoded);
 
-		TestUserRecord decodedUser = mapper.convertValue(decoded, TestUserRecord.class);
+		TestUserRecord decodedUser = codec.mapper().convertValue(decoded, TestUserRecord.class);
 
 		assertEquals("Alice", decodedUser.name());
 		assertEquals(25, decodedUser.age());
 		assertEquals(LocalDateTime.of(2023, 10, 1, 12, 30), decodedUser.registeredAt());
+	}
+
+	@Test
+	public void testMapperIsSharedViaAccessor() {
+		ObjectMapper mapper = SummerObjectMapper.create();
+		JsonRedisCodec codec = new JsonRedisCodec(mapper);
+		assertSame(mapper, codec.mapper());
 	}
 }

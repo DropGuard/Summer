@@ -6,77 +6,71 @@ import com.github.dropguard.summer.core.json.SummerObjectMapper;
 import com.github.dropguard.summer.data.redis.codec.JsonRedisCodec;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.ScriptOutputType;
+import io.lettuce.core.SetArgs;
 import io.lettuce.core.api.StatefulRedisConnection;
 import io.lettuce.core.api.sync.RedisCommands;
 
 /**
- * High-level Redis template that provides type-safe operations with explicit
- * type passing.
+ * Type-safe Redis operations with explicit type passing, built on Lettuce.
  *
- * <p>
- * This template wraps Lettuce's {@link RedisCommands} and uses Jackson for
- * serialization/deserialization. It supports both {@link Class} and
- * {@link TypeReference} for explicit type specification.
- * </p>
+ * <h3>Two construction modes</h3>
+ * <ul>
+ * <li><b>Lazy (preferred)</b> — bound to a {@link RedisClient} and a
+ * {@link JsonRedisCodec}. The network connection is opened on the first
+ * command, never at construction time, so a context can be assembled in an
+ * environment without a reachable Redis (unit tests, offline builds).
+ * Serialization is performed by the codec, which owns the single
+ * {@link ObjectMapper} shared with this template.</li>
+ * <li><b>Eager</b> — wrapped around an already-resolved {@link RedisCommands}
+ * handle (e.g. injected directly, or for tests). The connection and its codec
+ * are owned by the caller; this template is a thin, serialization-agnostic
+ * facade.</li>
+ * </ul>
  *
- * <h3>Connection model</h3>
+ * <h3>Serialization contract</h3> Every stored value is JSON. A missing key
+ * reads back as {@code null}; a {@code
+ * null} value is never written — remove a key with {@link #delete(String)}
+ * instead.
  *
- * <p>
- * When constructed from a {@link RedisClient} (the framework's default wiring),
- * the connection is opened <em>lazily</em> — on the first command — not at
- * container startup. This mirrors Quarkus' Redis client, which defers network
- * I/O until first use, so a context can be built in an environment without a
- * running Redis (e.g. unit tests that mock the template) without failing.
- * </p>
+ * <h3>Lifecycle</h3> In lazy mode the template is {@link AutoCloseable}; when
+ * the enclosing framework container closes, the underlying connection and
+ * client are released. In eager mode the caller owns the resources and this
+ * template's {@link #close()} is a no-op.
  *
- * <h3>Usage Examples</h3>
- *
- * <pre>
- * // 1. Simple type
- * UserCacheDTO user = redisTemplate.get("user:1", UserCacheDTO.class);
- *
- * // 2. Generic type with TypeReference
- * List<String> roles = redisTemplate.get("user:1:roles", new TypeReference<List<String>>() {
- * });
- *
- * // 3. Store value
- * redisTemplate.set("user:1", new UserCacheDTO(1L, "gemini", List.of("admin")));
- *
- * // 4. Store with expiration
- * redisTemplate.set("user:1", new UserCacheDTO(1L, "gemini", List.of("admin")), Duration.ofHours(1));
- * </pre>
- *
+ * @see JsonRedisCodec
  * @see SummerObjectMapper
  */
-public class SummerRedisTemplate {
+public class SummerRedisTemplate implements AutoCloseable {
 
 	private final ObjectMapper objectMapper;
-	// Eager path: a pre-built commands handle (e.g. injected directly, or for
-	// tests).
-	private volatile RedisCommands<String, Object> eagerCommands;
-	// Lazy path: the client is held and connected on first command.
+	// Eager mode: a pre-built commands handle (caller-owned connection/codec).
+	private final RedisCommands<String, Object> eagerCommands; // null in lazy mode
+	// Lazy mode: the client is held and connected on first command.
 	private final RedisClient client;
 	private final JsonRedisCodec codec;
 	private volatile StatefulRedisConnection<String, Object> connection;
+	private volatile boolean closed = false;
 
 	/**
-	 * Creates a new SummerRedisTemplate from an already-resolved commands handle.
+	 * Wraps an already-resolved commands handle. Serialization is the caller's
+	 * responsibility (the connection's codec decides it); this template uses a
+	 * standalone mapper only for in-memory type conversion.
 	 *
 	 * @param commands
-	 *            the Redis commands
+	 *            the Redis commands handle
 	 */
 	public SummerRedisTemplate(RedisCommands<String, Object> commands) {
 		this(commands, SummerObjectMapper.create());
 	}
 
 	/**
-	 * Creates a new SummerRedisTemplate from an already-resolved commands handle
-	 * with a custom ObjectMapper.
+	 * Wraps an already-resolved commands handle with an explicit mapper used for
+	 * in-memory type conversion.
 	 *
 	 * @param commands
-	 *            the Redis commands
+	 *            the Redis commands handle
 	 * @param objectMapper
-	 *            the ObjectMapper to use for serialization/deserialization
+	 *            mapper for converting decoded values to target types
 	 */
 	public SummerRedisTemplate(RedisCommands<String, Object> commands, ObjectMapper objectMapper) {
 		this.eagerCommands = commands;
@@ -86,9 +80,10 @@ public class SummerRedisTemplate {
 	}
 
 	/**
-	 * Creates a new SummerRedisTemplate bound to a {@link RedisClient}. The
-	 * connection is opened lazily on the first command, so building the bean does
-	 * not require a reachable Redis server.
+	 * Binds to a {@link RedisClient} and {@link JsonRedisCodec}. The connection is
+	 * opened lazily on the first command, so construction never requires a
+	 * reachable Redis server. The template shares the codec's {@link ObjectMapper}
+	 * as the single source of truth for (de)serialization.
 	 *
 	 * @param client
 	 *            the Lettuce Redis client
@@ -98,7 +93,8 @@ public class SummerRedisTemplate {
 	public SummerRedisTemplate(RedisClient client, JsonRedisCodec codec) {
 		this.client = client;
 		this.codec = codec;
-		this.objectMapper = SummerObjectMapper.create();
+		this.objectMapper = codec.mapper();
+		this.eagerCommands = null;
 	}
 
 	private RedisCommands<String, Object> commands() {
@@ -119,15 +115,15 @@ public class SummerRedisTemplate {
 	}
 
 	/**
-	 * Gets a value from Redis and deserializes it to the specified type.
+	 * Reads a value and deserializes it to the given type.
 	 *
-	 * @param <T>
-	 *            the target type
 	 * @param key
 	 *            the Redis key
 	 * @param type
 	 *            the target class
-	 * @return the deserialized value, or null if the key does not exist
+	 * @param <T>
+	 *            the target type
+	 * @return the value, or {@code null} if the key does not exist
 	 */
 	public <T> T get(String key, Class<T> type) {
 		Object value = commands().get(key);
@@ -138,15 +134,15 @@ public class SummerRedisTemplate {
 	}
 
 	/**
-	 * Gets a value from Redis and deserializes it to the specified generic type.
+	 * Reads a value and deserializes it to the given generic type.
 	 *
-	 * @param <T>
-	 *            the target type
 	 * @param key
 	 *            the Redis key
 	 * @param typeRef
-	 *            the TypeReference describing the target generic type
-	 * @return the deserialized value, or null if the key does not exist
+	 *            the target generic type
+	 * @param <T>
+	 *            the target type
+	 * @return the value, or {@code null} if the key does not exist
 	 */
 	public <T> T get(String key, TypeReference<T> typeRef) {
 		Object value = commands().get(key);
@@ -156,91 +152,94 @@ public class SummerRedisTemplate {
 		return objectMapper.convertValue(value, typeRef);
 	}
 
-	/**
-	 * Gets a raw value from Redis without deserialization.
-	 *
-	 * @param key
-	 *            the Redis key
-	 * @return the raw value, or null if the key does not exist
-	 */
+	/** Reads a value without conversion. {@code null} if the key is absent. */
 	public Object getRaw(String key) {
 		return commands().get(key);
 	}
 
 	/**
-	 * Sets a value in Redis.
+	 * Stores a value as JSON.
 	 *
 	 * @param key
 	 *            the Redis key
 	 * @param value
-	 *            the value to store
+	 *            the value to store (must not be {@code null})
+	 * @throws IllegalArgumentException
+	 *             if {@code value} is {@code null}
 	 */
 	public void set(String key, Object value) {
+		requireNonNullValue(value);
 		commands().set(key, value);
 	}
 
 	/**
-	 * Sets a value in Redis with expiration.
+	 * Stores a value as JSON with a time-to-live.
 	 *
 	 * @param key
 	 *            the Redis key
 	 * @param value
-	 *            the value to store
+	 *            the value to store (must not be {@code null})
 	 * @param ttl
-	 *            the time-to-live duration
+	 *            the time-to-live; honored at millisecond precision
+	 * @throws IllegalArgumentException
+	 *             if {@code value} is {@code null}
 	 */
 	public void set(String key, Object value, java.time.Duration ttl) {
-		commands().setex(key, ttl.getSeconds(), value);
+		requireNonNullValue(value);
+		commands().set(key, value, SetArgs.Builder.px(ttl.toMillis()));
 	}
 
 	/**
-	 * Deletes a key from Redis.
+	 * Removes a key.
 	 *
 	 * @param key
 	 *            the Redis key
-	 * @return true if the key was deleted, false if it did not exist
+	 * @return {@code true} if the key existed and was removed
 	 */
 	public boolean delete(String key) {
 		return commands().del(key) > 0;
 	}
 
 	/**
-	 * Checks if a key exists in Redis.
+	 * Checks whether a key exists.
 	 *
 	 * @param key
 	 *            the Redis key
-	 * @return true if the key exists, false otherwise
+	 * @return {@code true} if the key exists
 	 */
 	public boolean exists(String key) {
 		return commands().exists(key) > 0;
 	}
 
 	/**
-	 * Sets the expiration time for a key.
+	 * Sets the time-to-live of an existing key, at millisecond precision.
 	 *
 	 * @param key
 	 *            the Redis key
 	 * @param ttl
-	 *            the time-to-live duration
-	 * @return true if the timeout was set, false if the key does not exist
+	 *            the new time-to-live
+	 * @return {@code true} if the timeout was set (i.e. the key exists)
 	 */
 	public boolean expire(String key, java.time.Duration ttl) {
-		return commands().expire(key, ttl.getSeconds());
+		return Boolean.TRUE.equals(commands().pexpire(key, ttl.toMillis()));
 	}
 
 	/**
-	 * Gets the underlying Redis commands for advanced operations.
+	 * Advanced operations escape hatch. Returns the underlying sync commands for
+	 * callers needing commands beyond the typed single-key API (e.g. sorted-set
+	 * fan-out). The returned handle shares this template's codec, so values are
+	 * serialized with the same JSON contract.
 	 *
-	 * @return the Redis commands
+	 * @return the sync Redis commands
 	 */
 	public RedisCommands<String, Object> getCommands() {
 		return commands();
 	}
 
 	/**
-	 * Executes a Lua script with the supplied keys and arguments. Exposed for
-	 * callers that need atomic, server-side execution (e.g. a compare-and-decr
-	 * flash-sale loop) beyond the typed single-key operations above.
+	 * Executes a Lua script atomically on the server. Exposed for operations that
+	 * need compare-and-act semantics (e.g. a flash-sale decrement) beyond the typed
+	 * single-key API.
 	 *
 	 * @param <T>
 	 *            the script return type
@@ -249,21 +248,48 @@ public class SummerRedisTemplate {
 	 * @param type
 	 *            the expected output type
 	 * @param keys
-	 *            the Redis keys referenced by {@code KEYS[n]}
+	 *            keys referenced by {@code KEYS[n]}
 	 * @param args
 	 *            additional script arguments
-	 * @return the script result, or null if absent
+	 * @return the script result, or {@code null} if absent
 	 */
 	public <T> T eval(String script, ScriptOutputType type, String[] keys, String... args) {
 		return commands().eval(script, type, keys, args);
 	}
 
-	/**
-	 * Gets the ObjectMapper used for serialization/deserialization.
-	 *
-	 * @return the ObjectMapper
-	 */
+	/** The {@link ObjectMapper} used for value (de)serialization. */
 	public ObjectMapper getObjectMapper() {
 		return objectMapper;
+	}
+
+	private static void requireNonNullValue(Object value) {
+		if (value == null) {
+			throw new IllegalArgumentException("Cannot store null in Redis; remove a key with delete(key) instead.");
+		}
+	}
+
+	/**
+	 * Releases the underlying connection and client in lazy mode. In eager mode the
+	 * caller owns the resources, so this is a no-op. Safe to call multiple times.
+	 */
+	@Override
+	public void close() {
+		if (closed) {
+			return;
+		}
+		synchronized (this) {
+			if (closed) {
+				return;
+			}
+			StatefulRedisConnection<String, Object> conn = connection;
+			if (conn != null) {
+				conn.close();
+				connection = null;
+			}
+			if (client != null) {
+				client.shutdown();
+			}
+			closed = true;
+		}
 	}
 }

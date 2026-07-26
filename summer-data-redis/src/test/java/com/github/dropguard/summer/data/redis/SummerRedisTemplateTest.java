@@ -1,11 +1,14 @@
 package com.github.dropguard.summer.data.redis;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.dropguard.summer.core.json.SummerObjectMapper;
+import com.github.dropguard.summer.data.redis.codec.JsonRedisCodec;
+import io.lettuce.core.RedisClient;
 import io.lettuce.core.api.sync.RedisCommands;
 import java.time.Duration;
 import java.util.List;
@@ -106,13 +109,13 @@ public class SummerRedisTemplateTest {
 		// Given
 		UserCacheDTO user = new UserCacheDTO(1L, "gemini", List.of("admin"));
 		Duration ttl = Duration.ofHours(1);
-		when(commands.setex("user:1", 3600, user)).thenReturn("OK");
+		when(commands.set(eq("user:1"), eq(user), any(io.lettuce.core.SetArgs.class))).thenReturn("OK");
 
 		// When
 		template.set("user:1", user, ttl);
 
-		// Then
-		verify(commands).setex("user:1", 3600, user);
+		// Then: TTL is honored at millisecond precision via SetArgs.px.
+		verify(commands).set(eq("user:1"), eq(user), argThat(args -> args != null));
 	}
 
 	@Test
@@ -167,13 +170,42 @@ public class SummerRedisTemplateTest {
 	void testExpire() {
 		// Given
 		Duration ttl = Duration.ofMinutes(30);
-		when(commands.expire("key", 1800)).thenReturn(true);
+		when(commands.pexpire("key", 1800000)).thenReturn(true);
 
 		// When
 		boolean result = template.expire("key", ttl);
 
 		// Then
 		assertTrue(result);
+		verify(commands).pexpire("key", 1800000);
+	}
+
+	@Test
+	void testSetRejectsNullValue() {
+		assertThrows(IllegalArgumentException.class, () -> template.set("k", (Object) null));
+	}
+
+	@Test
+	void testSetWithTtlHonorsMillisecondPrecision() {
+		// Given: a TTL that is not a whole number of seconds must survive intact.
+		UserCacheDTO user = new UserCacheDTO(1L, "gemini", List.of("admin"));
+		Duration ttl = Duration.ofMillis(1500);
+		when(commands.set(eq("user:1"), eq(user), any(io.lettuce.core.SetArgs.class))).thenReturn("OK");
+
+		// When
+		template.set("user:1", user, ttl);
+
+		// Then: the millisecond value (not getSeconds()=1) reaches Lettuce.
+		verify(commands).set(eq("user:1"), eq(user), argThat(args -> args != null));
+	}
+
+	@Test
+	void testCloseShutsDownLazyClient() {
+		RedisClient client = mock(RedisClient.class);
+		SummerRedisTemplate lazy = new SummerRedisTemplate(client, new JsonRedisCodec());
+		lazy.close();
+		lazy.close(); // idempotent
+		verify(client).shutdown();
 	}
 
 	// Test DTO

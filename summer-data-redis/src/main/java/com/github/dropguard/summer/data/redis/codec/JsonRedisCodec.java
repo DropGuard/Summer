@@ -8,6 +8,22 @@ import io.lettuce.core.codec.RedisCodec;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 
+/**
+ * Redis codec that (de)serializes values as JSON using Jackson.
+ *
+ * <p>
+ * The codec is the <em>single</em> owner of the {@link ObjectMapper} used for
+ * Redis value (de)serialization. Callers that also need to convert a decoded
+ * value into a concrete type (e.g. {@code SummerRedisTemplate.get(key, Class)})
+ * must obtain this same mapper via {@link #mapper()} — never construct a second
+ * one. Two independently-created mappers would drift apart the moment either is
+ * customized, silently breaking round-trips.
+ *
+ * <p>
+ * Null handling is explicit: a missing/absent value decodes to {@code null}.
+ * The codec never stores a JSON {@code null} for a value — callers remove keys
+ * with {@code delete} instead.
+ */
 public class JsonRedisCodec implements RedisCodec<String, Object> {
 
 	private final ObjectMapper mapper;
@@ -18,6 +34,11 @@ public class JsonRedisCodec implements RedisCodec<String, Object> {
 
 	public JsonRedisCodec(ObjectMapper mapper) {
 		this.mapper = mapper;
+	}
+
+	/** The single {@link ObjectMapper} this codec uses for (de)serialization. */
+	public ObjectMapper mapper() {
+		return mapper;
 	}
 
 	@Override

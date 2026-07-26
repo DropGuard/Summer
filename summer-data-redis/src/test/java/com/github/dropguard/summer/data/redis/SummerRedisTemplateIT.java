@@ -109,6 +109,32 @@ public class SummerRedisTemplateIT {
 	}
 
 	@Test
+	void testSetWithSubSecondTtlExpiresAtMillisecondPrecision() {
+		// Given: a TTL that is not a whole number of seconds.
+		UserCacheDTO user = new UserCacheDTO(3L, "ephemeral", List.of("guest"));
+		Duration ttl = Duration.ofMillis(400);
+
+		// When
+		template.set("test:user:short", user, ttl);
+
+		// Then: still readable immediately after write.
+		assertNotNull(template.get("test:user:short", UserCacheDTO.class));
+
+		// Wait past the millisecond TTL (but well under a second).
+		try {
+			Thread.sleep(700);
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+		}
+		assertNull(template.get("test:user:short", UserCacheDTO.class));
+	}
+
+	@Test
+	void testRejectsNullValue() {
+		assertThrows(IllegalArgumentException.class, () -> template.set("test:null", (Object) null));
+	}
+
+	@Test
 	void testDelete() {
 		// Given
 		template.set("test:delete:key", "value");
