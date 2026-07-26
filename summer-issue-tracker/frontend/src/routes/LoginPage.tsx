@@ -1,53 +1,53 @@
-import { useState } from 'react';
+import { useEffect, useActionState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useLogin } from '@/api/auth';
+import { loginAction, type AuthFormState } from '@/api/auth';
 import { useAuthStore } from '@/stores/authStore';
 
+const initialState: AuthFormState = { ok: false };
+
 export default function LoginPage() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const login = useLogin();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const [state, formAction, isPending] = useActionState(loginAction, initialState);
   const navigate = useNavigate();
 
-  if (isAuthenticated()) {
-    navigate('/', { replace: true });
-  }
+  // Redirect after a successful submit (state-driven, not during render).
+  useEffect(() => {
+    if (state.ok) navigate('/', { replace: true });
+  }, [state.ok, navigate]);
+
+  // Already signed in? Bounce to the board.
+  useEffect(() => {
+    if (useAuthStore.getState().isAuthenticated()) navigate('/', { replace: true });
+  }, [navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <form
+        action={formAction}
         className="bg-white p-8 rounded-lg shadow w-96 space-y-4"
-        onSubmit={(e) => {
-          e.preventDefault();
-          login.mutate(
-            { username, password },
-            { onSuccess: () => navigate('/') },
-          );
-        }}
       >
         <h1 className="text-xl font-bold text-slate-800">Sign in</h1>
         <input
           className="w-full border border-slate-300 rounded px-3 py-2"
+          name="username"
           placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          defaultValue=""
         />
         <input
           className="w-full border border-slate-300 rounded px-3 py-2"
           type="password"
+          name="password"
           placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
+          defaultValue=""
         />
         <button
           className="w-full bg-slate-800 text-white rounded py-2 disabled:opacity-50"
-          disabled={login.isPending}
+          type="submit"
+          disabled={isPending}
         >
-          {login.isPending ? 'Signing in…' : 'Sign in'}
+          {isPending ? 'Signing in…' : 'Sign in'}
         </button>
-        {login.isError && (
-          <p className="text-red-600 text-sm">Invalid username or password.</p>
+        {state.error && (
+          <p className="text-red-600 text-sm">{state.error}</p>
         )}
         <p className="text-sm text-slate-500">
           No account?{' '}

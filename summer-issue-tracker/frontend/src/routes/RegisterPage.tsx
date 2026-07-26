@@ -1,29 +1,27 @@
-import { useState } from 'react';
+import { useEffect, useActionState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useRegister } from '@/api/auth';
+import { registerAction, type AuthFormState } from '@/api/auth';
+import { useAuthStore } from '@/stores/authStore';
+
+const initialState: AuthFormState = { ok: false };
 
 export default function RegisterPage() {
-  const [form, setForm] = useState({
-    username: '',
-    displayName: '',
-    email: '',
-    password: '',
-    orgName: '',
-    orgSlug: '',
-  });
-  const register = useRegister();
+  const [state, formAction, isPending] = useActionState(registerAction, initialState);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (state.ok) navigate('/', { replace: true });
+  }, [state.ok, navigate]);
+
+  useEffect(() => {
+    if (useAuthStore.getState().isAuthenticated()) navigate('/', { replace: true });
+  }, [navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <form
+        action={formAction}
         className="bg-white p-8 rounded-lg shadow w-96 space-y-3"
-        onSubmit={(e) => {
-          e.preventDefault();
-          register.mutate(form, {
-            onSuccess: () => navigate('/'),
-          });
-        }}
       >
         <h1 className="text-xl font-bold text-slate-800">Create account</h1>
         <p className="text-xs text-slate-500">
@@ -31,49 +29,50 @@ export default function RegisterPage() {
         </p>
         <input
           className="w-full border border-slate-300 rounded px-3 py-2"
+          name="username"
           placeholder="Username"
-          value={form.username}
-          onChange={(e) => setForm({ ...form, username: e.target.value })}
+          defaultValue=""
         />
         <input
           className="w-full border border-slate-300 rounded px-3 py-2"
+          name="displayName"
           placeholder="Display name"
-          value={form.displayName}
-          onChange={(e) => setForm({ ...form, displayName: e.target.value })}
+          defaultValue=""
         />
         <input
           className="w-full border border-slate-300 rounded px-3 py-2"
+          name="email"
           placeholder="Email"
-          value={form.email}
-          onChange={(e) => setForm({ ...form, email: e.target.value })}
+          defaultValue=""
         />
         <input
           className="w-full border border-slate-300 rounded px-3 py-2"
           type="password"
+          name="password"
           placeholder="Password"
-          value={form.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
+          defaultValue=""
         />
         <input
           className="w-full border border-slate-300 rounded px-3 py-2"
+          name="orgName"
           placeholder="Organization name"
-          value={form.orgName}
-          onChange={(e) => setForm({ ...form, orgName: e.target.value })}
+          defaultValue=""
         />
         <input
           className="w-full border border-slate-300 rounded px-3 py-2"
+          name="orgSlug"
           placeholder="Organization slug"
-          value={form.orgSlug}
-          onChange={(e) => setForm({ ...form, orgSlug: e.target.value })}
+          defaultValue=""
         />
         <button
           className="w-full bg-slate-800 text-white rounded py-2 disabled:opacity-50"
-          disabled={register.isPending}
+          type="submit"
+          disabled={isPending}
         >
-          {register.isPending ? 'Creating…' : 'Register'}
+          {isPending ? 'Creating…' : 'Register'}
         </button>
-        {register.isError && (
-          <p className="text-red-600 text-sm">Registration failed. Try a different username.</p>
+        {state.error && (
+          <p className="text-red-600 text-sm">{state.error}</p>
         )}
         <p className="text-sm text-slate-500">
           Have an account?{' '}
