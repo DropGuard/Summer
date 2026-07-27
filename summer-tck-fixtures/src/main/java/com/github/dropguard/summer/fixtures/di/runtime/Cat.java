@@ -4,8 +4,8 @@ import com.github.dropguard.summer.core.Component;
 
 @Component
 public class Cat implements Animal {
-	@Override
-	public String sound() {
-		return "meow";
-	}
+    @Override
+    public String sound() {
+        return "meow";
+    }
 }

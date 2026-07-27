@@ -5,11 +5,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Binds a method parameter to a path variable.
- */
+/** Binds a method parameter to a path variable. */
 @Target(ElementType.PARAMETER)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface PathParam {
-	String value();
+    String value();
 }

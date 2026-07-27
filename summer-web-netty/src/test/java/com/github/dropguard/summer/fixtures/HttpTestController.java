@@ -7,8 +7,8 @@ import com.github.dropguard.summer.web.annotation.RestController;
 
 @RestController("/test")
 public class HttpTestController {
-	@Get("/hello")
-	public void hello(HttpContext ctx) {
-		ctx.text(HttpStatus.OK, "world");
-	}
+    @Get("/hello")
+    public void hello(HttpContext ctx) {
+        ctx.text(HttpStatus.OK, "world");
+    }
 }

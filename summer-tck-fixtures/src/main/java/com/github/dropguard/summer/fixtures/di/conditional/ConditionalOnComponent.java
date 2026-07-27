@@ -5,5 +5,4 @@ import com.github.dropguard.summer.core.annotation.ConditionalOnBean;
 
 @Component
 @ConditionalOnBean(RequiredComponent.class)
-public class ConditionalOnComponent {
-}
+public class ConditionalOnComponent {}

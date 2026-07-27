@@ -5,11 +5,8 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Test-purpose interceptor binding for verifying AOP behavior.
- */
+/** Test-purpose interceptor binding for verifying AOP behavior. */
 @InterceptorBinding
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface TestIntercepted {
-}
+public @interface TestIntercepted {}

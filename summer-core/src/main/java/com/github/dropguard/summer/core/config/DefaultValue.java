@@ -6,14 +6,12 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Declares a default value for a {@link ConfigurationProperties} record
- * component. The value is applied when the property is <em>unbound</em> —
- * i.e.&nbsp;the key is absent from the configuration map.
+ * Declares a default value for a {@link ConfigurationProperties} record component. The value is
+ * applied when the property is <em>unbound</em> — i.e.&nbsp;the key is absent from the
+ * configuration map.
  *
- * <p>
- * The {@link #value()} is always a {@code String}; it is parsed to the
- * component's type at bind time.
- * </p>
+ * <p>The {@link #value()} is always a {@code String}; it is parsed to the component's type at bind
+ * time.
  *
  * <pre>{@code
  * @ConfigurationProperties(prefix = "server")
@@ -24,11 +22,10 @@ import java.lang.annotation.Target;
 @Target(ElementType.RECORD_COMPONENT)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface DefaultValue {
-	/**
-	 * The default value, expressed as a string. Parsed to the record component's
-	 * declared type (supports {@code String}, {@code int}, {@code long},
-	 * {@code boolean}, {@code double}, {@code float}, {@code short}, {@code byte}
-	 * and their boxed counterparts).
-	 */
-	String value();
+    /**
+     * The default value, expressed as a string. Parsed to the record component's declared type
+     * (supports {@code String}, {@code int}, {@code long}, {@code boolean}, {@code double}, {@code
+     * float}, {@code short}, {@code byte} and their boxed counterparts).
+     */
+    String value();
 }

@@ -1,12 +1,10 @@
 package com.github.dropguard.summer.web;
 
 /**
- * Middleware interface for authentication. Implementations resolve the current
- * user's ID from the request and store it as a request attribute.
+ * Middleware interface for authentication. Implementations resolve the current user's ID from the
+ * request and store it as a request attribute.
  *
- * <p>
- * Usage:
- * </p>
+ * <p>Usage:
  *
  * <pre>
  * {
@@ -39,35 +37,32 @@ package com.github.dropguard.summer.web;
  */
 public interface AuthMiddleware extends Middleware {
 
-	/**
-	 * Resolves the current user's ID from the request.
-	 *
-	 * @param ctx
-	 *            the web context
-	 * @return the user ID, or {@code null} if not authenticated
-	 */
-	Long authenticate(HttpContext ctx);
+    /**
+     * Resolves the current user's ID from the request.
+     *
+     * @param ctx the web context
+     * @return the user ID, or {@code null} if not authenticated
+     */
+    Long authenticate(HttpContext ctx);
 
-	/**
-	 * Applies authentication: calls {@link #authenticate(HttpContext)} and stores
-	 * the result as a request attribute named "userId".
-	 *
-	 * <p>
-	 * If authentication fails (returns null), the attribute is not set. The handler
-	 * is responsible for checking and returning 401 if needed.
-	 * </p>
-	 */
-	@Override
-	default Handler apply(Handler handler) {
-		return ctx -> {
-			Long userId = authenticate(ctx);
-			if (userId != null) {
-				ctx.request().setAttribute(RequestAttributes.USER_ID, userId);
-				// Publish the authenticated context so services and AOP interceptors
-				// can read the current user without it being threaded as a parameter.
-				RequestContextHolder.set(new RequestContext(ctx.request(), userId));
-			}
-			handler.handle(ctx);
-		};
-	}
+    /**
+     * Applies authentication: calls {@link #authenticate(HttpContext)} and stores the result as a
+     * request attribute named "userId".
+     *
+     * <p>If authentication fails (returns null), the attribute is not set. The handler is
+     * responsible for checking and returning 401 if needed.
+     */
+    @Override
+    default Handler apply(Handler handler) {
+        return ctx -> {
+            Long userId = authenticate(ctx);
+            if (userId != null) {
+                ctx.request().setAttribute(RequestAttributes.USER_ID, userId);
+                // Publish the authenticated context so services and AOP interceptors
+                // can read the current user without it being threaded as a parameter.
+                RequestContextHolder.set(new RequestContext(ctx.request(), userId));
+            }
+            handler.handle(ctx);
+        };
+    }
 }

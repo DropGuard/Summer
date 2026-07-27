@@ -10,21 +10,23 @@ import org.junit.jupiter.api.Test;
 
 class ExceptionHandlerTest {
 
-	@Test
-	void registryResolvesByExceptionType() {
-		ExceptionRegistry registry = new ExceptionRegistry();
-		registry.register(IllegalArgumentException.class, ctx -> {
-			ctx.text(HttpStatus.BAD_REQUEST, "bad request");
-		});
+    @Test
+    void registryResolvesByExceptionType() {
+        ExceptionRegistry registry = new ExceptionRegistry();
+        registry.register(
+                IllegalArgumentException.class,
+                ctx -> {
+                    ctx.text(HttpStatus.BAD_REQUEST, "bad request");
+                });
 
-		Handler handler = registry.getHandler(new IllegalArgumentException("test"));
-		assertNotNull(handler);
-	}
+        Handler handler = registry.getHandler(new IllegalArgumentException("test"));
+        assertNotNull(handler);
+    }
 
-	@Test
-	void registryReturnsNullForUnknown() {
-		ExceptionRegistry registry = new ExceptionRegistry();
-		Handler handler = registry.getHandler(new RuntimeException("unknown"));
-		assertNull(handler);
-	}
+    @Test
+    void registryReturnsNullForUnknown() {
+        ExceptionRegistry registry = new ExceptionRegistry();
+        Handler handler = registry.getHandler(new RuntimeException("unknown"));
+        assertNull(handler);
+    }
 }

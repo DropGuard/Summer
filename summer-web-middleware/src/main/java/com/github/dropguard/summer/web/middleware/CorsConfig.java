@@ -6,9 +6,7 @@ import com.github.dropguard.summer.core.config.DefaultValue;
 /**
  * CORS configuration bound from {@code application.yml}.
  *
- * <p>
- * Example YAML:
- * </p>
+ * <p>Example YAML:
  *
  * <pre>{@code
  * cors:
@@ -18,17 +16,14 @@ import com.github.dropguard.summer.core.config.DefaultValue;
  *   max-age: 3600
  * }</pre>
  *
- * @param allowedOrigins
- *            the allowed origins (comma-separated or "*" for all)
- * @param allowedMethods
- *            the allowed HTTP methods
- * @param allowedHeaders
- *            the allowed request headers
- * @param maxAge
- *            the max age in seconds for preflight cache
+ * @param allowedOrigins the allowed origins (comma-separated or "*" for all)
+ * @param allowedMethods the allowed HTTP methods
+ * @param allowedHeaders the allowed request headers
+ * @param maxAge the max age in seconds for preflight cache
  */
 @ConfigurationProperties(prefix = "cors")
-public record CorsConfig(@DefaultValue("*") String allowedOrigins,
-		@DefaultValue("GET, POST, PUT, DELETE, OPTIONS") String allowedMethods,
-		@DefaultValue("Content-Type, Authorization") String allowedHeaders, @DefaultValue("3600") Integer maxAge) {
-}
+public record CorsConfig(
+        @DefaultValue("*") String allowedOrigins,
+        @DefaultValue("GET, POST, PUT, DELETE, OPTIONS") String allowedMethods,
+        @DefaultValue("Content-Type, Authorization") String allowedHeaders,
+        @DefaultValue("3600") Integer maxAge) {}

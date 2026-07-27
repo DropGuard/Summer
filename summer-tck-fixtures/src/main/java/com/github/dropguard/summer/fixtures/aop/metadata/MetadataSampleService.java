@@ -2,11 +2,11 @@ package com.github.dropguard.summer.fixtures.aop.metadata;
 
 public interface MetadataSampleService {
 
-	@MetadataTagged
-	String taggedMethod();
+    @MetadataTagged
+    String taggedMethod();
 
-	String plainMethod();
+    String plainMethod();
 
-	@MetadataTagged
-	String taggedWithArg(String arg);
+    @MetadataTagged
+    String taggedWithArg(String arg);
 }

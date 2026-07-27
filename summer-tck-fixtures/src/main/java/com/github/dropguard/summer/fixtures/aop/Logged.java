@@ -9,13 +9,9 @@ import java.lang.annotation.Target;
 /**
  * Test-purpose interceptor binding for verifying AOP behavior.
  *
- * <p>
- * Can be placed on a method (intercept that method only) or on a class
- * (intercept all methods).
- * </p>
+ * <p>Can be placed on a method (intercept that method only) or on a class (intercept all methods).
  */
 @InterceptorBinding
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface Logged {
-}
+public @interface Logged {}

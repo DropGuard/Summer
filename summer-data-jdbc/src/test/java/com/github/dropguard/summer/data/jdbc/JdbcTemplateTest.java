@@ -20,193 +20,198 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Unit tests for JdbcTemplate boundary cases.
- * 
- * <p>
- * Integration tests (CRUD flows) are in summer-tck/AbstractJdbcTemplateTCK.
- * This class focuses on edge cases and error wrapping that TCK doesn't cover.
- * </p>
+ *
+ * <p>Integration tests (CRUD flows) are in summer-tck/AbstractJdbcTemplateTCK. This class focuses
+ * on edge cases and error wrapping that TCK doesn't cover.
  */
 @ExtendWith(MockitoExtension.class)
 class JdbcTemplateTest {
 
-	@Mock
-	private DataSource dataSource;
-	@Mock
-	private Connection connection;
-	@Mock
-	private PreparedStatement preparedStatement;
-	@Mock
-	private ResultSet resultSet;
+    @Mock private DataSource dataSource;
+    @Mock private Connection connection;
+    @Mock private PreparedStatement preparedStatement;
+    @Mock private ResultSet resultSet;
 
-	private JdbcTemplate jdbcTemplate;
+    private JdbcTemplate jdbcTemplate;
 
-	@BeforeEach
-	void setUp() throws SQLException {
-		jdbcTemplate = new JdbcTemplate(dataSource);
-		jdbcTemplate.registerMapper(TestRow.class, (rs, rowNum) -> new TestRow(rs.getInt("id"), rs.getString("name")));
+    @BeforeEach
+    void setUp() throws SQLException {
+        jdbcTemplate = new JdbcTemplate(dataSource);
+        jdbcTemplate.registerMapper(
+                TestRow.class, (rs, rowNum) -> new TestRow(rs.getInt("id"), rs.getString("name")));
 
-		lenient().when(dataSource.getConnection()).thenReturn(connection);
-		lenient().when(connection.prepareStatement(anyString())).thenReturn(preparedStatement);
-	}
+        lenient().when(dataSource.getConnection()).thenReturn(connection);
+        lenient().when(connection.prepareStatement(anyString())).thenReturn(preparedStatement);
+    }
 
-	// ---- setParameters boundary cases ----
+    // ---- setParameters boundary cases ----
 
-	@Nested
-	@DisplayName("setParameters edge cases")
-	class SetParametersTests {
+    @Nested
+    @DisplayName("setParameters edge cases")
+    class SetParametersTests {
 
-		@Test
+        @Test
         @DisplayName("null args array should not throw")
         void nullArgsArrayDoesNotThrow() throws SQLException {
             when(preparedStatement.executeUpdate()).thenReturn(1);
-            
+
             // setParameters has if (args != null) guard
-            assertDoesNotThrow(() -> jdbcTemplate.update("INSERT INTO t VALUES (?)", (Object[]) null));
-            
+            assertDoesNotThrow(
+                    () -> jdbcTemplate.update("INSERT INTO t VALUES (?)", (Object[]) null));
+
             verify(preparedStatement, never()).setObject(anyInt(), any());
         }
 
-		@Test
+        @Test
         @DisplayName("empty args array should not throw")
         void emptyArgsArrayDoesNotThrow() throws SQLException {
             when(preparedStatement.executeUpdate()).thenReturn(1);
-            
+
             assertDoesNotThrow(() -> jdbcTemplate.update("INSERT INTO t VALUES (1)"));
-            
+
             verify(preparedStatement, never()).setObject(anyInt(), any());
         }
 
-		@Test
+        @Test
         @DisplayName("parameters set with 1-based index")
         void parametersSetWithOneBasedIndex() throws SQLException {
             when(preparedStatement.executeUpdate()).thenReturn(1);
-            
+
             jdbcTemplate.update("INSERT INTO t (a, b) VALUES (?, ?)", "foo", 42);
-            
+
             verify(preparedStatement).setObject(1, "foo");
             verify(preparedStatement).setObject(2, 42);
         }
-	}
+    }
 
-	// ---- Connection failure wrapping ----
+    // ---- Connection failure wrapping ----
 
-	@Nested
-	@DisplayName("Connection failure handling")
-	class ConnectionFailureTests {
+    @Nested
+    @DisplayName("Connection failure handling")
+    class ConnectionFailureTests {
 
-		@Test
+        @Test
         @DisplayName("getConnection failure wrapped as DataAccessException")
         void getConnectionFailureWrapped() throws SQLException {
             when(dataSource.getConnection()).thenThrow(new SQLException("Connection refused"));
-            
-            DataAccessException ex = assertThrows(DataAccessException.class,
-                () -> jdbcTemplate.update("INSERT INTO t VALUES (1)"));
-            
+
+            DataAccessException ex =
+                    assertThrows(
+                            DataAccessException.class,
+                            () -> jdbcTemplate.update("INSERT INTO t VALUES (1)"));
+
             assertEquals("Error executing update", ex.getMessage());
             assertInstanceOf(SQLException.class, ex.getCause());
         }
 
-		@Test
+        @Test
         @DisplayName("prepareStatement failure wrapped as DataAccessException")
         void prepareStatementFailureWrapped() throws SQLException {
             when(connection.prepareStatement(anyString()))
-                .thenThrow(new SQLException("Syntax error"));
-            
-            DataAccessException ex = assertThrows(DataAccessException.class,
-                () -> jdbcTemplate.update("BAD SQL"));
-            
+                    .thenThrow(new SQLException("Syntax error"));
+
+            DataAccessException ex =
+                    assertThrows(DataAccessException.class, () -> jdbcTemplate.update("BAD SQL"));
+
             assertEquals("Error executing update", ex.getMessage());
         }
 
-		@Test
+        @Test
         @DisplayName("queryForList connection failure wrapped as DataAccessException")
         void queryConnectionFailureWrapped() throws SQLException {
             when(dataSource.getConnection()).thenThrow(new SQLException("Timeout"));
-            
-            assertThrows(DataAccessException.class,
-                () -> jdbcTemplate.queryForList("SELECT * FROM t", TestRow.class));
+
+            assertThrows(
+                    DataAccessException.class,
+                    () -> jdbcTemplate.queryForList("SELECT * FROM t", TestRow.class));
         }
-	}
+    }
 
-	// ---- queryForObject edge cases ----
+    // ---- queryForObject edge cases ----
 
-	@Nested
-	@DisplayName("queryForObject edge cases")
-	class QueryForObjectTests {
+    @Nested
+    @DisplayName("queryForObject edge cases")
+    class QueryForObjectTests {
 
-		@Test
+        @Test
         @DisplayName("multiple rows throws DataAccessException")
         void multipleRowsThrowsDataAccessException() throws SQLException {
             when(preparedStatement.executeQuery()).thenReturn(resultSet);
             when(resultSet.next()).thenReturn(true, true, false);
             when(resultSet.getInt("id")).thenReturn(1, 2);
             when(resultSet.getString("name")).thenReturn("Alice", "Bob");
-            
-            DataAccessException ex = assertThrows(DataAccessException.class,
-                () -> jdbcTemplate.queryForObject("SELECT * FROM t", TestRow.class));
-            
+
+            DataAccessException ex =
+                    assertThrows(
+                            DataAccessException.class,
+                            () -> jdbcTemplate.queryForObject("SELECT * FROM t", TestRow.class));
+
             assertEquals("Query returned more than one row", ex.getMessage());
         }
-	}
+    }
 
-	// ---- RowMapper exception propagation ----
+    // ---- RowMapper exception propagation ----
 
-	@Nested
-	@DisplayName("RowMapper exception handling")
-	class RowMapperExceptionTests {
+    @Nested
+    @DisplayName("RowMapper exception handling")
+    class RowMapperExceptionTests {
 
-		@Test
+        @Test
         @DisplayName("SQLException from RowMapper propagated as DataAccessException")
         void rowMapperSqlExceptionWrapped() throws SQLException {
             when(preparedStatement.executeQuery()).thenReturn(resultSet);
             when(resultSet.next()).thenReturn(true);
-            
-            RowMapper<TestRow> failingMapper = (rs, rowNum) -> {
-                throw new SQLException("Column not found");
-            };
+
+            RowMapper<TestRow> failingMapper =
+                    (rs, rowNum) -> {
+                        throw new SQLException("Column not found");
+                    };
             jdbcTemplate.registerMapper(TestRow.class, failingMapper);
-            
-            assertThrows(DataAccessException.class,
-                () -> jdbcTemplate.queryForList("SELECT * FROM t", TestRow.class));
+
+            assertThrows(
+                    DataAccessException.class,
+                    () -> jdbcTemplate.queryForList("SELECT * FROM t", TestRow.class));
         }
 
-		@Test
+        @Test
         @DisplayName("RuntimeException from RowMapper propagated directly")
         void rowMapperRuntimeExceptionPropagated() throws SQLException {
             when(preparedStatement.executeQuery()).thenReturn(resultSet);
             when(resultSet.next()).thenReturn(true);
-            
-            RowMapper<TestRow> failingMapper = (rs, rowNum) -> {
-                throw new IllegalStateException("Bad state");
-            };
+
+            RowMapper<TestRow> failingMapper =
+                    (rs, rowNum) -> {
+                        throw new IllegalStateException("Bad state");
+                    };
             jdbcTemplate.registerMapper(TestRow.class, failingMapper);
-            
-            assertThrows(IllegalStateException.class,
-                () -> jdbcTemplate.queryForList("SELECT * FROM t", TestRow.class));
+
+            assertThrows(
+                    IllegalStateException.class,
+                    () -> jdbcTemplate.queryForList("SELECT * FROM t", TestRow.class));
         }
-	}
+    }
 
-	// ---- Missing RowMapper ----
+    // ---- Missing RowMapper ----
 
-	@Nested
-	@DisplayName("Missing RowMapper handling")
-	class MissingRowMapperTests {
+    @Nested
+    @DisplayName("Missing RowMapper handling")
+    class MissingRowMapperTests {
 
-		@Test
-		@DisplayName("unregistered type throws DataAccessException")
-		void unregisteredTypeThrows() {
-			record Unmapped(int x) {
-			}
+        @Test
+        @DisplayName("unregistered type throws DataAccessException")
+        void unregisteredTypeThrows() {
+            record Unmapped(int x) {}
 
-			DataAccessException ex = assertThrows(DataAccessException.class,
-					() -> jdbcTemplate.queryForList("SELECT * FROM t", Unmapped.class));
+            DataAccessException ex =
+                    assertThrows(
+                            DataAccessException.class,
+                            () -> jdbcTemplate.queryForList("SELECT * FROM t", Unmapped.class));
 
-			assertTrue(ex.getMessage().contains("No RowMapper registered"));
-		}
-	}
+            assertTrue(ex.getMessage().contains("No RowMapper registered"));
+        }
+    }
 
-	// ---- Helper types ----
+    // ---- Helper types ----
 
-	record TestRow(int id, String name) {
-	}
+    record TestRow(int id, String name) {}
 }

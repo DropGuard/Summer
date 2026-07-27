@@ -12,9 +12,7 @@ import com.github.dropguard.summer.core.config.DefaultValue;
  *     port: 9090
  * }</pre>
  *
- * @param port
- *            the port the gRPC server listens on
+ * @param port the port the gRPC server listens on
  */
 @ConfigurationProperties(prefix = "grpc.server")
-public record GrpcServerConfig(@DefaultValue("9090") Integer port) {
-}
+public record GrpcServerConfig(@DefaultValue("9090") Integer port) {}

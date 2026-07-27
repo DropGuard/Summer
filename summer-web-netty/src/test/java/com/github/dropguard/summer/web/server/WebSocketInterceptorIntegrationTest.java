@@ -21,48 +21,55 @@ import org.junit.jupiter.api.TestInstance;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class WebSocketInterceptorIntegrationTest {
 
-	private static BeanContainer context;
-	private static NettyServerRunner serverRunner;
+    private static BeanContainer context;
+    private static NettyServerRunner serverRunner;
 
-	private String baseUrl;
+    private String baseUrl;
 
-	@BeforeAll
-	void startServer() throws Exception {
-		context = Testing.buildForTest(WebSocketInterceptorIntegrationTest.class);
-		serverRunner = context.getBean(NettyServerRunner.class);
-		serverRunner.run(context);
-		baseUrl = "ws://localhost:" + serverRunner.getPort();
-	}
+    @BeforeAll
+    void startServer() throws Exception {
+        context = Testing.buildForTest(WebSocketInterceptorIntegrationTest.class);
+        serverRunner = context.getBean(NettyServerRunner.class);
+        serverRunner.run(context);
+        baseUrl = "ws://localhost:" + serverRunner.getPort();
+    }
 
-	@AfterAll
-	void stopServer() throws Exception {
-		if (context != null) {
-			context.close();
-		}
-	}
+    @AfterAll
+    void stopServer() throws Exception {
+        if (context != null) {
+            context.close();
+        }
+    }
 
-	@Test
-	void testHandshakeSucceedsAndMessageIsIntercepted() throws Exception {
-		HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
-		CountDownLatch latch = new CountDownLatch(1);
-		List<String> receivedMessages = new CopyOnWriteArrayList<>();
+    @Test
+    void testHandshakeSucceedsAndMessageIsIntercepted() throws Exception {
+        HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+        CountDownLatch latch = new CountDownLatch(1);
+        List<String> receivedMessages = new CopyOnWriteArrayList<>();
 
-		WebSocket ws = client.newWebSocketBuilder().header("X-Auth", "Secret")
-				.buildAsync(URI.create(baseUrl + "/ws-test"), new WebSocket.Listener() {
-					@Override
-					public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
-						receivedMessages.add(data.toString());
-						latch.countDown();
-						return WebSocket.Listener.super.onText(webSocket, data, last);
-					}
-				}).join();
+        WebSocket ws =
+                client.newWebSocketBuilder()
+                        .header("X-Auth", "Secret")
+                        .buildAsync(
+                                URI.create(baseUrl + "/ws-test"),
+                                new WebSocket.Listener() {
+                                    @Override
+                                    public CompletionStage<?> onText(
+                                            WebSocket webSocket, CharSequence data, boolean last) {
+                                        receivedMessages.add(data.toString());
+                                        latch.countDown();
+                                        return WebSocket.Listener.super.onText(
+                                                webSocket, data, last);
+                                    }
+                                })
+                        .join();
 
-		ws.sendText("Hello World", true).join();
+        ws.sendText("Hello World", true).join();
 
-		boolean completed = latch.await(5, TimeUnit.SECONDS);
-		assertTrue(completed, "Did not receive echoed message in time");
+        boolean completed = latch.await(5, TimeUnit.SECONDS);
+        assertTrue(completed, "Did not receive echoed message in time");
 
-		assertEquals(1, receivedMessages.size());
-		assertEquals("[INTERCEPTED] Hello World", receivedMessages.get(0));
-	}
+        assertEquals(1, receivedMessages.size());
+        assertEquals("[INTERCEPTED] Hello World", receivedMessages.get(0));
+    }
 }

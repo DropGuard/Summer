@@ -22,193 +22,193 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 public class SummerRedisTemplateTest {
 
-	@Mock
-	private RedisCommands<String, Object> commands;
+    @Mock private RedisCommands<String, Object> commands;
 
-	private ObjectMapper objectMapper;
-	private SummerRedisTemplate template;
+    private ObjectMapper objectMapper;
+    private SummerRedisTemplate template;
 
-	@BeforeEach
-	void setUp() {
-		objectMapper = SummerObjectMapper.create();
-		template = new SummerRedisTemplate(commands, objectMapper);
-	}
+    @BeforeEach
+    void setUp() {
+        objectMapper = SummerObjectMapper.create();
+        template = new SummerRedisTemplate(commands, objectMapper);
+    }
 
-	@Test
-	void testGetWithClassType() {
-		// Given
-		Map<String, Object> userData = Map.of("id", 1, "username", "gemini", "roles", List.of("admin", "user"));
-		when(commands.get("user:1")).thenReturn(userData);
+    @Test
+    void testGetWithClassType() {
+        // Given
+        Map<String, Object> userData =
+                Map.of("id", 1, "username", "gemini", "roles", List.of("admin", "user"));
+        when(commands.get("user:1")).thenReturn(userData);
 
-		// When
-		UserCacheDTO result = template.get("user:1", UserCacheDTO.class);
+        // When
+        UserCacheDTO result = template.get("user:1", UserCacheDTO.class);
 
-		// Then
-		assertNotNull(result);
-		assertEquals(1L, result.id());
-		assertEquals("gemini", result.username());
-		assertEquals(List.of("admin", "user"), result.roles());
-	}
+        // Then
+        assertNotNull(result);
+        assertEquals(1L, result.id());
+        assertEquals("gemini", result.username());
+        assertEquals(List.of("admin", "user"), result.roles());
+    }
 
-	@Test
-	void testGetWithTypeReference() {
-		// Given
-		List<String> roles = List.of("admin", "user");
-		when(commands.get("user:1:roles")).thenReturn(roles);
+    @Test
+    void testGetWithTypeReference() {
+        // Given
+        List<String> roles = List.of("admin", "user");
+        when(commands.get("user:1:roles")).thenReturn(roles);
 
-		// When
-		List<String> result = template.get("user:1:roles", new TypeReference<List<String>>() {
-		});
+        // When
+        List<String> result = template.get("user:1:roles", new TypeReference<List<String>>() {});
 
-		// Then
-		assertNotNull(result);
-		assertEquals(2, result.size());
-		assertEquals("admin", result.get(0));
-		assertEquals("user", result.get(1));
-	}
+        // Then
+        assertNotNull(result);
+        assertEquals(2, result.size());
+        assertEquals("admin", result.get(0));
+        assertEquals("user", result.get(1));
+    }
 
-	@Test
-	void testGetWithClassTypeReturnsNullWhenKeyMissing() {
-		// Given
-		when(commands.get("missing:key")).thenReturn(null);
+    @Test
+    void testGetWithClassTypeReturnsNullWhenKeyMissing() {
+        // Given
+        when(commands.get("missing:key")).thenReturn(null);
 
-		// When
-		UserCacheDTO result = template.get("missing:key", UserCacheDTO.class);
+        // When
+        UserCacheDTO result = template.get("missing:key", UserCacheDTO.class);
 
-		// Then
-		assertNull(result);
-	}
+        // Then
+        assertNull(result);
+    }
 
-	@Test
-	void testGetWithTypeReferenceReturnsNullWhenKeyMissing() {
-		// Given
-		when(commands.get("missing:key")).thenReturn(null);
+    @Test
+    void testGetWithTypeReferenceReturnsNullWhenKeyMissing() {
+        // Given
+        when(commands.get("missing:key")).thenReturn(null);
 
-		// When
-		List<String> result = template.get("missing:key", new TypeReference<List<String>>() {});
+        // When
+        List<String> result = template.get("missing:key", new TypeReference<List<String>>() {});
 
-		// Then
-		assertNull(result);
-	}
+        // Then
+        assertNull(result);
+    }
 
-	@Test
-	void testSet() {
-		// Given
-		UserCacheDTO user = new UserCacheDTO(1L, "gemini", List.of("admin"));
-		when(commands.set("user:1", user)).thenReturn("OK");
+    @Test
+    void testSet() {
+        // Given
+        UserCacheDTO user = new UserCacheDTO(1L, "gemini", List.of("admin"));
+        when(commands.set("user:1", user)).thenReturn("OK");
 
-		// When
-		template.set("user:1", user);
+        // When
+        template.set("user:1", user);
 
-		// Then
-		verify(commands).set("user:1", user);
-	}
+        // Then
+        verify(commands).set("user:1", user);
+    }
 
-	@Test
-	void testSetWithTtl() {
-		// Given
-		UserCacheDTO user = new UserCacheDTO(1L, "gemini", List.of("admin"));
-		Duration ttl = Duration.ofHours(1);
-		when(commands.set(eq("user:1"), eq(user), any(io.lettuce.core.SetArgs.class))).thenReturn("OK");
+    @Test
+    void testSetWithTtl() {
+        // Given
+        UserCacheDTO user = new UserCacheDTO(1L, "gemini", List.of("admin"));
+        Duration ttl = Duration.ofHours(1);
+        when(commands.set(eq("user:1"), eq(user), any(io.lettuce.core.SetArgs.class)))
+                .thenReturn("OK");
 
-		// When
-		template.set("user:1", user, ttl);
+        // When
+        template.set("user:1", user, ttl);
 
-		// Then: TTL is honored at millisecond precision via SetArgs.px.
-		verify(commands).set(eq("user:1"), eq(user), argThat(args -> args != null));
-	}
+        // Then: TTL is honored at millisecond precision via SetArgs.px.
+        verify(commands).set(eq("user:1"), eq(user), argThat(args -> args != null));
+    }
 
-	@Test
-	void testDelete() {
-		// Given
-		when(commands.del("key")).thenReturn(1L);
+    @Test
+    void testDelete() {
+        // Given
+        when(commands.del("key")).thenReturn(1L);
 
-		// When
-		boolean result = template.delete("key");
+        // When
+        boolean result = template.delete("key");
 
-		// Then
-		assertTrue(result);
-	}
+        // Then
+        assertTrue(result);
+    }
 
-	@Test
-	void testDeleteReturnsFalseWhenKeyMissing() {
-		// Given
-		when(commands.del("missing:key")).thenReturn(0L);
+    @Test
+    void testDeleteReturnsFalseWhenKeyMissing() {
+        // Given
+        when(commands.del("missing:key")).thenReturn(0L);
 
-		// When
-		boolean result = template.delete("missing:key");
+        // When
+        boolean result = template.delete("missing:key");
 
-		// Then
-		assertFalse(result);
-	}
+        // Then
+        assertFalse(result);
+    }
 
-	@Test
-	void testExists() {
-		// Given
-		when(commands.exists("key")).thenReturn(1L);
+    @Test
+    void testExists() {
+        // Given
+        when(commands.exists("key")).thenReturn(1L);
 
-		// When
-		boolean result = template.exists("key");
+        // When
+        boolean result = template.exists("key");
 
-		// Then
-		assertTrue(result);
-	}
+        // Then
+        assertTrue(result);
+    }
 
-	@Test
-	void testExistsReturnsFalseWhenKeyMissing() {
-		// Given
-		when(commands.exists("missing:key")).thenReturn(0L);
+    @Test
+    void testExistsReturnsFalseWhenKeyMissing() {
+        // Given
+        when(commands.exists("missing:key")).thenReturn(0L);
 
-		// When
-		boolean result = template.exists("missing:key");
+        // When
+        boolean result = template.exists("missing:key");
 
-		// Then
-		assertFalse(result);
-	}
+        // Then
+        assertFalse(result);
+    }
 
-	@Test
-	void testExpire() {
-		// Given
-		Duration ttl = Duration.ofMinutes(30);
-		when(commands.pexpire("key", 1800000)).thenReturn(true);
+    @Test
+    void testExpire() {
+        // Given
+        Duration ttl = Duration.ofMinutes(30);
+        when(commands.pexpire("key", 1800000)).thenReturn(true);
 
-		// When
-		boolean result = template.expire("key", ttl);
+        // When
+        boolean result = template.expire("key", ttl);
 
-		// Then
-		assertTrue(result);
-		verify(commands).pexpire("key", 1800000);
-	}
+        // Then
+        assertTrue(result);
+        verify(commands).pexpire("key", 1800000);
+    }
 
-	@Test
-	void testSetRejectsNullValue() {
-		assertThrows(IllegalArgumentException.class, () -> template.set("k", (Object) null));
-	}
+    @Test
+    void testSetRejectsNullValue() {
+        assertThrows(IllegalArgumentException.class, () -> template.set("k", (Object) null));
+    }
 
-	@Test
-	void testSetWithTtlHonorsMillisecondPrecision() {
-		// Given: a TTL that is not a whole number of seconds must survive intact.
-		UserCacheDTO user = new UserCacheDTO(1L, "gemini", List.of("admin"));
-		Duration ttl = Duration.ofMillis(1500);
-		when(commands.set(eq("user:1"), eq(user), any(io.lettuce.core.SetArgs.class))).thenReturn("OK");
+    @Test
+    void testSetWithTtlHonorsMillisecondPrecision() {
+        // Given: a TTL that is not a whole number of seconds must survive intact.
+        UserCacheDTO user = new UserCacheDTO(1L, "gemini", List.of("admin"));
+        Duration ttl = Duration.ofMillis(1500);
+        when(commands.set(eq("user:1"), eq(user), any(io.lettuce.core.SetArgs.class)))
+                .thenReturn("OK");
 
-		// When
-		template.set("user:1", user, ttl);
+        // When
+        template.set("user:1", user, ttl);
 
-		// Then: the millisecond value (not getSeconds()=1) reaches Lettuce.
-		verify(commands).set(eq("user:1"), eq(user), argThat(args -> args != null));
-	}
+        // Then: the millisecond value (not getSeconds()=1) reaches Lettuce.
+        verify(commands).set(eq("user:1"), eq(user), argThat(args -> args != null));
+    }
 
-	@Test
-	void testCloseShutsDownLazyClient() {
-		RedisClient client = mock(RedisClient.class);
-		SummerRedisTemplate lazy = new SummerRedisTemplate(client, new JsonRedisCodec());
-		lazy.close();
-		lazy.close(); // idempotent
-		verify(client).shutdown();
-	}
+    @Test
+    void testCloseShutsDownLazyClient() {
+        RedisClient client = mock(RedisClient.class);
+        SummerRedisTemplate lazy = new SummerRedisTemplate(client, new JsonRedisCodec());
+        lazy.close();
+        lazy.close(); // idempotent
+        verify(client).shutdown();
+    }
 
-	// Test DTO
-	public record UserCacheDTO(Long id, String username, List<String> roles) {
-	}
+    // Test DTO
+    public record UserCacheDTO(Long id, String username, List<String> roles) {}
 }

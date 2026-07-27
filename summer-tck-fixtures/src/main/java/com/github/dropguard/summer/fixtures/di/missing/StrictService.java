@@ -1,13 +1,13 @@
 package com.github.dropguard.summer.fixtures.di.missing;
 
 public class StrictService {
-	private final StrictProperties properties;
+    private final StrictProperties properties;
 
-	public StrictService(StrictProperties properties) {
-		this.properties = properties;
-	}
+    public StrictService(StrictProperties properties) {
+        this.properties = properties;
+    }
 
-	public StrictProperties getProperties() {
-		return properties;
-	}
+    public StrictProperties getProperties() {
+        return properties;
+    }
 }

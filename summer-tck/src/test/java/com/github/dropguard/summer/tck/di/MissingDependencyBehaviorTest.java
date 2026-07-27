@@ -6,24 +6,21 @@ import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 
 /**
- * Dual-engine (Runtime + AOT) contract: a bean whose dependency is never
- * registered must fail assembly (not inject null). Isolated via
- * {@code classes=...} and declared expected-to-fail with
+ * Dual-engine (Runtime + AOT) contract: a bean whose dependency is never registered must fail
+ * assembly (not inject null). Isolated via {@code classes=...} and declared expected-to-fail with
  * {@code shouldFail=true}.
  *
- * <p>
- * Both {@code NeedsMissingDep} and its dependency {@code MissingDep} are listed
- * as seeds (Quarkus' {@code beanClasses} contract: the caller lists every bean
- * the test needs, with no automatic transitive closure). {@code MissingDep} is
- * intentionally <em>not</em> a {@code @Component}, so it is present in the
- * index as a known type but has no bean definition — which is precisely the
- * missing-dependency scenario the test asserts.
- * </p>
+ * <p>Both {@code NeedsMissingDep} and its dependency {@code MissingDep} are listed as seeds
+ * (Quarkus' {@code beanClasses} contract: the caller lists every bean the test needs, with no
+ * automatic transitive closure). {@code MissingDep} is intentionally <em>not</em> a
+ * {@code @Component}, so it is present in the index as a known type but has no bean definition —
+ * which is precisely the missing-dependency scenario the test asserts.
  */
-@SummerTest(classes = {NeedsMissingDep.class, MissingDep.class}, shouldFail = true)
+@SummerTest(
+        classes = {NeedsMissingDep.class, MissingDep.class},
+        shouldFail = true)
 public class MissingDependencyBehaviorTest {
 
-	@DualEngine
-	void missingDependencyRejected() {
-	}
+    @DualEngine
+    void missingDependencyRejected() {}
 }

@@ -5,18 +5,17 @@ import org.junit.jupiter.api.AfterEach;
 /**
  * Base class for TCK tests that test components directly (not via DI).
  *
- * <p>
- * Use for:
+ * <p>Use for:
+ *
  * <ul>
- * <li>Router implementation tests</li>
- * <li>WebSocket router tests</li>
- * <li>JdbcTemplate tests</li>
- * <li>Other directly-instantiated components</li>
+ *   <li>Router implementation tests
+ *   <li>WebSocket router tests
+ *   <li>JdbcTemplate tests
+ *   <li>Other directly-instantiated components
  * </ul>
  *
- * <p>
- * Usage:
- * 
+ * <p>Usage:
+ *
  * <pre>
  * public abstract class AbstractRouterTCK extends AbstractComponentTCK {
  * 	protected abstract Function&lt;List&lt;Route&gt;, HttpRouter&gt; engineFactory();
@@ -31,18 +30,17 @@ import org.junit.jupiter.api.AfterEach;
  */
 public abstract class AbstractComponentTCK extends AbstractTCK {
 
-	/**
-	 * Hook for subclasses to clean up component resources.
-	 *
-	 * <p>
-	 * Default is no-op. Override if your component needs explicit cleanup.
-	 */
-	protected void cleanupComponent() {
-		// Default: no-op
-	}
+    /**
+     * Hook for subclasses to clean up component resources.
+     *
+     * <p>Default is no-op. Override if your component needs explicit cleanup.
+     */
+    protected void cleanupComponent() {
+        // Default: no-op
+    }
 
-	@AfterEach
-	void cleanup() {
-		cleanupComponent();
-	}
+    @AfterEach
+    void cleanup() {
+        cleanupComponent();
+    }
 }

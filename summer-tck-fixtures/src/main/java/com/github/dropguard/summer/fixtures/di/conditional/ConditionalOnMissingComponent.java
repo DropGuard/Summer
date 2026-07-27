@@ -5,5 +5,4 @@ import com.github.dropguard.summer.core.annotation.ConditionalOnBean;
 
 @Component
 @ConditionalOnBean(MissingComponent.class)
-public class ConditionalOnMissingComponent {
-}
+public class ConditionalOnMissingComponent {}

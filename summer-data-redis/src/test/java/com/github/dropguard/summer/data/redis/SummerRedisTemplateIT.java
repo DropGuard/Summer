@@ -21,222 +21,225 @@ import org.testcontainers.utility.DockerImageName;
 @Testcontainers
 public class SummerRedisTemplateIT {
 
-	@Container
-	public static GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
-			.withExposedPorts(6379);
+    @Container
+    public static GenericContainer<?> redis =
+            new GenericContainer<>(DockerImageName.parse("redis:7-alpine")).withExposedPorts(6379);
 
-	private static RedisClient client;
-	private static StatefulRedisConnection<String, Object> connection;
-	private static SummerRedisTemplate template;
+    private static RedisClient client;
+    private static StatefulRedisConnection<String, Object> connection;
+    private static SummerRedisTemplate template;
 
-	@BeforeAll
-	static void setUp() {
-		String redisUri = "redis://" + redis.getHost() + ":" + redis.getFirstMappedPort();
-		client = RedisClient.create(redisUri);
-		connection = client.connect(new JsonRedisCodec());
-		RedisCommands<String, Object> commands = connection.sync();
-		template = new SummerRedisTemplate(commands);
-	}
+    @BeforeAll
+    static void setUp() {
+        String redisUri = "redis://" + redis.getHost() + ":" + redis.getFirstMappedPort();
+        client = RedisClient.create(redisUri);
+        connection = client.connect(new JsonRedisCodec());
+        RedisCommands<String, Object> commands = connection.sync();
+        template = new SummerRedisTemplate(commands);
+    }
 
-	@AfterAll
-	static void tearDown() {
-		if (connection != null) {
-			connection.close();
-		}
-		if (client != null) {
-			client.shutdown();
-		}
-	}
+    @AfterAll
+    static void tearDown() {
+        if (connection != null) {
+            connection.close();
+        }
+        if (client != null) {
+            client.shutdown();
+        }
+    }
 
-	@Test
-	void testSetAndGetWithClassType() {
-		// Given
-		UserCacheDTO user = new UserCacheDTO(1L, "gemini", List.of("admin", "user"));
+    @Test
+    void testSetAndGetWithClassType() {
+        // Given
+        UserCacheDTO user = new UserCacheDTO(1L, "gemini", List.of("admin", "user"));
 
-		// When
-		template.set("test:user:1", user);
-		UserCacheDTO result = template.get("test:user:1", UserCacheDTO.class);
+        // When
+        template.set("test:user:1", user);
+        UserCacheDTO result = template.get("test:user:1", UserCacheDTO.class);
 
-		// Then
-		assertNotNull(result);
-		assertEquals(1L, result.id());
-		assertEquals("gemini", result.username());
-		assertEquals(List.of("admin", "user"), result.roles());
-	}
+        // Then
+        assertNotNull(result);
+        assertEquals(1L, result.id());
+        assertEquals("gemini", result.username());
+        assertEquals(List.of("admin", "user"), result.roles());
+    }
 
-	@Test
-	void testSetAndGetWithTypeReference() {
-		// Given
-		List<String> roles = List.of("admin", "user", "moderator");
+    @Test
+    void testSetAndGetWithTypeReference() {
+        // Given
+        List<String> roles = List.of("admin", "user", "moderator");
 
-		// When
-		template.set("test:roles", roles);
-		List<String> result = template.get("test:roles", new TypeReference<List<String>>() {
-		});
+        // When
+        template.set("test:roles", roles);
+        List<String> result = template.get("test:roles", new TypeReference<List<String>>() {});
 
-		// Then
-		assertNotNull(result);
-		assertEquals(3, result.size());
-		assertEquals("admin", result.get(0));
-		assertEquals("user", result.get(1));
-		assertEquals("moderator", result.get(2));
-	}
+        // Then
+        assertNotNull(result);
+        assertEquals(3, result.size());
+        assertEquals("admin", result.get(0));
+        assertEquals("user", result.get(1));
+        assertEquals("moderator", result.get(2));
+    }
 
-	@Test
-	void testSetWithTtl() {
-		// Given
-		UserCacheDTO user = new UserCacheDTO(2L, "temp-user", List.of("guest"));
-		Duration ttl = Duration.ofSeconds(2);
+    @Test
+    void testSetWithTtl() {
+        // Given
+        UserCacheDTO user = new UserCacheDTO(2L, "temp-user", List.of("guest"));
+        Duration ttl = Duration.ofSeconds(2);
 
-		// When
-		template.set("test:user:temp", user, ttl);
-		UserCacheDTO result = template.get("test:user:temp", UserCacheDTO.class);
+        // When
+        template.set("test:user:temp", user, ttl);
+        UserCacheDTO result = template.get("test:user:temp", UserCacheDTO.class);
 
-		// Then
-		assertNotNull(result);
-		assertEquals(2L, result.id());
+        // Then
+        assertNotNull(result);
+        assertEquals(2L, result.id());
 
-		// Wait for expiration
-		try {
-			Thread.sleep(2500);
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-		}
+        // Wait for expiration
+        try {
+            Thread.sleep(2500);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
 
-		// Verify expiration
-		UserCacheDTO expiredResult = template.get("test:user:temp", UserCacheDTO.class);
-		assertNull(expiredResult);
-	}
+        // Verify expiration
+        UserCacheDTO expiredResult = template.get("test:user:temp", UserCacheDTO.class);
+        assertNull(expiredResult);
+    }
 
-	@Test
-	void testSetWithSubSecondTtlExpiresAtMillisecondPrecision() {
-		// Given: a TTL that is not a whole number of seconds.
-		UserCacheDTO user = new UserCacheDTO(3L, "ephemeral", List.of("guest"));
-		Duration ttl = Duration.ofMillis(400);
+    @Test
+    void testSetWithSubSecondTtlExpiresAtMillisecondPrecision() {
+        // Given: a TTL that is not a whole number of seconds.
+        UserCacheDTO user = new UserCacheDTO(3L, "ephemeral", List.of("guest"));
+        Duration ttl = Duration.ofMillis(400);
 
-		// When
-		template.set("test:user:short", user, ttl);
+        // When
+        template.set("test:user:short", user, ttl);
 
-		// Then: still readable immediately after write.
-		assertNotNull(template.get("test:user:short", UserCacheDTO.class));
+        // Then: still readable immediately after write.
+        assertNotNull(template.get("test:user:short", UserCacheDTO.class));
 
-		// Wait past the millisecond TTL (but well under a second).
-		try {
-			Thread.sleep(700);
-		} catch (InterruptedException e) {
-			Thread.currentThread().interrupt();
-		}
-		assertNull(template.get("test:user:short", UserCacheDTO.class));
-	}
+        // Wait past the millisecond TTL (but well under a second).
+        try {
+            Thread.sleep(700);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        assertNull(template.get("test:user:short", UserCacheDTO.class));
+    }
 
-	@Test
-	void testRejectsNullValue() {
-		assertThrows(IllegalArgumentException.class, () -> template.set("test:null", (Object) null));
-	}
+    @Test
+    void testRejectsNullValue() {
+        assertThrows(
+                IllegalArgumentException.class, () -> template.set("test:null", (Object) null));
+    }
 
-	@Test
-	void testDelete() {
-		// Given
-		template.set("test:delete:key", "value");
+    @Test
+    void testDelete() {
+        // Given
+        template.set("test:delete:key", "value");
 
-		// When
-		boolean deleted = template.delete("test:delete:key");
+        // When
+        boolean deleted = template.delete("test:delete:key");
 
-		// Then
-		assertTrue(deleted);
-		assertNull(template.get("test:delete:key", String.class));
-	}
+        // Then
+        assertTrue(deleted);
+        assertNull(template.get("test:delete:key", String.class));
+    }
 
-	@Test
-	void testDeleteReturnsFalseWhenKeyMissing() {
-		// When
-		boolean deleted = template.delete("test:nonexistent:key");
+    @Test
+    void testDeleteReturnsFalseWhenKeyMissing() {
+        // When
+        boolean deleted = template.delete("test:nonexistent:key");
 
-		// Then
-		assertFalse(deleted);
-	}
+        // Then
+        assertFalse(deleted);
+    }
 
-	@Test
-	void testExists() {
-		// Given
-		template.set("test:exists:key", "value");
+    @Test
+    void testExists() {
+        // Given
+        template.set("test:exists:key", "value");
 
-		// When
-		boolean exists = template.exists("test:exists:key");
+        // When
+        boolean exists = template.exists("test:exists:key");
 
-		// Then
-		assertTrue(exists);
-	}
+        // Then
+        assertTrue(exists);
+    }
 
-	@Test
-	void testExistsReturnsFalseWhenKeyMissing() {
-		// When
-		boolean exists = template.exists("test:nonexistent:key");
+    @Test
+    void testExistsReturnsFalseWhenKeyMissing() {
+        // When
+        boolean exists = template.exists("test:nonexistent:key");
 
-		// Then
-		assertFalse(exists);
-	}
+        // Then
+        assertFalse(exists);
+    }
 
-	@Test
-	void testGetRaw() {
-		// Given
-		template.set("test:raw:key", "raw-value");
+    @Test
+    void testGetRaw() {
+        // Given
+        template.set("test:raw:key", "raw-value");
 
-		// When
-		Object result = template.getRaw("test:raw:key");
+        // When
+        Object result = template.getRaw("test:raw:key");
 
-		// Then
-		assertNotNull(result);
-	}
+        // Then
+        assertNotNull(result);
+    }
 
-	@Test
-	void testGetReturnsNullWhenKeyMissing() {
-		// When
-		UserCacheDTO result = template.get("test:nonexistent:key", UserCacheDTO.class);
+    @Test
+    void testGetReturnsNullWhenKeyMissing() {
+        // When
+        UserCacheDTO result = template.get("test:nonexistent:key", UserCacheDTO.class);
 
-		// Then
-		assertNull(result);
-	}
+        // Then
+        assertNull(result);
+    }
 
-	@Test
-	void testComplexObjectWithNestedTypes() {
-		// Given
-		UserWithMetadata user = new UserWithMetadata(1L, "gemini", List.of("admin", "user"),
-				LocalDateTime.of(2024, 1, 15, 10, 30));
+    @Test
+    void testComplexObjectWithNestedTypes() {
+        // Given
+        UserWithMetadata user =
+                new UserWithMetadata(
+                        1L,
+                        "gemini",
+                        List.of("admin", "user"),
+                        LocalDateTime.of(2024, 1, 15, 10, 30));
 
-		// When
-		template.set("test:user:complex", user);
-		UserWithMetadata result = template.get("test:user:complex", UserWithMetadata.class);
+        // When
+        template.set("test:user:complex", user);
+        UserWithMetadata result = template.get("test:user:complex", UserWithMetadata.class);
 
-		// Then
-		assertNotNull(result);
-		assertEquals(1L, result.id());
-		assertEquals("gemini", result.username());
-		assertEquals(List.of("admin", "user"), result.roles());
-		assertEquals(LocalDateTime.of(2024, 1, 15, 10, 30), result.createdAt());
-	}
+        // Then
+        assertNotNull(result);
+        assertEquals(1L, result.id());
+        assertEquals("gemini", result.username());
+        assertEquals(List.of("admin", "user"), result.roles());
+        assertEquals(LocalDateTime.of(2024, 1, 15, 10, 30), result.createdAt());
+    }
 
-	@Test
-	void testMapType() {
-		// Given
-		var userData = java.util.Map.of("id", 1, "name", "gemini", "active", true);
+    @Test
+    void testMapType() {
+        // Given
+        var userData = java.util.Map.of("id", 1, "name", "gemini", "active", true);
 
-		// When
-		template.set("test:map", userData);
-		@SuppressWarnings("unchecked")
-		var result = template.get("test:map", java.util.Map.class);
+        // When
+        template.set("test:map", userData);
+        @SuppressWarnings("unchecked")
+        var result = template.get("test:map", java.util.Map.class);
 
-		// Then
-		assertNotNull(result);
-		assertEquals(1, result.get("id"));
-		assertEquals("gemini", result.get("name"));
-		assertEquals(true, result.get("active"));
-	}
+        // Then
+        assertNotNull(result);
+        assertEquals(1, result.get("id"));
+        assertEquals("gemini", result.get("name"));
+        assertEquals(true, result.get("active"));
+    }
 
-	// Test DTOs
-	public record UserCacheDTO(Long id, String username, List<String> roles) {
-	}
+    // Test DTOs
+    public record UserCacheDTO(Long id, String username, List<String> roles) {}
 
-	public record UserWithMetadata(Long id, String username, List<String> roles, LocalDateTime createdAt) {
-	}
+    public record UserWithMetadata(
+            Long id, String username, List<String> roles, LocalDateTime createdAt) {}
 }

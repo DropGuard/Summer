@@ -4,13 +4,13 @@ import com.github.dropguard.summer.core.Component;
 
 @Component
 public class ChainA {
-	private final ChainB b;
+    private final ChainB b;
 
-	public ChainA(ChainB b) {
-		this.b = b;
-	}
+    public ChainA(ChainB b) {
+        this.b = b;
+    }
 
-	public ChainB getB() {
-		return b;
-	}
+    public ChainB getB() {
+        return b;
+    }
 }

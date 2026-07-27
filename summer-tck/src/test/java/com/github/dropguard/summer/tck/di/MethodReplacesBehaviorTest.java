@@ -10,16 +10,19 @@ import com.github.dropguard.summer.test.annotation.SummerTest;
 @SummerTest
 public class MethodReplacesBehaviorTest {
 
-	private final BeanContainer context;
+    private final BeanContainer context;
 
-	public MethodReplacesBehaviorTest(BeanContainer context) {
-		this.context = context;
-	}
+    public MethodReplacesBehaviorTest(BeanContainer context) {
+        this.context = context;
+    }
 
-	@DualEngine
-	void methodLevelReplacesReplacesByReturnType() {
-		MethodReplacesBean bean = context.getBean(MethodReplacesBean.class);
-		assertNotNull(bean, "MethodReplacesBean should be registered");
-		assertEquals("replaced", bean.getValue(), "MethodReplacesReplacementConfig should replace the bean");
-	}
+    @DualEngine
+    void methodLevelReplacesReplacesByReturnType() {
+        MethodReplacesBean bean = context.getBean(MethodReplacesBean.class);
+        assertNotNull(bean, "MethodReplacesBean should be registered");
+        assertEquals(
+                "replaced",
+                bean.getValue(),
+                "MethodReplacesReplacementConfig should replace the bean");
+    }
 }

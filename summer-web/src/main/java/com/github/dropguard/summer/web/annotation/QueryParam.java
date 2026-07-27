@@ -8,9 +8,7 @@ import java.lang.annotation.Target;
 /**
  * Binds a method parameter to a URL query parameter.
  *
- * <p>
- * Example:
- * </p>
+ * <p>Example:
  *
  * <pre>{@code
  * @Get("/search")
@@ -23,8 +21,6 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface QueryParam {
 
-	/**
-	 * The query parameter name.
-	 */
-	String value();
+    /** The query parameter name. */
+    String value();
 }

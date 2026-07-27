@@ -11,16 +11,17 @@ import com.github.dropguard.summer.test.annotation.SummerTest;
 @SummerTest
 public class ConditionalAssemblyBehaviorTest {
 
-	private final BeanContainer context;
+    private final BeanContainer context;
 
-	public ConditionalAssemblyBehaviorTest(BeanContainer context) {
-		this.context = context;
-	}
+    public ConditionalAssemblyBehaviorTest(BeanContainer context) {
+        this.context = context;
+    }
 
-	@DualEngine
-	void conditionalBeanPresentWhenMarkerExists() {
-		assertNotNull(context.getBean(TestMarker.class), "TestMarker should be registered");
-		assertNotNull(context.getBean(ConditionalBean.class),
-				"ConditionalBean should be registered when TestMarker exists");
-	}
+    @DualEngine
+    void conditionalBeanPresentWhenMarkerExists() {
+        assertNotNull(context.getBean(TestMarker.class), "TestMarker should be registered");
+        assertNotNull(
+                context.getBean(ConditionalBean.class),
+                "ConditionalBean should be registered when TestMarker exists");
+    }
 }

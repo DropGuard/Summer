@@ -9,21 +9,23 @@ import org.junit.jupiter.api.Test;
 
 class RuntimeBeanAdapterTest {
 
-	@Test
-	void shouldRejectNestedGenericListInjection() throws Exception {
-		UnsupportedInjectionException ex = assertThrows(UnsupportedInjectionException.class,
-				() -> new RuntimeBeanAdapter().adaptComponent(NestedGenericComponent.class));
+    @Test
+    void shouldRejectNestedGenericListInjection() throws Exception {
+        UnsupportedInjectionException ex =
+                assertThrows(
+                        UnsupportedInjectionException.class,
+                        () ->
+                                new RuntimeBeanAdapter()
+                                        .adaptComponent(NestedGenericComponent.class));
 
-		assertTrue(ex.getMessage().contains("Nested generic type injection is not supported"));
-		assertTrue(ex.getMessage().contains("List<"));
-	}
+        assertTrue(ex.getMessage().contains("Nested generic type injection is not supported"));
+        assertTrue(ex.getMessage().contains("List<"));
+    }
 
-	@Component
-	public static class NestedGenericComponent {
-		public NestedGenericComponent(List<Strategy<String>> strategies) {
-		}
-	}
+    @Component
+    public static class NestedGenericComponent {
+        public NestedGenericComponent(List<Strategy<String>> strategies) {}
+    }
 
-	public interface Strategy<T> {
-	}
+    public interface Strategy<T> {}
 }

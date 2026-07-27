@@ -7,8 +7,8 @@ import com.github.dropguard.summer.web.annotation.RestController;
 @RestController("/api/class-level")
 public class ClassLevelMiddlewareController {
 
-	@Get("/test")
-	public String test(HttpContext ctx) {
-		return "test";
-	}
+    @Get("/test")
+    public String test(HttpContext ctx) {
+        return "test";
+    }
 }

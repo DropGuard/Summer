@@ -10,64 +10,79 @@ import org.junit.jupiter.api.Test;
 
 class BeanInstantiatorTest {
 
-	@Test
-	void shouldWrapConstructorException() {
-		BeanContainer.Builder builder = new BeanContainer.Builder();
-		BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of(), Map.of());
+    @Test
+    void shouldWrapConstructorException() {
+        BeanContainer.Builder builder = new BeanContainer.Builder();
+        BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of(), Map.of());
 
-		BeanDefinition def = new BeanDefinition(CrashingComponent.class.getName(), "crashingComponent");
+        BeanDefinition def =
+                new BeanDefinition(CrashingComponent.class.getName(), "crashingComponent");
 
-		BeanCreationException ex = assertThrows(BeanCreationException.class,
-				() -> instantiator.instantiateFromDefinition(def));
+        BeanCreationException ex =
+                assertThrows(
+                        BeanCreationException.class,
+                        () -> instantiator.instantiateFromDefinition(def));
 
-		assertTrue(ex.getMessage().contains("Failed to instantiate bean"));
-		assertNotNull(ex.getCause());
-		assertEquals("Crash", ex.getCause().getCause().getMessage());
-	}
+        assertTrue(ex.getMessage().contains("Failed to instantiate bean"));
+        assertNotNull(ex.getCause());
+        assertEquals("Crash", ex.getCause().getCause().getMessage());
+    }
 
-	@Test
-	void shouldRejectBeanContainerInjection() {
-		BeanContainer.Builder builder = new BeanContainer.Builder();
-		BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of(), Map.of());
+    @Test
+    void shouldRejectBeanContainerInjection() {
+        BeanContainer.Builder builder = new BeanContainer.Builder();
+        BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of(), Map.of());
 
-		BeanDefinition def = new BeanDefinition(ContainerInjectingComponent.class.getName(),
-				"containerInjectingComponent");
-		def.addParameter(BeanContainer.class.getName());
+        BeanDefinition def =
+                new BeanDefinition(
+                        ContainerInjectingComponent.class.getName(), "containerInjectingComponent");
+        def.addParameter(BeanContainer.class.getName());
 
-		BeanCreationException ex = assertThrows(BeanCreationException.class,
-				() -> instantiator.instantiateFromDefinition(def));
+        BeanCreationException ex =
+                assertThrows(
+                        BeanCreationException.class,
+                        () -> instantiator.instantiateFromDefinition(def));
 
-		assertTrue(ex.getCause().getMessage().contains("ApplicationContext injection is not supported"));
-	}
+        assertTrue(
+                ex.getCause()
+                        .getMessage()
+                        .contains("ApplicationContext injection is not supported"));
+    }
 
-	@Test
-	void shouldWrapClassNotFoundException() {
-		BeanContainer.Builder builder = new BeanContainer.Builder();
-		BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of(), Map.of());
+    @Test
+    void shouldWrapClassNotFoundException() {
+        BeanContainer.Builder builder = new BeanContainer.Builder();
+        BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of(), Map.of());
 
-		// A class name under the project's negative-fixtures namespace that is
-		// intentionally never registered as a bean, so resolution fails with a clear
-		// ClassNotFoundException. (Kept as a string literal, not a real class, because
-		// the test asserts the "not found" path.)
-		BeanDefinition def = new BeanDefinition(
-				"com.github.dropguard.summer.tck.negative.fixtures.di.errors.MissingBean", "missing");
+        // A class name under the project's negative-fixtures namespace that is
+        // intentionally never registered as a bean, so resolution fails with a clear
+        // ClassNotFoundException. (Kept as a string literal, not a real class, because
+        // the test asserts the "not found" path.)
+        BeanDefinition def =
+                new BeanDefinition(
+                        "com.github.dropguard.summer.tck.negative.fixtures.di.errors.MissingBean",
+                        "missing");
 
-		BeanCreationException ex = assertThrows(BeanCreationException.class,
-				() -> instantiator.instantiateFromDefinition(def));
+        BeanCreationException ex =
+                assertThrows(
+                        BeanCreationException.class,
+                        () -> instantiator.instantiateFromDefinition(def));
 
-		assertTrue(ex.getMessage()
-				.contains("Class not found: com.github.dropguard.summer.tck.negative.fixtures.di.errors.MissingBean"));
-		assertTrue(ex.getCause() instanceof ClassNotFoundException);
-	}
+        assertTrue(
+                ex.getMessage()
+                        .contains(
+                                "Class not found:"
+                                    + " com.github.dropguard.summer.tck.negative.fixtures.di.errors.MissingBean"));
+        assertTrue(ex.getCause() instanceof ClassNotFoundException);
+    }
 
-	public static class CrashingComponent {
-		public CrashingComponent() {
-			throw new RuntimeException("Crash");
-		}
-	}
+    public static class CrashingComponent {
+        public CrashingComponent() {
+            throw new RuntimeException("Crash");
+        }
+    }
 
-	public static class ContainerInjectingComponent {
-		public ContainerInjectingComponent(BeanContainer container) {
-		}
-	}
+    public static class ContainerInjectingComponent {
+        public ContainerInjectingComponent(BeanContainer container) {}
+    }
 }

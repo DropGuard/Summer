@@ -5,11 +5,9 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/**
- * Marks a method as a global exception handler.
- */
+/** Marks a method as a global exception handler. */
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ExceptionHandler {
-	Class<? extends Throwable> value();
+    Class<? extends Throwable> value();
 }

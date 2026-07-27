@@ -8,20 +8,14 @@ import java.lang.annotation.Target;
 /**
  * Meta-annotation that marks an annotation as an interceptor binding.
  *
- * <p>
- * Annotations annotated with {@code @InterceptorBinding} serve as both business
- * annotations and interceptor bindings. When a class or method is annotated
- * with an {@code @InterceptorBinding} annotation, the framework automatically
- * applies interceptors that are also annotated with the same binding
- * annotation.
- * </p>
+ * <p>Annotations annotated with {@code @InterceptorBinding} serve as both business annotations and
+ * interceptor bindings. When a class or method is annotated with an {@code @InterceptorBinding}
+ * annotation, the framework automatically applies interceptors that are also annotated with the
+ * same binding annotation.
  *
- * <p>
- * Example:
- * </p>
- * 
- * <pre>
- * {@code
+ * <p>Example:
+ *
+ * <pre>{@code
  * // 1. Define binding annotation
  * &#64;InterceptorBinding
  * &#64;Target({ElementType.TYPE, ElementType.METHOD})
@@ -35,12 +29,10 @@ import java.lang.annotation.Target;
  * // 3. Business method uses the same annotation
  * &#64;Transactional
  * public void transferMoney() { ... }
- * }
- * </pre>
+ * }</pre>
  *
  * @see MethodInterceptor
  */
 @Target(ElementType.ANNOTATION_TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface InterceptorBinding {
-}
+public @interface InterceptorBinding {}

@@ -8,17 +8,16 @@ import java.util.Arrays;
 /**
  * Base class for TCK tests that verify failure scenarios.
  *
- * <p>
- * Use for:
+ * <p>Use for:
+ *
  * <ul>
- * <li>Circular dependency detection</li>
- * <li>Ambiguous dependency detection</li>
- * <li>Other scenarios that should fail fast</li>
+ *   <li>Circular dependency detection
+ *   <li>Ambiguous dependency detection
+ *   <li>Other scenarios that should fail fast
  * </ul>
  *
- * <p>
- * Usage:
- * 
+ * <p>Usage:
+ *
  * <pre>
  * public abstract class AbstractCircularTCK extends AbstractFailureTCK {
  * 	// Inherit assertFailureContains() helper
@@ -41,24 +40,29 @@ import java.util.Arrays;
  */
 public abstract class AbstractFailureTCK extends AbstractTCK {
 
-	/**
-	 * Trigger the operation that should fail.
-	 *
-	 * <p>
-	 * Implementations should call the code that is expected to throw an exception.
-	 */
-	protected abstract void triggerFailure();
+    /**
+     * Trigger the operation that should fail.
+     *
+     * <p>Implementations should call the code that is expected to throw an exception.
+     */
+    protected abstract void triggerFailure();
 
-	/**
-	 * Assert that {@link #triggerFailure()} throws an exception whose message
-	 * contains one of the expected strings.
-	 */
-	protected void assertFailureContains(String... expectedMessages) {
-		Exception exception = assertThrows(Exception.class, this::triggerFailure);
+    /**
+     * Assert that {@link #triggerFailure()} throws an exception whose message contains one of the
+     * expected strings.
+     */
+    protected void assertFailureContains(String... expectedMessages) {
+        Exception exception = assertThrows(Exception.class, this::triggerFailure);
 
-		boolean matches = Arrays.stream(expectedMessages).anyMatch(msg -> exception.getMessage().contains(msg));
+        boolean matches =
+                Arrays.stream(expectedMessages)
+                        .anyMatch(msg -> exception.getMessage().contains(msg));
 
-		assertTrue(matches, "Expected failure message to contain one of " + Arrays.toString(expectedMessages)
-				+ " but was: " + exception.getMessage());
-	}
+        assertTrue(
+                matches,
+                "Expected failure message to contain one of "
+                        + Arrays.toString(expectedMessages)
+                        + " but was: "
+                        + exception.getMessage());
+    }
 }

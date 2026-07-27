@@ -10,35 +10,35 @@ import org.junit.jupiter.api.Test;
 
 public class JsonRedisCodecTest {
 
-	public record TestUserRecord(String name, int age, LocalDateTime registeredAt) {
-	}
+    public record TestUserRecord(String name, int age, LocalDateTime registeredAt) {}
 
-	@Test
-	public void testEncodeAndDecodeJavaRecordWithTime() {
-		// Relies on SummerObjectMapper.create() registering JavaTimeModule by
-		// default — no per-test module registration needed.
-		JsonRedisCodec codec = new JsonRedisCodec();
+    @Test
+    public void testEncodeAndDecodeJavaRecordWithTime() {
+        // Relies on SummerObjectMapper.create() registering JavaTimeModule by
+        // default — no per-test module registration needed.
+        JsonRedisCodec codec = new JsonRedisCodec();
 
-		TestUserRecord original = new TestUserRecord("Alice", 25, LocalDateTime.of(2023, 10, 1, 12, 30));
+        TestUserRecord original =
+                new TestUserRecord("Alice", 25, LocalDateTime.of(2023, 10, 1, 12, 30));
 
-		ByteBuffer encodedBytes = codec.encodeValue(original);
-		assertNotNull(encodedBytes);
-		assertTrue(encodedBytes.remaining() > 0);
+        ByteBuffer encodedBytes = codec.encodeValue(original);
+        assertNotNull(encodedBytes);
+        assertTrue(encodedBytes.remaining() > 0);
 
-		Object decoded = codec.decodeValue(encodedBytes);
-		assertNotNull(decoded);
+        Object decoded = codec.decodeValue(encodedBytes);
+        assertNotNull(decoded);
 
-		TestUserRecord decodedUser = codec.mapper().convertValue(decoded, TestUserRecord.class);
+        TestUserRecord decodedUser = codec.mapper().convertValue(decoded, TestUserRecord.class);
 
-		assertEquals("Alice", decodedUser.name());
-		assertEquals(25, decodedUser.age());
-		assertEquals(LocalDateTime.of(2023, 10, 1, 12, 30), decodedUser.registeredAt());
-	}
+        assertEquals("Alice", decodedUser.name());
+        assertEquals(25, decodedUser.age());
+        assertEquals(LocalDateTime.of(2023, 10, 1, 12, 30), decodedUser.registeredAt());
+    }
 
-	@Test
-	public void testMapperIsSharedViaAccessor() {
-		ObjectMapper mapper = SummerObjectMapper.create();
-		JsonRedisCodec codec = new JsonRedisCodec(mapper);
-		assertSame(mapper, codec.mapper());
-	}
+    @Test
+    public void testMapperIsSharedViaAccessor() {
+        ObjectMapper mapper = SummerObjectMapper.create();
+        JsonRedisCodec codec = new JsonRedisCodec(mapper);
+        assertSame(mapper, codec.mapper());
+    }
 }

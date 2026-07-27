@@ -5,13 +5,11 @@ import com.github.dropguard.summer.web.http.MapRouter;
 import java.util.List;
 import java.util.function.Function;
 
-/**
- * TCK tests for MapRouter implementation.
- */
+/** TCK tests for MapRouter implementation. */
 public class MapRouterTCKTest extends AbstractRouterTCK {
 
-	@Override
-	protected Function<List<HttpRouter.Builder.Route>, HttpRouter> routerFactory() {
-		return MapRouter::new;
-	}
+    @Override
+    protected Function<List<HttpRouter.Builder.Route>, HttpRouter> routerFactory() {
+        return MapRouter::new;
+    }
 }

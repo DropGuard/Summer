@@ -5,8 +5,8 @@ import com.github.dropguard.summer.core.Provider;
 
 @Component
 public class StringProviderComponent implements Provider<String> {
-	@Override
-	public String provide() {
-		return "Hello Provider";
-	}
+    @Override
+    public String provide() {
+        return "Hello Provider";
+    }
 }

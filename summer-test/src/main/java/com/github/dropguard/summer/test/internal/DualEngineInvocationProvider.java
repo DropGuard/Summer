@@ -1,4 +1,5 @@
 package com.github.dropguard.summer.test.internal;
+
 import com.github.dropguard.summer.core.Engine;
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.test.annotation.SummerTest;
@@ -13,85 +14,83 @@ import org.junit.jupiter.api.extension.TestTemplateInvocationContext;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
 
 /**
- * Runs every {@code @SummerTest} method on BOTH DI engines (Runtime and AOT),
- * transparently to the test author — the framework-enforced guarantee that the
- * two engines behave identically.
+ * Runs every {@code @SummerTest} method on BOTH DI engines (Runtime and AOT), transparently to the
+ * test author — the framework-enforced guarantee that the two engines behave identically.
  *
- * <p>
- * Registered by the method-level {@code @DualEngine} annotation (which combines
- * {@code @TestTemplate} with
- * {@code @ExtendWith(DualEngineInvocationProvider.class)}). For each
- * {@code @DualEngine} method the provider yields two
- * {@link TestTemplateInvocationContext}s, one per engine. Each context builds
- * its own container through {@link TestContainerFactory} (the same factory
- * {@code SummerExtension} uses for single-engine tests) and injects the test
- * constructor from it, so constructor injection, {@code @Mock} handling, and
- * {@code @TestProfile} overrides are engine-agnostic.
- * </p>
+ * <p>Registered by the method-level {@code @DualEngine} annotation (which combines
+ * {@code @TestTemplate} with {@code @ExtendWith(DualEngineInvocationProvider.class)}). For each
+ * {@code @DualEngine} method the provider yields two {@link TestTemplateInvocationContext}s, one
+ * per engine. Each context builds its own container through {@link TestContainerFactory} (the same
+ * factory {@code SummerExtension} uses for single-engine tests) and injects the test constructor
+ * from it, so constructor injection, {@code @Mock} handling, and {@code @TestProfile} overrides are
+ * engine-agnostic.
  *
- * <p>
- * Both engines receive the identical scope and profile overrides, so a
- * divergence in behavior surfaces as a per-engine failure in the test report
- * ({@code MyTest(RUNTIME)} vs {@code MyTest(AOT)}) rather than a silent
- * inconsistency.
- * </p>
+ * <p>Both engines receive the identical scope and profile overrides, so a divergence in behavior
+ * surfaces as a per-engine failure in the test report ({@code MyTest(RUNTIME)} vs {@code
+ * MyTest(AOT)}) rather than a silent inconsistency.
  */
 @Internal
 public final class DualEngineInvocationProvider implements TestTemplateInvocationContextProvider {
 
-	@Override
-	public boolean supportsTestTemplate(ExtensionContext context) {
-		// A @DualEngine method lives inside a @SummerTest-annotated class, which
-		// owns the scope/isolation metadata. The class is what carries @SummerTest.
-		return context.getTestClass().map(c -> c.isAnnotationPresent(SummerTest.class)).orElse(false);
-	}
+    @Override
+    public boolean supportsTestTemplate(ExtensionContext context) {
+        // A @DualEngine method lives inside a @SummerTest-annotated class, which
+        // owns the scope/isolation metadata. The class is what carries @SummerTest.
+        return context.getTestClass()
+                .map(c -> c.isAnnotationPresent(SummerTest.class))
+                .orElse(false);
+    }
 
-	@Override
-	public Stream<TestTemplateInvocationContext> provideTestTemplateInvocationContexts(ExtensionContext context) {
-		Class<?> testClass = context.getRequiredTestClass();
-		return Stream.of(Engine.RUNTIME, Engine.AOT).map(engine -> new EngineContext(engine, testClass));
-	}
+    @Override
+    public Stream<TestTemplateInvocationContext> provideTestTemplateInvocationContexts(
+            ExtensionContext context) {
+        Class<?> testClass = context.getRequiredTestClass();
+        return Stream.of(Engine.RUNTIME, Engine.AOT)
+                .map(engine -> new EngineContext(engine, testClass));
+    }
 
-	/** One invocation context per engine: builds that engine's container. */
-	private static final class EngineContext implements TestTemplateInvocationContext {
+    /** One invocation context per engine: builds that engine's container. */
+    private static final class EngineContext implements TestTemplateInvocationContext {
 
-		private static final ExtensionContext.Namespace NS = ExtensionContext.Namespace
-				.create(DualEngineInvocationProvider.class);
-		private static final String KEY = "BeanContainer";
+        private static final ExtensionContext.Namespace NS =
+                ExtensionContext.Namespace.create(DualEngineInvocationProvider.class);
+        private static final String KEY = "BeanContainer";
 
-		private final Engine engine;
-		private final Class<?> testClass;
+        private final Engine engine;
+        private final Class<?> testClass;
 
-		EngineContext(Engine engine, Class<?> testClass) {
-			this.engine = engine;
-			this.testClass = testClass;
-		}
+        EngineContext(Engine engine, Class<?> testClass) {
+            this.engine = engine;
+            this.testClass = testClass;
+        }
 
-		@Override
-		public String getDisplayName(int invocationIndex) {
-			return "(" + engine + ")";
-		}
+        @Override
+        public String getDisplayName(int invocationIndex) {
+            return "(" + engine + ")";
+        }
 
-		@Override
-		public List<Extension> getAdditionalExtensions() {
-			return List.of(new EngineTestInstanceFactory());
-		}
+        @Override
+        public List<Extension> getAdditionalExtensions() {
+            return List.of(new EngineTestInstanceFactory());
+        }
 
-		/** Builds the engine's container and resolves the test constructor. */
-		private final class EngineTestInstanceFactory implements TestInstanceFactory {
+        /** Builds the engine's container and resolves the test constructor. */
+        private final class EngineTestInstanceFactory implements TestInstanceFactory {
 
-			@Override
-			public Object createTestInstance(TestInstanceFactoryContext factoryContext,
-					ExtensionContext extensionContext) throws TestInstantiationException {
-				// Delegate to the single lifecycle owner so the build, the
-				// @SummerTest(shouldFail=...) contract, and universe reuse all go
-				// through one place — a divergence where one engine accepts a broken
-				// graph and the other rejects it still surfaces as a per-engine
-				// failure, but there is no duplicated logic here.
-				TestContainerFactory.BuildOutcome outcome = SummerTestLifecycle.createUniverse(testClass, engine);
-				extensionContext.getStore(NS).put(KEY, outcome.container());
-				return outcome.instance();
-			}
-		}
-	}
+            @Override
+            public Object createTestInstance(
+                    TestInstanceFactoryContext factoryContext, ExtensionContext extensionContext)
+                    throws TestInstantiationException {
+                // Delegate to the single lifecycle owner so the build, the
+                // @SummerTest(shouldFail=...) contract, and universe reuse all go
+                // through one place — a divergence where one engine accepts a broken
+                // graph and the other rejects it still surfaces as a per-engine
+                // failure, but there is no duplicated logic here.
+                TestContainerFactory.BuildOutcome outcome =
+                        SummerTestLifecycle.createUniverse(testClass, engine);
+                extensionContext.getStore(NS).put(KEY, outcome.container());
+                return outcome.instance();
+            }
+        }
+    }
 }

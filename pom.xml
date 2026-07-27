@@ -124,10 +124,15 @@
                     <version>2.44.5</version>
                     <configuration>
                         <java>
-                            <!-- Eclipse JDT Formatter (independent of javac internals, works on JDK 25) -->
-                            <eclipse>
-                                <version>4.26</version>
-                            </eclipse>
+                            <!-- google-java-format: 2-space indent, spaces only, no tabs.
+                                 Deterministic and tab-free, so edits never drift on
+                                 tab/space ambiguity. -->
+                            <googleJavaFormat>
+                                <version>1.35.0</version>
+                                <style>AOSP</style>
+                                <reflowLongStrings>true</reflowLongStrings>
+                                <reorderImports>true</reorderImports>
+                            </googleJavaFormat>
                             <!-- Automatically remove all unused imports -->
                             <removeUnusedImports />
                             <!-- Enforce consistent import ordering -->

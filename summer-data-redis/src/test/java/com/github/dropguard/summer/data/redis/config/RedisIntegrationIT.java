@@ -15,45 +15,45 @@ import org.testcontainers.utility.DockerImageName;
 @Testcontainers
 public class RedisIntegrationIT {
 
-	@Container
-	public static GenericContainer<?> redis = new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
-			.withExposedPorts(6379);
+    @Container
+    public static GenericContainer<?> redis =
+            new GenericContainer<>(DockerImageName.parse("redis:7-alpine")).withExposedPorts(6379);
 
-	public record TestUserRecord(String name, int age, LocalDateTime registeredAt) {
-	}
+    public record TestUserRecord(String name, int age, LocalDateTime registeredAt) {}
 
-	@Test
-	public void testRedisAutoConfigurationWithRealContainer() {
-		// Set system property so RedisAutoConfiguration picks it up
-		String redisUri = "redis://" + redis.getHost() + ":" + redis.getFirstMappedPort();
-		System.setProperty("com.github.dropguard.summer.redis.uri", redisUri);
+    @Test
+    public void testRedisAutoConfigurationWithRealContainer() {
+        // Set system property so RedisAutoConfiguration picks it up
+        String redisUri = "redis://" + redis.getHost() + ":" + redis.getFirstMappedPort();
+        System.setProperty("com.github.dropguard.summer.redis.uri", redisUri);
 
-		// The connection is opened lazily by the template, so the container builds
-		// without a live Redis; the real operations below exercise the connection.
-		BeanContainer context = Testing.build();
+        // The connection is opened lazily by the template, so the container builds
+        // without a live Redis; the real operations below exercise the connection.
+        BeanContainer context = Testing.build();
 
-		try {
-			SummerRedisTemplate template = context.getBean(SummerRedisTemplate.class);
-			assertNotNull(template);
+        try {
+            SummerRedisTemplate template = context.getBean(SummerRedisTemplate.class);
+            assertNotNull(template);
 
-			// Perform real network operations through the template
-			String key = "test:user:1";
-			TestUserRecord user = new TestUserRecord("Bob", 30, LocalDateTime.of(2023, 11, 20, 15, 0));
+            // Perform real network operations through the template
+            String key = "test:user:1";
+            TestUserRecord user =
+                    new TestUserRecord("Bob", 30, LocalDateTime.of(2023, 11, 20, 15, 0));
 
-			template.set(key, user);
+            template.set(key, user);
 
-			TestUserRecord retrievedUser = template.get(key, TestUserRecord.class);
-			assertNotNull(retrievedUser);
-			assertEquals("Bob", retrievedUser.name());
-			assertEquals(30, retrievedUser.age());
-			assertEquals(LocalDateTime.of(2023, 11, 20, 15, 0), retrievedUser.registeredAt());
-		} finally {
-			System.clearProperty("com.github.dropguard.summer.redis.uri");
-			try {
-				context.close();
-			} catch (Exception e) {
-				throw new RuntimeException(e);
-			}
-		}
-	}
+            TestUserRecord retrievedUser = template.get(key, TestUserRecord.class);
+            assertNotNull(retrievedUser);
+            assertEquals("Bob", retrievedUser.name());
+            assertEquals(30, retrievedUser.age());
+            assertEquals(LocalDateTime.of(2023, 11, 20, 15, 0), retrievedUser.registeredAt());
+        } finally {
+            System.clearProperty("com.github.dropguard.summer.redis.uri");
+            try {
+                context.close();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
 }

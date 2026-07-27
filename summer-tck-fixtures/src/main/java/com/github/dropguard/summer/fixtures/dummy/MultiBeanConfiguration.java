@@ -6,13 +6,13 @@ import com.github.dropguard.summer.core.annotation.Configuration;
 @Configuration
 public class MultiBeanConfiguration {
 
-	@Bean
-	public PlainServiceA plainServiceA() {
-		return new PlainServiceA();
-	}
+    @Bean
+    public PlainServiceA plainServiceA() {
+        return new PlainServiceA();
+    }
 
-	@Bean
-	public PlainServiceB plainServiceB() {
-		return new PlainServiceB();
-	}
+    @Bean
+    public PlainServiceB plainServiceB() {
+        return new PlainServiceB();
+    }
 }

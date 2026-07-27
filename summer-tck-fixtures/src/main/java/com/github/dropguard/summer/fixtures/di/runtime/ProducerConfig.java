@@ -5,8 +5,8 @@ import com.github.dropguard.summer.core.annotation.Configuration;
 
 @Configuration
 public class ProducerConfig {
-	@Bean
-	public ProducedBean producedBean() {
-		return new ProducedBean("produced-value");
-	}
+    @Bean
+    public ProducedBean producedBean() {
+        return new ProducedBean("produced-value");
+    }
 }

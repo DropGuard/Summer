@@ -7,8 +7,8 @@ import com.github.dropguard.summer.core.annotation.Replaces;
 @Component
 public class ReplacementComponent implements ReplacableService {
 
-	@Override
-	public String serve() {
-		return "replacement";
-	}
+    @Override
+    public String serve() {
+        return "replacement";
+    }
 }

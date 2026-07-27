@@ -9,8 +9,8 @@ import com.github.dropguard.summer.core.annotation.Replaces;
 @Component
 public class ReplacesWithConditionComponent implements ReplacableService {
 
-	@Override
-	public String serve() {
-		return "conditional-replacement";
-	}
+    @Override
+    public String serve() {
+        return "conditional-replacement";
+    }
 }

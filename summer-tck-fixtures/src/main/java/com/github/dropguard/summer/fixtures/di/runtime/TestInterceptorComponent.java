@@ -9,8 +9,8 @@ import com.github.dropguard.summer.core.Component;
 @Component
 @Interceptor
 public class TestInterceptorComponent implements MethodInterceptor {
-	@Override
-	public Object intercept(InterceptorChain chain) throws Throwable {
-		return "[proxied] " + chain.proceed();
-	}
+    @Override
+    public Object intercept(InterceptorChain chain) throws Throwable {
+        return "[proxied] " + chain.proceed();
+    }
 }

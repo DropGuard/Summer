@@ -5,13 +5,13 @@ import com.github.dropguard.summer.core.Component;
 @Component
 public class ServiceClient {
 
-	private final BaseService baseService;
+    private final BaseService baseService;
 
-	public ServiceClient(BaseService baseService) {
-		this.baseService = baseService;
-	}
+    public ServiceClient(BaseService baseService) {
+        this.baseService = baseService;
+    }
 
-	public BaseService getBaseService() {
-		return baseService;
-	}
+    public BaseService getBaseService() {
+        return baseService;
+    }
 }

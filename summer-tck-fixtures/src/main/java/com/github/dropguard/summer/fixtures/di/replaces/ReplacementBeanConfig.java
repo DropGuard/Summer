@@ -8,8 +8,8 @@ import com.github.dropguard.summer.core.annotation.Replaces;
 @Replaces(OriginalBeanConfig.class)
 public class ReplacementBeanConfig {
 
-	@Bean
-	public ServiceBean serviceBean() {
-		return new ServiceBean("replacement");
-	}
+    @Bean
+    public ServiceBean serviceBean() {
+        return new ServiceBean("replacement");
+    }
 }

@@ -3,15 +3,10 @@ package com.github.dropguard.summer.core.validation;
 /**
  * Validates a bean after property binding, before it is used.
  *
- * <p>
- * Implement this interface and register as a {@code @Component} to validate
- * configuration properties or other beans during the Validation Phase of the
- * bean lifecycle.
- * </p>
+ * <p>Implement this interface and register as a {@code @Component} to validate configuration
+ * properties or other beans during the Validation Phase of the bean lifecycle.
  *
- * <p>
- * Example:
- * </p>
+ * <p>Example:
  *
  * <pre>
  * {
@@ -34,23 +29,18 @@ package com.github.dropguard.summer.core.validation;
  * }
  * </pre>
  *
- * @param <T>
- *            the type to validate
+ * @param <T> the type to validate
  */
 public interface Validator<T> {
 
-	/**
-	 * Returns the type this validator applies to.
-	 */
-	Class<T> targetType();
+    /** Returns the type this validator applies to. */
+    Class<T> targetType();
 
-	/**
-	 * Validates the given bean.
-	 *
-	 * @param bean
-	 *            the bean to validate
-	 * @throws ValidationException
-	 *             if validation fails
-	 */
-	void validate(T bean);
+    /**
+     * Validates the given bean.
+     *
+     * @param bean the bean to validate
+     * @throws ValidationException if validation fails
+     */
+    void validate(T bean);
 }

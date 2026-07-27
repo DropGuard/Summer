@@ -10,13 +10,14 @@ import com.github.dropguard.summer.web.HttpParameterResolverChain;
 @ConditionalOnBean(RuntimeDiMarker.class)
 public class RuntimeWebConfiguration {
 
-	@Bean
-	public RuntimeRouteRegistrar routeRegistrar(HttpParameterResolverChain resolverChain) {
-		return new RuntimeRouteRegistrar(resolverChain);
-	}
+    @Bean
+    public RuntimeRouteRegistrar routeRegistrar(HttpParameterResolverChain resolverChain) {
+        return new RuntimeRouteRegistrar(resolverChain);
+    }
 
-	@Bean
-	public RuntimeExceptionHandlerRegistrar exceptionHandlerRegistrar(HttpParameterResolverChain resolverChain) {
-		return new RuntimeExceptionHandlerRegistrar(resolverChain);
-	}
+    @Bean
+    public RuntimeExceptionHandlerRegistrar exceptionHandlerRegistrar(
+            HttpParameterResolverChain resolverChain) {
+        return new RuntimeExceptionHandlerRegistrar(resolverChain);
+    }
 }

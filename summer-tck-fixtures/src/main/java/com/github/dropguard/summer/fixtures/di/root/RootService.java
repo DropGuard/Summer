@@ -1,18 +1,15 @@
 package com.github.dropguard.summer.fixtures.di.root;
 
-/**
- * Test fixture: service that receives auto-bound root properties via
- * constructor injection.
- */
+/** Test fixture: service that receives auto-bound root properties via constructor injection. */
 public class RootService {
 
-	private final RootProperties properties;
+    private final RootProperties properties;
 
-	public RootService(RootProperties properties) {
-		this.properties = properties;
-	}
+    public RootService(RootProperties properties) {
+        this.properties = properties;
+    }
 
-	public RootProperties getProperties() {
-		return properties;
-	}
+    public RootProperties getProperties() {
+        return properties;
+    }
 }

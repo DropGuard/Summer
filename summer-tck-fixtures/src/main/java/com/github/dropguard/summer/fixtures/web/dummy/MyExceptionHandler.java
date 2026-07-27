@@ -8,8 +8,8 @@ import com.github.dropguard.summer.web.annotation.ExceptionHandler;
 @Component
 public class MyExceptionHandler {
 
-	@ExceptionHandler(IllegalArgumentException.class)
-	public void handleIllegalArgument(IllegalArgumentException ex, HttpContext ctx) {
-		ctx.text(HttpStatus.BAD_REQUEST, "error_caught:" + ex.getMessage());
-	}
+    @ExceptionHandler(IllegalArgumentException.class)
+    public void handleIllegalArgument(IllegalArgumentException ex, HttpContext ctx) {
+        ctx.text(HttpStatus.BAD_REQUEST, "error_caught:" + ex.getMessage());
+    }
 }

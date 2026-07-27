@@ -7,17 +7,15 @@ import org.junit.jupiter.api.AfterEach;
 /**
  * Base class for TCK tests that require a {@link BeanContainer}.
  *
- * <p>
- * Provides:
+ * <p>Provides:
+ *
  * <ul>
- * <li>Lazy context creation via {@link #context()}</li>
- * <li>Automatic cleanup in {@link AfterEach}</li>
- * <li>Default {@link #createContext()} producing a Runtime engine
- * container</li>
+ *   <li>Lazy context creation via {@link #context()}
+ *   <li>Automatic cleanup in {@link AfterEach}
+ *   <li>Default {@link #createContext()} producing a Runtime engine container
  * </ul>
  *
- * <p>
- * Subclasses override {@link #createContext()} to select a different engine:
+ * <p>Subclasses override {@link #createContext()} to select a different engine:
  *
  * <pre>
  * // AOT — full context
@@ -26,8 +24,7 @@ import org.junit.jupiter.api.AfterEach;
  * }
  * </pre>
  *
- * <p>
- * Usage:
+ * <p>Usage:
  *
  * <pre>
  * // Simple case: Runtime engine (default)
@@ -37,33 +34,29 @@ import org.junit.jupiter.api.AfterEach;
  */
 public abstract class AbstractContextTCK extends AbstractTCK {
 
-	protected BeanContainer context;
+    protected BeanContainer context;
 
-	/**
-	 * Create the BeanContainer for testing.
-	 *
-	 * <p>
-	 * Default implementation builds a Runtime engine container. Subclasses may
-	 * override to use the AOT engine (e.g.
-	 * {@code TestContainerBuilder.buildAot()}).
-	 */
-	protected BeanContainer createContext() {
-		return Testing.build();
-	}
+    /**
+     * Create the BeanContainer for testing.
+     *
+     * <p>Default implementation builds a Runtime engine container. Subclasses may override to use
+     * the AOT engine (e.g. {@code TestContainerBuilder.buildAot()}).
+     */
+    protected BeanContainer createContext() {
+        return Testing.build();
+    }
 
-	/**
-	 * Get the application context (lazy initialization).
-	 */
-	protected BeanContainer context() {
-		if (context == null) {
-			context = createContext();
-		}
-		return context;
-	}
+    /** Get the application context (lazy initialization). */
+    protected BeanContainer context() {
+        if (context == null) {
+            context = createContext();
+        }
+        return context;
+    }
 
-	@AfterEach
-	void cleanupContext() {
-		closeQuietly(context);
-		context = null;
-	}
+    @AfterEach
+    void cleanupContext() {
+        closeQuietly(context);
+        context = null;
+    }
 }

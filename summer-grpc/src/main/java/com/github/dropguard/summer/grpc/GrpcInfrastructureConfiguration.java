@@ -10,21 +10,20 @@ import com.github.dropguard.summer.grpc.server.GrpcServerRunner;
 /**
  * Configuration for gRPC infrastructure beans.
  *
- * <p>
- * Provides {@link GrpcChannelManager} for client channel management and
- * {@link GrpcServerRunner} for server lifecycle.
- * </p>
+ * <p>Provides {@link GrpcChannelManager} for client channel management and {@link GrpcServerRunner}
+ * for server lifecycle.
  */
 @Configuration
 public class GrpcInfrastructureConfiguration {
 
-	@Bean
-	public GrpcChannelManager grpcChannelManager(GrpcTlsConfig tlsConfig) {
-		return new GrpcChannelManager(tlsConfig);
-	}
+    @Bean
+    public GrpcChannelManager grpcChannelManager(GrpcTlsConfig tlsConfig) {
+        return new GrpcChannelManager(tlsConfig);
+    }
 
-	@Bean
-	public GrpcServerRunner grpcServerRunner(GrpcTlsConfig tlsConfig, GrpcServerConfig serverConfig) {
-		return new GrpcServerRunner(tlsConfig, serverConfig);
-	}
+    @Bean
+    public GrpcServerRunner grpcServerRunner(
+            GrpcTlsConfig tlsConfig, GrpcServerConfig serverConfig) {
+        return new GrpcServerRunner(tlsConfig, serverConfig);
+    }
 }

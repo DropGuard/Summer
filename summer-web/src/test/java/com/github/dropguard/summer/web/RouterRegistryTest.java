@@ -6,54 +6,54 @@ import java.util.List;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 
-/**
- * Unit tests for {@link RouterRegistry}.
- */
+/** Unit tests for {@link RouterRegistry}. */
 class RouterRegistryTest {
 
-	@Test
-	void shouldRegisterAndRetrieveHttpFactory() {
-		RouterRegistry registry = new RouterRegistry();
-		Function<List<HttpRouter.Builder.Route>, HttpRouter> factory = routes -> null;
+    @Test
+    void shouldRegisterAndRetrieveHttpFactory() {
+        RouterRegistry registry = new RouterRegistry();
+        Function<List<HttpRouter.Builder.Route>, HttpRouter> factory = routes -> null;
 
-		registry.registerHttp(RouterType.RADIX_TREE, factory);
+        registry.registerHttp(RouterType.RADIX_TREE, factory);
 
-		assertSame(factory, registry.httpFactory(RouterType.RADIX_TREE));
-	}
+        assertSame(factory, registry.httpFactory(RouterType.RADIX_TREE));
+    }
 
-	@Test
-	void shouldRegisterAndRetrieveWsFactory() {
-		RouterRegistry registry = new RouterRegistry();
-		Function<List<WsRouter.WsRoute>, WsRouter> factory = routes -> null;
+    @Test
+    void shouldRegisterAndRetrieveWsFactory() {
+        RouterRegistry registry = new RouterRegistry();
+        Function<List<WsRouter.WsRoute>, WsRouter> factory = routes -> null;
 
-		registry.registerWs(RouterType.RADIX_TREE, factory);
+        registry.registerWs(RouterType.RADIX_TREE, factory);
 
-		assertSame(factory, registry.wsFactory(RouterType.RADIX_TREE));
-	}
+        assertSame(factory, registry.wsFactory(RouterType.RADIX_TREE));
+    }
 
-	@Test
-	void shouldThrowWhenHttpFactoryNotRegistered() {
-		RouterRegistry registry = new RouterRegistry();
+    @Test
+    void shouldThrowWhenHttpFactoryNotRegistered() {
+        RouterRegistry registry = new RouterRegistry();
 
-		assertThrows(IllegalArgumentException.class, () -> registry.httpFactory(RouterType.RADIX_TREE));
-	}
+        assertThrows(
+                IllegalArgumentException.class, () -> registry.httpFactory(RouterType.RADIX_TREE));
+    }
 
-	@Test
-	void shouldThrowWhenWsFactoryNotRegistered() {
-		RouterRegistry registry = new RouterRegistry();
+    @Test
+    void shouldThrowWhenWsFactoryNotRegistered() {
+        RouterRegistry registry = new RouterRegistry();
 
-		assertThrows(IllegalArgumentException.class, () -> registry.wsFactory(RouterType.RADIX_TREE));
-	}
+        assertThrows(
+                IllegalArgumentException.class, () -> registry.wsFactory(RouterType.RADIX_TREE));
+    }
 
-	@Test
-	void shouldOverwriteHttpFactory() {
-		RouterRegistry registry = new RouterRegistry();
-		Function<List<HttpRouter.Builder.Route>, HttpRouter> first = routes -> null;
-		Function<List<HttpRouter.Builder.Route>, HttpRouter> second = routes -> null;
+    @Test
+    void shouldOverwriteHttpFactory() {
+        RouterRegistry registry = new RouterRegistry();
+        Function<List<HttpRouter.Builder.Route>, HttpRouter> first = routes -> null;
+        Function<List<HttpRouter.Builder.Route>, HttpRouter> second = routes -> null;
 
-		registry.registerHttp(RouterType.RADIX_TREE, first);
-		registry.registerHttp(RouterType.RADIX_TREE, second);
+        registry.registerHttp(RouterType.RADIX_TREE, first);
+        registry.registerHttp(RouterType.RADIX_TREE, second);
 
-		assertSame(second, registry.httpFactory(RouterType.RADIX_TREE));
-	}
+        assertSame(second, registry.httpFactory(RouterType.RADIX_TREE));
+    }
 }

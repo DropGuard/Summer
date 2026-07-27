@@ -9,11 +9,11 @@ import io.grpc.stub.StreamObserver;
 @Component
 public class EchoServiceImpl extends EchoServiceGrpc.EchoServiceImplBase {
 
-	@Override
-	public void echo(EchoRequest request, StreamObserver<EchoResponse> responseObserver) {
-		String msg = request.getMessage();
-		EchoResponse response = EchoResponse.newBuilder().setMessage("ECHO: " + msg).build();
-		responseObserver.onNext(response);
-		responseObserver.onCompleted();
-	}
+    @Override
+    public void echo(EchoRequest request, StreamObserver<EchoResponse> responseObserver) {
+        String msg = request.getMessage();
+        EchoResponse response = EchoResponse.newBuilder().setMessage("ECHO: " + msg).build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 }

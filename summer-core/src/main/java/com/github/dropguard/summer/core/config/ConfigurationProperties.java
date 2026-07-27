@@ -7,38 +7,29 @@ import java.lang.annotation.Target;
 
 /**
  * Marks a class or record as a configuration properties holder.
- * 
- * <p>
- * The annotated type will be bound to a section of the YAML configuration file.
- * The {@link #prefix()} specifies which section to bind.
- * </p>
- * 
- * <p>
- * Example:
- * </p>
- * 
+ *
+ * <p>The annotated type will be bound to a section of the YAML configuration file. The {@link
+ * #prefix()} specifies which section to bind.
+ *
+ * <p>Example:
+ *
  * <pre>{@code
  * // YAML:
  * // jwt:
  * // secret: my-secret
  * // expiration: 3600000
- * 
+ *
  * @ConfigurationProperties(prefix = "jwt")
  * public record JwtProperties(String secret, long expiration) {
  * }
  * }</pre>
- * 
- * <p>
- * If no prefix is specified, the entire YAML file is bound to the type.
- * </p>
+ *
+ * <p>If no prefix is specified, the entire YAML file is bound to the type.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface ConfigurationProperties {
 
-	/**
-	 * The prefix of the properties to bind. If empty, the entire configuration file
-	 * is bound.
-	 */
-	String prefix() default "";
+    /** The prefix of the properties to bind. If empty, the entire configuration file is bound. */
+    String prefix() default "";
 }

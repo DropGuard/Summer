@@ -7,14 +7,14 @@ import com.github.dropguard.summer.grpc.test.echo.EchoServiceGrpc;
 @Configuration
 public class GrpcTestConfig {
 
-	private final GrpcChannelManager channelManager;
+    private final GrpcChannelManager channelManager;
 
-	public GrpcTestConfig(GrpcChannelManager channelManager) {
-		this.channelManager = channelManager;
-	}
+    public GrpcTestConfig(GrpcChannelManager channelManager) {
+        this.channelManager = channelManager;
+    }
 
-	@com.github.dropguard.summer.core.annotation.Bean
-	public EchoServiceGrpc.EchoServiceBlockingStub echoStub() {
-		return EchoServiceGrpc.newBlockingStub(channelManager.getChannel("localhost:9090"));
-	}
+    @com.github.dropguard.summer.core.annotation.Bean
+    public EchoServiceGrpc.EchoServiceBlockingStub echoStub() {
+        return EchoServiceGrpc.newBlockingStub(channelManager.getChannel("localhost:9090"));
+    }
 }

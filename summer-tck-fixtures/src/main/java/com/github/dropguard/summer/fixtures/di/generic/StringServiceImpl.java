@@ -5,8 +5,8 @@ import com.github.dropguard.summer.core.Component;
 @Component
 public class StringServiceImpl implements GenericService<String> {
 
-	@Override
-	public String process(String input) {
-		return "processed:" + input;
-	}
+    @Override
+    public String process(String input) {
+        return "processed:" + input;
+    }
 }

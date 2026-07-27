@@ -4,5 +4,5 @@ import com.github.dropguard.summer.core.Component;
 
 @Component
 public class ChainD {
-	public String value = "D";
+    public String value = "D";
 }

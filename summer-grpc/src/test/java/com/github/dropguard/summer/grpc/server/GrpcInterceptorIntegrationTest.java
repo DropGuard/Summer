@@ -14,29 +14,34 @@ import org.junit.jupiter.api.Test;
 
 public class GrpcInterceptorIntegrationTest {
 
-	@BeforeAll
-	public static void setupProperty() {
-		System.setProperty("com.github.dropguard.summer.grpc.port", "0");
-	}
+    @BeforeAll
+    public static void setupProperty() {
+        System.setProperty("com.github.dropguard.summer.grpc.port", "0");
+    }
 
-	@Test
-	public void testGrpcServerInterceptorDiscovery() throws Exception {
-		var ctx = Testing.build();
+    @Test
+    public void testGrpcServerInterceptorDiscovery() throws Exception {
+        var ctx = Testing.build();
 
-		GrpcServerRunner serverRunner = ctx.getBean(GrpcServerRunner.class);
-		serverRunner.run(ctx);
-		int port = serverRunner.getPort();
-		assertTrue(port > 0, "Server should be bound to a valid port");
+        GrpcServerRunner serverRunner = ctx.getBean(GrpcServerRunner.class);
+        serverRunner.run(ctx);
+        int port = serverRunner.getPort();
+        assertTrue(port > 0, "Server should be bound to a valid port");
 
-		ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", port).usePlaintext().build();
+        ManagedChannel channel =
+                ManagedChannelBuilder.forAddress("localhost", port).usePlaintext().build();
 
-		try {
-			String response = ClientCalls.blockingUnaryCall(channel, GrpcTestConfig.TEST_METHOD, CallOptions.DEFAULT,
-					"RequestData");
-			assertEquals("Hello Intercepted!", response);
-		} finally {
-			channel.shutdown();
-			ctx.close();
-		}
-	}
+        try {
+            String response =
+                    ClientCalls.blockingUnaryCall(
+                            channel,
+                            GrpcTestConfig.TEST_METHOD,
+                            CallOptions.DEFAULT,
+                            "RequestData");
+            assertEquals("Hello Intercepted!", response);
+        } finally {
+            channel.shutdown();
+            ctx.close();
+        }
+    }
 }

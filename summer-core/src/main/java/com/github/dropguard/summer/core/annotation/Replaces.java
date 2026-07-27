@@ -8,16 +8,11 @@ import java.lang.annotation.Target;
 /**
  * Marks a class or method as a replacement for another bean.
  *
- * <p>
- * <strong>Class-level usage:</strong> Replaces the entire configuration class.
- * The replacement class must provide all {@code @Bean} methods of the target.
- * </p>
+ * <p><strong>Class-level usage:</strong> Replaces the entire configuration class. The replacement
+ * class must provide all {@code @Bean} methods of the target.
  *
- * <p>
- * <strong>Method-level usage:</strong> Replaces a {@code @Bean} method by
- * return type. If multiple {@code @Bean} methods return the same type, an error
- * is thrown.
- * </p>
+ * <p><strong>Method-level usage:</strong> Replaces a {@code @Bean} method by return type. If
+ * multiple {@code @Bean} methods return the same type, an error is thrown.
  *
  * <pre>
  * // Class-level: replaces entire config
@@ -44,5 +39,5 @@ import java.lang.annotation.Target;
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Replaces {
-	Class<?> value();
+    Class<?> value();
 }

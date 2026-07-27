@@ -6,14 +6,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Marks a constructor parameter as a mock bean. The framework creates a
- * {@code Mockito.mock()} instance, registers it in the container, and injects
- * it into the test class.
+ * Marks a constructor parameter as a mock bean. The framework creates a {@code Mockito.mock()}
+ * instance, registers it in the container, and injects it into the test class.
  *
- * <p>
- * Mocks are registered <em>before</em> the container is built, so the real bean
- * (if any) is skipped — the mock always wins.
- * </p>
+ * <p>Mocks are registered <em>before</em> the container is built, so the real bean (if any) is
+ * skipped — the mock always wins.
  *
  * <pre>{@code
  * &#64;SummerTest({UserService.class})
@@ -27,5 +24,4 @@ import java.lang.annotation.Target;
  */
 @Target(ElementType.PARAMETER)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface Mock {
-}
+public @interface Mock {}

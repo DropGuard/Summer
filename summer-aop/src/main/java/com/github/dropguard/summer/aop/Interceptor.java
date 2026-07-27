@@ -8,22 +8,15 @@ import java.lang.annotation.Target;
 /**
  * Marks a class as an AOP interceptor.
  *
- * <p>
- * Interceptors are classes that implement {@link MethodInterceptor} and are
- * bound to target methods/classes via {@link InterceptorBinding} annotations.
- * </p>
+ * <p>Interceptors are classes that implement {@link MethodInterceptor} and are bound to target
+ * methods/classes via {@link InterceptorBinding} annotations.
  *
- * <p>
- * An interceptor class must also carry one or more {@code @InterceptorBinding}
- * annotations to declare which binding(s) it handles.
- * </p>
+ * <p>An interceptor class must also carry one or more {@code @InterceptorBinding} annotations to
+ * declare which binding(s) it handles.
  *
- * <p>
- * Example:
- * </p>
+ * <p>Example:
  *
- * <pre>
- * {@code
+ * <pre>{@code
  * // 1. Define binding annotation
  * &#64;InterceptorBinding
  * &#64;Target({ElementType.TYPE, ElementType.METHOD})
@@ -38,13 +31,11 @@ import java.lang.annotation.Target;
  * // 3. Target: binding annotation on method or class
  * &#64;Transactional
  * public void transferMoney() { ... }
- * }
- * </pre>
+ * }</pre>
  *
  * @see InterceptorBinding
  * @see MethodInterceptor
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface Interceptor {
-}
+public @interface Interceptor {}

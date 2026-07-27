@@ -11,120 +11,118 @@ import javax.sql.DataSource;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-/**
- * Unit tests for {@link SimpleJdbcTransactionManager}.
- */
+/** Unit tests for {@link SimpleJdbcTransactionManager}. */
 class SimpleJdbcTransactionManagerTest {
 
-	@AfterEach
-	void cleanup() {
-		ThreadLocalTransactionContext.clearCurrentConnection();
-	}
+    @AfterEach
+    void cleanup() {
+        ThreadLocalTransactionContext.clearCurrentConnection();
+    }
 
-	@Test
-	void shouldBeginTransaction() throws SQLException {
-		DataSource ds = mock(DataSource.class);
-		Connection conn = mock(Connection.class);
-		when(ds.getConnection()).thenReturn(conn);
+    @Test
+    void shouldBeginTransaction() throws SQLException {
+        DataSource ds = mock(DataSource.class);
+        Connection conn = mock(Connection.class);
+        when(ds.getConnection()).thenReturn(conn);
 
-		SimpleJdbcTransactionManager manager = new SimpleJdbcTransactionManager(ds);
-		TransactionStatus status = manager.begin();
+        SimpleJdbcTransactionManager manager = new SimpleJdbcTransactionManager(ds);
+        TransactionStatus status = manager.begin();
 
-		assertNotNull(status);
-		verify(conn).setAutoCommit(false);
-	}
+        assertNotNull(status);
+        verify(conn).setAutoCommit(false);
+    }
 
-	@Test
-	void shouldThrowOnNestedTransaction() throws SQLException {
-		DataSource ds = mock(DataSource.class);
-		Connection conn = mock(Connection.class);
-		when(ds.getConnection()).thenReturn(conn);
+    @Test
+    void shouldThrowOnNestedTransaction() throws SQLException {
+        DataSource ds = mock(DataSource.class);
+        Connection conn = mock(Connection.class);
+        when(ds.getConnection()).thenReturn(conn);
 
-		SimpleJdbcTransactionManager manager = new SimpleJdbcTransactionManager(ds);
-		manager.begin(); // First transaction
+        SimpleJdbcTransactionManager manager = new SimpleJdbcTransactionManager(ds);
+        manager.begin(); // First transaction
 
-		assertThrows(SummerTransactionException.class, manager::begin);
-	}
+        assertThrows(SummerTransactionException.class, manager::begin);
+    }
 
-	@Test
-	void shouldCommitTransaction() throws SQLException {
-		DataSource ds = mock(DataSource.class);
-		Connection conn = mock(Connection.class);
-		when(ds.getConnection()).thenReturn(conn);
-		when(conn.getAutoCommit()).thenReturn(false);
+    @Test
+    void shouldCommitTransaction() throws SQLException {
+        DataSource ds = mock(DataSource.class);
+        Connection conn = mock(Connection.class);
+        when(ds.getConnection()).thenReturn(conn);
+        when(conn.getAutoCommit()).thenReturn(false);
 
-		SimpleJdbcTransactionManager manager = new SimpleJdbcTransactionManager(ds);
-		TransactionStatus status = manager.begin();
-		manager.commit(status);
+        SimpleJdbcTransactionManager manager = new SimpleJdbcTransactionManager(ds);
+        TransactionStatus status = manager.begin();
+        manager.commit(status);
 
-		verify(conn).commit();
-		verify(conn).close();
-	}
+        verify(conn).commit();
+        verify(conn).close();
+    }
 
-	@Test
-	void shouldRollbackTransaction() throws SQLException {
-		DataSource ds = mock(DataSource.class);
-		Connection conn = mock(Connection.class);
-		when(ds.getConnection()).thenReturn(conn);
-		when(conn.getAutoCommit()).thenReturn(false);
+    @Test
+    void shouldRollbackTransaction() throws SQLException {
+        DataSource ds = mock(DataSource.class);
+        Connection conn = mock(Connection.class);
+        when(ds.getConnection()).thenReturn(conn);
+        when(conn.getAutoCommit()).thenReturn(false);
 
-		SimpleJdbcTransactionManager manager = new SimpleJdbcTransactionManager(ds);
-		TransactionStatus status = manager.begin();
-		manager.rollback(status);
+        SimpleJdbcTransactionManager manager = new SimpleJdbcTransactionManager(ds);
+        TransactionStatus status = manager.begin();
+        manager.rollback(status);
 
-		verify(conn).rollback();
-		verify(conn).close();
-	}
+        verify(conn).rollback();
+        verify(conn).close();
+    }
 
-	@Test
-	void shouldHandleCommitFailure() throws SQLException {
-		DataSource ds = mock(DataSource.class);
-		Connection conn = mock(Connection.class);
-		when(ds.getConnection()).thenReturn(conn);
-		when(conn.getAutoCommit()).thenReturn(false);
-		doThrow(new SQLException("Commit failed")).when(conn).commit();
+    @Test
+    void shouldHandleCommitFailure() throws SQLException {
+        DataSource ds = mock(DataSource.class);
+        Connection conn = mock(Connection.class);
+        when(ds.getConnection()).thenReturn(conn);
+        when(conn.getAutoCommit()).thenReturn(false);
+        doThrow(new SQLException("Commit failed")).when(conn).commit();
 
-		SimpleJdbcTransactionManager manager = new SimpleJdbcTransactionManager(ds);
-		TransactionStatus status = manager.begin();
+        SimpleJdbcTransactionManager manager = new SimpleJdbcTransactionManager(ds);
+        TransactionStatus status = manager.begin();
 
-		assertThrows(SummerTransactionException.class, () -> manager.commit(status));
-		verify(conn).rollback();
-	}
+        assertThrows(SummerTransactionException.class, () -> manager.commit(status));
+        verify(conn).rollback();
+    }
 
-	@Test
-	void shouldHandleRollbackFailure() throws SQLException {
-		DataSource ds = mock(DataSource.class);
-		Connection conn = mock(Connection.class);
-		when(ds.getConnection()).thenReturn(conn);
-		when(conn.getAutoCommit()).thenReturn(false);
-		doThrow(new SQLException("Rollback failed")).when(conn).rollback();
+    @Test
+    void shouldHandleRollbackFailure() throws SQLException {
+        DataSource ds = mock(DataSource.class);
+        Connection conn = mock(Connection.class);
+        when(ds.getConnection()).thenReturn(conn);
+        when(conn.getAutoCommit()).thenReturn(false);
+        doThrow(new SQLException("Rollback failed")).when(conn).rollback();
 
-		SimpleJdbcTransactionManager manager = new SimpleJdbcTransactionManager(ds);
-		TransactionStatus status = manager.begin();
+        SimpleJdbcTransactionManager manager = new SimpleJdbcTransactionManager(ds);
+        TransactionStatus status = manager.begin();
 
-		assertThrows(SummerTransactionException.class, () -> manager.rollback(status));
-	}
+        assertThrows(SummerTransactionException.class, () -> manager.rollback(status));
+    }
 
-	@Test
-	void shouldHandleBeginFailure() throws SQLException {
-		DataSource ds = mock(DataSource.class);
-		when(ds.getConnection()).thenThrow(new SQLException("Connection failed"));
+    @Test
+    void shouldHandleBeginFailure() throws SQLException {
+        DataSource ds = mock(DataSource.class);
+        when(ds.getConnection()).thenThrow(new SQLException("Connection failed"));
 
-		SimpleJdbcTransactionManager manager = new SimpleJdbcTransactionManager(ds);
+        SimpleJdbcTransactionManager manager = new SimpleJdbcTransactionManager(ds);
 
-		assertThrows(SummerTransactionException.class, manager::begin);
-	}
+        assertThrows(SummerTransactionException.class, manager::begin);
+    }
 
-	@Test
-	void shouldCleanupConnectionOnBeginFailure() throws SQLException {
-		DataSource ds = mock(DataSource.class);
-		Connection conn = mock(Connection.class);
-		when(ds.getConnection()).thenReturn(conn);
-		doThrow(new SQLException("setAutoCommit failed")).when(conn).setAutoCommit(false);
+    @Test
+    void shouldCleanupConnectionOnBeginFailure() throws SQLException {
+        DataSource ds = mock(DataSource.class);
+        Connection conn = mock(Connection.class);
+        when(ds.getConnection()).thenReturn(conn);
+        doThrow(new SQLException("setAutoCommit failed")).when(conn).setAutoCommit(false);
 
-		SimpleJdbcTransactionManager manager = new SimpleJdbcTransactionManager(ds);
+        SimpleJdbcTransactionManager manager = new SimpleJdbcTransactionManager(ds);
 
-		assertThrows(SummerTransactionException.class, manager::begin);
-		verify(conn).close();
-	}
+        assertThrows(SummerTransactionException.class, manager::begin);
+        verify(conn).close();
+    }
 }

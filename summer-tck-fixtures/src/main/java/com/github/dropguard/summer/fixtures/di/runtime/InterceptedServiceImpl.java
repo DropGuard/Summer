@@ -4,14 +4,14 @@ import com.github.dropguard.summer.core.Component;
 
 @Component
 public class InterceptedServiceImpl implements InterceptedService {
-	@Override
-	@TestIntercepted
-	public String interceptedGreet(String name) {
-		return "Hello, " + name;
-	}
+    @Override
+    @TestIntercepted
+    public String interceptedGreet(String name) {
+        return "Hello, " + name;
+    }
 
-	@Override
-	public String nonInterceptedGreet(String name) {
-		return "Hello, " + name;
-	}
+    @Override
+    public String nonInterceptedGreet(String name) {
+        return "Hello, " + name;
+    }
 }

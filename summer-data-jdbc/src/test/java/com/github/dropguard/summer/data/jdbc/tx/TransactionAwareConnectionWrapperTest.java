@@ -11,47 +11,45 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for {@link TransactionAwareConnectionWrapper}.
  *
- * <p>
- * Only tests the core behavior: suppressing close/commit/rollback. Delegation
- * of other methods is boilerplate and not tested.
- * </p>
+ * <p>Only tests the core behavior: suppressing close/commit/rollback. Delegation of other methods
+ * is boilerplate and not tested.
  */
 class TransactionAwareConnectionWrapperTest {
 
-	@Test
-	void shouldSuppressClose() throws SQLException {
-		Connection target = mock(Connection.class);
-		TransactionAwareConnectionWrapper wrapper = new TransactionAwareConnectionWrapper(target);
+    @Test
+    void shouldSuppressClose() throws SQLException {
+        Connection target = mock(Connection.class);
+        TransactionAwareConnectionWrapper wrapper = new TransactionAwareConnectionWrapper(target);
 
-		wrapper.close();
-		verify(target, never()).close();
-	}
+        wrapper.close();
+        verify(target, never()).close();
+    }
 
-	@Test
-	void shouldSuppressCommit() throws SQLException {
-		Connection target = mock(Connection.class);
-		TransactionAwareConnectionWrapper wrapper = new TransactionAwareConnectionWrapper(target);
+    @Test
+    void shouldSuppressCommit() throws SQLException {
+        Connection target = mock(Connection.class);
+        TransactionAwareConnectionWrapper wrapper = new TransactionAwareConnectionWrapper(target);
 
-		wrapper.commit();
-		verify(target, never()).commit();
-	}
+        wrapper.commit();
+        verify(target, never()).commit();
+    }
 
-	@Test
-	void shouldSuppressRollback() throws SQLException {
-		Connection target = mock(Connection.class);
-		TransactionAwareConnectionWrapper wrapper = new TransactionAwareConnectionWrapper(target);
+    @Test
+    void shouldSuppressRollback() throws SQLException {
+        Connection target = mock(Connection.class);
+        TransactionAwareConnectionWrapper wrapper = new TransactionAwareConnectionWrapper(target);
 
-		wrapper.rollback();
-		verify(target, never()).rollback();
-	}
+        wrapper.rollback();
+        verify(target, never()).rollback();
+    }
 
-	@Test
-	void shouldSuppressRollbackWithSavepoint() throws SQLException {
-		Connection target = mock(Connection.class);
-		Savepoint savepoint = mock(Savepoint.class);
-		TransactionAwareConnectionWrapper wrapper = new TransactionAwareConnectionWrapper(target);
+    @Test
+    void shouldSuppressRollbackWithSavepoint() throws SQLException {
+        Connection target = mock(Connection.class);
+        Savepoint savepoint = mock(Savepoint.class);
+        TransactionAwareConnectionWrapper wrapper = new TransactionAwareConnectionWrapper(target);
 
-		wrapper.rollback(savepoint);
-		verify(target, never()).rollback(any(Savepoint.class));
-	}
+        wrapper.rollback(savepoint);
+        verify(target, never()).rollback(any(Savepoint.class));
+    }
 }

@@ -7,18 +7,19 @@ import org.junit.jupiter.api.Test;
 
 class JsonBodyConverterTest {
 
-	@Test
-	void shouldThrowExceptionOnSerializationFailure() {
-		JsonBodyConverter converter = new JsonBodyConverter();
+    @Test
+    void shouldThrowExceptionOnSerializationFailure() {
+        JsonBodyConverter converter = new JsonBodyConverter();
 
-		// Create an object that Jackson cannot serialize (e.g. self-referencing)
-		class BadObject {
-			public BadObject self = this;
-		}
+        // Create an object that Jackson cannot serialize (e.g. self-referencing)
+        class BadObject {
+            public BadObject self = this;
+        }
 
-		ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
 
-		assertThrows(com.fasterxml.jackson.databind.JsonMappingException.class,
-				() -> converter.writeToStream(new BadObject(), out));
-	}
+        assertThrows(
+                com.fasterxml.jackson.databind.JsonMappingException.class,
+                () -> converter.writeToStream(new BadObject(), out));
+    }
 }
