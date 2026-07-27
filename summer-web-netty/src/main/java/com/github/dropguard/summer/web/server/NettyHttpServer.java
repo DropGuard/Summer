@@ -7,6 +7,7 @@ import com.github.dropguard.summer.web.HttpRouter;
 import com.github.dropguard.summer.web.JsonBodyConverter;
 import com.github.dropguard.summer.web.Middleware;
 import com.github.dropguard.summer.web.ServerConfig;
+import com.github.dropguard.summer.web.ServerOriginChecker;
 import com.github.dropguard.summer.web.WsRouter;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -57,8 +58,10 @@ public class NettyHttpServer {
 
         List<com.github.dropguard.summer.web.websocket.WsInterceptor> wsInterceptors =
                 context.getBeans(com.github.dropguard.summer.web.websocket.WsInterceptor.class);
+        ServerOriginChecker serverOriginChecker = context.getBean(ServerOriginChecker.class);
         WebSocketUpgradeHandler wsUpgradeHandler =
-                new WebSocketUpgradeHandler(wsRouter, config, wsInterceptors, jsonConverter);
+                new WebSocketUpgradeHandler(
+                        wsRouter, config, serverOriginChecker, wsInterceptors, jsonConverter);
         return new NettyHttpServer(
                 config,
                 new WebServerDependencies(

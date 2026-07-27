@@ -14,5 +14,9 @@ package com.github.dropguard.summer.core.config;
  * terminationGracePeriodSeconds} above this (and any other teardown work) so the drain can
  * complete.
  */
-@ConfigurationProperties(prefix = "com.github.dropguard.summer.shutdown")
-public record ShutdownConfig(@DefaultValue("10000") Long timeoutMs) {}
+@ConfigMapping(prefix = "shutdown")
+public interface ShutdownConfig {
+
+    @WithDefault("10000")
+    Long timeoutMs();
+}

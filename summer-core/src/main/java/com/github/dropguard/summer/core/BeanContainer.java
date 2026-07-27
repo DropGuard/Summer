@@ -1,6 +1,7 @@
 package com.github.dropguard.summer.core;
 
 import com.github.dropguard.summer.core.bean.RouteInfo;
+import com.github.dropguard.summer.core.config.ConfigBinder;
 import com.github.dropguard.summer.core.config.ShutdownConfig;
 import com.github.dropguard.summer.core.exception.AmbiguousBeanException;
 import com.github.dropguard.summer.core.exception.NoSuchBeanException;
@@ -140,12 +141,17 @@ public final class BeanContainer implements AutoCloseable {
 
     /**
      * Resolves the global {@link ShutdownConfig}, falling back to defaults when no
-     * {@code @ConfigurationProperties} bean is present. Used by input drivers at registration time
-     * to read the in-flight drain timeout.
+     * {@code @ConfigMapping} bean is present. Used by input drivers at registration time to read
+     * the in-flight drain timeout.
      */
     public ShutdownConfig getShutdownConfig() {
         Object bean = singletons.get(ShutdownConfig.class);
-        return bean instanceof ShutdownConfig c ? c : new ShutdownConfig(10000L);
+        if (bean instanceof ShutdownConfig c) {
+            return c;
+        }
+        // No @ConfigMapping bean present — bind the defaults (ShutdownConfig is @WithDefault only).
+        return ConfigBinder.bind(
+                ConfigBinder.BindingContext.of(), "shutdown", ShutdownConfig.class);
     }
 
     // ---- Builder ----

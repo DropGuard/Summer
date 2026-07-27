@@ -5,26 +5,49 @@ import com.github.dropguard.summer.core.bean.ConfigPropertiesBean;
 import com.github.dropguard.summer.core.bean.InjectionParameter;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
+import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.MethodSpec;
+import com.palantir.javapoet.TypeSpec;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.jboss.jandex.AnnotationInstance;
+import org.jboss.jandex.ClassInfo;
+import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
+import org.jboss.jandex.MethodInfo;
+import org.jboss.jandex.Type;
 
 /**
  * Generates the bean instantiation body of the AOT-created {@code create()} method. Emits {@code
  * builder.register(...)} calls for each bean.
  *
- * <p>Handles constructor injection, {@code @Bean} method invocation,
- * {@code @ConfigurationProperties} binding, AOP proxy wrapping, and interface registration.
+ * <p>Handles constructor injection, {@code @Bean} method invocation, {@code @ConfigMapping}
+ * binding, AOP proxy wrapping, and interface registration.
  */
 public final class WireMethodGenerator {
 
     private static final ClassName JDBC_TEMPLATE =
             ClassName.get("com.github.dropguard.summer.data.jdbc", "JdbcTemplate");
 
-    public WireMethodGenerator() {
-        this(Map.of());
+    // Reflection-free Jandex lookups only: the AOT module must stay reflection-free (enforced by
+    // ReflectionConfinementTest), so config-impl generation reads interfaces via the Jandex index
+    // rather than java.lang.reflect.
+    private static final DotName WITH_DEFAULT_DOT =
+            DotName.createSimple("com.github.dropguard.summer.core.config.WithDefault");
+    private static final DotName WITH_NAME_DOT =
+            DotName.createSimple("com.github.dropguard.summer.core.config.WithName");
+    private static final short ABSTRACT = 0x400;
+
+    private final IndexView index;
+
+    public WireMethodGenerator(IndexView index) {
+        this(index, Map.of());
+    }
+
+    public WireMethodGenerator(IndexView index, java.util.Map<String, Object> overrides) {
+        this.index = index;
+        this.overrides = overrides != null ? overrides : Map.of();
     }
 
     /**
@@ -225,20 +248,26 @@ public final class WireMethodGenerator {
     // Override content is known at code-generation time (from @TestProfile), so it
     // is inlined into the generated wire() method as a BindingContext literal
     // rather than read from a runtime ThreadLocal.
-    private final Map<String, Object> profileOverrides;
+    private final Map<String, Object> overrides;
+    private final List<TypeSpec> configImpls = new ArrayList<>();
 
-    WireMethodGenerator(Map<String, Object> profileOverrides) {
-        this.profileOverrides = profileOverrides != null ? profileOverrides : Map.of();
+    /**
+     * Generated config-impl TypeSpecs (one per @ConfigMapping interface), written as separate
+     * source files by AotContextGenerator after the main container.
+     */
+    List<TypeSpec> configImpls() {
+        return configImpls;
     }
 
     void generateWireMethod(MethodSpec.Builder wire, List<BeanDefinition> sortedBeans) {
-        generateWireMethod(wire, sortedBeans, profileOverrides);
+        generateWireMethod(wire, sortedBeans, overrides);
     }
 
     void generateWireMethod(
             MethodSpec.Builder wire,
             List<BeanDefinition> sortedBeans,
             Map<String, Object> overrides) {
+        configImpls.clear();
         for (int i = 0; i < sortedBeans.size(); i++) {
             BeanDefinition bean = sortedBeans.get(i);
             ClassName beanClass = safeClassName(bean.qualifiedName);
@@ -326,43 +355,63 @@ public final class WireMethodGenerator {
             Map<String, Object> overrides) {
         ClassName configBinder =
                 ClassName.get("com.github.dropguard.summer.core.config", "ConfigBinder");
+        ClassName typeConverter =
+                ClassName.get("com.github.dropguard.summer.core.config", "TypeConverter");
         String prefix = bean.configPropertiesPrefix != null ? bean.configPropertiesPrefix : "";
-        // Overrides and @DefaultValue results are baked into the generated context as
-        // a BindingContext literal, so the same container identity (derived from
-        // override content) and binding read from one explicit source and never
-        // drift. No ThreadLocal, no remove(). @DefaultValue metadata was collected
-        // from Jandex at discovery time and stored on the bean.
+        // @TestProfile overrides are baked in as a BindingContext literal so the same
+        // container identity (derived from override content) and binding read from one
+        // explicit source and never drift (no ThreadLocal, no remove()). @WithDefault
+        // values are NOT injected here: they are resolved inside the generated
+        // $$ConfigImpl constructor lazily (only when the key is absent), mirroring the
+        // Runtime proxy's behaviour. Injecting them eagerly as a strong override would
+        // (a) force eager conversion of every default — including complex types such as
+        // List, which TypeConverter cannot coerce from a String — and (b) mask YAML values.
         CodeBlock ctxLiteral;
-        if (bean.defaultValues.isEmpty() && overrides.isEmpty()) {
+        if (overrides.isEmpty()) {
             ctxLiteral = CodeBlock.of("$T.BindingContext.of()", configBinder);
-        } else if (bean.defaultValues.isEmpty()) {
-            ctxLiteral =
-                    CodeBlock.of(
-                            "$T.BindingContext.of($L)",
-                            configBinder,
-                            buildOverridesLiteral(overrides));
-        } else if (overrides.isEmpty()) {
-            ctxLiteral =
-                    CodeBlock.of(
-                            "$T.BindingContext.of($L)",
-                            configBinder,
-                            buildDefaultsLiteral(bean.defaultValues, bean.fieldTypes));
         } else {
             ctxLiteral =
                     CodeBlock.of(
-                            "$T.BindingContext.of($L, $L)",
+                            "$T.BindingContext.of($L)",
                             configBinder,
-                            buildDefaultsLiteral(bean.defaultValues, bean.fieldTypes),
                             buildOverridesLiteral(overrides));
         }
-        wire.addStatement(
-                "$T $N = $T.bind($L, $S, $T.class)",
-                beanClass,
-                varName,
-                configBinder,
-                ctxLiteral,
-                prefix,
-                beanClass);
+        // Two target shapes, two AOT strategies, both avoiding the legacy runtime
+        // binders (Jackson convertValue for records, dynamic Proxy for interfaces):
+        //   - @ConfigMapping interface  -> a strong-typed $$ConfigImpl class whose
+        //     final fields are copied straight from the resolved section map. No Jackson,
+        //     no Proxy.
+        ClassInfo targetClass = index.getClassByName(DotName.createSimple(bean.qualifiedName));
+        if (targetClass != null && targetClass.isInterface()) {
+            TypeSpec impl = generateConfigImpl(beanClass, targetClass);
+            configImpls.add(impl);
+            // All generated config-impl classes live in AotContextGenerator.PACKAGE, so the
+            // reference must use that package — not the interface's own package.
+            ClassName implClass =
+                    ClassName.get(
+                            AotContextGenerator.PACKAGE, beanClass.simpleName() + "$$ConfigImpl");
+            wire.addStatement(
+                    "$T $N = new $T($T.bindSection($L, $S))",
+                    implClass,
+                    varName,
+                    implClass,
+                    configBinder,
+                    ctxLiteral,
+                    prefix);
+        } else {
+            // Non-interface config holders (records, plain classes) fall back to the runtime
+            // Jackson binder (ConfigBinder.bind). The AOT strong-typed generation targets the
+            // @ConfigMapping interface path above; this branch stays a single delegation so it
+            // never diverges from the Runtime engine.
+            wire.addStatement(
+                    "$T $N = $T.bind($L, $S, $T.class)",
+                    beanClass,
+                    varName,
+                    configBinder,
+                    ctxLiteral,
+                    prefix,
+                    beanClass);
+        }
     }
 
     private static CodeBlock buildOverridesLiteral(Map<String, Object> overrides) {
@@ -399,7 +448,7 @@ public final class WireMethodGenerator {
                     e.getKey(),
                     ClassName.get("com.github.dropguard.summer.core.config", "TypeConverter"),
                     e.getValue(),
-                    TypeReads.typeName(typeNames.get(e.getKey())));
+                    parseTypeName(typeNames.get(e.getKey())));
             first = false;
         }
         cb.add(")");
@@ -414,7 +463,18 @@ public final class WireMethodGenerator {
     static com.palantir.javapoet.TypeName parseTypeName(String typeName) {
         if (typeName.startsWith("[")) return ClassName.get(Object.class);
         if (PrimitiveTypes.isPrimitive(typeName)) return TypeReads.typeName(typeName);
-        return ClassName.bestGuess(typeName.replace('$', '.'));
+        // Jandex rawType names use JVM internal '$' for nested classes (e.g.
+        // WebConfig$RouterType). Render the source form WebConfig.RouterType via
+        // ClassName's nested-class constructor so the generated import resolves.
+        String dotted = typeName.replace('$', '.');
+        int lastDot = dotted.lastIndexOf('.');
+        String pkg = dotted.substring(0, lastDot);
+        String[] nested = dotted.substring(lastDot + 1).split("\\.");
+        if (nested.length == 1) {
+            return ClassName.get(pkg, nested[0]);
+        }
+        return ClassName.get(
+                pkg, nested[0], java.util.Arrays.copyOfRange(nested, 1, nested.length));
     }
 
     /**
@@ -424,5 +484,186 @@ public final class WireMethodGenerator {
      */
     private static ClassName safeClassName(String qualifiedName) {
         return ClassName.bestGuess(qualifiedName.replace('$', '.'));
+    }
+
+    /**
+     * Builds a strong-typed implementation of a {@code @ConfigMapping} config interface. Every
+     * abstract method becomes a {@code final} field initialized from the section map passed to the
+     * constructor. Defaults ({@code @WithDefault}) and nested mappings are resolved at
+     * code-generation time via the Jandex index (the AOT module is reflection-free), so the
+     * generated class binds with zero reflection at runtime. Nested config interfaces recurse into
+     * their own {@code $$ConfigImpl} classes (also collected into {@link #configImpls}).
+     */
+    private TypeSpec generateConfigImpl(ClassName iface, ClassInfo classInfo) {
+        String implName = iface.simpleName() + "$$ConfigImpl";
+        String qualifiedName = classInfo.name().toString();
+        TypeSpec.Builder impl =
+                TypeSpec.classBuilder(implName)
+                        .addModifiers(
+                                javax.lang.model.element.Modifier.PUBLIC,
+                                javax.lang.model.element.Modifier.FINAL)
+                        .addSuperinterface(iface);
+        ClassName missingEx =
+                ClassName.get(
+                        "com.github.dropguard.summer.core.exception", "MissingFieldException");
+        ClassName typeConverter =
+                ClassName.get("com.github.dropguard.summer.core.config", "TypeConverter");
+        MethodSpec.Builder ctor =
+                MethodSpec.constructorBuilder()
+                        .addModifiers(javax.lang.model.element.Modifier.PUBLIC)
+                        .addParameter(ClassName.get("java.util", "Map"), "__section");
+        for (MethodInfo m : classInfo.methods()) {
+            if ((m.flags() & ABSTRACT) == 0) {
+                continue;
+            }
+            String name = m.name();
+            String key = resolveKey(m);
+            Type ret = m.returnType();
+            com.palantir.javapoet.TypeName fieldType = parseTypeName(ret.name().toString());
+            boolean isList = ret.name().toString().equals("java.util.List");
+            boolean isMap = ret.name().toString().equals("java.util.Map");
+            boolean isNestedInterface =
+                    ret.kind() == Type.Kind.CLASS && !isMap && !isList && isInterfaceType(ret);
+            AnnotationInstance wdAnn = m.annotation(WITH_DEFAULT_DOT);
+            // A required key (no @WithDefault) is stored boxed so a missing value can be
+            // represented as null and the MissingFieldException deferred to the getter —
+            // exactly how the Runtime proxy behaves (lazy on access). The AOT engine
+            // instantiates every config bean eagerly, so an eager throw would surface configs
+            // that are simply never read (e.g. an optional TLS block), diverging from Runtime.
+            boolean required = wdAnn == null;
+            com.palantir.javapoet.TypeName storeType =
+                    (required && PrimitiveTypes.isPrimitive(ret.name().toString()))
+                            ? fieldType.box()
+                            : fieldType;
+            impl.addField(
+                    FieldSpec.builder(
+                                    storeType,
+                                    name,
+                                    javax.lang.model.element.Modifier.PRIVATE,
+                                    javax.lang.model.element.Modifier.FINAL)
+                            .build());
+            if (isNestedInterface) {
+                ClassName nestedIface = safeClassName(ret.name().toString());
+                TypeSpec nested = generateConfigImpl(nestedIface, index.getClassByName(ret.name()));
+                configImpls.add(nested);
+                // Nested impl also lives in AotContextGenerator.PACKAGE (all config impls do).
+                ClassName nestedImpl =
+                        ClassName.get(
+                                AotContextGenerator.PACKAGE,
+                                nestedIface.simpleName() + "$$ConfigImpl");
+                ctor.addStatement(
+                        "this.$N = (__section.get($S) != null) ? new $T((java.util.Map<String,"
+                                + " Object>) __section.get($S)) : null",
+                        name,
+                        key,
+                        nestedImpl,
+                        key);
+            } else if (wdAnn != null) {
+                String wdValue = wdAnn.value().asString();
+                CodeBlock coerced = coerceExpr(ret, key, "__section");
+                CodeBlock defaulted = defaultExpr(ret, wdValue, typeConverter);
+                ctor.addStatement(
+                        "this.$N = (__section.get($S) != null) ? $L : $L",
+                        name,
+                        key,
+                        coerced,
+                        defaulted);
+            } else {
+                // Required key: store null if absent; the getter raises MissingFieldException
+                // lazily (see below), matching the Runtime proxy's access-time semantics.
+                CodeBlock coerced = coerceExpr(ret, key, "__section");
+                ctor.addStatement(
+                        "this.$N = (__section.get($S) != null) ? $L : null", name, key, coerced);
+            }
+            // Lazy missing-key check for required fields (matches the Runtime proxy, which
+            // throws from the getter rather than at construction).
+            MethodSpec.Builder getter =
+                    MethodSpec.methodBuilder(name)
+                            .addAnnotation(java.lang.Override.class)
+                            .addModifiers(javax.lang.model.element.Modifier.PUBLIC)
+                            .returns(fieldType);
+            if (required) {
+                getter.addStatement(
+                        "if (this.$N == null) throw new $T($S, $S, $S)",
+                        name,
+                        missingEx,
+                        key,
+                        iface.simpleName(),
+                        "Missing required config key '" + key + "' for " + qualifiedName);
+            }
+            getter.addStatement("return $N", name);
+            impl.addMethod(getter.build());
+        }
+        impl.addMethod(ctor.build());
+        return impl.build();
+    }
+
+    private boolean isInterfaceType(Type ret) {
+        ClassInfo ci = index.getClassByName(ret.name());
+        return ci != null && ci.isInterface();
+    }
+
+    private boolean isEnumType(Type ret) {
+        ClassInfo ci = index.getClassByName(ret.name());
+        return ci != null && ci.isEnum();
+    }
+
+    /** Coerces the raw section value to the method's return type (used when the key is present). */
+    private CodeBlock coerceExpr(Type ret, String key, String sectionVar) {
+        String typeName = ret.name().toString();
+        if (typeName.equals("java.lang.String")) {
+            return CodeBlock.of("(String) $N.get($S)", sectionVar, key);
+        }
+        if (isEnumType(ret)) {
+            return CodeBlock.of(
+                    "Enum.valueOf($T.class, (String) $N.get($S))",
+                    parseTypeName(typeName),
+                    sectionVar,
+                    key);
+        }
+        if (typeName.equals("java.util.List")) {
+            return CodeBlock.of("(java.util.List) $N.get($S)", sectionVar, key);
+        }
+        if (typeName.equals("java.util.Map")) {
+            return CodeBlock.of("(java.util.Map) $N.get($S)", sectionVar, key);
+        }
+        // TypeName tolerates primitive types such as int.
+        return CodeBlock.of("($T) $N.get($S)", parseTypeName(typeName), sectionVar, key);
+    }
+
+    /** Builds the literal used when a key is absent but {@code @WithDefault} is present. */
+    private CodeBlock defaultExpr(Type ret, String rawValue, ClassName typeConverter) {
+        String typeName = ret.name().toString();
+        if (isEnumType(ret)) {
+            return CodeBlock.of("Enum.valueOf($T.class, $S)", parseTypeName(typeName), rawValue);
+        }
+        if (typeName.equals("java.util.List")) {
+            return CodeBlock.of("java.util.List.of()");
+        }
+        if (typeName.equals("java.util.Map")) {
+            return CodeBlock.of("java.util.Map.of()");
+        }
+        if (typeName.equals("java.lang.String")) {
+            return CodeBlock.of("$S", rawValue);
+        }
+        // Scalars: TypeConverter.convert returns Object, so cast it back to the (boxed) target
+        // type. .box() yields the boxed type for primitives (no .class literal otherwise), and is a
+        // no-op for references.
+        com.palantir.javapoet.TypeName boxedType = parseTypeName(typeName).box();
+        return CodeBlock.of(
+                "($T) $T.convert($S, $T.class)", boxedType, typeConverter, rawValue, boxedType);
+    }
+
+    /**
+     * Resolves the YAML key for a config interface method, mirroring {@code
+     * ConfigBinder.resolveKey}: {@code @WithName} wins, otherwise the method name is camelCased.
+     */
+    private String resolveKey(MethodInfo m) {
+        AnnotationInstance wn = m.annotation(WITH_NAME_DOT);
+        String base =
+                (wn != null && !wn.value().asString().isEmpty()) ? wn.value().asString() : m.name();
+        // Must match ConfigBinder.ConfigMappingHandler.resolveKey and Discovery.resolveKeyName
+        // so the AOT-generated key equals the camelCased method name (or @WithName value).
+        return com.github.dropguard.summer.core.config.ConfigBinder.toCamelCase(base);
     }
 }

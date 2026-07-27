@@ -76,7 +76,7 @@ final class BeanInstantiator {
 
     /** Instantiates a bean from its definition. */
     void instantiateFromDefinition(BeanDefinition beanDef) {
-        // @ConfigurationProperties beans are already bound and registered by
+        // @ConfigMapping beans are already bound and registered by
         // RuntimeBeanContainerBuilder.bindConfigurationProperties — skip them here so
         // the binding runs exactly once and no BindingContext leaks into this class.
         if (beanDef instanceof ConfigPropertiesBean) {

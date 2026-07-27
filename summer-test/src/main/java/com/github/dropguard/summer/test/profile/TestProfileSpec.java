@@ -7,10 +7,9 @@ import java.util.Map;
  *
  * <p>A profile lets a test run the <em>same</em> bean universe under different configuration — the
  * canonical way to exercise conditional/sad-path branches without reshaping bean discovery. It
- * overrides {@code @ConfigurationProperties} binding only; it does not add or remove beans. The
- * bean universe is always the full test universe (whole application plus test beans), so a profile
- * never reshapes discovery — it only changes configuration values, exactly as a Quarkus
- * {@code @TestProfile} does.
+ * overrides {@code @ConfigMapping} binding only; it does not add or remove beans. The bean universe
+ * is always the full test universe (whole application plus test beans), so a profile never reshapes
+ * discovery — it only changes configuration values, exactly as a Quarkus {@code @TestProfile} does.
  *
  * <pre>{@code
  * public class DevProfile implements TestProfileSpec {

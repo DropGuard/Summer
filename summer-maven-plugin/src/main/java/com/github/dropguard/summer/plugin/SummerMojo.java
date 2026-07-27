@@ -143,7 +143,7 @@ public class SummerMojo extends AbstractMojo {
                 }
             }
 
-            WireMethodGenerator wireGen = new WireMethodGenerator();
+            WireMethodGenerator wireGen = new WireMethodGenerator(index);
             currentBean = "(context)";
             new AotContextGenerator(index, generatedDir, wireGen).generate(sorted);
             currentBean = "(proxies)";

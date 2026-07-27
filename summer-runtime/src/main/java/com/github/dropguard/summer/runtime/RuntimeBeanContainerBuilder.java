@@ -13,7 +13,6 @@ import com.github.dropguard.summer.core.bean.RouteInfo;
 import com.github.dropguard.summer.core.bean.SharedConditionEvaluator;
 import com.github.dropguard.summer.core.bean.SharedDependencyResolver;
 import com.github.dropguard.summer.core.config.ConfigBinder;
-import com.github.dropguard.summer.core.config.ConfigurationProperties;
 import com.github.dropguard.summer.core.config.TypeConverter;
 import com.github.dropguard.summer.core.validation.Validator;
 import java.util.HashMap;
@@ -38,6 +37,12 @@ import org.slf4j.LoggerFactory;
 public final class RuntimeBeanContainerBuilder {
 
     private static final Logger log = LoggerFactory.getLogger(RuntimeBeanContainerBuilder.class);
+
+    static {
+        // Interface config binding needs the runtime proxy binder; install it once when the
+        // engine loads (reflection is confined to this module by the architecture rule).
+        ConfigMappingProxyBinder.install();
+    }
 
     private RuntimeBeanContainerBuilder() {}
 
@@ -276,11 +281,11 @@ public final class RuntimeBeanContainerBuilder {
         return builder.build(Engine.RUNTIME);
     }
 
-    // ---- @ConfigurationProperties binding ----
+    // ---- @ConfigMapping binding ----
 
     /**
-     * Binds every {@code @ConfigurationProperties} bean discovered in the candidate set. Reads the
-     * Jandex-extracted {@link ConfigPropertiesBean} (prefix + {@code @DefaultValue} metadata) so
+     * Binds every {@code @ConfigMapping} bean discovered in the candidate set. Reads the
+     * Jandex-extracted {@link ConfigPropertiesBean} (prefix + {@code @WithDefault} metadata) so
      * binding is identical to the AOT engine, which consumes the same {@link BeanDefinition}
      * fields. Class loading is deferred to here (one {@code Class.forName} per config bean),
      * keeping discovery reflection-free.
@@ -298,21 +303,20 @@ public final class RuntimeBeanContainerBuilder {
                 configClass = Class.forName(configBean.qualifiedName);
             } catch (ClassNotFoundException e) {
                 log.debug(
-                        "[Summer] Could not load @ConfigurationProperties class: {}",
+                        "[Summer] Could not load @ConfigMapping class: {}",
                         configBean.qualifiedName);
                 continue;
             }
             if (builder.peek(configClass) != null) {
                 continue;
             }
-            ConfigurationProperties props =
-                    configClass.getAnnotation(ConfigurationProperties.class);
-            if (props == null) {
-                continue;
-            }
-            // Convert the Jandex-extracted @DefaultValue strings into their declared
-            // types and feed them through the BindingContext, mirroring AOT's baked-in
-            // defaults — no separate reflection pass needed.
+            // Prefix comes from the Jandex-extracted bean metadata (already resolved
+            // from @ConfigMapping at discovery time), so the runtime path never re-reads
+            // the annotation — works for interface config holders.
+            String prefix = configBean.configPropertiesPrefix;
+            // Convert the Jandex-extracted @WithDefault strings into their declared types
+            // and feed them through the BindingContext, mirroring AOT's baked-in defaults
+            // — no separate reflection pass needed.
             Map<String, Object> defaults = new HashMap<>();
             for (var entry : configBean.defaultValues.entrySet()) {
                 String fieldType = configBean.fieldTypes.get(entry.getKey());
@@ -330,12 +334,12 @@ public final class RuntimeBeanContainerBuilder {
                     defaults.isEmpty()
                             ? ctx
                             : ConfigBinder.BindingContext.of(defaults, ctx.overrides());
-            Object instance = ConfigBinder.bind(perClassCtx, props.prefix(), configClass);
+            Object instance = ConfigBinder.bind(perClassCtx, prefix, configClass);
             builder.register(configClass, instance);
             log.debug(
-                    "[Summer] Bound @ConfigurationProperties: {} (prefix='{}')",
+                    "[Summer] Bound config properties: {} (prefix='{}')",
                     configClass.getSimpleName(),
-                    props.prefix());
+                    prefix);
         }
     }
 

@@ -152,7 +152,7 @@ public final class AotEngine {
             tempDir.deleteOnExit();
             IndexView index = moduleIndex.discoveryIndex();
 
-            WireMethodGenerator wireGen = new WireMethodGenerator(overrides);
+            WireMethodGenerator wireGen = new WireMethodGenerator(index, overrides);
             log.debug("[Summer] AOT phase: generate context");
             new AotContextGenerator(index, tempDir, wireGen, overrides)
                     .generate(sorted, className, mocks);
@@ -230,7 +230,13 @@ public final class AotEngine {
                         null,
                         fm,
                         diags,
-                        List.of("-cp", classpath, "-d", out.getAbsolutePath(), "--release", "26"),
+                        List.of(
+                                "-cp",
+                                classpath,
+                                "-d",
+                                out.getAbsolutePath(),
+                                "--release",
+                                String.valueOf(Runtime.version().feature())),
                         null,
                         units);
 

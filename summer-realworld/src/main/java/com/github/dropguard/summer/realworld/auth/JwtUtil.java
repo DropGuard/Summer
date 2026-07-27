@@ -13,7 +13,7 @@ import com.github.dropguard.summer.core.Component;
  * <p>
  * Auto-discovered by the DI container. {@link JwtProperties} is bound
  * automatically from {@code application.yml} via
- * {@code @ConfigurationProperties}.
+ * {@code @ConfigMapping}.
  * </p>
  */
 @Component

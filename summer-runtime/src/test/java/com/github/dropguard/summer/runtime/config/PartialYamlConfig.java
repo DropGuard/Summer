@@ -1,11 +1,20 @@
 package com.github.dropguard.summer.runtime.config;
 
-import com.github.dropguard.summer.core.config.ConfigurationProperties;
-import com.github.dropguard.summer.core.config.DefaultValue;
+import com.github.dropguard.summer.core.config.ConfigMapping;
+import com.github.dropguard.summer.core.config.WithDefault;
 
 /**
- * Record for testing partial YAML binding — some fields in YAML, rest via {@code @DefaultValue}.
+ * Config mapping for testing partial YAML binding — some keys in YAML, rest via
+ * {@code @WithDefault}.
  */
-@ConfigurationProperties(prefix = "partial")
-public record PartialYamlConfig(
-        String host, @DefaultValue("8080") Integer port, @DefaultValue("false") Boolean ssl) {}
+@ConfigMapping(prefix = "partial")
+public interface PartialYamlConfig {
+
+    String host();
+
+    @WithDefault("8080")
+    Integer port();
+
+    @WithDefault("false")
+    Boolean ssl();
+}

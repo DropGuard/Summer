@@ -95,6 +95,12 @@ public final class AotContextGenerator {
 
         JavaFile javaFile = buildJavaFile(sortedBeans, className, mocks);
         javaFile.writeTo(outputDir);
+
+        // Write each generated strong-typed config impl as its own top-level class in the
+        // same package, so the generated context can instantiate it directly (no proxy).
+        for (TypeSpec impl : wireGen.configImpls()) {
+            JavaFile.builder(PACKAGE, impl).indent("    ").build().writeTo(outputDir);
+        }
     }
 
     private JavaFile buildJavaFile(List<BeanDefinition> sortedBeans, MockedBean[] mocks) {
@@ -190,7 +196,7 @@ public final class AotContextGenerator {
         return method.build();
     }
 
-    /** Shared tail: marker, @DefaultValue resolver, wire method, route + handler adapters. */
+    /** Shared tail: marker, @WithDefault resolver, wire method, route + handler adapters. */
     private void emitSharedBody(MethodSpec.Builder method, List<BeanDefinition> sortedBeans) {
         method.addStatement("builder.register($T.class, new $T())", AOT_DI_MARKER, AOT_DI_MARKER);
 

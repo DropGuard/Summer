@@ -24,9 +24,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * <p>Test isolation is achieved Quarkus-style, <em>never</em> by shrinking the discovery universe:
  *
  * <ul>
- *   <li>{@code @TestProfile} selects a configuration variant (different
- *       {@code @ConfigurationProperties} values) — see {@link
- *       com.github.dropguard.summer.test.annotation.TestProfile}.
+ *   <li>{@code @TestProfile} selects a configuration variant (different {@code @ConfigMapping}
+ *       values) — see {@link com.github.dropguard.summer.test.annotation.TestProfile}.
  *   <li>{@code @Mock} on a constructor parameter swaps a real bean for a Mockito stub — see {@link
  *       com.github.dropguard.summer.test.annotation.Mock}.
  * </ul>

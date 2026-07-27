@@ -1,7 +1,15 @@
 package com.github.dropguard.summer.issuetracker.config;
 
-import com.github.dropguard.summer.core.config.ConfigurationProperties;
+import com.github.dropguard.summer.core.config.ConfigMapping;
 
-@ConfigurationProperties(prefix = "com.github.dropguard.summer.datasource")
-public record DataSourceProperties(String url, String username, String password, String driverClassName) {
+@ConfigMapping(prefix = "datasource")
+public interface DataSourceProperties {
+
+    String url();
+
+    String username();
+
+    String password();
+
+    String driverClassName();
 }

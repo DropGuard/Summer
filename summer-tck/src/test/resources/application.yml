@@ -15,3 +15,11 @@ tls:
 root:
   host: localhost
   port: 9090
+
+web:
+  host: web.local
+  router-type: LINEAR
+  allowed-origins:
+    - https://a.example.com
+    - https://b.example.com
+  max-conn: 250

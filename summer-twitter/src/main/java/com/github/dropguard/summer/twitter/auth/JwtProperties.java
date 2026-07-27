@@ -1,6 +1,9 @@
 package com.github.dropguard.summer.twitter.auth;
 
-import com.github.dropguard.summer.core.config.ConfigurationProperties;
+import com.github.dropguard.summer.core.config.ConfigMapping;
 
-@ConfigurationProperties(prefix = "jwt")
-public record JwtProperties(String secret) {}
+@ConfigMapping(prefix = "jwt")
+public interface JwtProperties {
+
+    String secret();
+}

@@ -18,12 +18,11 @@
 server:
   port: 0
 
-summer:
-  datasource:
-    url: ${SUMMER_DB_URL:-jdbc:postgresql://localhost:5432/issuetracker}
-    username: issuetracker
-    password: issuetracker
-    driver-class-name: org.postgresql.Driver
+datasource:
+  url: ${SUMMER_DB_URL:-jdbc:postgresql://localhost:5432/issuetracker}
+  username: issuetracker
+  password: issuetracker
+  driver-class-name: org.postgresql.Driver
 
 cors:
   allowed-origins: "http://localhost:5173"

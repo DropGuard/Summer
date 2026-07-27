@@ -18,24 +18,24 @@ class ConfigBinderEnvTest {
     void fallsBackToDefaultWhenEnvAbsent() {
         Map<String, Object> section = new LinkedHashMap<>();
         section.put("url", "${SUMMER_DB_URL:-jdbc:postgresql://localhost:5432/db}");
-        ConfigBinder.resolveEnvPlaceholders(section);
-        assertEquals("jdbc:postgresql://localhost:5432/db", section.get("url"));
+        Map<String, Object> resolved = ConfigBinder.resolveEnvPlaceholders(section);
+        assertEquals("jdbc:postgresql://localhost:5432/db", resolved.get("url"));
     }
 
     @Test
     void fallsBackToDefaultWithColonForm() {
         Map<String, Object> section = new LinkedHashMap<>();
         section.put("url", "${SUMMER_DB_URL:jdbc:fallback}");
-        ConfigBinder.resolveEnvPlaceholders(section);
-        assertEquals("jdbc:fallback", section.get("url"));
+        Map<String, Object> resolved = ConfigBinder.resolveEnvPlaceholders(section);
+        assertEquals("jdbc:fallback", resolved.get("url"));
     }
 
     @Test
     void barePlaceholderDegradesToOriginalWhenEnvAbsent() {
         Map<String, Object> section = new LinkedHashMap<>();
         section.put("url", "${SUMMER_DB_URL}");
-        ConfigBinder.resolveEnvPlaceholders(section);
-        assertEquals("${SUMMER_DB_URL}", section.get("url"));
+        Map<String, Object> resolved = ConfigBinder.resolveEnvPlaceholders(section);
+        assertEquals("${SUMMER_DB_URL}", resolved.get("url"));
     }
 
     @Test
@@ -43,9 +43,9 @@ class ConfigBinderEnvTest {
         Map<String, Object> section = new LinkedHashMap<>();
         section.put("url", "jdbc:postgresql://localhost:5432/db");
         section.put("name", "issuetracker");
-        ConfigBinder.resolveEnvPlaceholders(section);
-        assertEquals("jdbc:postgresql://localhost:5432/db", section.get("url"));
-        assertEquals("issuetracker", section.get("name"));
+        Map<String, Object> resolved = ConfigBinder.resolveEnvPlaceholders(section);
+        assertEquals("jdbc:postgresql://localhost:5432/db", resolved.get("url"));
+        assertEquals("issuetracker", resolved.get("name"));
     }
 
     @Test
@@ -56,9 +56,9 @@ class ConfigBinderEnvTest {
         section.put("datasource", datasource);
         Map<String, Object> root = new LinkedHashMap<>();
         root.put("summer", section);
-        ConfigBinder.resolveEnvPlaceholders(root);
+        Map<String, Object> resolvedRoot = ConfigBinder.resolveEnvPlaceholders(root);
         @SuppressWarnings("unchecked")
-        Map<String, Object> resolved = (Map<String, Object>) root.get("summer");
+        Map<String, Object> resolved = (Map<String, Object>) resolvedRoot.get("summer");
         @SuppressWarnings("unchecked")
         Map<String, Object> ds = (Map<String, Object>) resolved.get("datasource");
         assertEquals("jdbc:default", ds.get("url"));
@@ -68,7 +68,7 @@ class ConfigBinderEnvTest {
     void resolvesMultiplePlaceholdersInOneValue() {
         Map<String, Object> section = new LinkedHashMap<>();
         section.put("ds", "${A:-x}-${B:-y}");
-        ConfigBinder.resolveEnvPlaceholders(section);
-        assertEquals("x-y", section.get("ds"));
+        Map<String, Object> resolved = ConfigBinder.resolveEnvPlaceholders(section);
+        assertEquals("x-y", resolved.get("ds"));
     }
 }

@@ -9,11 +9,11 @@ import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 
 @SummerTest
-public class ConfigurationPropertiesBehaviorTest {
+public class ConfigMappingBehaviorTest {
 
     private final BeanContainer context;
 
-    public ConfigurationPropertiesBehaviorTest(BeanContainer context) {
+    public ConfigMappingBehaviorTest(BeanContainer context) {
         this.context = context;
     }
 
@@ -88,5 +88,19 @@ public class ConfigurationPropertiesBehaviorTest {
         var props = service.getProperties();
         assertNotNull(props);
         assertEquals("localhost", props.root().host());
+    }
+
+    @DualEngine
+    void testAotGeneratesAllReturnTypes() {
+        // Exercises every AOT code-gen branch for @ConfigMapping: enum, List<String>,
+        // @WithName key rename, and @WithDefault — under both engines.
+        WebConfig web = context.getBean(WebConfig.class);
+        assertNotNull(web);
+        assertEquals("web.local", web.host());
+        assertEquals(WebConfig.RouterType.LINEAR, web.routerType());
+        assertEquals(
+                java.util.List.of("https://a.example.com", "https://b.example.com"),
+                web.allowedOrigins());
+        assertEquals(250, web.maxConn());
     }
 }

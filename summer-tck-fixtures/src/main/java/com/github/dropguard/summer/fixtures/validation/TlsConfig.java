@@ -1,11 +1,16 @@
 package com.github.dropguard.summer.fixtures.validation;
 
-import com.github.dropguard.summer.core.config.ConfigurationProperties;
-import com.github.dropguard.summer.core.config.DefaultValue;
+import com.github.dropguard.summer.core.config.ConfigMapping;
+import com.github.dropguard.summer.core.config.WithDefault;
 
-/**
- * Test fixture: @ConfigurationProperties with nullable fields. Used to test the Validation Phase.
- */
-@ConfigurationProperties(prefix = "tls")
-public record TlsConfig(
-        @DefaultValue("false") Boolean enabled, String certChain, String privateKey) {}
+/** Test fixture: {@code @ConfigMapping} with nullable fields. Used to test the Validation Phase. */
+@ConfigMapping(prefix = "tls")
+public interface TlsConfig {
+
+    @WithDefault("false")
+    Boolean enabled();
+
+    String certChain();
+
+    String privateKey();
+}

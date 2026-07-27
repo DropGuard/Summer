@@ -2,6 +2,8 @@ package com.github.dropguard.summer.runtime;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.github.dropguard.summer.core.config.ConfigBinder;
+import com.github.dropguard.summer.core.config.ConfigBinder.BindingContext;
 import com.github.dropguard.summer.core.config.PageableProperties;
 import com.github.dropguard.summer.web.DefaultPageRequest;
 import com.github.dropguard.summer.web.DefaultPageResolver;
@@ -12,12 +14,29 @@ import com.github.dropguard.summer.web.HttpParameterResolver;
 import com.github.dropguard.summer.web.Request;
 import com.github.dropguard.summer.web.ScrollRequest;
 import java.lang.reflect.Parameter;
+import java.util.Map;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class DefaultPageResolverTest {
 
-    private final DefaultPageResolver resolver =
-            new DefaultPageResolver(new PageableProperties(0, 20));
+    @BeforeAll
+    static void installInterfaceBinder() {
+        // Interface config binding (@ConfigMapping) is provided by the runtime module.
+        ConfigMappingProxyBinder.install();
+    }
+
+    private final DefaultPageResolver resolver = new DefaultPageResolver(pageableProps(0, 20));
+
+    private static PageableProperties pageableProps(int defaultPage, int defaultSize) {
+        return ConfigBinder.bind(
+                BindingContext.of(
+                        Map.of(
+                                "pageable.defaultPage", defaultPage,
+                                "pageable.defaultSize", defaultSize)),
+                "pageable",
+                PageableProperties.class);
+    }
 
     private HttpContext ctx(String query) {
         Request req = new Request(HttpMethod.GET, "/test", query, null, new byte[0]);
@@ -78,8 +97,7 @@ class DefaultPageResolverTest {
 
     @Test
     void shouldUseCustomDefaults() throws Exception {
-        HttpParameterResolver customResolver =
-                new DefaultPageResolver(new PageableProperties(1, 10));
+        HttpParameterResolver customResolver = new DefaultPageResolver(pageableProps(1, 10));
         HttpContext ctx = ctx(null);
         DefaultPageRequest pageable =
                 (DefaultPageRequest) customResolver.resolve(ctx, pageableParam());

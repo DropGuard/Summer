@@ -1,0 +1,6 @@
+redis:
+  # Externalized 12-factor style: a COM_GITHUB_DROPGUARD_SUMMER_REDIS_URI
+  # environment variable (or system property) overrides the default; an
+  # absent variable falls back to localhost. Tests point this at a
+  # Testcontainers Redis via that variable.
+  uri: ${COM_GITHUB_DROPGUARD_SUMMER_REDIS_URI:-redis://localhost:6379}

@@ -5,7 +5,7 @@ import com.github.dropguard.summer.core.annotation.Configuration;
 
 /**
  * Test fixture: configuration that depends on auto-bound TlsProperties. Entry point for
- * testing @ConfigurationProperties with non-bean constructor params.
+ * testing @ConfigMapping with non-bean constructor params.
  */
 @Configuration
 public class ConfigTlsConfig {

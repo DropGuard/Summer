@@ -1,6 +1,6 @@
 package com.github.dropguard.summer.realworld.auth;
 
-import com.github.dropguard.summer.core.config.ConfigurationProperties;
+import com.github.dropguard.summer.core.config.ConfigMapping;
 
 /**
  * JWT configuration properties bound from {@code application.yml}.
@@ -10,6 +10,8 @@ import com.github.dropguard.summer.core.config.ConfigurationProperties;
  *   secret: your-secret-key
  * }</pre>
  */
-@ConfigurationProperties(prefix = "jwt")
-public record JwtProperties(String secret) {
+@ConfigMapping(prefix = "jwt")
+public interface JwtProperties {
+
+    String secret();
 }

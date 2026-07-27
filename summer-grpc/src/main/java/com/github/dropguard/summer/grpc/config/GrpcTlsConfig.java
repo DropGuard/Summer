@@ -1,7 +1,7 @@
 package com.github.dropguard.summer.grpc.config;
 
-import com.github.dropguard.summer.core.config.ConfigurationProperties;
-import com.github.dropguard.summer.core.config.DefaultValue;
+import com.github.dropguard.summer.core.config.ConfigMapping;
+import com.github.dropguard.summer.core.config.WithDefault;
 
 /**
  * gRPC TLS configuration bound from {@code application.yml}.
@@ -22,9 +22,15 @@ import com.github.dropguard.summer.core.config.DefaultValue;
  * @param privateKey path to the server private key (PEM format)
  * @param trustCert path to the CA certificate for client trust (PEM format)
  */
-@ConfigurationProperties(prefix = "grpc.tls")
-public record GrpcTlsConfig(
-        @DefaultValue("false") Boolean enabled,
-        String certChain,
-        String privateKey,
-        String trustCert) {}
+@ConfigMapping(prefix = "grpc.tls")
+public interface GrpcTlsConfig {
+
+    @WithDefault("false")
+    Boolean enabled();
+
+    String certChain();
+
+    String privateKey();
+
+    String trustCert();
+}

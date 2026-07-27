@@ -23,7 +23,15 @@ import org.junit.jupiter.api.Test;
  */
 class WireMethodGeneratorTest {
 
-    private final WireMethodGenerator generator = new WireMethodGenerator();
+    private final WireMethodGenerator generator = new WireMethodGenerator(emptyIndex());
+
+    private static org.jboss.jandex.IndexView emptyIndex() {
+        try {
+            return org.jboss.jandex.Index.of(new Class<?>[0]);
+        } catch (java.io.IOException e) {
+            throw new java.lang.AssertionError("empty index", e);
+        }
+    }
 
     private CodeBlock buildArgs(BeanDefinition bean) throws Exception {
         Method m =

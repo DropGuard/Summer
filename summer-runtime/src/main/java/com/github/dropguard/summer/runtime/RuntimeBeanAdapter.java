@@ -141,10 +141,10 @@ public final class RuntimeBeanAdapter {
     }
 
     /**
-     * Adapts a @ConfigurationProperties class to a ConfigPropertiesBean marker. The marker carries
-     * the prefix and lets SharedDependencyResolver resolve the config type when other beans inject
-     * it; binding itself is performed by RuntimeBeanContainerBuilder.bindConfigurationProperties,
-     * which reads the @DefaultValue metadata directly (no per-engine defaults map).
+     * Adapts a @ConfigMapping interface to a ConfigPropertiesBean marker. The marker carries the
+     * prefix and lets SharedDependencyResolver resolve the config type when other beans inject it;
+     * binding itself is performed by RuntimeBeanContainerBuilder.bindConfigurationProperties, which
+     * reads the @WithDefault metadata directly (no per-engine defaults map).
      */
     public ConfigPropertiesBean adaptConfigProperties(Class<?> clazz, String prefix) {
         ConfigPropertiesBean bean =

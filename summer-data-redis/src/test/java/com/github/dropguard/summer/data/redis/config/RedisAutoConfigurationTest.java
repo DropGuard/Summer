@@ -32,4 +32,28 @@ public class RedisAutoConfigurationTest {
         SummerRedisTemplate template = context.getBean(SummerRedisTemplate.class);
         assertNotNull(template);
     }
+
+    /**
+     * The production auto-configuration must bind exclusively through {@code @ConfigMapping} (YAML
+     * + {@code ${VAR}} placeholders), never a raw {@code System.getProperty}. A stray property
+     * under the old key must not leak into the bound value.
+     */
+    @Test
+    public void testBindingIgnoresRawSystemProperty() {
+        String before = System.setProperty("redis.uri", "redis://should-not-leak:9999");
+        try {
+            BeanContainer context = Testing.build();
+            RedisProperties props = context.getBean(RedisProperties.class);
+            assertEquals(
+                    "redis://localhost:6379",
+                    props.uri(),
+                    "bound URI must come from @ConfigMapping default, not a raw system property");
+        } finally {
+            if (before == null) {
+                System.clearProperty("redis.uri");
+            } else {
+                System.setProperty("redis.uri", before);
+            }
+        }
+    }
 }

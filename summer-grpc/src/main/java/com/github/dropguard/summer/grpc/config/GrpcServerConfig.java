@@ -1,7 +1,7 @@
 package com.github.dropguard.summer.grpc.config;
 
-import com.github.dropguard.summer.core.config.ConfigurationProperties;
-import com.github.dropguard.summer.core.config.DefaultValue;
+import com.github.dropguard.summer.core.config.ConfigMapping;
+import com.github.dropguard.summer.core.config.WithDefault;
 
 /**
  * gRPC server configuration bound from {@code application.yml}.
@@ -14,5 +14,9 @@ import com.github.dropguard.summer.core.config.DefaultValue;
  *
  * @param port the port the gRPC server listens on
  */
-@ConfigurationProperties(prefix = "grpc.server")
-public record GrpcServerConfig(@DefaultValue("9090") Integer port) {}
+@ConfigMapping(prefix = "grpc.server")
+public interface GrpcServerConfig {
+
+    @WithDefault("9090")
+    Integer port();
+}

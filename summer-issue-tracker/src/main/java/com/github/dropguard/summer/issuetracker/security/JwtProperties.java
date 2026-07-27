@@ -1,7 +1,11 @@
 package com.github.dropguard.summer.issuetracker.security;
 
-import com.github.dropguard.summer.core.config.ConfigurationProperties;
+import com.github.dropguard.summer.core.config.ConfigMapping;
 
-@ConfigurationProperties(prefix = "jwt")
-public record JwtProperties(String secret, long expirationMs) {
+@ConfigMapping(prefix = "jwt")
+public interface JwtProperties {
+
+    String secret();
+
+    long expirationMs();
 }

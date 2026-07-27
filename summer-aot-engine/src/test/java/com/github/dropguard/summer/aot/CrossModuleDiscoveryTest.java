@@ -36,6 +36,14 @@ class CrossModuleDiscoveryTest {
 
     @TempDir Path tempDir;
 
+    private static org.jboss.jandex.IndexView emptyIndex() {
+        try {
+            return org.jboss.jandex.Index.of(new Class<?>[0]);
+        } catch (java.io.IOException e) {
+            throw new java.lang.AssertionError("empty index", e);
+        }
+    }
+
     @Test
     void discoversBeansFromMultipleIndexes() throws Exception {
         // Simulate two modules: one providing beans, one consuming them
@@ -128,7 +136,8 @@ class CrossModuleDiscoveryTest {
 
         File outputDir = tempDir.toFile();
         AotContextGenerator generator =
-                new AotContextGenerator(null, outputDir, new WireMethodGenerator());
+                new AotContextGenerator(
+                        emptyIndex(), outputDir, new WireMethodGenerator(emptyIndex()));
         generator.generate(List.of(serviceC));
 
         File generatedFile =
@@ -209,13 +218,13 @@ class CrossModuleDiscoveryTest {
         return indexer.complete();
     }
 
-    /** Verifies that BeanDiscovery finds @ConfigurationProperties records. */
+    /** Verifies that BeanDiscovery finds @ConfigMapping interface config beans. */
     @Test
-    void discoversConfigurationProperties() throws Exception {
+    void discoversConfigMapping() throws Exception {
         Index index =
                 buildIndex(
                         "com.github.dropguard.summer.fixtures.dummy.DummyConfigProperties",
-                        "com.github.dropguard.summer.core.config.ConfigurationProperties");
+                        "com.github.dropguard.summer.core.config.ConfigMapping");
 
         List<BeanDefinition> beans = Discovery.discover(BeanDeployment.forNarrow(index));
 

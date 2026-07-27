@@ -27,9 +27,9 @@ import org.jboss.jandex.MethodInfo;
  *
  * <ol>
  *   <li>Enumerate component classes ({@code @Component}, {@code @Configuration},
- *       {@code @ConfigurationProperties}, meta-annotations) and {@code @Bean} factory methods,
- *       iterating the per-module indexes retained by the {@link BeanDeployment} so module
- *       boundaries are honoured natively.
+ *       {@code @ConfigMapping}, meta-annotations) and {@code @Bean} factory methods, iterating the
+ *       per-module indexes retained by the {@link BeanDeployment} so module boundaries are honoured
+ *       natively.
  *   <li>Enrich each definition with constructor params, interfaces, routes, and AOP bindings
  *       (Jandex metadata → {@link BeanDefinition} fields).
  * </ol>
@@ -48,16 +48,18 @@ public final class Discovery {
             DotName.createSimple("com.github.dropguard.summer.core.annotation.Configuration");
     private static final DotName BEAN_DOT =
             DotName.createSimple("com.github.dropguard.summer.core.annotation.Bean");
-    private static final DotName CONFIG_PROPERTIES_DOT =
-            DotName.createSimple("com.github.dropguard.summer.core.config.ConfigurationProperties");
     private static final DotName REPLACES_DOT =
             DotName.createSimple("com.github.dropguard.summer.core.annotation.Replaces");
     private static final DotName CONDITIONAL_ON_BEAN_DOT =
             DotName.createSimple("com.github.dropguard.summer.core.annotation.ConditionalOnBean");
-    private static final DotName DEFAULT_VALUE_DOT =
-            DotName.createSimple("com.github.dropguard.summer.core.config.DefaultValue");
     private static final DotName INTERCEPTOR_DOT =
             DotName.createSimple("com.github.dropguard.summer.aop.Interceptor");
+    private static final DotName CONFIG_MAPPING_DOT =
+            DotName.createSimple("com.github.dropguard.summer.core.config.ConfigMapping");
+    private static final DotName WITH_DEFAULT_DOT =
+            DotName.createSimple("com.github.dropguard.summer.core.config.WithDefault");
+    private static final DotName WITH_NAME_DOT =
+            DotName.createSimple("com.github.dropguard.summer.core.config.WithName");
 
     private Discovery() {}
 
@@ -95,10 +97,10 @@ public final class Discovery {
     // ── Phase 1: Discovery ────────────────────────────────────────────
 
     /**
-     * Registers the single bean (if any) defined by a class: a {@code @ConfigurationProperties}
-     * bean, or a {@code @Component}/{@code @Configuration}/meta-component bean plus its
-     * {@code @Bean} factory methods. Returns early for annotations, abstract/interface types (after
-     * rejecting meta-annotated ones), and already-collected types.
+     * Registers the single bean (if any) defined by a class: a {@code @ConfigMapping} bean, or a
+     * {@code @Component}/{@code @Configuration}/meta-component bean plus its {@code @Bean} factory
+     * methods. Returns early for annotations, abstract/interface types (after rejecting
+     * meta-annotated ones), and already-collected types.
      */
     private static void registerClass(
             ClassInfo ci,
@@ -114,7 +116,13 @@ public final class Discovery {
                                 + ci.name()
                                 + ". Annotate the concrete implementation instead.");
             }
-            return;
+            // A @ConfigMapping interface is a valid config bean — it has no constructor to
+            // scan and is bound (not instantiated) by ConfigBinder/RuntimeBeanAdapter, so it
+            // must reach registerConfigProperties below. Every other interface/abstract type
+            // is skipped.
+            if (!ci.hasAnnotation(CONFIG_MAPPING_DOT)) {
+                return;
+            }
         }
         if (!collected.add(ci.name().toString())) return;
 
@@ -128,7 +136,7 @@ public final class Discovery {
     }
 
     private static boolean isConfigurationProperties(ClassInfo ci) {
-        return ci.hasAnnotation(CONFIG_PROPERTIES_DOT);
+        return ci.hasAnnotation(CONFIG_MAPPING_DOT);
     }
 
     private static boolean isComponentLike(ClassInfo ci, IndexView merged) {
@@ -144,7 +152,7 @@ public final class Discovery {
             BeanDeployment moduleIndex) {
         ConfigPropertiesBean bean = new ConfigPropertiesBean(ci.name().toString(), ci.simpleName());
         bean.archiveName = moduleIndex.archiveOf(ci.name().toString());
-        AnnotationInstance ann = ci.annotation(CONFIG_PROPERTIES_DOT);
+        AnnotationInstance ann = ci.annotation(CONFIG_MAPPING_DOT);
         bean.configPropertiesPrefix =
                 (ann != null && ann.value("prefix") != null) ? ann.value("prefix").asString() : "";
         extractDefaultValues(ci, bean, merged);
@@ -176,20 +184,56 @@ public final class Discovery {
         beans.add(bean);
     }
 
+    private static final short ABSTRACT_METHOD = 0x0400; // java.lang.reflect.Modifier.ABSTRACT
+
     private static void extractDefaultValues(
             ClassInfo ci, ConfigPropertiesBean bean, IndexView merged) {
-        List<org.jboss.jandex.RecordComponentInfo> components = ci.recordComponents();
-        if (components == null || components.isEmpty()) return;
+        // Interface model (Quarkus-style @ConfigMapping): abstract methods are the
+        // config keys; @WithDefault supplies defaults, @WithName overrides the key.
+        if (ci.isInterface()) {
+            for (org.jboss.jandex.MethodInfo method : ci.methods()) {
+                if ((method.flags() & ABSTRACT_METHOD) == 0) {
+                    continue;
+                }
+                String fieldName = resolveKeyName(method);
+                AnnotationInstance defaultAnn = method.annotation(WITH_DEFAULT_DOT);
+                if (defaultAnn != null) {
+                    String rawValue = defaultAnn.value().asString();
+                    bean.defaultValues.put(fieldName, rawValue);
+                    bean.fieldTypes.put(fieldName, method.returnType().name().toString());
+                }
+            }
+            return;
+        }
+    }
 
-        for (org.jboss.jandex.RecordComponentInfo comp : components) {
-            String fieldName = comp.name();
-            AnnotationInstance defaultAnn = comp.annotation(DEFAULT_VALUE_DOT);
-            if (defaultAnn != null) {
-                String rawValue = defaultAnn.value().asString();
-                bean.defaultValues.put(fieldName, rawValue);
-                bean.fieldTypes.put(fieldName, comp.type().name().toString());
+    /**
+     * The resolved key for a config mapping method: {@code @WithName} value (camelCased) if
+     * present, else the camelCased method name. Must match {@code
+     * ConfigBinder.ConfigMappingHandler.resolveKey}.
+     */
+    private static String resolveKeyName(org.jboss.jandex.MethodInfo method) {
+        AnnotationInstance withName = method.annotation(WITH_NAME_DOT);
+        if (withName != null
+                && withName.value("value") != null
+                && !withName.value("value").asString().isEmpty()) {
+            return normalizeKey(withName.value("value").asString());
+        }
+        return normalizeKey(method.name());
+    }
+
+    private static String normalizeKey(String key) {
+        // Mirrors ConfigBinder.toCamelCase semantics for simple (non-nested) keys.
+        String[] parts = key.split("[-_.]");
+        if (parts.length == 1) return key;
+        StringBuilder sb = new StringBuilder(parts[0].toLowerCase());
+        for (int i = 1; i < parts.length; i++) {
+            if (!parts[i].isEmpty()) {
+                sb.append(Character.toUpperCase(parts[i].charAt(0)))
+                        .append(parts[i].substring(1).toLowerCase());
             }
         }
+        return sb.toString();
     }
 
     private static boolean hasMetaComponentAnnotation(
@@ -217,7 +261,7 @@ public final class Discovery {
 
             String returnTypeName = returnType.name().toString();
 
-            // A @Bean takes priority over @ConfigurationProperties
+            // A @Bean takes priority over a discovered @ConfigMapping
             beans.removeIf(
                     b ->
                             b instanceof ConfigPropertiesBean

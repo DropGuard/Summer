@@ -9,11 +9,10 @@ import java.lang.annotation.Target;
 /**
  * Selects a {@link TestProfileSpec} for the annotated test class.
  *
- * <p>The profile's {@link TestProfileSpec#configOverrides()} are applied to
- * {@code @ConfigurationProperties} binding while the container for this test is built, then cleared
- * afterwards. The bean universe is unchanged — only configuration differs. Both DI engines (Runtime
- * and AOT) receive the same overrides, so a profile expresses a configuration variant, not an
- * engine variant.
+ * <p>The profile's {@link TestProfileSpec#configOverrides()} are applied to {@code @ConfigMapping}
+ * binding while the container for this test is built, then cleared afterwards. The bean universe is
+ * unchanged — only configuration differs. Both DI engines (Runtime and AOT) receive the same
+ * overrides, so a profile expresses a configuration variant, not an engine variant.
  *
  * <p>Combine with {@code @SummerTest} (and, for dual-engine verification, {@code @DualEngine}) —
  * the profile is engine-agnostic.

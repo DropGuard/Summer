@@ -5,20 +5,27 @@ import com.github.dropguard.summer.core.exception.BeanCreationException;
 import com.github.dropguard.summer.core.exception.ConfigurationException;
 import com.github.dropguard.summer.core.json.SummerObjectMapper;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Shared YAML-to-record binding for {@code @ConfigurationProperties}.
+ * Shared YAML-to-config binding for the {@code @ConfigMapping} interface config model.
  *
- * <p>Both the runtime DI engine ({@code RuntimeBeanFactory}) and the AOT code generator ({@code
- * ConfigPropertiesGenerator}) delegate here instead of duplicating the binding logic. Profile
- * overrides and {@code @DefaultValue} defaults are carried explicitly in a {@link BindingContext}
- * rather than a {@code ThreadLocal}, so the generated container's identity (derived from the
- * override content) and the binding read from the same source and can never drift, and parallel
- * engines (Runtime on one virtual thread, AOT on another) never cross-contaminate profile state.
+ * <p>This class is reflection-free (the AOT/runtime engines and the {@code
+ * ReflectionConfinementTest} architecture rule require the {@code core} module to stay
+ * reflection-free). The YAML read, section extraction, key normalization,
+ * {@code @WithDefault}/{@code @TestProfile} application and {@code ${ENV}} placeholder resolution
+ * all live here and are shared by both engines.
+ *
+ * <p>Interface ({@code @ConfigMapping}) binding needs dynamic proxying, which is confined to the
+ * {@code runtime} module (the only place the architecture rule permits {@code java.lang.reflect}).
+ * The runtime engine registers an {@link InterfaceBinder} via {@link ServiceLoader}; {@link #bind}
+ * delegates interface targets to it, so {@code core} itself never touches {@code Proxy} or {@link
+ * java.lang.reflect.Method}. The legacy record path uses Jackson {@code convertValue} and is
+ * removed once the migration to interfaces completes.
  */
 public final class ConfigBinder {
 
@@ -28,13 +35,13 @@ public final class ConfigBinder {
     private ConfigBinder() {}
 
     /**
-     * Immutable carrier for the two inputs that can alter a {@code @ConfigurationProperties}
-     * binding beyond the YAML itself:
+     * Immutable carrier for the two inputs that can alter a config binding beyond the YAML itself:
      *
      * <ul>
-     *   <li>{@code defaults} — pre-converted {@code @DefaultValue} values, keyed by record
-     *       component name. Supplied by the caller (runtime extracts them reflectively; AOT emits
-     *       them inline via {@link com.github.dropguard.summer.core.util.TypeConverter}).
+     *   <li>{@code defaults} — pre-converted {@code @WithDefault} values, keyed by method name (for
+     *       interfaces) or record component name (legacy). Supplied by the caller (runtime extracts
+     *       them reflectively; AOT emits them inline via {@link
+     *       com.github.dropguard.summer.core.util.TypeConverter}).
      *   <li>{@code overrides} — per-profile overrides, keyed by dotted YAML path, in the original
      *       YAML key form. Baked in at code-generation time from {@code @TestProfile} so no runtime
      *       {@code ThreadLocal} is needed.
@@ -59,7 +66,7 @@ public final class ConfigBinder {
             return new BindingContext(Map.of(), Map.of());
         }
 
-        /** Only profile overrides (no {@code @DefaultValue} metadata). */
+        /** Only profile overrides (no {@code @WithDefault} metadata). */
         public static BindingContext of(Map<String, Object> overrides) {
             return new BindingContext(Map.of(), overrides);
         }
@@ -70,7 +77,7 @@ public final class ConfigBinder {
             return new BindingContext(defaults, overrides);
         }
 
-        /** Pre-converted {@code @DefaultValue} values, keyed by record component name. */
+        /** Pre-converted {@code @WithDefault} values, keyed by method name. */
         public Map<String, Object> defaults() {
             return defaults;
         }
@@ -83,16 +90,85 @@ public final class ConfigBinder {
 
     /**
      * Full binding pipeline: read {@code application.yml}, extract the prefix section, normalize
-     * keys, apply {@code @DefaultValue} defaults from the {@link BindingContext}, then profile
-     * overrides, and convert to the target record type via Jackson.
+     * keys, apply {@code @WithDefault} defaults from the {@link BindingContext}, then profile
+     * overrides, and bind to the target type.
+     *
+     * <p>Interface targets are bound through a runtime-supplied proxy (see {@link
+     * InterfaceBinder}); legacy record targets through Jackson {@code convertValue} (migration
+     * window only).
      *
      * @param ctx carries defaults and overrides (never null; use {@link BindingContext#of()})
      * @param prefix the YAML prefix (e.g. "app", "server.tls"), or empty for root
-     * @param targetType the record class to bind to
+     * @param targetType the config mapping interface (or legacy record) to bind to
      * @return the bound instance
      */
     @SuppressWarnings("unchecked")
     public static <T> T bind(BindingContext ctx, String prefix, Class<T> targetType) {
+        if (targetType.isInterface()) {
+            // Interface binding is confined to the runtime module (reflection rule). The runtime
+            // engine installs the actual binder via {@link #setInterfaceBinder} at startup, so this
+            // method stays reflection-free.
+            if (interfaceBinder == null) {
+                throw new BeanCreationException(
+                        "No InterfaceBinder installed (is the summer-runtime module active?)."
+                                + " Cannot bind @ConfigMapping interface.");
+            }
+            return interfaceBinder.bind(ctx, prefix, targetType);
+        }
+        // Legacy record path — retained only during the migration window; removed
+        // once every config holder has moved to the @ConfigMapping interface model.
+        Map<String, Object> section = bindSection(ctx, prefix);
+        try {
+            return YAML_MAPPER.convertValue(section, targetType);
+        } catch (ConfigurationException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BeanCreationException("Failed to bind config: " + targetType.getName(), e);
+        }
+    }
+
+    /**
+     * Installs the runtime-supplied binder for {@code @ConfigMapping} interfaces. Called by the
+     * {@code runtime} module (the only place permitted to use {@code java.lang.reflect}) during
+     * engine bootstrap; never invoked by {@code core} itself.
+     */
+    /**
+     * Installs the runtime-supplied binder for {@code @ConfigMapping} interfaces. Idempotent: a
+     * second install is ignored so multiple engines/tests can call it without clobbering the first.
+     * Called by the {@code runtime} module (the only place permitted to use {@code
+     * java.lang.reflect}) during engine bootstrap; never invoked by {@code core} itself.
+     */
+    public static void setInterfaceBinder(InterfaceBinder binder) {
+        if (interfaceBinder != null) {
+            return;
+        }
+        interfaceBinder = binder;
+    }
+
+    private static volatile InterfaceBinder interfaceBinder;
+
+    /**
+     * Binds a {@code @ConfigMapping} interface to its resolved section map. Implemented by the
+     * {@code runtime} module (the only place permitted to use {@code java.lang.reflect}); never
+     * referenced reflectively by {@code core} itself.
+     */
+    @FunctionalInterface
+    public interface InterfaceBinder {
+        <T> T bind(BindingContext ctx, String prefix, Class<T> targetType);
+    }
+
+    /**
+     * Runs the read + section-extract + normalize + defaults + overrides + placeholder pipeline and
+     * returns the resulting (normalized, fully-resolved) {@code Map}. Shared by the runtime proxy
+     * binder and the AOT generator, which feeds the map into a statically-generated, strongly-typed
+     * impl constructor — so the AOT runtime path performs a plain {@code Map → final fields} copy
+     * with zero reflection.
+     *
+     * @param ctx carries defaults and overrides (never null)
+     * @param prefix the YAML prefix, or empty for root
+     * @return the normalized, resolved section map
+     */
+    public static Map<String, Object> bindSection(BindingContext ctx, String prefix) {
         Map<String, Object> fieldDefaults = ctx.defaults();
         try (InputStream stream =
                 Thread.currentThread().getContextClassLoader().getResourceAsStream(YAML_RESOURCE)) {
@@ -107,34 +183,33 @@ public final class ConfigBinder {
             } else {
                 section = new LinkedHashMap<>();
             }
-            applyFieldDefaults(section, fieldDefaults);
-            applyProfileOverrides(section, prefix, ctx.overrides());
-            resolveEnvPlaceholders(section);
-            return YAML_MAPPER.convertValue(section, targetType);
+            section = applyFieldDefaults(section, fieldDefaults);
+            section = applyProfileOverrides(section, prefix, ctx.overrides());
+            section = resolveEnvPlaceholders(section);
+            return section;
         } catch (ConfigurationException e) {
             throw e;
         } catch (Exception e) {
-            throw new BeanCreationException(
-                    "Failed to bind @ConfigurationProperties: " + targetType.getName(), e);
+            throw new BeanCreationException("Failed to bind config section: " + prefix, e);
         }
     }
 
     /**
-     * Fills {@code section} with the supplied field defaults for any component that is absent (YAML
-     * values win). Reflection-free: values arrive already converted by the caller. Shared by both
-     * the runtime and AOT engines.
+     * Pure merge of supplied defaults into {@code section}: any component absent from {@code
+     * section} is filled from {@code fieldDefaults} (YAML values win). Returns a new map; the
+     * inputs are never mutated. Reflection-free: values arrive already converted by the caller.
+     * Shared by both the runtime and AOT engines.
      */
-    private static void applyFieldDefaults(
+    private static Map<String, Object> applyFieldDefaults(
             Map<String, Object> section, Map<String, Object> fieldDefaults) {
         if (fieldDefaults.isEmpty()) {
-            return;
+            return section;
         }
+        Map<String, Object> result = new LinkedHashMap<>(section);
         for (Map.Entry<String, Object> entry : fieldDefaults.entrySet()) {
-            String name = entry.getKey();
-            if (!section.containsKey(name)) {
-                section.put(name, entry.getValue());
-            }
+            result.putIfAbsent(entry.getKey(), entry.getValue());
         }
+        return result;
     }
 
     /**
@@ -199,12 +274,13 @@ public final class ConfigBinder {
      * @param overrides dotted-path → value, in original YAML key form
      */
     @SuppressWarnings("unchecked")
-    private static void applyProfileOverrides(
+    private static Map<String, Object> applyProfileOverrides(
             Map<String, Object> section, String prefix, Map<String, Object> overrides) {
         if (overrides == null || overrides.isEmpty()) {
-            return;
+            return section;
         }
         String scope = (prefix == null || prefix.isEmpty()) ? "" : prefix + ".";
+        Map<String, Object> result = new LinkedHashMap<>(section);
         for (Map.Entry<String, Object> entry : overrides.entrySet()) {
             String key = entry.getKey();
             if (!scope.isEmpty() && !key.startsWith(scope)) {
@@ -214,8 +290,9 @@ public final class ConfigBinder {
             if (relative.isEmpty()) {
                 continue;
             }
-            writeNested(section, splitDotted(relative), entry.getValue());
+            result = writeNested(result, splitDotted(relative), entry.getValue());
         }
+        return result;
     }
 
     private static String[] splitDotted(String key) {
@@ -227,17 +304,26 @@ public final class ConfigBinder {
      * {@link LinkedHashMap}s as needed, and sets the leaf to {@code value}.
      */
     @SuppressWarnings("unchecked")
-    private static void writeNested(Map<String, Object> target, String[] path, Object value) {
-        Map<String, Object> current = target;
-        for (int i = 0; i < path.length - 1; i++) {
-            Object next = current.get(path[i]);
-            if (!(next instanceof Map)) {
-                next = new LinkedHashMap<String, Object>();
-                current.put(path[i], next);
-            }
-            current = (Map<String, Object>) next;
+    private static Map<String, Object> writeNested(
+            Map<String, Object> target, String[] path, Object value) {
+        if (path.length == 0) {
+            return target;
         }
-        current.put(path[path.length - 1], value);
+        String head = path[0];
+        if (path.length == 1) {
+            // Leaf: replace the value directly, without wrapping it in a container.
+            Map<String, Object> copy = new LinkedHashMap<>(target);
+            copy.put(head, value);
+            return copy;
+        }
+        Map<String, Object> child =
+                (target.get(head) instanceof Map<?, ?> m)
+                        ? new LinkedHashMap<>((Map<String, Object>) m)
+                        : new LinkedHashMap<>();
+        child = writeNested(child, Arrays.copyOfRange(path, 1, path.length), value);
+        Map<String, Object> copy = new LinkedHashMap<>(target);
+        copy.put(head, child);
+        return copy;
     }
 
     /**
@@ -250,15 +336,19 @@ public final class ConfigBinder {
      * <p>Only strings containing the {@code ${...}} pattern are touched, so existing literal values
      * (e.g. a JDBC URL with no placeholder) bind exactly as before.
      */
-    static void resolveEnvPlaceholders(Map<String, Object> section) {
+    static Map<String, Object> resolveEnvPlaceholders(Map<String, Object> section) {
+        Map<String, Object> result = new LinkedHashMap<>();
         for (Map.Entry<String, Object> entry : section.entrySet()) {
             Object value = entry.getValue();
             if (value instanceof Map<?, ?> nested) {
-                resolveEnvPlaceholders((Map<String, Object>) nested);
+                result.put(entry.getKey(), resolveEnvPlaceholders((Map<String, Object>) nested));
             } else if (value instanceof String str) {
-                entry.setValue(resolveString(str));
+                result.put(entry.getKey(), resolveString(str));
+            } else {
+                result.put(entry.getKey(), value);
             }
         }
+        return result;
     }
 
     private static final Pattern PLACEHOLDER =

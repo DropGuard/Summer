@@ -4,6 +4,7 @@ import com.github.dropguard.summer.web.BodyConverter;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.ServerConfig;
+import com.github.dropguard.summer.web.ServerOriginChecker;
 import com.github.dropguard.summer.web.WsRouter;
 import com.github.dropguard.summer.web.websocket.WsInterceptor;
 import io.netty.channel.ChannelHandlerContext;
@@ -20,16 +21,19 @@ public class WebSocketUpgradeHandler {
 
     private final WsRouter wsRouter;
     private final ServerConfig config;
+    private final ServerOriginChecker serverOriginChecker;
     private final List<WsInterceptor> wsInterceptors;
     private final BodyConverter jsonConverter;
 
     public WebSocketUpgradeHandler(
             WsRouter wsRouter,
             ServerConfig config,
+            ServerOriginChecker serverOriginChecker,
             List<WsInterceptor> wsInterceptors,
             BodyConverter jsonConverter) {
         this.wsRouter = wsRouter;
         this.config = config;
+        this.serverOriginChecker = serverOriginChecker;
         this.wsInterceptors = wsInterceptors;
         this.jsonConverter = jsonConverter;
     }
@@ -50,7 +54,7 @@ public class WebSocketUpgradeHandler {
 
         String origin = nettyReq.headers().get(HttpHeaderNames.ORIGIN);
         String host = nettyReq.headers().get(HttpHeaderNames.HOST);
-        if (!config.isOriginAllowed(origin, host)) {
+        if (!serverOriginChecker.isOriginAllowed(origin, host)) {
             log.warn(
                     "WebSocket connection rejected: origin '{}' not allowed for host '{}'",
                     origin,

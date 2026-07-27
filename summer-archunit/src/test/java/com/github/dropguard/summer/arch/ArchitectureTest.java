@@ -335,15 +335,14 @@ class ArchitectureTest {
     // --- DTO Record constraints ---
 
     @Test
-    @DisplayName("@ConfigurationProperties must be on Record classes")
-    void configurationPropertiesRequiresRecord() {
+    @DisplayName("@ConfigMapping must be on interface types")
+    void configMappingRequiresInterface() {
         ArchRule rule =
                 com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes()
                         .that()
-                        .areAnnotatedWith(
-                                "com.github.dropguard.summer.core.config.ConfigurationProperties")
+                        .areAnnotatedWith("com.github.dropguard.summer.core.config.ConfigMapping")
                         .should()
-                        .beRecords()
+                        .beInterfaces()
                         .allowEmptyShould(true);
         rule.check(classes);
     }

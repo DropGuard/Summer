@@ -3,8 +3,8 @@ package com.github.dropguard.summer.core.exception;
 import com.github.dropguard.summer.core.ErrorCode;
 
 /**
- * Thrown when a {@code @ConfigurationProperties} record has a field that is absent from the YAML
- * configuration and has no {@code @DefaultValue}.
+ * Thrown when a config mapping interface has a key that is absent from the YAML configuration and
+ * has no {@code @WithDefault}.
  */
 public class MissingFieldException extends ConfigurationException {
 

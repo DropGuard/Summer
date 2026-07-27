@@ -1,6 +1,11 @@
 package com.github.dropguard.summer.fixtures.dummy;
 
-import com.github.dropguard.summer.core.config.ConfigurationProperties;
+import com.github.dropguard.summer.core.config.ConfigMapping;
 
-@ConfigurationProperties(prefix = "dummy")
-public record DummyConfigProperties(String host, int port) {}
+@ConfigMapping(prefix = "dummy")
+public interface DummyConfigProperties {
+
+    String host();
+
+    int port();
+}

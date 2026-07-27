@@ -19,8 +19,8 @@ public class DefaultPageResolver implements HttpParameterResolver {
 
     public DefaultPageResolver(PageableProperties props) {
         // PageableProperties fields are nullable Integer; when no
-        // com.github.dropguard.summer.pageable
-        // config is present (and @DefaultValue is not applied during binding) they
+        // pageable
+        // config is present (and @WithDefault is not applied during binding) they
         // can be null. Fall back to the documented defaults to avoid NPE on unboxing.
         this.defaultPage = props.defaultPage() == null ? 0 : props.defaultPage();
         this.defaultSize = props.defaultSize() == null ? 20 : props.defaultSize();

@@ -1,18 +1,22 @@
 package com.github.dropguard.summer.fixtures.di.root;
 
-import com.github.dropguard.summer.core.config.ConfigurationProperties;
+import com.github.dropguard.summer.core.config.ConfigMapping;
 
 /**
- * Test fixture: @ConfigurationProperties with empty prefix — binds the entire YAML root.
- *
- * <p>The YAML has a flat {@code root:} section with {@code host} and {@code port}. With {@code
- * prefix = ""}, the binder extracts the root map; Jackson maps the {@code root} key to this
- * record's {@code root} component. Other top-level keys ({@code app}, {@code server}, etc.) are
- * ignored as unknown fields.
+ * Test fixture: {@code @ConfigMapping} with empty prefix — binds the entire YAML root; the {@code
+ * root:} nested section is its own mapping interface.
  */
-@ConfigurationProperties(prefix = "")
-public record RootProperties(Root root) {
+@ConfigMapping(prefix = "")
+public interface RootProperties {
 
-    /** Nested record matching the {@code root:} YAML section. */
-    public record Root(String host, Integer port) {}
+    /** Nested mapping matching the {@code root:} YAML section. */
+    @ConfigMapping(prefix = "root")
+    interface Root {
+
+        String host();
+
+        Integer port();
+    }
+
+    Root root();
 }

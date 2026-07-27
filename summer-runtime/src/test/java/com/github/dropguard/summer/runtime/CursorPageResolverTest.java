@@ -2,6 +2,8 @@ package com.github.dropguard.summer.runtime;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.github.dropguard.summer.core.config.ConfigBinder;
+import com.github.dropguard.summer.core.config.ConfigBinder.BindingContext;
 import com.github.dropguard.summer.core.config.PageableProperties;
 import com.github.dropguard.summer.web.CursorPageResolver;
 import com.github.dropguard.summer.web.CursorPageable;
@@ -11,12 +13,29 @@ import com.github.dropguard.summer.web.HttpMethod;
 import com.github.dropguard.summer.web.HttpParameterResolver;
 import com.github.dropguard.summer.web.Request;
 import java.lang.reflect.Parameter;
+import java.util.Map;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class CursorPageResolverTest {
 
-    private final CursorPageResolver resolver =
-            new CursorPageResolver(new PageableProperties(0, 20));
+    @BeforeAll
+    static void installInterfaceBinder() {
+        // Interface config binding (@ConfigMapping) is provided by the runtime module.
+        ConfigMappingProxyBinder.install();
+    }
+
+    private final CursorPageResolver resolver = new CursorPageResolver(pageableProps(0, 20));
+
+    private static PageableProperties pageableProps(int defaultPage, int defaultSize) {
+        return ConfigBinder.bind(
+                BindingContext.of(
+                        Map.of(
+                                "pageable.defaultPage", defaultPage,
+                                "pageable.defaultSize", defaultSize)),
+                "pageable",
+                PageableProperties.class);
+    }
 
     private HttpContext ctx(String query) {
         Request req = new Request(HttpMethod.GET, "/test", query, null, new byte[0]);
@@ -55,8 +74,7 @@ class CursorPageResolverTest {
 
     @Test
     void shouldUseCustomDefaults() throws Exception {
-        HttpParameterResolver customResolver =
-                new CursorPageResolver(new PageableProperties(1, 10));
+        HttpParameterResolver customResolver = new CursorPageResolver(pageableProps(1, 10));
         HttpContext ctx = ctx(null);
         CursorPageable pageable = (CursorPageable) customResolver.resolve(ctx, cursorParam());
         assertNull(pageable.cursor());
