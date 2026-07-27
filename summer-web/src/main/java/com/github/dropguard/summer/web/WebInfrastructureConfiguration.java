@@ -20,4 +20,9 @@ public class WebInfrastructureConfiguration {
     public com.github.dropguard.summer.web.health.HealthRouteRegistrar healthRouteRegistrar() {
         return new com.github.dropguard.summer.web.health.HealthRouteRegistrar();
     }
+
+    @Bean
+    public ServerOriginChecker serverOriginChecker(ServerConfig serverConfig) {
+        return new ServerOriginChecker(serverConfig);
+    }
 }
