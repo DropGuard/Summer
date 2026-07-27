@@ -1,0 +1,6 @@
+# Framework bootstrap defaults shipped with Summer. A bare application (no application.yml of
+# its own) starts with the RUNTIME engine. Production builds flip this to AOT at build time via
+# summer-maven-plugin, so the DI engine is always an explicit, auditable choice — never sniffed
+# from the environment. User-supplied application.yml on the classpath overrides these defaults.
+summer:
+  engine: runtime

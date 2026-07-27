@@ -1,5 +1,7 @@
 package com.github.dropguard.summer.plugin;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.github.dropguard.summer.aot.AotContextGenerator;
 import com.github.dropguard.summer.aot.AotProxyGenerator;
 import com.github.dropguard.summer.aot.RouteAdapterGenerator;
@@ -16,7 +18,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.AbstractMojo;
@@ -45,6 +49,9 @@ import org.slf4j.LoggerFactory;
 public class SummerMojo extends AbstractMojo {
 
     private static final Logger log = LoggerFactory.getLogger(SummerMojo.class);
+
+    /** YAML binding for {@link #flipEngineToAot()}; jackson-dataformat-yaml is on the classpath. */
+    private static final ObjectMapper YAML_MAPPER = new YAMLMapper();
 
     /** Tracks which generation step was in progress, for failure diagnostics. */
     private String currentBean;
@@ -153,6 +160,14 @@ public class SummerMojo extends AbstractMojo {
 
             compileGeneratedSources(generatedDir, false);
 
+            // Flip the DI engine to AOT in the resources that will be packaged. This is the
+            // build-time counterpart of the shipped "engine: runtime" default: a bare dev build
+            // runs RUNTIME, but once summer-maven-plugin has generated (and compiled) the AOT
+            // context, the same artifact must boot with AOT. Generating the context and declaring
+            // the engine are one atomic build action, so the two can never drift (no stale
+            // runtime-config + fresh AOT classes, and no AOT-classes-missing + aot-config).
+            flipEngineToAot();
+
             currentBean = null;
             log.info("[Summer] AOT generation complete");
 
@@ -245,6 +260,46 @@ public class SummerMojo extends AbstractMojo {
             throw new MojoExecutionException("[Summer] Compilation of generated sources failed");
         }
         fm.close();
+    }
+
+    /**
+     * Ensures the packaged {@code application.yml} selects the AOT engine. The framework ships a
+     * {@code summer.engine: runtime} default (dev/build-time friendliness); once this plugin has
+     * generated and compiled the AOT context, that same artifact must boot with AOT. Generating the
+     * context and declaring the engine are one atomic build action, so the two can never drift (no
+     * stale runtime-config + fresh AOT classes, and no AOT-classes-missing + aot-config).
+     *
+     * <p>The edit goes through Jackson's {@link com.fasterxml.jackson.dataformat.yaml.YAMLMapper}
+     * (already on the plugin classpath via {@code summer-core}) rather than line munging, so it is
+     * format-agnostic and idempotent: block style, inline {@code summer: {engine: runtime}}, or a
+     * missing file all resolve correctly, and the rest of the user's YAML is preserved verbatim.
+     */
+    private void flipEngineToAot() throws IOException {
+        File classesDir = new File(outputDirectory.getAbsolutePath());
+        File yml = new File(classesDir, "application.yml");
+        classesDir.mkdirs();
+
+        Map<String, Object> root;
+        if (yml.exists()) {
+            try (InputStream in = Files.newInputStream(yml.toPath())) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> loaded = YAML_MAPPER.readValue(in, Map.class);
+                root = loaded;
+            }
+        } else {
+            root = new LinkedHashMap<>();
+        }
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> summer = (Map<String, Object>) root.get("summer");
+        if (summer == null) {
+            summer = new LinkedHashMap<>();
+            root.put("summer", summer);
+        }
+        summer.put("engine", "aot");
+
+        YAML_MAPPER.writeValue(yml, root);
+        log.info("[Summer] Set summer.engine: aot for production build");
     }
 
     private void collectJavaFiles(File dir, List<File> result) {
