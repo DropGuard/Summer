@@ -21,6 +21,14 @@
             <artifactId>summer-web</artifactId>
         </dependency>
 
+        <!-- runtime: supplies the @ConfigMapping interface binder used by tests that bind
+             config interfaces via ConfigBinder (interface binding lives only in runtime). -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-runtime</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Testing -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

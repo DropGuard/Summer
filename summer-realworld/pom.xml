@@ -38,6 +38,14 @@
             <type>pom</type>
         </dependency>
 
+        <!-- runtime: supplies the @ConfigMapping interface binder used by tests that bind
+             config interfaces via ConfigBinder (interface binding lives only in runtime). -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-runtime</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- H2 Database (realworld uses an in-memory DB) -->
         <dependency>
             <groupId>com.h2database</groupId>

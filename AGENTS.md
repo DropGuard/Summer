@@ -1,7 +1,7 @@
 # PROJECT KNOWLEDGE BASE
 
 **Generated:** 2026-07-14
-**Stack:** Java 26+ · Maven multi-module · Netty · Jandex · JDK Dynamic Proxies · JUnit 5
+**Stack:** Java 25+ · Maven multi-module · Netty · Jandex · JDK Dynamic Proxies · JUnit 5
 **Description:** Minimalist JDK-native CRUD framework. Clarity-first reconstruction of Spring-like runtime — singleton DI, annotation routing, virtual threads.
 
 ## STRUCTURE
@@ -93,7 +93,7 @@ mvn compile exec:java -pl summer-twitter -am  # Run showcase app
 
 ## NOTES
 
-- JDK 26 required (`--sun-misc-unsafe-memory-access=allow` for Netty/AOT).
+- JDK 25 baseline (`--sun-misc-unsafe-memory-access=allow` for Netty/AOT).
 - No Maven wrapper — CI uses `setup-java` which auto-installs Maven.
 - No `module-info.java` yet — all runs on classpath.
 - `summer-exceptions` module uses `summer.core.exception` package (cross-module package sharing with core).
