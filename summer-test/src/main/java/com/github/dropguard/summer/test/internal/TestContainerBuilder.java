@@ -3,6 +3,7 @@ package com.github.dropguard.summer.test.internal;
 import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.core.DiEngine;
+import com.github.dropguard.summer.core.Engine;
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.test.Testing;
 import java.lang.annotation.Annotation;
@@ -54,7 +55,7 @@ public final class TestContainerBuilder {
      */
     public static BeanContainer buildAot() {
         try {
-            return DiEngine.create();
+            return DiEngine.create(Engine.AOT);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to create AOT context", e);
         }

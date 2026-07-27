@@ -10,7 +10,8 @@ import org.slf4j.bridge.SLF4JBridgeHandler;
  * Single entry point for Summer applications.
  *
  * <pre>{@code
- * // Auto-detects environment: uses RUNTIME in IDE, AOT in production (jar)
+ * // Engine from `summer.engine` in application.yml (default RUNTIME);
+ * // production builds flip it to AOT at build time. Override with -Dsummer.engine.
  * SummerApplication.run(args);
  * }</pre>
  */

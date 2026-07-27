@@ -28,7 +28,9 @@ public final class TypeConverter {
         if (targetType == Long.class) return Long.parseLong(value);
         if (targetType == Boolean.class) return Boolean.parseBoolean(value);
         if (targetType == Double.class) return Double.parseDouble(value);
-        if (targetType.isEnum()) return Enum.valueOf((Class<Enum>) targetType, value);
+        if (targetType.isEnum())
+            return Enum.valueOf(
+                    (Class<Enum>) targetType, value.trim().toUpperCase(java.util.Locale.ROOT));
         throw new ConfigurationException(
                 ErrorCode.CONFIG_PARSE_ERROR,
                 "Unsupported type for conversion: " + targetType.getName());

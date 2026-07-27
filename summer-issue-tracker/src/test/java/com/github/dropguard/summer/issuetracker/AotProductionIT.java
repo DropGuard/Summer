@@ -34,7 +34,7 @@ import com.github.dropguard.summer.web.middleware.CorsMiddleware;
 /**
  * Proves the PRODUCTION AOT engine works for this external demo app (AOT is the
  * production engine; Runtime is the test engine). Uses the same bootstrap path as
- * {@code SummerApplication}: force {@code -Dcom.github.dropguard.summer.engine=aot}, build the container
+ * {@code SummerApplication}: force {@code -Dsummer.engine=aot}, build the container
  * via {@link DiEngine#create(Object...)} (which loads the build-time-generated
  * {@code GeneratedAotContext}), start Netty, and exercise a real register +
  * create-issue round-trip. This validates the AOT bean graph end-to-end — including
@@ -68,7 +68,7 @@ public class AotProductionIT {
         System.setProperty("com.github.dropguard.summer.test.datasource.url", jdbcUrl);
         System.setProperty("com.github.dropguard.summer.test.datasource.username", "test");
         System.setProperty("com.github.dropguard.summer.test.datasource.password", "test");
-        System.setProperty("com.github.dropguard.summer.engine", "aot"); // production engine
+        System.setProperty("summer.engine", "aot"); // production engine
 
         // Build the production AOT container the same way SummerApplication does
         // (DiEngine.create -> GeneratedAotContext). If the external demo's bean graph
@@ -84,7 +84,7 @@ public class AotProductionIT {
         System.clearProperty("com.github.dropguard.summer.test.datasource.url");
         System.clearProperty("com.github.dropguard.summer.test.datasource.username");
         System.clearProperty("com.github.dropguard.summer.test.datasource.password");
-        System.clearProperty("com.github.dropguard.summer.engine");
+        System.clearProperty("summer.engine");
     }
 
     @Test

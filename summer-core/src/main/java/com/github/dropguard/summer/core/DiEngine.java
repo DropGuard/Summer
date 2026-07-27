@@ -1,5 +1,7 @@
 package com.github.dropguard.summer.core;
 
+import com.github.dropguard.summer.core.config.ConfigBinder;
+import com.github.dropguard.summer.core.config.FrameworkConfig;
 import com.github.dropguard.summer.core.exception.ConfigurationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,38 +19,22 @@ public final class DiEngine {
     private static final String RUNTIME_CLASS =
             "com.github.dropguard.summer.runtime.RuntimeBeanContainerBuilder";
 
+    /** Command-line override for the DI engine: {@code -Dsummer.engine=runtime|aot}. */
+    private static final String ENGINE_PROPERTY = "summer.engine";
+
     private DiEngine() {}
 
-    public static Engine detectEngine() {
-        // 1. Explicit override: -Dcom.github.dropguard.summer.engine=runtime|aot|auto
-        String override =
-                System.getProperty("com.github.dropguard.summer.engine", "").toLowerCase();
-        if ("runtime".equals(override)) {
-            log.info("[Summer] Engine override: RUNTIME");
-            return Engine.RUNTIME;
-        }
-        if ("aot".equals(override)) {
-            log.info("[Summer] Engine override: AOT");
-            return Engine.AOT;
-        }
-
-        // 2. Auto-detection
-        if (isDevMode()) {
-            log.info("[Summer] Dev mode detected: using RUNTIME engine.");
-            return Engine.RUNTIME;
-        }
-        log.info("[Summer] Production mode detected: using AOT engine.");
-        return Engine.AOT;
-    }
-
     /**
-     * Creates a {@link BeanContainer} by auto-detecting the environment. The optional {@code
-     * externalBeans} are boot-time application beans supplied only by {@code SummerApplication}
-     * (e.g. the ordered middleware list from {@code apply(...)}); they are never exposed to tests.
-     * Global middleware is otherwise discovered as {@code @GlobalMiddleware}-annotated beans.
+     * Creates a {@link BeanContainer} using an explicitly chosen engine. This is the entry point
+     * for code paths that already know which engine to use (dual-engine TCK, the test framework's
+     * AOT escape hatch). It never consults configuration or system properties.
+     *
+     * @param engine the engine to build with
+     * @param externalBeans boot-time application beans (e.g. the ordered middleware list from
+     *     {@code SummerApplication.apply(...)}); never exposed to tests
      */
-    public static BeanContainer create(Object... externalBeans) {
-        if (detectEngine() == Engine.AOT) {
+    public static BeanContainer create(Engine engine, Object... externalBeans) {
+        if (engine == Engine.AOT) {
             log.info("[Summer] Building container via AOT engine");
             return invokeBuild(
                     AOT_CLASS,
@@ -65,47 +51,38 @@ public final class DiEngine {
                 externalBeans);
     }
 
-    private static boolean isDevMode() {
-        // 1. Debugger attach detection (IDE Run/Debug)
-        if (java.lang.management.ManagementFactory.getRuntimeMXBean().getInputArguments().stream()
-                .anyMatch(arg -> arg.startsWith("-agentlib:jdwp"))) {
-            return true;
-        }
+    /**
+     * Creates a {@link BeanContainer} by resolving the engine from configuration and command-line
+     * override. Resolution order: {@code -Dsummer.engine} (highest) &gt; {@code summer.engine} in
+     * {@code application.yml} &gt; {@link Engine#RUNTIME} default. No environment sniffing is
+     * performed — the engine is always an explicit, auditable choice.
+     *
+     * <p>The optional {@code externalBeans} are boot-time application beans supplied only by {@code
+     * SummerApplication}; they are never exposed to tests. Global middleware is otherwise
+     * discovered as {@code @GlobalMiddleware}-annotated beans.
+     */
+    public static BeanContainer create(Object... externalBeans) {
+        Engine engine = resolveEngine();
+        return create(engine, externalBeans);
+    }
 
-        // 3. Stack frame location (Exploded directory = DEV, Fat JAR = PROD)
-        try {
-            StackTraceElement[] stack = Thread.currentThread().getStackTrace();
-            for (StackTraceElement element : stack) {
-                try {
-                    Class<?> clazz =
-                            Thread.currentThread()
-                                    .getContextClassLoader()
-                                    .loadClass(element.getClassName());
-                    if (clazz.getProtectionDomain() != null
-                            && clazz.getProtectionDomain().getCodeSource() != null) {
-                        java.net.URL location =
-                                clazz.getProtectionDomain().getCodeSource().getLocation();
-                        if (location != null && "file".equals(location.getProtocol())) {
-                            // If loaded from a directory (not a .jar), we are in IDE / dev mode
-                            if (!location.getPath().endsWith(".jar")) {
-                                return true;
-                            }
-                        }
-                    }
-                } catch (Throwable e) {
-                    // skip missing classes
-                }
-            }
-        } catch (Throwable e) {
-            // ignore
+    /**
+     * Resolves the DI engine without building a container. Visible for tests and for callers that
+     * need to know the resolved engine before construction.
+     */
+    public static Engine resolveEngine() {
+        Engine override = Engine.fromString(System.getProperty(ENGINE_PROPERTY));
+        if (override != null) {
+            log.info("[Summer] Engine override (-D{}): {}", ENGINE_PROPERTY, override);
+            return override;
         }
-
-        // 4. Fallback IDE environment detection
-        if (System.getenv("IDEA_INITIAL_DIRECTORY") != null
-                || System.getProperty("idea.test.cyclic.buffer.size") != null) {
-            return true;
-        }
-        return false;
+        // FrameworkConfig carries @WithDefault("runtime"), so a bare project (no application.yml at
+        // all) still resolves to RUNTIME. Production builds flip it to AOT at build time.
+        Engine configured =
+                ConfigBinder.bind(ConfigBinder.BindingContext.of(), "summer", FrameworkConfig.class)
+                        .engine();
+        log.info("[Summer] Engine from configuration: {}", configured);
+        return configured;
     }
 
     private static BeanContainer invokeBuild(

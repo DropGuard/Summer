@@ -616,7 +616,7 @@ public final class WireMethodGenerator {
         }
         if (isEnumType(ret)) {
             return CodeBlock.of(
-                    "Enum.valueOf($T.class, (String) $N.get($S))",
+                    "Enum.valueOf($T.class, ((String) $N.get($S)).toUpperCase())",
                     parseTypeName(typeName),
                     sectionVar,
                     key);
@@ -635,7 +635,8 @@ public final class WireMethodGenerator {
     private CodeBlock defaultExpr(Type ret, String rawValue, ClassName typeConverter) {
         String typeName = ret.name().toString();
         if (isEnumType(ret)) {
-            return CodeBlock.of("Enum.valueOf($T.class, $S)", parseTypeName(typeName), rawValue);
+            return CodeBlock.of(
+                    "Enum.valueOf($T.class, $S.toUpperCase())", parseTypeName(typeName), rawValue);
         }
         if (typeName.equals("java.util.List")) {
             return CodeBlock.of("java.util.List.of()");
