@@ -15,9 +15,9 @@ public final class DiEngine {
     private static final Logger log = LoggerFactory.getLogger(DiEngine.class);
 
     private static final String AOT_CLASS =
-            "com.github.dropguard.summer.core.aot.GeneratedAotContext";
+            "com.github.dropguard.summer.aot.generated.GeneratedAotContext";
     private static final String RUNTIME_CLASS =
-            "com.github.dropguard.summer.runtime.RuntimeBeanContainerBuilder";
+            "com.github.dropguard.summer.runtime.RuntimeContainer";
 
     /** Command-line override for the DI engine: {@code -Dsummer.engine=runtime|aot}. */
     private static final String ENGINE_PROPERTY = "summer.engine";

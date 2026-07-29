@@ -1,0 +1,184 @@
+package com.github.dropguard.summer.runtime;
+
+import com.github.dropguard.summer.core.BeanContainer;
+import com.github.dropguard.summer.core.ContainerEngine;
+import com.github.dropguard.summer.core.Discovery;
+import com.github.dropguard.summer.core.Engine;
+import com.github.dropguard.summer.core.Internal;
+import com.github.dropguard.summer.core.RuntimeDiMarker;
+import com.github.dropguard.summer.core.bean.BeanDefinition;
+import com.github.dropguard.summer.core.bean.BeanDeployment;
+import com.github.dropguard.summer.core.bean.ConfigPropertiesBean;
+import com.github.dropguard.summer.core.bean.MockedBean;
+import com.github.dropguard.summer.core.bean.RouteInfo;
+import com.github.dropguard.summer.core.bean.SharedConditionEvaluator;
+import com.github.dropguard.summer.core.bean.SharedDependencyResolver;
+import com.github.dropguard.summer.core.config.ConfigBinder;
+import com.github.dropguard.summer.core.config.TypeConverter;
+import com.github.dropguard.summer.core.validation.Validator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@Internal
+public final class RuntimeContainer implements ContainerEngine {
+
+    private static final Logger log = LoggerFactory.getLogger(RuntimeContainer.class);
+
+    static {
+        ConfigMappingProxyBinder.install();
+    }
+
+    @Override
+    public Engine engine() {
+        return Engine.RUNTIME;
+    }
+
+    // ── production entry (reflective, via DiEngine) ───────────────────
+
+    public static BeanContainer build(Object... externalBeans) {
+        JandexIndexLoader.LoadedIndex prod = JandexIndexLoader.productionIndex();
+        BeanDeployment deployment =
+                BeanDeployment.forProduction(
+                        prod.index(), prod.classToArchive(), prod.archiveIndexes());
+        return init(deployment, List.of(), Map.of(), externalBeans);
+    }
+
+    // ── SPI entry (ContainerEngines.forEngine()) ──────────────────────
+
+    @Override
+    public BeanContainer build(
+            BeanDeployment deployment,
+            MockedBean[] mocks,
+            Map<String, Object> overrides,
+            String cacheKey,
+            String className) {
+        return init(deployment, List.of(mocks), overrides);
+    }
+
+    // ── shared pipeline ───────────────────────────────────────────────
+
+    private static BeanContainer init(
+            BeanDeployment deployment,
+            List<MockedBean> mocks,
+            Map<String, Object> overrides,
+            Object... externalBeans) {
+        BeanContainer.Builder builder = new BeanContainer.Builder();
+
+        deployment.addSyntheticBean(
+                RuntimeDiMarker.class,
+                new RuntimeDiMarker(),
+                "new com.github.dropguard.summer.core.RuntimeDiMarker()");
+
+        log.info(
+                "[Summer] BeanDeployment: archives={} syntheticBeans={}",
+                deployment.archives(),
+                deployment.syntheticBeans().stream()
+                        .map(b -> b.qualifiedName)
+                        .collect(java.util.stream.Collectors.joining(",")));
+        List<BeanDefinition> candidates = Discovery.discover(deployment);
+
+        Set<String> mockedTypeNames =
+                mocks.stream()
+                        .map(MockedBean::targetTypeName)
+                        .collect(java.util.stream.Collectors.toSet());
+        new SharedConditionEvaluator().evaluate(candidates, mockedTypeNames, deployment);
+
+        ConfigBinder.BindingContext ctx = ConfigBinder.BindingContext.of(overrides);
+        bindConfiguration(candidates, builder, ctx);
+        BeanDefinitionFactory.populateInterceptors(candidates);
+        RuntimeExceptionHandlerRegistrar.setPrebuiltHandlers(candidates);
+
+        SharedDependencyResolver resolver = new SharedDependencyResolver();
+        List<BeanDefinition> sorted = resolver.resolve(candidates, mocks);
+
+        Map<String, List<String>> interceptorMap =
+                BeanDefinitionFactory.buildInterceptorMap(candidates);
+        Map<String, Set<String>> bindingMap = new HashMap<>();
+        for (BeanDefinition bd : candidates) {
+            if (!bd.interceptorBindingAnnotations.isEmpty()) {
+                bindingMap.put(bd.qualifiedName, bd.interceptorBindingAnnotations);
+            }
+        }
+        BeanInstantiator instantiator = new BeanInstantiator(builder, interceptorMap, bindingMap);
+
+        for (MockedBean mocked : mocks) {
+            builder.register(mocked.targetType(), mocked.instance());
+            for (Class<?> iface : mocked.targetType().getInterfaces()) {
+                builder.register(iface, mocked.instance());
+            }
+        }
+        for (BeanDefinition bd : sorted) {
+            log.debug(
+                    "[Summer] Instantiating bean {} [factory {}#{}] archive={} params={}{}",
+                    bd.qualifiedName,
+                    bd.configClassName,
+                    bd.producerMethodName,
+                    bd.archiveName,
+                    bd.parameters.size(),
+                    bd.syntheticInstance != null ? " [synthetic]" : "");
+            instantiator.instantiateFromDefinition(bd);
+        }
+        List<RouteInfo> allRoutes = candidates.stream().flatMap(bd -> bd.routes.stream()).toList();
+        builder.routes(allRoutes);
+
+        // validators
+        for (Object bean : builder.singletons().values()) {
+            if (bean instanceof Validator<?> v) {
+                Object target = builder.peek(v.targetType());
+                if (target != null) ((Validator<Object>) v).validate(target);
+            }
+        }
+
+        for (Object bean : externalBeans) {
+            if (bean != null) builder.register(bean.getClass(), bean);
+        }
+
+        log.info(
+                "[Summer] Built RUNTIME container: {} beans, {} routes",
+                sorted.size(),
+                allRoutes.size());
+        return builder.build(Engine.RUNTIME);
+    }
+
+    private static void bindConfiguration(
+            List<BeanDefinition> candidates,
+            BeanContainer.Builder builder,
+            ConfigBinder.BindingContext ctx) {
+        for (BeanDefinition bd : candidates) {
+            if (!(bd instanceof ConfigPropertiesBean c)) continue;
+            Class<?> configClass;
+            try {
+                configClass = Class.forName(c.qualifiedName);
+            } catch (ClassNotFoundException e) {
+                log.debug("[Summer] Could not load @ConfigMapping class: {}", c.qualifiedName);
+                continue;
+            }
+            if (builder.peek(configClass) != null) continue;
+            String prefix = c.configPropertiesPrefix;
+            Map<String, Object> defaults = new HashMap<>();
+            for (var e : c.defaultValues.entrySet()) {
+                String ft = c.fieldTypes.get(e.getKey());
+                if (ft != null) {
+                    try {
+                        defaults.put(
+                                e.getKey(), TypeConverter.convert(e.getValue(), Class.forName(ft)));
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
+            ConfigBinder.BindingContext pcc =
+                    defaults.isEmpty()
+                            ? ctx
+                            : ConfigBinder.BindingContext.of(defaults, ctx.overrides());
+            builder.register(configClass, ConfigBinder.bind(pcc, prefix, configClass));
+            log.debug(
+                    "[Summer] Bound config properties: {} (prefix='{}')",
+                    configClass.getSimpleName(),
+                    prefix);
+        }
+    }
+}

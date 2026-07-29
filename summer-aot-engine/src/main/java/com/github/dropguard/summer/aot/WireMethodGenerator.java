@@ -338,7 +338,7 @@ public final class WireMethodGenerator {
      */
     private com.palantir.javapoet.CodeBlock syntheticInstanceExpression(BeanDefinition bean) {
         // The construction expression is supplied at the definition site
-        // (BeanDeployment/RuntimeBeanContainerBuilder via addSyntheticBean), so this
+        // (BeanDeployment/RuntimeContainer via addSyntheticBean), so this
         // generator stays ignorant of each synthetic type. Emit it verbatim.
         if (bean.aotInstanceExpression == null) {
             throw new IllegalStateException(
@@ -560,7 +560,7 @@ public final class WireMethodGenerator {
                         key);
             } else if (wdAnn != null) {
                 String wdValue = wdAnn.value().asString();
-                CodeBlock coerced = coerceExpr(ret, key, "__section");
+                CodeBlock coerced = coerceExpr(ret, key, "__section", typeConverter);
                 CodeBlock defaulted = defaultExpr(ret, wdValue, typeConverter);
                 ctor.addStatement(
                         "this.$N = (__section.get($S) != null) ? $L : $L",
@@ -571,7 +571,7 @@ public final class WireMethodGenerator {
             } else {
                 // Required key: store null if absent; the getter raises MissingFieldException
                 // lazily (see below), matching the Runtime proxy's access-time semantics.
-                CodeBlock coerced = coerceExpr(ret, key, "__section");
+                CodeBlock coerced = coerceExpr(ret, key, "__section", typeConverter);
                 ctor.addStatement(
                         "this.$N = (__section.get($S) != null) ? $L : null", name, key, coerced);
             }
@@ -609,7 +609,7 @@ public final class WireMethodGenerator {
     }
 
     /** Coerces the raw section value to the method's return type (used when the key is present). */
-    private CodeBlock coerceExpr(Type ret, String key, String sectionVar) {
+    private CodeBlock coerceExpr(Type ret, String key, String sectionVar, ClassName typeConverter) {
         String typeName = ret.name().toString();
         if (typeName.equals("java.lang.String")) {
             return CodeBlock.of("(String) $N.get($S)", sectionVar, key);
@@ -627,8 +627,19 @@ public final class WireMethodGenerator {
         if (typeName.equals("java.util.Map")) {
             return CodeBlock.of("(java.util.Map) $N.get($S)", sectionVar, key);
         }
-        // TypeName tolerates primitive types such as int.
-        return CodeBlock.of("($T) $N.get($S)", parseTypeName(typeName), sectionVar, key);
+        // Scalars (incl. primitives such as long/int): the resolved section value may already be a
+        // Number (e.g. an Integer from YAML), so route through TypeConverter — which coerces
+        // Numbers, not just Strings — rather than a bare (long) cast that would throw
+        // ClassCastException on an Integer. The boxed target type matches how required primitives
+        // are stored.
+        com.palantir.javapoet.TypeName boxed = parseTypeName(typeName).box();
+        return CodeBlock.of(
+                "($T) $T.convert($N.get($S), $T.class)",
+                boxed,
+                typeConverter,
+                sectionVar,
+                key,
+                boxed);
     }
 
     /** Builds the literal used when a key is absent but {@code @WithDefault} is present. */

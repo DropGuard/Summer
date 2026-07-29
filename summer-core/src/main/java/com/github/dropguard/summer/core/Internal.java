@@ -15,7 +15,7 @@ import java.lang.annotation.Target;
  * instability — depending on an internal type means a framework upgrade can break your code.
  *
  * <p>Public API for framework users is limited to the {@code @SummerTest}, {@code @Mock}, and
- * {@code @TestProfile} annotations plus the {@code Testing} facade ({@code build()} / {@code
+ * {@code @TestProfile} annotations plus the {@code TestContainer} facade ({@code build()} / {@code
  * buildForTest(Class)}). Everything else in {@code summer-test} is internal unless explicitly
  * documented otherwise.
  */

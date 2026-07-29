@@ -15,9 +15,9 @@ import java.util.Map;
  * Exception handler registrar that reads from pre-computed {@link
  * BeanDefinition.ExceptionHandlerEntry} records rather than re-scanning annotations via reflection.
  *
- * <p>Pre-computed handler data is set by {@code RuntimeBeanContainerBuilder.initialize()} after
- * discovery — the registrar itself only resolves {@code Method} handles by name and parameter count
- * (no annotation scanning).
+ * <p>Pre-computed handler data is set by {@code RuntimeContainer init()} after discovery — the
+ * registrar itself only resolves {@code Method} handles by name and parameter count (no annotation
+ * scanning).
  */
 public class RuntimeExceptionHandlerRegistrar implements ExceptionHandlerRegistrar {
 
@@ -36,7 +36,7 @@ public class RuntimeExceptionHandlerRegistrar implements ExceptionHandlerRegistr
 
     /**
      * Pre-computes exception handler metadata from BeanDefinitions. Called by {@code
-     * RuntimeBeanContainerBuilder.initialize()} after discovery.
+     * RuntimeContainer init()} after discovery.
      */
     public static void setPrebuiltHandlers(List<BeanDefinition> candidates) {
         Map<String, List<BeanDefinition.ExceptionHandlerEntry>> map = new HashMap<>();
