@@ -13,7 +13,7 @@
     -->
     <parent>
         <groupId>com.github.dropguard</groupId>
-        <artifactId>summer-starter-parent</artifactId>
+        <artifactId>summer-build-parent</artifactId>
         <version>0.1.0</version>
         <relativePath/>
     </parent>
@@ -153,48 +153,9 @@
                     </execution>
                 </executions>
             </plugin>
+            <plugin>
+                <artifactId>maven-failsafe-plugin</artifactId>
+            </plugin>
         </plugins>
     </build>
-
-    <profiles>
-        <!--
-          Integration tests (Testcontainers) need a running Docker daemon. They are
-          NOT bound to `verify` by default — activate explicitly with `-Dit` so that
-          plain `mvn verify` / `make test` stay Docker-free and fast.
-        -->
-        <profile>
-            <id>it</id>
-            <activation>
-                <property>
-                    <name>it</name>
-                </property>
-            </activation>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-failsafe-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>integration-tests</id>
-                                <goals>
-                                    <goal>integration-test</goal>
-                                    <goal>verify</goal>
-                                </goals>
-                                <configuration>
-                                    <includes>
-                                        <include>**/*IT.java</include>
-                                    </includes>
-                                    <systemPropertyVariables>
-                                        <testcontainers.disableRyuk>true</testcontainers.disableRyuk>
-                                    </systemPropertyVariables>
-                                    <redirectTestOutputToFile>true</redirectTestOutputToFile>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 </project>

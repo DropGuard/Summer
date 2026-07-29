@@ -98,6 +98,11 @@ public class IssueRepository {
         return n == null ? 0 : n;
     }
 
+    /** Removes all tag associations for {@code issueId} (before issue deletion). */
+    public void detachAllTags(Long issueId) {
+        jdbcTemplate.update("DELETE FROM issue_tags WHERE issue_id = ?", issueId);
+    }
+
     // ── Dynamic filter ─────────────────────────────────────────────────
 
     /**

@@ -40,23 +40,6 @@ public class UserRepository {
         return Optional.ofNullable(jdbcTemplate.queryForObject(sql, User.class, username));
     }
 
-    public List<User> findByOrg(Long orgId) {
-        String sql = """
-                SELECT id, org_id, username, display_name, email, password_hash, role, created_at
-                FROM users WHERE org_id = ? ORDER BY display_name
-                """;
-        return jdbcTemplate.queryForList(sql, User.class, orgId);
-    }
-
-    public List<User> findByProject(Long projectId) {
-        String sql = """
-                SELECT u.id, u.org_id, u.username, u.display_name, u.email, u.password_hash, u.role, u.created_at
-                FROM users u JOIN project_members pm ON pm.user_id = u.id
-                WHERE pm.project_id = ? ORDER BY u.display_name
-                """;
-        return jdbcTemplate.queryForList(sql, User.class, projectId);
-    }
-
     public int countByOrg(Long orgId) {
         String sql = "SELECT COUNT(*) FROM users WHERE org_id = ?";
         Integer n = jdbcTemplate.queryForObject(sql, Integer.class, orgId);

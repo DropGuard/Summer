@@ -11,6 +11,7 @@ import com.github.dropguard.summer.issuetracker.comment.Comment;
 import com.github.dropguard.summer.issuetracker.comment.CommentRepository;
 import com.github.dropguard.summer.issuetracker.common.BusinessException;
 import com.github.dropguard.summer.issuetracker.common.IdGenerator;
+import com.github.dropguard.summer.issuetracker.common.ValidationException;
 import com.github.dropguard.summer.issuetracker.project.Project;
 import com.github.dropguard.summer.issuetracker.tag.Tag;
 import com.github.dropguard.summer.issuetracker.project.ProjectRepository;
@@ -81,6 +82,12 @@ public class IssueServiceImpl implements IssueService {
     @Transactional
     public Issue createIssue(long projectId, String title, String description,
             String status, String priority, Long assigneeId) {
+        if (title == null || title.isBlank()) {
+            throw BusinessException.badRequest("Title must not be empty");
+        }
+        if (status == null || priority == null) {
+            throw BusinessException.badRequest("Status and priority are required");
+        }
         long actorId = currentUserId();
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> BusinessException.notFound("Project"));
@@ -184,9 +191,12 @@ public class IssueServiceImpl implements IssueService {
     public void deleteIssue(long issueId) {
         long actorId = currentUserId();
         Issue issue = load(issueId);
-        // Record the deletion while the row still exists (FK satisfied), then remove
-        // the issue — the issue_history row is cascade-deleted with it, keeping the
-        // history is scoped to the issue (child resource, cascade-deleted)'s lifetime.
+        // Detach tags and delete comments before the issue row — the FK
+        // constraints on comments and issue_tags lack ON DELETE CASCADE.
+        issueRepository.detachAllTags(issueId);
+        commentRepository.deleteByIssue(issueId);
+        // Record the deletion while the row still exists (FK satisfied), then
+        // remove — issue_history is cascade-deleted with it.
         issueHistoryRepository.insert(new IssueHistory(idGenerator.nextId(), issueId, actorId,
                 "DELETED", issue.issueKey(), null, OffsetDateTime.now()));
         issueRepository.delete(issueId);
@@ -237,6 +247,9 @@ public class IssueServiceImpl implements IssueService {
     @Override
     @Transactional
     public Comment addComment(long issueId, String body) {
+        if (body == null || body.isBlank()) {
+            throw BusinessException.badRequest("Comment body must not be empty");
+        }
         long actorId = currentUserId();
         Issue issue = load(issueId);
         Comment comment = new Comment(idGenerator.nextId(), issueId, actorId, body, OffsetDateTime.now());
@@ -274,9 +287,6 @@ public class IssueServiceImpl implements IssueService {
     }
 
     private static String normalizeStatus(String s) {
-        if (s == null) {
-            return "OPEN";
-        }
         return switch (s.toUpperCase()) {
             case "OPEN", "IN_PROGRESS", "BLOCKED", "DONE", "CLOSED" -> s.toUpperCase();
             default -> throw BusinessException.badRequest("Invalid status: " + s);
@@ -284,9 +294,6 @@ public class IssueServiceImpl implements IssueService {
     }
 
     private static String normalizePriority(String p) {
-        if (p == null) {
-            return "MEDIUM";
-        }
         return switch (p.toUpperCase()) {
             case "LOW", "MEDIUM", "HIGH", "CRITICAL" -> p.toUpperCase();
             default -> throw BusinessException.badRequest("Invalid priority: " + p);

@@ -31,7 +31,7 @@ public class UserController {
 
 	@Post("/users")
 	public void register(HttpContext ctx) {
-		UserDtos.RegisterRequest body = ctx.body(UserDtos.RegisterRequest.class);
+		UserDtos.RegisterRequest body = ctx.validatedBody(UserDtos.RegisterRequest.class);
 		var u = body.user();
 
 		User user = userService.register(u.username(), u.email(), u.password());
@@ -40,17 +40,8 @@ public class UserController {
 
 	@Post("/users/login")
 	public void login(HttpContext ctx) {
-		UserDtos.LoginRequest body = ctx.body(UserDtos.LoginRequest.class);
+		UserDtos.LoginRequest body = ctx.validatedBody(UserDtos.LoginRequest.class);
 		var u = body.user();
-
-		if (u.email() == null || u.email().isBlank()) {
-			ctx.json(HttpStatus.UNPROCESSABLE_ENTITY, Errors.of("email", "can't be blank"));
-			return;
-		}
-		if (u.password() == null || u.password().isBlank()) {
-			ctx.json(HttpStatus.UNPROCESSABLE_ENTITY, Errors.of("password", "can't be blank"));
-			return;
-		}
 
 		Optional<User> userOpt = userService.findByEmail(u.email());
 		if (userOpt.isEmpty() || !BCrypt.checkpw(u.password(), userOpt.get().getPassword())) {

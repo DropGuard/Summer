@@ -46,7 +46,9 @@ public class TagController {
         this.authz = authz;
     }
 
-    public record CreateTagRequest(String name, String color) {}
+    public record CreateTagRequest(
+            @jakarta.validation.constraints.NotBlank String name,
+            @jakarta.validation.constraints.NotBlank String color) {}
 
     @Post("/api/orgs/:orgId/tags")
     public void create(HttpContext ctx, @PathParam("orgId") Long orgId) {
@@ -54,7 +56,7 @@ public class TagController {
         if (!actor.orgId().equals(orgId)) {
             throw BusinessException.forbidden("You can only manage tags in your own organization");
         }
-        CreateTagRequest req = ctx.body(CreateTagRequest.class);
+        CreateTagRequest req = ctx.validatedBody(CreateTagRequest.class);
         if (tagRepository.findByName(orgId, req.name()).isPresent()) {
             throw BusinessException.badRequest("Tag already exists in this org");
         }

@@ -54,7 +54,7 @@ public class CommentController {
 			return;
 		}
 
-		CommentDtos.CreateCommentRequest body = ctx.body(CommentDtos.CreateCommentRequest.class);
+		CommentDtos.CreateCommentRequest body = ctx.validatedBody(CommentDtos.CreateCommentRequest.class);
 		String commentBody = body.comment().body();
 
 		Comment comment = commentService.create(commentBody, articleOpt.get().getId(), currentUserId);

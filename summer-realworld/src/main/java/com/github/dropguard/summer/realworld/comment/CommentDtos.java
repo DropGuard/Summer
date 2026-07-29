@@ -5,7 +5,8 @@ import java.util.List;
 public class CommentDtos {
 
 	public record CreateCommentRequest(Comment comment) {
-		public record Comment(String body) {
+		public record Comment(
+				@jakarta.validation.constraints.NotBlank String body) {
 		}
 	}
 

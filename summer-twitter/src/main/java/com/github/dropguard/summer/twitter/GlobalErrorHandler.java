@@ -6,6 +6,7 @@ import com.github.dropguard.summer.twitter.common.ErrorResponse;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.annotation.ExceptionHandler;
+import com.github.dropguard.summer.web.exception.ValidationException;
 
 /**
  * Global exception handler for the twitter demo.
@@ -28,6 +29,12 @@ public class GlobalErrorHandler {
 	@ExceptionHandler(BusinessException.class)
 	public void handleBusiness(HttpContext ctx, BusinessException e) {
 		ctx.json(e.status(), new ErrorResponse(e.code(), e.getMessage()));
+	}
+
+	@ExceptionHandler(ValidationException.class)
+	public void handleValidation(HttpContext ctx, ValidationException e) {
+		ctx.json(HttpStatus.BAD_REQUEST,
+				new ErrorResponse("VALIDATION_ERROR", e.errors().get(0)));
 	}
 
 	@ExceptionHandler(Exception.class)

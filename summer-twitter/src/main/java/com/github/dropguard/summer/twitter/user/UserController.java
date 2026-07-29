@@ -42,7 +42,7 @@ public class UserController {
         }
     }
 
-    public record UpdateProfileRequest(String displayName, String bio) {}
+    public record UpdateProfileRequest(@jakarta.validation.constraints.NotBlank String displayName, String bio) {}
 
     @Get("/api/users/:username")
     public void getUserProfile(HttpContext ctx) {
@@ -65,7 +65,7 @@ public class UserController {
             return;
         }
 
-        UpdateProfileRequest req = ctx.body(UpdateProfileRequest.class);
+        UpdateProfileRequest req = ctx.validatedBody(UpdateProfileRequest.class);
         userRepository.updateProfile(userId, req.displayName(), req.bio());
 
         // Return updated user

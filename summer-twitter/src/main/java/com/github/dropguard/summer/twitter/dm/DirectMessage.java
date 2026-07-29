@@ -3,7 +3,7 @@ package com.github.dropguard.summer.twitter.dm;
 import com.github.dropguard.summer.data.jdbc.annotation.RowModel;
 import java.time.OffsetDateTime;
 
-@RowModel
+@RowModel(table = "direct_messages")
 public record DirectMessage(
     Long id,
     Long senderId,

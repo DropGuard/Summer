@@ -5,20 +5,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import javax.sql.DataSource;
 import com.github.dropguard.summer.core.annotation.Bean;
 import com.github.dropguard.summer.core.annotation.Configuration;
-import com.github.dropguard.summer.core.config.ConfigMapping;
 import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
-
-@ConfigMapping(prefix = "datasource")
-interface DataSourceProperties {
-
-    String url();
-
-    String username();
-
-    String password();
-
-    String driverClassName();
-}
 
 @Configuration
 public class DatabaseConfig {

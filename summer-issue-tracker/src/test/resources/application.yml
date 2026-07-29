@@ -20,8 +20,8 @@ server:
 
 datasource:
   url: ${SUMMER_DB_URL:-jdbc:postgresql://localhost:5432/issuetracker}
-  username: issuetracker
-  password: issuetracker
+  username: ${SUMMER_DB_USER:-issuetracker}
+  password: ${SUMMER_DB_PASSWORD:-issuetracker}
   driver-class-name: org.postgresql.Driver
 
 cors:
@@ -31,5 +31,5 @@ cors:
   max-age: 3600
 
 jwt:
-  secret: "demo-issue-tracker-secret-key-please-change-in-production"
+  secret: ${SUMMER_JWT_SECRET:-change-me-in-production}
   expiration-ms: 86400000

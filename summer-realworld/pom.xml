@@ -13,7 +13,7 @@
     -->
     <parent>
         <groupId>com.github.dropguard</groupId>
-        <artifactId>summer-starter-parent</artifactId>
+        <artifactId>summer-build-parent</artifactId>
         <version>0.1.0</version>
         <relativePath/>
     </parent>
@@ -78,17 +78,8 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Testing -->
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
+        <!-- Testing: summer-test transitively supplies JUnit, Mockito, and the runtime
+             interface binder, so they are not declared here. -->
         <dependency>
             <groupId>com.github.dropguard</groupId>
             <artifactId>summer-test</artifactId>

@@ -43,11 +43,13 @@ public class ProjectController {
         this.auditRepository = auditRepository;
     }
 
-    public record CreateProjectRequest(String projectKey, String name) {}
+    public record CreateProjectRequest(
+            @jakarta.validation.constraints.NotBlank String projectKey,
+            @jakarta.validation.constraints.NotBlank String name) {}
 
     @Post("/api/projects")
     public void create(HttpContext ctx) {
-        CreateProjectRequest req = ctx.body(CreateProjectRequest.class);
+        CreateProjectRequest req = ctx.validatedBody(CreateProjectRequest.class);
         long userId = SecurityContext.currentUserId();
         User lead = userRepository.findById(userId).orElseThrow(() -> BusinessException.notFound("User"));
         long id = idGenerator.nextId();
@@ -95,10 +97,12 @@ public class ProjectController {
         if (!isValidProjectRole(req.role())) {
             throw BusinessException.badRequest("Invalid project role: " + req.role());
         }
-        if (projectRepository.findMember(id, req.userId()).isPresent()) {
+        try {
+            projectRepository.addMember(id, req.userId(), req.role());
+        } catch (RuntimeException e) {
+            // Duplicate primary key → user already a member (concurrent add race).
             throw BusinessException.conflict("User is already a member of this project");
         }
-        projectRepository.addMember(id, req.userId(), req.role());
         auditRepository.insert(new SystemAudit(idGenerator.nextId(), actor.orgId(), actor.id(),
                 "MEMBER_ADDED", "PROJECT", id, project.projectKey(), java.time.OffsetDateTime.now()));
         ctx.status(HttpStatus.NO_CONTENT);

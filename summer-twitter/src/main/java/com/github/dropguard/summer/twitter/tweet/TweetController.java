@@ -24,7 +24,9 @@ public class TweetController {
         this.tweetService = tweetService;
     }
 
-    public record CreateTweetRequest(String content, Long parentId) {}
+    public record CreateTweetRequest(
+            @jakarta.validation.constraints.NotBlank String content,
+            Long parentId) {}
 
     @Post("/api/tweets")
     public void createTweet(HttpContext ctx) {
@@ -34,7 +36,7 @@ public class TweetController {
             return;
         }
 
-        CreateTweetRequest req = ctx.body(CreateTweetRequest.class);
+        CreateTweetRequest req = ctx.validatedBody(CreateTweetRequest.class);
         Tweet tweet = tweetService.createTweet(authorId, req.content(), req.parentId());
         ctx.json(HttpStatus.CREATED, tweet);
     }
@@ -77,7 +79,8 @@ public class TweetController {
         ctx.json(HttpStatus.CREATED, tweet);
     }
 
-    public record QuoteTweetRequest(String content) {}
+    public record QuoteTweetRequest(
+            @jakarta.validation.constraints.NotBlank String content) {}
 
     @Post("/api/tweets/:id/quote")
     public void quoteTweet(HttpContext ctx, @PathParam("id") Long id) {
@@ -86,7 +89,7 @@ public class TweetController {
             ctx.status(HttpStatus.UNAUTHORIZED);
             return;
         }
-        QuoteTweetRequest req = ctx.body(QuoteTweetRequest.class);
+        QuoteTweetRequest req = ctx.validatedBody(QuoteTweetRequest.class);
         Tweet tweet = tweetService.quoteTweet(id, userId, req.content());
         ctx.json(HttpStatus.CREATED, tweet);
     }

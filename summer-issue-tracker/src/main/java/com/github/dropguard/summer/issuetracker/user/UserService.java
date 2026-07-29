@@ -46,14 +46,6 @@ public class UserService {
         return userRepository.findByUsername(username);
     }
 
-    public List<User> listByOrg(Long orgId) {
-        return userRepository.findByOrg(orgId);
-    }
-
-    public List<User> listByProject(Long projectId) {
-        return userRepository.findByProject(projectId);
-    }
-
     public User require(Long id) {
         return userRepository.findById(id).orElseThrow(() -> BusinessException.notFound("User"));
     }

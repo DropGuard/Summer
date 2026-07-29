@@ -7,12 +7,19 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 public class ArticleDtos {
 
 	public record CreateArticleRequest(Article article) {
-		public record Article(String title, String description, String body, List<String> tagList) {
+		public record Article(
+				@jakarta.validation.constraints.NotBlank String title,
+				@jakarta.validation.constraints.NotBlank String description,
+				@jakarta.validation.constraints.NotBlank String body,
+				java.util.List<String> tagList) {
 		}
 	}
 
+	// title/description are optional here → null means "don't update"
 	public record UpdateArticleRequest(Article article) {
-		public record Article(String title, String description, String body, List<String> tagList) {
+		public record Article(String title, String description,
+				@jakarta.validation.constraints.NotBlank String body,
+				java.util.List<String> tagList) {
 		}
 	}
 

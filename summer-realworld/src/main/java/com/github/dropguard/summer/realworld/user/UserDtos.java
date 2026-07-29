@@ -6,12 +6,17 @@ import java.util.Map;
 public class UserDtos {
 
 	public record RegisterRequest(User user) {
-		public record User(String username, String email, String password) {
+		public record User(
+				@jakarta.validation.constraints.NotBlank String username,
+				@jakarta.validation.constraints.NotBlank String email,
+				@jakarta.validation.constraints.NotBlank String password) {
 		}
 	}
 
 	public record LoginRequest(User user) {
-		public record User(String email, String password) {
+		public record User(
+				@jakarta.validation.constraints.NotBlank String email,
+				@jakarta.validation.constraints.NotBlank String password) {
 		}
 	}
 

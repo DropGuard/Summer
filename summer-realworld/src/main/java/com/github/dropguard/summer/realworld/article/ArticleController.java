@@ -126,7 +126,7 @@ public class ArticleController {
 			return;
 		}
 
-		ArticleDtos.CreateArticleRequest body = ctx.body(ArticleDtos.CreateArticleRequest.class);
+		ArticleDtos.CreateArticleRequest body = ctx.validatedBody(ArticleDtos.CreateArticleRequest.class);
 		var a = body.article();
 
 		Article article = articleService.create(a.title(), a.description(), a.body(), a.tagList(), currentUserId);
@@ -153,7 +153,7 @@ public class ArticleController {
 			return;
 		}
 
-		ArticleDtos.UpdateArticleRequest body = ctx.body(ArticleDtos.UpdateArticleRequest.class);
+		ArticleDtos.UpdateArticleRequest body = ctx.validatedBody(ArticleDtos.UpdateArticleRequest.class);
 		var a = body.article();
 
 		// Check if tagList is explicitly set to null (should be rejected)

@@ -34,16 +34,6 @@ public class ProjectRepository {
         return Optional.ofNullable(jdbcTemplate.queryForObject(sql, Project.class, orgId, projectKey));
     }
 
-    public Optional<Project> findByKey(String projectKey) {
-        String sql = "SELECT id, org_id, project_key, name, lead_user_id, created_at FROM projects WHERE project_key = ?";
-        return Optional.ofNullable(jdbcTemplate.queryForObject(sql, Project.class, projectKey));
-    }
-
-    public List<Project> findByOrg(Long orgId) {
-        String sql = "SELECT id, org_id, project_key, name, lead_user_id, created_at FROM projects WHERE org_id = ? ORDER BY project_key";
-        return jdbcTemplate.queryForList(sql, Project.class, orgId);
-    }
-
     public List<Project> findByMember(Long userId) {
         String sql = """
                 SELECT p.id, p.org_id, p.project_key, p.name, p.lead_user_id, p.created_at

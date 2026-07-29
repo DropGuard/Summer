@@ -6,6 +6,7 @@ import com.github.dropguard.summer.realworld.user.UserDtos;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.annotation.ExceptionHandler;
+import com.github.dropguard.summer.web.exception.ValidationException;
 
 /**
  * Global exception handler for the realworld demo.
@@ -26,6 +27,13 @@ public class GlobalErrorHandler {
 	public void handleBusiness(HttpContext ctx, BusinessException e) {
 		UserDtos.ErrorResponse body = UserDtos.ErrorResponse.of(e.field(), e.getMessage());
 		ctx.json(e.status(), body);
+	}
+
+	@ExceptionHandler(ValidationException.class)
+	public void handleValidation(HttpContext ctx, ValidationException e) {
+		// avaje-validator violations → RealWorld 422 shape
+		ctx.json(HttpStatus.UNPROCESSABLE_ENTITY,
+				UserDtos.ErrorResponse.of("body", e.errors().get(0)));
 	}
 
 	@ExceptionHandler(Exception.class)

@@ -31,14 +31,23 @@ public class IssueController {
         this.userRepository = userRepository;
     }
 
-    public record CreateIssueRequest(String title, String description, String status,
-            String priority, Long assigneeId) {}
+    public record CreateIssueRequest(
+            @jakarta.validation.constraints.NotBlank String title,
+            String description,
+            @jakarta.validation.constraints.NotBlank String status,
+            @jakarta.validation.constraints.NotBlank String priority,
+            Long assigneeId) {}
 
-    public record UpdateStatusRequest(String status) {}
-    public record UpdateIssueRequest(String title, String description) {}
+    public record UpdateStatusRequest(
+            @jakarta.validation.constraints.NotBlank String status) {}
+    public record UpdateIssueRequest(
+            @jakarta.validation.constraints.NotBlank String title,
+            String description) {}
     public record AssignRequest(Long assigneeId) {}
-    public record PriorityRequest(String priority) {}
-    public record CommentRequest(String body) {}
+    public record PriorityRequest(
+            @jakarta.validation.constraints.NotBlank String priority) {}
+    public record CommentRequest(
+            @jakarta.validation.constraints.NotBlank String body) {}
 
     @Post("/api/projects/:id/issues")
     public void create(HttpContext ctx, @PathParam("id") Long projectId) {
