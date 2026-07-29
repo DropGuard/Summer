@@ -11,9 +11,8 @@ import com.github.dropguard.summer.fixtures.aop.ClassLevelGreeter;
 import com.github.dropguard.summer.fixtures.aop.Greeter;
 import com.github.dropguard.summer.fixtures.aop.GreeterService;
 import com.github.dropguard.summer.fixtures.aop.RecordingInterceptor;
-import com.github.dropguard.summer.test.Testing;
+import com.github.dropguard.summer.test.TestContainer;
 import com.github.dropguard.summer.test.annotation.SummerTest;
-import java.util.List;
 
 /**
  * AOT-engine-specific pin for AOP interception behaviour.
@@ -31,7 +30,8 @@ public class AopBehaviorAotEngineTest {
 
     @org.junit.jupiter.api.Test
     void aotEngineHonoursImplementationClassAndMethodBindings() {
-        BeanContainer context = Testing.buildForTest(getClass(), Engine.AOT, List.of());
+        BeanContainer context =
+                TestContainer.builder().testClass(getClass()).engine(Engine.AOT).build();
 
         // Method-level @Logged on GreeterService.greet must be intercepted.
         Greeter greeter = context.getBean(Greeter.class);

@@ -13,14 +13,7 @@ import org.junit.jupiter.api.extension.TestInstantiationException;
  * JUnit 5 extension for {@link SummerTest}.
  *
  * <p>Builds a {@link BeanContainer} during test instance creation and resolves constructor
- * parameters against it — same injection contract as {@code @Component}. The build (and the {@code
- * shouldFail} contract) is delegated to {@link SummerTestLifecycle#createUniverse}, the single
- * owner of the universe lifecycle, so both the single-engine and dual-engine paths judge a negative
- * test by the same rule.
- *
- * <p>Container lifecycle is owned by {@link SummerTestLifecycle} (JVM-wide reuse, closed on JVM
- * exit) — this extension deliberately does not close the container, matching the lifecycle owner's
- * invariant that per-class callbacks must not tear down a shared universe.
+ * parameters against it — same injection contract as {@code @Component}.
  */
 @Internal
 public class SummerExtension implements TestInstanceFactory {
@@ -39,11 +32,8 @@ public class SummerExtension implements TestInstanceFactory {
             return null;
         }
 
-        // Engine selection is transparent to users; the dev switch (Summer:dev)
-        // can force a specific engine, otherwise Runtime is the dev default.
-        Engine engine = summerTest.engine();
-        TestContainerFactory.BuildOutcome outcome =
-                SummerTestLifecycle.createUniverse(testClass, engine);
+        SummerTestLifecycle.BuildOutcome outcome =
+                SummerTestLifecycle.createUniverse(testClass, Engine.RUNTIME, extensionContext);
         extensionContext.getStore(NS).put(KEY, outcome.container());
 
         return outcome.instance();
@@ -51,12 +41,6 @@ public class SummerExtension implements TestInstanceFactory {
 
     // ── Mockito bridge ──────────────────────────────────────────
 
-    /**
-     * Creates a Mockito mock via reflection so summer-test does not hard-depend on Mockito at
-     * compile time. Requires {@code org.mockito:mockito-core} on the test classpath. Shared by all
-     * Summer test engines so mock handling behaves identically regardless of which DI engine builds
-     * the container.
-     */
     static Object createMock(Class<?> type) {
         try {
             Class<?> mockito = Class.forName("org.mockito.Mockito");

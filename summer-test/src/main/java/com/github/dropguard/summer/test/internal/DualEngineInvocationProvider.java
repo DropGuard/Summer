@@ -2,6 +2,7 @@ package com.github.dropguard.summer.test.internal;
 
 import com.github.dropguard.summer.core.Engine;
 import com.github.dropguard.summer.core.Internal;
+import com.github.dropguard.summer.test.SummerTestExtension;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 import java.util.List;
 import java.util.stream.Stream;
@@ -14,30 +15,22 @@ import org.junit.jupiter.api.extension.TestTemplateInvocationContext;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
 
 /**
- * Runs every {@code @SummerTest} method on BOTH DI engines (Runtime and AOT), transparently to the
- * test author — the framework-enforced guarantee that the two engines behave identically.
+ * Runs every {@code @DualEngine} method on BOTH DI engines (Runtime and AOT).
  *
- * <p>Registered by the method-level {@code @DualEngine} annotation (which combines
- * {@code @TestTemplate} with {@code @ExtendWith(DualEngineInvocationProvider.class)}). For each
- * {@code @DualEngine} method the provider yields two {@link TestTemplateInvocationContext}s, one
- * per engine. Each context builds its own container through {@link TestContainerFactory} (the same
- * factory {@code SummerExtension} uses for single-engine tests) and injects the test constructor
- * from it, so constructor injection, {@code @Mock} handling, and {@code @TestProfile} overrides are
- * engine-agnostic.
- *
- * <p>Both engines receive the identical scope and profile overrides, so a divergence in behavior
- * surfaces as a per-engine failure in the test report ({@code MyTest(RUNTIME)} vs {@code
- * MyTest(AOT)}) rather than a silent inconsistency.
+ * <p>A {@code @DualEngine} method lives inside either a {@code @SummerTest}-annotated class or a
+ * class with a {@code @RegisterExtension SummerTestExtension} — both paths are detected by {@link
+ * #supportsTestTemplate}.
  */
 @Internal
 public final class DualEngineInvocationProvider implements TestTemplateInvocationContextProvider {
 
     @Override
     public boolean supportsTestTemplate(ExtensionContext context) {
-        // A @DualEngine method lives inside a @SummerTest-annotated class, which
-        // owns the scope/isolation metadata. The class is what carries @SummerTest.
         return context.getTestClass()
-                .map(c -> c.isAnnotationPresent(SummerTest.class))
+                .map(
+                        c ->
+                                c.isAnnotationPresent(SummerTest.class)
+                                        || SummerTestExtension.resolve(c) != null)
                 .orElse(false);
     }
 
@@ -74,20 +67,13 @@ public final class DualEngineInvocationProvider implements TestTemplateInvocatio
             return List.of(new EngineTestInstanceFactory());
         }
 
-        /** Builds the engine's container and resolves the test constructor. */
         private final class EngineTestInstanceFactory implements TestInstanceFactory {
-
             @Override
             public Object createTestInstance(
                     TestInstanceFactoryContext factoryContext, ExtensionContext extensionContext)
                     throws TestInstantiationException {
-                // Delegate to the single lifecycle owner so the build, the
-                // @SummerTest(shouldFail=...) contract, and universe reuse all go
-                // through one place — a divergence where one engine accepts a broken
-                // graph and the other rejects it still surfaces as a per-engine
-                // failure, but there is no duplicated logic here.
-                TestContainerFactory.BuildOutcome outcome =
-                        SummerTestLifecycle.createUniverse(testClass, engine);
+                SummerTestLifecycle.BuildOutcome outcome =
+                        SummerTestLifecycle.createUniverse(testClass, engine, extensionContext);
                 extensionContext.getStore(NS).put(KEY, outcome.container());
                 return outcome.instance();
             }

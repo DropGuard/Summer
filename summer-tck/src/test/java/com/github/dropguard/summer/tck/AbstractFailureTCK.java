@@ -26,7 +26,7 @@ import java.util.Arrays;
  * public class RuntimeCircularTest extends AbstractCircularTCK {
  * 	&#64;Override
  * 	protected void triggerFailure() {
- * 		var ctx = new RuntimeBeanContainerBuilder();
+ * 		var ctx = new RuntimeContainer();
  * 		ctx.scan();
  * 		ctx.initializeBeans();
  * 	}

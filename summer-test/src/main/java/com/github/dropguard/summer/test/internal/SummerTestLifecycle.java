@@ -1,173 +1,222 @@
 package com.github.dropguard.summer.test.internal;
 
+import com.github.dropguard.summer.core.ApplicationRunner;
 import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.core.Engine;
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.bean.MockedBean;
-import com.github.dropguard.summer.test.Testing;
+import com.github.dropguard.summer.test.SummerTestExtension;
+import com.github.dropguard.summer.test.TestContainer;
+import com.github.dropguard.summer.test.annotation.Mock;
 import com.github.dropguard.summer.test.annotation.TestProfile;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicLong;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.TestInstantiationException;
 
 /**
- * Single owner of the {@code @SummerTest} test-run lifecycle.
+ * JVM-wide universe cache, container construction, and test-instance injection.
  *
- * <p>Two resources span the whole test run (not a single test class) and must be owned in exactly
- * one place to avoid per-class pool leaks:
- *
- * <ul>
- *   <li><b>universe cache</b> — {@code @SummerTest} universes keyed by {@link EnvKey}; same key ⇒
- *       same skeleton, reused across the engines of one class;
- *   <li><b>dev-services holder</b> — heavy external resources (a real Postgres, …) that a universe
- *       may need, started at most once and torn down only at JVM exit.
- * </ul>
- *
- * Both live here. The class-level {@link SummerExtension} and method-level {@link
- * DualEngineInvocationProvider} delegate to {@link #createUniverse} and {@link #ensureDevServices};
- * they must never close either resource themselves.
- *
- * <p>Because the owner is static and shared, the per-class extension {@code afterAll} callbacks
- * <b>must not</b> close the universe or dev-services — closing is this owner's responsibility alone
- * (on JVM exit), which is what removes the per-class pool leak that motivated this design.
+ * <p>The single owner of every Summer test path: container build, shouldFail contract, constructor
+ * injection, and per-class caching. {@link SummerExtension} and {@link
+ * DualEngineInvocationProvider} are thin adapters that delegate here.
  */
 @Internal
 public final class SummerTestLifecycle {
 
     private static final SummerTestLifecycle INSTANCE = new SummerTestLifecycle();
 
-    // ── Universe cache ───────────────────────────────────────────────
-
-    /**
-     * EnvKey → cached universe skeleton. Skeletons carry no per-test mock state.
-     *
-     * <p>JUnit builds test instances serially by default (no parallel configuration in this
-     * project), so {@link #acquireUniverse} is only ever called from one thread at a time — a plain
-     * {@link HashMap} is sufficient and avoids the false impression of concurrency that a {@code
-     * ConcurrentHashMap} would imply.
-     */
     private final Map<EnvKey, CachedUniverse> universeCache = new HashMap<>();
-
-    /**
-     * Count of universe-cache hits (reused, not rebuilt). Always incremented on a cache hit — it
-     * backs the framework's own integration-test assertion that the reuse mechanism actually fires.
-     * Atomic only so a future parallel mode would stay correct; under the current serial model a
-     * single thread touches it.
-     */
     private final AtomicLong cacheHits = new AtomicLong();
-
-    // ── Dev-services ─────────────────────────────────────────────────
-
-    /** The shared dev-services holder, started lazily and closed on JVM exit. */
-    private volatile DevServicesHolder devServices;
 
     private SummerTestLifecycle() {
         Runtime.getRuntime()
                 .addShutdownHook(new Thread(this::shutdown, "summer-test-lifecycle-shutdown"));
     }
 
-    /** The single JVM-wide instance. */
     public static SummerTestLifecycle instance() {
         return INSTANCE;
     }
 
-    // ── Universe acquisition ──────────────────────────────────────────
+    // ── public entry ──────────────────────────────────────────────────
 
     /**
-     * Resolves (or reuses) the universe for {@code testClass} on {@code engine}, honouring the
-     * {@code @SummerTest(shouldFail=...)} contract. Shared by every Summer test path so negative
-     * tests are judged by one rule.
+     * Builds the container, instantiates the test class, and enforces the shouldFail contract.
+     * Returns both the instance and the container.
      */
-    public static TestContainerFactory.BuildOutcome createUniverse(
-            Class<?> testClass, Engine engine) {
-        return TestContainerFactory.instantiateFor(testClass, engine);
+    public static BuildOutcome createUniverse(
+            Class<?> testClass, Engine engine, ExtensionContext extensionContext) {
+        SummerTestExtension config = SummerTestExtension.resolve(testClass);
+        boolean shouldFail = config != null && config.shouldFail();
+
+        List<MockedBean> mocks = createMocks(testClass);
+
+        BeanContainer container;
+        try {
+            container = INSTANCE.acquireUniverse(testClass, engine, mocks, config);
+        } catch (Exception buildFailure) {
+            if (!shouldFail) {
+                throw new TestInstantiationException(
+                        "@SummerTest container failed to assemble for "
+                                + testClass.getSimpleName()
+                                + " (engine="
+                                + engine
+                                + "). Declare shouldFail=true if this is a negative test.",
+                        buildFailure);
+            }
+            return new BuildOutcome(instantiateWithoutContainer(testClass), null);
+        }
+
+        if (shouldFail) {
+            throw new TestInstantiationException(
+                    "@SummerTest(shouldFail=true) on "
+                            + testClass.getSimpleName()
+                            + " (engine="
+                            + engine
+                            + ") expected assembly to fail, but the container built successfully."
+                            + " The negative contract is violated - the graph was accepted when it"
+                            + " should have been rejected.");
+        }
+        // Start application runners (HTTP server, gRPC, etc.) — mirrors
+        // SummerApplication's post-build hook.
+        for (ApplicationRunner runner : container.getBeans(ApplicationRunner.class)) {
+            try {
+                runner.run(container);
+            } catch (Exception e) {
+                throw new TestInstantiationException(
+                        "Failed to start ApplicationRunner " + runner.getClass().getSimpleName(),
+                        e);
+            }
+        }
+        return new BuildOutcome(instantiate(testClass, container), container);
     }
 
-    /**
-     * Resolves (or builds) the universe for a {@code @SummerTest} class on the requested engine.
-     * Universes that share an {@link EnvKey} are built once and cached; the caller receives a
-     * container appropriate to its engine.
-     *
-     * <p>Concurrency: JUnit creates test instances serially by default, so this is only ever
-     * entered by one thread at a time — a plain lookup-then-put against a {@link HashMap} is
-     * correct and does not pretend otherwise.
-     *
-     * @param testClass the annotated test class (metadata carrier for profile + mocks)
-     * @param engine Runtime or AOT
-     * @param mocks mocked beans produced from {@code @Mock} parameters
-     * @return an immutable bean container for injection
-     */
-    public BeanContainer acquireUniverse(
-            Class<?> testClass, Engine engine, List<MockedBean> mocks) {
-        java.util.Map<String, Object> overrides = profileOverrides(testClass);
-        EnvKey key = envKeyFor(testClass, mocks);
+    /** The result of {@link #createUniverse}. */
+    public record BuildOutcome(Object instance, BeanContainer container) {}
+
+    // ── container build + caching ─────────────────────────────────────
+
+    BeanContainer acquireUniverse(
+            Class<?> testClass, Engine engine, List<MockedBean> mocks, SummerTestExtension config) {
+        Map<String, Object> overrides = new HashMap<>(profileOverrides(testClass));
+        // TestResource properties win over profile overrides
+        overrides.putAll(TestResources.resolveProperties(testClass));
+        EnvKey key = envKeyFor(testClass, mocks, overrides);
         CachedUniverse cached = universeCache.get(key);
         if (cached != null) {
             cacheHits.incrementAndGet();
             return cached.container();
         }
 
-        BeanContainer built = Testing.buildForTest(testClass, engine, mocks, overrides);
+        Class<?>[] seeds = config != null ? config.beanClasses() : new Class<?>[0];
+        BeanContainer built =
+                TestContainer.builder()
+                        .testClass(testClass)
+                        .engine(engine)
+                        .mocks(mocks)
+                        .overrides(overrides)
+                        .beans(seeds)
+                        .build();
         universeCache.put(key, new CachedUniverse(built));
         return built;
     }
 
-    /** Read-only view of the hit count, for the framework's own integration-test assertion. */
     public long cacheHits() {
         return cacheHits.get();
     }
 
-    // ── Dev-services ──────────────────────────────────────────────────
+    // ── constructor injection ─────────────────────────────────────────
 
-    /**
-     * Starts the shared dev-services (real database, …) if not already running. Integration tests
-     * call this explicitly before building their universe; the universe's {@code @Replaces}
-     * database config then reads the connection descriptor from {@link #devServices()}.
-     *
-     * <p>Deliberately <em>not</em> auto-triggered from universe construction: a wide
-     * {@code @SummerTest} universe always contains a {@code DataSource} (the test's own H2
-     * {@code @Replaces} swap), so "contains a DataSource" is not a sufficiently precise signal for
-     * "wants a real DB". The integration test knows its own intent and states it here.
-     *
-     * @param environment hints forwarded to the holder (e.g. requested database name)
-     * @return the connection descriptor, or {@code null} if no holder is available
-     */
-    public DevServicesHolder.ConnectionDescriptor ensureDevServices(
-            Map<String, String> environment) {
-        DevServicesHolder holder = devServices();
-        return holder.start(environment);
-    }
-
-    /**
-     * Returns the shared dev-services holder, starting it on first use. The holder is discovered
-     * reflectively (by a well-known class name) so {@code summer-test} itself has no hard
-     * dependency on Testcontainers or Docker.
-     */
-    public DevServicesHolder devServices() {
-        DevServicesHolder local = devServices;
-        if (local != null) {
-            return local;
-        }
-        synchronized (this) {
-            local = devServices;
-            if (local != null) {
-                return local;
+    private static Object instantiate(Class<?> testClass, BeanContainer container) {
+        Constructor<?> ctor = singleConstructor(testClass);
+        Class<?>[] paramTypes = ctor.getParameterTypes();
+        Object[] args = new Object[paramTypes.length];
+        for (int i = 0; i < paramTypes.length; i++) {
+            if (paramTypes[i] == BeanContainer.class) {
+                args[i] = container;
+            } else {
+                try {
+                    args[i] = container.getBean(paramTypes[i]);
+                } catch (Exception e) {
+                    throw new TestInstantiationException(
+                            "Cannot resolve constructor parameter "
+                                    + paramTypes[i].getSimpleName()
+                                    + " for @SummerTest "
+                                    + testClass.getSimpleName(),
+                            e);
+                }
             }
-            devServices = local = createHolder();
         }
-        return local;
+        try {
+            return ctor.newInstance(args);
+        } catch (Exception e) {
+            throw new TestInstantiationException(
+                    "Failed to create @SummerTest instance: " + testClass.getName(), e);
+        }
     }
 
-    // ── Lifecycle ─────────────────────────────────────────────────────
+    private static Object instantiateWithoutContainer(Class<?> testClass) {
+        Constructor<?> ctor = singleConstructor(testClass);
+        for (Class<?> paramType : ctor.getParameterTypes()) {
+            if (paramType != BeanContainer.class) {
+                throw new TestInstantiationException(
+                        "@SummerTest(shouldFail=true) class "
+                                + testClass.getSimpleName()
+                                + " uses a constructor parameter of type "
+                                + paramType.getSimpleName()
+                                + ", but a failed build provides no container to inject it from.");
+            }
+        }
+        try {
+            return ctor.newInstance();
+        } catch (Exception e) {
+            throw new TestInstantiationException(
+                    "Failed to create @SummerTest instance: " + testClass.getName(), e);
+        }
+    }
 
-    /**
-     * Tears down everything this owner holds: cached universes and dev-services. Safe to call
-     * multiple times. Invoked from the JVM shutdown hook.
-     */
+    private static Constructor<?> singleConstructor(Class<?> testClass) {
+        Constructor<?>[] ctors = testClass.getDeclaredConstructors();
+        if (ctors.length != 1) {
+            throw new TestInstantiationException(
+                    "@SummerTest class "
+                            + testClass.getName()
+                            + " must have exactly one constructor. Found: "
+                            + ctors.length);
+        }
+        ctors[0].setAccessible(true);
+        return ctors[0];
+    }
+
+    private static List<MockedBean> createMocks(Class<?> testClass) {
+        List<MockedBean> mocks = new ArrayList<>();
+        Constructor<?>[] ctors = testClass.getDeclaredConstructors();
+        if (ctors.length != 1) {
+            return mocks;
+        }
+        Annotation[][] paramAnnotations = ctors[0].getParameterAnnotations();
+        Class<?>[] paramTypes = ctors[0].getParameterTypes();
+        for (int i = 0; i < paramTypes.length; i++) {
+            for (Annotation ann : paramAnnotations[i]) {
+                if (ann instanceof Mock) {
+                    mocks.add(
+                            MockedBean.of(
+                                    paramTypes[i], SummerExtension.createMock(paramTypes[i])));
+                }
+            }
+        }
+        return mocks;
+    }
+
+    // ── lifecycle ─────────────────────────────────────────────────────
+
     public synchronized void shutdown() {
         for (CachedUniverse c : universeCache.values()) {
             try {
@@ -176,20 +225,14 @@ public final class SummerTestLifecycle {
             }
         }
         universeCache.clear();
-        DevServicesHolder local = devServices;
-        if (local != null) {
-            try {
-                local.stop();
-            } catch (Exception ignored) {
-            }
-            devServices = null;
-        }
+        TestResources.shutdown();
     }
 
-    // ── EnvKey construction ───────────────────────────────────────────
+    // ── helpers ───────────────────────────────────────────────────────
 
-    private EnvKey envKeyFor(Class<?> testClass, List<MockedBean> mocks) {
-        String profile = profileSignature(testClass);
+    private EnvKey envKeyFor(
+            Class<?> testClass, List<MockedBean> mocks, Map<String, Object> overrides) {
+        String profile = overrides.isEmpty() ? EnvKey.NO_PROFILE : overrides.toString();
         SortedSet<String> mocked = new TreeSet<>();
         for (MockedBean m : mocks) {
             mocked.add(m.targetType().getName());
@@ -197,69 +240,15 @@ public final class SummerTestLifecycle {
         return EnvKey.of(profile, List.copyOf(mocked), testClass.getName());
     }
 
-    private java.util.Map<String, Object> profileOverrides(Class<?> testClass) {
+    private Map<String, Object> profileOverrides(Class<?> testClass) {
         TestProfile ann = testClass.getAnnotation(TestProfile.class);
-        if (ann == null) {
-            return java.util.Map.of();
-        }
+        if (ann == null) return Map.of();
         try {
-            com.github.dropguard.summer.test.profile.TestProfileSpec spec =
-                    ann.value().getDeclaredConstructor().newInstance();
-            return spec.configOverrides();
+            return ann.value().getDeclaredConstructor().newInstance().configOverrides();
         } catch (Exception e) {
-            return java.util.Map.of();
+            return Map.of();
         }
     }
 
-    private String profileSignature(Class<?> testClass) {
-        java.util.Map<String, Object> overrides = profileOverrides(testClass);
-        if (overrides.isEmpty()) {
-            return EnvKey.NO_PROFILE;
-        }
-        return overrides.toString();
-    }
-
-    @SuppressWarnings("unchecked")
-    private DevServicesHolder createHolder() {
-        try {
-            Class<?> holderClass =
-                    Class.forName(
-                            "com.github.dropguard.summer.test.devservices.TestcontainersDevServicesHolder");
-            Constructor<?> ctor = holderClass.getDeclaredConstructor();
-            ctor.setAccessible(true);
-            return (DevServicesHolder) ctor.newInstance();
-        } catch (ClassNotFoundException e) {
-            // No holder shipped in this module — integration tests must supply their
-            // own DB. Return a no-op so pure-unit modules stay free of Testcontainers.
-            return NoOpHolder.INSTANCE;
-        } catch (Exception e) {
-            throw new IllegalStateException("Failed to instantiate dev-services holder", e);
-        }
-    }
-
-    /** Placeholder holder used when no real implementation is on the classpath. */
-    private static final class NoOpHolder implements DevServicesHolder {
-        static final NoOpHolder INSTANCE = new NoOpHolder();
-
-        @Override
-        public ConnectionDescriptor start(Map<String, String> requestedEnvironment) {
-            return null;
-        }
-
-        @Override
-        public void stop() {}
-
-        @Override
-        public boolean owns(String url) {
-            return false;
-        }
-
-        @Override
-        public javax.sql.DataSource sharedDataSource(String url) {
-            return null;
-        }
-    }
-
-    /** A cached, already-built universe. The map key guarantees equality on lookup. */
     private record CachedUniverse(BeanContainer container) {}
 }

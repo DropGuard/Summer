@@ -1,7 +1,7 @@
 package com.github.dropguard.summer.tck;
 
 import com.github.dropguard.summer.core.BeanContainer;
-import com.github.dropguard.summer.test.Testing;
+import com.github.dropguard.summer.test.TestContainer;
 import org.junit.jupiter.api.AfterEach;
 
 /**
@@ -20,7 +20,7 @@ import org.junit.jupiter.api.AfterEach;
  * <pre>
  * // AOT — full context
  * protected BeanContainer createContext() {
- * 	return TestContainerBuilder.buildAot();
+ * 	return TestContainer.buildAot();
  * }
  * </pre>
  *
@@ -40,10 +40,10 @@ public abstract class AbstractContextTCK extends AbstractTCK {
      * Create the BeanContainer for testing.
      *
      * <p>Default implementation builds a Runtime engine container. Subclasses may override to use
-     * the AOT engine (e.g. {@code TestContainerBuilder.buildAot()}).
+     * the AOT engine (e.g. {@code TestContainer.buildAot()}).
      */
     protected BeanContainer createContext() {
-        return Testing.build();
+        return TestContainer.build();
     }
 
     /** Get the application context (lazy initialization). */

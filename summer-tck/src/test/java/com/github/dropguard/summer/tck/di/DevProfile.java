@@ -1,6 +1,6 @@
 package com.github.dropguard.summer.tck.di;
 
-import com.github.dropguard.summer.test.profile.TestProfileSpec;
+import com.github.dropguard.summer.test.profile.SummerTestProfile;
 import java.util.Map;
 
 /**
@@ -8,7 +8,7 @@ import java.util.Map;
  * overrides are applied identically by the Runtime and AOT engines (dual-engine consistency for
  * configuration).
  */
-public class DevProfile implements TestProfileSpec {
+public class DevProfile implements SummerTestProfile {
 
     @Override
     public String name() {

@@ -3,7 +3,7 @@ package com.github.dropguard.summer.tck;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import com.github.dropguard.summer.core.BeanContainer;
-import com.github.dropguard.summer.test.Testing;
+import com.github.dropguard.summer.test.TestContainer;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -27,13 +27,13 @@ import org.junit.jupiter.api.Test;
 class NegativeFixtureIsolationTest {
 
     private static final String ERRORS_PACKAGE =
-            "com.github.dropguard.summer.tck.negative.fixtures.di.errors";
+            "com.github.dropguard.summer.tck.negative.fixtures.di";
 
     @Test
     void negativeFixturesAreNotInWholeUniverseContainer() {
         // Whole-universe build from THIS test class: indexes only summer-tck's own
         // test-classes directory, never the negative-fixtures module.
-        BeanContainer ctx = Testing.buildForTest(getClass());
+        BeanContainer ctx = TestContainer.builder().testClass(getClass()).build();
 
         for (String type :
                 new String[] {

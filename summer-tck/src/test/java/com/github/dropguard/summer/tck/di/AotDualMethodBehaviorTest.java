@@ -4,11 +4,12 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.github.dropguard.summer.core.BeanContainer;
+import com.github.dropguard.summer.core.Engine;
 import com.github.dropguard.summer.core.bean.MockedBean;
 import com.github.dropguard.summer.fixtures.dummy.ServiceA;
 import com.github.dropguard.summer.fixtures.dummy.ServiceB;
 import com.github.dropguard.summer.fixtures.dummy.ServiceC;
-import com.github.dropguard.summer.test.Testing;
+import com.github.dropguard.summer.test.TestContainer;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -41,7 +42,13 @@ class AotDualMethodBehaviorTest {
         // Non-null empty mocks list => AOT emits the typed build(MockedBean[])
         // channel, not the production build(Object...). This is the isolated path
         // under verification.
-        BeanContainer container = Testing.buildNarrowAot(seeds, List.of(), Map.of());
+        BeanContainer container =
+                TestContainer.builder()
+                        .beans(seeds)
+                        .engine(Engine.AOT)
+                        .mocks(List.of())
+                        .overrides(Map.of())
+                        .build();
 
         assertNotNull(container, "AOT build(MockedBean[]) path must return a container");
 
@@ -74,7 +81,13 @@ class AotDualMethodBehaviorTest {
         ServiceC mockC = mock(ServiceC.class);
         when(mockC.getMessage()).thenReturn("mocked C");
         MockedBean mocked = MockedBean.of(ServiceC.class, mockC);
-        BeanContainer container = Testing.buildNarrowAot(seeds, List.of(mocked), Map.of());
+        BeanContainer container =
+                TestContainer.builder()
+                        .beans(seeds)
+                        .engine(Engine.AOT)
+                        .mocks(List.of(mocked))
+                        .overrides(Map.of())
+                        .build();
 
         assertNotNull(
                 container,
