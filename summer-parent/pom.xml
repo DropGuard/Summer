@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ===================================================================
+         summer-parent — the mandatory build contract for EVERY Summer project.
+
+         AOT requires specific plugin bindings that are correctness-critical
+         (not convenience). Users must not hand-write <phase>/<goal> for the
+         Jandex and AOT-generation plugins — getting them wrong produces
+         silent runtime failures, not compile errors.
+
+         This POM provides the single source of truth for the build pipeline:
+           compile         → jandex:jandex          (indexes beans)
+           process-classes → summer:generate-aot     (generates AOT context)
+           test            → surefire:test           (with Unsafe access)
+           verify          → failsafe:verify         (IT, opt-in per module)
+
+         The framework reactor and every demo inherit from here.
+         There are NO <modules> — this is pure build contract.
+    =================================================================== -->
+
+    <groupId>com.github.dropguard</groupId>
+    <artifactId>summer-parent</artifactId>
+    <version>0.1.0</version>
+    <packaging>pom</packaging>
+
+    <name>Summer Parent</name>
+    <description>Mandatory build contract for Summer projects — AOT pipeline, Jandex indexing, compiler settings</description>
+
+    <properties>
+        <java.version>25</java.version>
+        <maven.compiler.release>${java.version}</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <argLine></argLine>
+
+        <!--
+          The published version of the Summer framework. Used to resolve the BOM and
+          summer-maven-plugin at a version independent of the inheriting project's own
+          <version>. Demo projects and the reactor both set this; when the reactor
+          advances this property the demos follow without touching their own <version>.
+        -->
+        <summer.framework.version>0.1.0</summer.framework.version>
+    </properties>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <!-- ============================================================
+                     Compiler: Java 25, full annotation processing (AOT needs it)
+                     ============================================================ -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>3.15.0</version>
+                    <configuration>
+                        <source>${java.version}</source>
+                        <target>${java.version}</target>
+                        <encoding>${project.build.sourceEncoding}</encoding>
+                        <proc>full</proc>
+                    </configuration>
+                </plugin>
+
+                <!-- ============================================================
+                     Jandex: MANDATORY. Binds to compile phase; the AOT generator
+                     reads jandex.idx to discover beans.
+                     ============================================================ -->
+                <plugin>
+                    <groupId>io.smallrye</groupId>
+                    <artifactId>jandex-maven-plugin</artifactId>
+                    <version>3.5.3</version>
+                    <executions>
+                        <execution>
+                            <id>make-index</id>
+                            <phase>compile</phase>
+                            <goals>
+                                <goal>jandex</goal>
+                            </goals>
+                            <configuration>
+                                <classesDir>${project.build.outputDirectory}</classesDir>
+                                <indexDir>${project.build.outputDirectory}/META-INF</indexDir>
+                                <indexName>jandex.idx</indexName>
+                                <processDefaultFileSet>true</processDefaultFileSet>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <!-- ============================================================
+                     Surefire: -Dsun-misc-unsafe-memory-access=allow is REQUIRED.
+                     AOT-generated code uses Unsafe for field access; JDK 25
+                     denies it by default.
+                     ============================================================ -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>3.5.5</version>
+                    <configuration>
+                        <argLine>@{argLine} --sun-misc-unsafe-memory-access=allow</argLine>
+                        <redirectTestOutputToFile>true</redirectTestOutputToFile>
+                    </configuration>
+                </plugin>
+
+                <!-- ============================================================
+                     Failsafe: opt-in per module (add plugin in plugins section).
+                     Version and Unsafe argLine are inherited from here.
+                     ============================================================ -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>3.5.5</version>
+                    <configuration>
+                        <argLine>@{argLine} --sun-misc-unsafe-memory-access=allow</argLine>
+                    </configuration>
+                </plugin>
+
+                <!-- ============================================================
+                     Spotless: format gate. Version + rules declared here so the
+                     reactor can bind spotless:check at verify. Demos do NOT
+                     auto-bind — they opt in by adding the plugin to their own
+                     <plugins>.
+                     ============================================================ -->
+                <plugin>
+                    <groupId>com.diffplug.spotless</groupId>
+                    <artifactId>spotless-maven-plugin</artifactId>
+                    <version>2.44.5</version>
+                    <configuration>
+                        <java>
+                            <googleJavaFormat>
+                                <version>1.35.0</version>
+                                <style>AOSP</style>
+                                <reflowLongStrings>true</reflowLongStrings>
+                                <reorderImports>true</reorderImports>
+                            </googleJavaFormat>
+                            <removeUnusedImports />
+                            <importOrder />
+                        </java>
+                    </configuration>
+                </plugin>
+
+                <!-- ============================================================
+                     JaCoCo: opt-in per module. Version only — modules that want
+                     coverage add <plugin> in their own <plugins>.
+                     ============================================================ -->
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>0.8.15</version>
+                    <executions>
+                        <execution>
+                            <id>prepare-agent</id>
+                            <goals>
+                                <goal>prepare-agent</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
+        <!-- ================================================================
+             Active plugins: MANDATORY for every project.
+             compiler + jandex + summer-maven-plugin run on every build.
+             ================================================================ -->
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

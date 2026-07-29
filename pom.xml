@@ -4,9 +4,14 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>com.github.dropguard</groupId>
+    <parent>
+        <groupId>com.github.dropguard</groupId>
+        <artifactId>summer-parent</artifactId>
+        <version>0.1.0</version>
+        <relativePath>summer-parent/pom.xml</relativePath>
+    </parent>
+
     <artifactId>summer-framework</artifactId>
-    <version>0.1.0</version>
     <packaging>pom</packaging>
 
     <name>Summer Framework</name>
@@ -14,13 +19,21 @@
     <url>https://github.com/your-username/summer</url>
 
     <properties>
-        <java.version>25</java.version>
-        <maven.compiler.release>${java.version}</maven.compiler.release>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <summer.framework.version>${project.version}</summer.framework.version>
         <jacoco.version>0.8.15</jacoco.version>
-        <!-- Default empty — JaCoCo prepare-agent overrides when active -->
-        <argLine></argLine>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.github.dropguard</groupId>
+                <artifactId>summer-dependencies</artifactId>
+                <version>${project.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <modules>
         <module>summer-core</module>
@@ -34,7 +47,7 @@
         <module>summer-tx</module>
         <module>summer-runtime</module>
         <module>summer-dependencies</module>
-        <module>summer-starter-parent</module>
+        <module>summer-aot-engine</module>
         <module>summer-boot-starter</module>
         <module>summer-boot-starter-web</module>
         <module>summer-boot-starter-data-jdbc</module>
@@ -46,110 +59,25 @@
         <module>summer-data-jdbc</module>
         <module>summer-test</module>
         <module>summer-tck</module>
-        <module>summer-maven-plugin</module>
-        <module>summer-aot-engine</module>
         <module>summer-tck-fixtures</module>
         <module>summer-tck-negative-fixtures</module>
-        <module>summer-integration-test</module>
         <module>summer-archunit</module>
         <module>summer-coverage-report</module>
     </modules>
-
-    <dependencyManagement>
-        <dependencies>
-            <!-- Import Summer BOM for all dependency versions -->
-            <dependency>
-                <groupId>com.github.dropguard</groupId>
-                <artifactId>summer-dependencies</artifactId>
-                <version>${project.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
 
     <build>
         <pluginManagement>
             <plugins>
                 <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-compiler-plugin</artifactId>
-                    <version>3.15.0</version>
-                    <configuration>
-                        <source>${java.version}</source>
-                        <target>${java.version}</target>
-                        <encoding>${project.build.sourceEncoding}</encoding>
-                    </configuration>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.5.5</version>
-                    <configuration>
-                        <argLine>@{argLine} --sun-misc-unsafe-memory-access=allow</argLine>
-                        <!--
-                          Capture server-side logs (Netty/Summer framework log.error
-                          stacks) to target/surefire-reports/output-<class>.txt so a
-                          failing IT can be diagnosed from the report instead of only
-                          the console flood. Build output (target/) is git-ignored.
-                        -->
-                        <redirectTestOutputToFile>true</redirectTestOutputToFile>
-                    </configuration>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-failsafe-plugin</artifactId>
-                    <version>3.5.5</version>
-                    <configuration>
-                        <argLine>@{argLine} --sun-misc-unsafe-memory-access=allow</argLine>
-                    </configuration>
-                </plugin>
-                <plugin>
-                    <groupId>io.smallrye</groupId>
-                    <artifactId>jandex-maven-plugin</artifactId>
-                    <version>3.5.3</version>
+                    <groupId>com.github.dropguard</groupId>
+                    <artifactId>summer-maven-plugin</artifactId>
+                    <version>${project.version}</version>
                     <executions>
                         <execution>
-                            <id>make-index</id>
+                            <id>generate-aot</id>
+                            <phase>process-classes</phase>
                             <goals>
-                                <goal>jandex</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                </plugin>
-                <!-- Add Spotless for static analysis and formatting -->
-                <plugin>
-                    <groupId>com.diffplug.spotless</groupId>
-                    <artifactId>spotless-maven-plugin</artifactId>
-                    <version>2.44.5</version>
-                    <configuration>
-                        <java>
-                            <!-- google-java-format: 2-space indent, spaces only, no tabs.
-                                 Deterministic and tab-free, so edits never drift on
-                                 tab/space ambiguity. -->
-                            <googleJavaFormat>
-                                <version>1.35.0</version>
-                                <style>AOSP</style>
-                                <reflowLongStrings>true</reflowLongStrings>
-                                <reorderImports>true</reorderImports>
-                            </googleJavaFormat>
-                            <!-- Automatically remove all unused imports -->
-                            <removeUnusedImports />
-                            <!-- Enforce consistent import ordering -->
-                            <importOrder />
-                        </java>
-                    </configuration>
-                </plugin>
-                <!-- JaCoCo for code coverage — opt-in: add to <plugins> in modules that need it -->
-                <plugin>
-                    <groupId>org.jacoco</groupId>
-                    <artifactId>jacoco-maven-plugin</artifactId>
-                    <version>${jacoco.version}</version>
-                    <executions>
-                        <execution>
-                            <id>prepare-agent</id>
-                            <goals>
-                                <goal>prepare-agent</goal>
+                                <goal>generate-aot</goal>
                             </goals>
                         </execution>
                     </executions>
@@ -157,17 +85,6 @@
             </plugins>
         </pluginManagement>
         <plugins>
-            <!--
-                Clean annotation-processor-generated sources before every build.
-                Prevents stale .class pollution from incremental compilation:
-                if AP-generated code failed to compile in a previous run, the
-                poisoned .class files persist in target/classes/ and javac's
-                incremental mode skips recompiling them.
-
-                This execution runs at the initialize phase (before compile)
-                and only touches generated-sources directories — main sources
-                and compiled classes are untouched.
-            -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-clean-plugin</artifactId>
@@ -183,11 +100,6 @@
                             <excludeDefaultDirectories>true</excludeDefaultDirectories>
                             <filesets>
                                 <fileset>
-                                    <!--
-                                        AP-generated sources (avaje-validator-generator).
-                                        SummerMojo cleans its own generated-sources/aot/ before
-                                        generating — no external cleanup needed for AOT.
-                                    -->
                                     <directory>${project.build.directory}/generated-sources/annotations</directory>
                                 </fileset>
                             </filesets>
@@ -195,7 +107,6 @@
                     </execution>
                 </executions>
             </plugin>
-            <!-- Spotless: auto-format on verify -->
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>

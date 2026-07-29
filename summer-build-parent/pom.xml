@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+      summer-build-parent — the parent POM for demos and external Summer projects.
+
+      It inherits the build contract (compiler, jandex, surefire/failsafe versions
+      and argLine) from summer-parent.
+
+      It adds:
+        - summer-dependencies BOM import (dependency version catalog)
+        - summer-maven-plugin (AOT generation, mandatory for every project)
+
+      summer.framework.version defaults to 0.1.0 here — demos always build against
+      a published release. Within the reactor, summer-framework overrides it to
+      ${project.version}.
+    -->
+
+    <parent>
+        <groupId>com.github.dropguard</groupId>
+        <artifactId>summer-parent</artifactId>
+        <version>0.1.0</version>
+        <relativePath/>
+    </parent>
+
+    <artifactId>summer-build-parent</artifactId>
+    <version>0.1.0</version>
+    <packaging>pom</packaging>
+
+    <name>Summer Build Parent</name>
+    <description>Parent POM for Summer applications — adds the dependency version catalog and AOT plugin</description>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.github.dropguard</groupId>
+                <artifactId>summer-dependencies</artifactId>
+                <version>${summer.framework.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>com.github.dropguard</groupId>
+                    <artifactId>summer-maven-plugin</artifactId>
+                    <version>${summer.framework.version}</version>
+                    <executions>
+                        <execution>
+                            <id>generate-aot</id>
+                            <phase>process-classes</phase>
+                            <goals>
+                                <goal>generate-aot</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>
