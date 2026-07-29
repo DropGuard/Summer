@@ -4,7 +4,7 @@ import com.github.dropguard.summer.core.exception.MissingWhereClauseException;
 import com.github.dropguard.summer.data.jdbc.EntityMetadata;
 import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,7 +31,7 @@ public final class MutationBuilder {
     private final Object entity;
 
     private final List<Criteria> where = new ArrayList<>();
-    private final Map<String, Object> explicitSets = new LinkedHashMap<>();
+    private final Map<String, Object> explicitSets = new HashMap<>();
 
     MutationBuilder(
             JdbcTemplate jdbcTemplate, EntityMetadata metadata, MutationKind kind, Object entity) {

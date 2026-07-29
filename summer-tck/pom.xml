@@ -42,26 +42,11 @@
         <dependency><groupId>com.zaxxer</groupId><artifactId>HikariCP</artifactId></dependency>
         <dependency><groupId>io.grpc</groupId><artifactId>grpc-stub</artifactId></dependency>
         <dependency><groupId>com.google.protobuf</groupId><artifactId>protobuf-java</artifactId><version>3.25.5</version></dependency>
-        <!-- Test-only deps remain test scoped -->
-        <dependency><groupId>org.mockito</groupId><artifactId>mockito-junit-jupiter</artifactId><scope>test</scope></dependency>
-        <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
+        <!-- JUnit and Mockito are supplied transitively by summer-test. -->
     </dependencies>
 
     <build>
         <plugins>
-            <plugin>
-                <groupId>com.github.dropguard</groupId>
-                <artifactId>summer-maven-plugin</artifactId>
-                <version>${project.version}</version>
-                <executions>
-                    <execution>
-                        <id>generate-aot-test</id>
-                        <phase>process-test-classes</phase>
-                        <configuration><testPhase>true</testPhase></configuration>
-                        <goals><goal>generate-aot</goal></goals>
-                    </execution>
-                </executions>
-            </plugin>
             <!--
               JaCoCo: instruments the TCK test JVM so coverage from the AOT engine
               (exercised by @DualEngine methods) is actually collected. The

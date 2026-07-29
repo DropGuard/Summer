@@ -121,14 +121,15 @@ public final class TestClassIndexer {
 
     /**
      * Infers the test class for a whole-universe container that was built without an explicit
-     * {@code @SummerTest} class (e.g. {@code Testing.build()}).
+     * {@code @SummerTest} class (e.g. {@code TestContainer.build()}).
      *
      * <p>Quarkus' {@code @QuarkusTest} always has a test class, so its deployment always indexes
      * exactly that class's {@code test-classes} directory. Summer keeps a parameterless {@code
-     * Testing.build()} for convenience; to stay faithful to the single-directory model we resolve
-     * the calling test class from the stack and index <em>its</em> {@code test-classes} directory —
-     * never a bulk sweep of every module's test classes. A negative fixture, which lives in a
-     * separate module, is simply not on that directory's path, so no exclude list is needed.
+     * TestContainer.build()} for convenience; to stay faithful to the single-directory model we
+     * resolve the calling test class from the stack and index <em>its</em> {@code test-classes}
+     * directory — never a bulk sweep of every module's test classes. A negative fixture, which
+     * lives in a separate module, is simply not on that directory's path, so no exclude list is
+     * needed.
      *
      * @return the inferred test class, or {@code null} if none can be resolved
      */

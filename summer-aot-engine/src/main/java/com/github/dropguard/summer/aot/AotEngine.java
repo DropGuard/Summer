@@ -31,8 +31,7 @@ public final class AotEngine {
 
     private static final Logger log = LoggerFactory.getLogger(AotEngine.class);
 
-    private static final java.util.concurrent.ConcurrentHashMap<String, BeanContainer> CACHE =
-            new java.util.concurrent.ConcurrentHashMap<>();
+    private static final java.util.Map<String, BeanContainer> CACHE = new java.util.HashMap<>();
 
     private AotEngine() {}
 

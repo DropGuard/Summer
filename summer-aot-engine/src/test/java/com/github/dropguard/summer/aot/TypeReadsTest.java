@@ -2,7 +2,7 @@ package com.github.dropguard.summer.aot;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.github.dropguard.summer.tck.negative.fixtures.data.errors.UnsupportedNestedType;
+import com.github.dropguard.summer.tck.negative.fixtures.data.UnsupportedNestedType;
 import com.palantir.javapoet.CodeBlock;
 import org.junit.jupiter.api.Test;
 

@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -126,7 +125,7 @@ public final class SharedDependencyResolver {
      * same type, is ambiguous and must be rejected at build time.
      */
     private void validateUniqueBeanNames(List<BeanDefinition> beans) {
-        Map<String, String> nameToSource = new LinkedHashMap<>();
+        Map<String, String> nameToSource = new HashMap<>();
         for (BeanDefinition bean : beans) {
             String existing = nameToSource.get(bean.qualifiedName);
             if (existing == null) {
@@ -332,7 +331,7 @@ public final class SharedDependencyResolver {
 
     private Map<BeanDefinition, Set<BeanDefinition>> buildIncomingEdges(
             List<BeanDefinition> beans) {
-        Map<BeanDefinition, Set<BeanDefinition>> incoming = new LinkedHashMap<>();
+        Map<BeanDefinition, Set<BeanDefinition>> incoming = new HashMap<>();
         for (BeanDefinition b : beans) incoming.put(b, new LinkedHashSet<>());
 
         for (BeanDefinition b : beans) {

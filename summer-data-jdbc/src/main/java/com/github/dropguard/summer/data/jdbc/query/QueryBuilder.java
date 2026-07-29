@@ -4,7 +4,7 @@ import com.github.dropguard.summer.data.jdbc.EntityMetadata;
 import com.github.dropguard.summer.data.jdbc.EntityMetadataRegistry;
 import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -48,7 +48,7 @@ public final class QueryBuilder<T> {
     // Declared related tables (alias -> metadata) used for qualified-column
     // validation and FROM/JOIN SQL assembly. Keyed by alias so callers reference
     // columns unambiguously as "alias.column".
-    private final Map<String, EntityMetadata> joins = new LinkedHashMap<>();
+    private final Map<String, EntityMetadata> joins = new HashMap<>();
     private String orderByColumn;
     private boolean orderDesc;
     private Integer limit;

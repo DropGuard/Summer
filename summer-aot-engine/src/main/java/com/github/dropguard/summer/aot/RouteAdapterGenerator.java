@@ -80,7 +80,7 @@ public final class RouteAdapterGenerator {
                                         .build())
                         .build();
 
-        JavaFile.builder("com.github.dropguard.summer.core.aot", routeRegistrar)
+        JavaFile.builder("com.github.dropguard.summer.aot.generated", routeRegistrar)
                 .build()
                 .writeTo(outputDir);
     }

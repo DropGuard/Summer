@@ -24,7 +24,7 @@ public final class AotContextGenerator {
 
     private static final Logger log = LoggerFactory.getLogger(AotContextGenerator.class);
 
-    public static final String PACKAGE = "com.github.dropguard.summer.core.aot";
+    public static final String PACKAGE = "com.github.dropguard.summer.aot.generated";
     public static final String CLASS_NAME = "GeneratedAotContext";
 
     private static final String CORE_PACKAGE = "com.github.dropguard.summer.core";

@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.github.dropguard.summer.tck.negative.fixtures.data.errors.UnsupportedNestedType;
+import com.github.dropguard.summer.tck.negative.fixtures.data.UnsupportedNestedType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;

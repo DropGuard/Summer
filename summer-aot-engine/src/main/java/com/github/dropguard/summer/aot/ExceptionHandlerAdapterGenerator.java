@@ -39,7 +39,7 @@ public final class ExceptionHandlerAdapterGenerator {
             ClassName.get("com.github.dropguard.summer.web", "ExceptionHandlerRegistrar");
     private static final ClassName REQUEST_ATTRIBUTES =
             ClassName.get("com.github.dropguard.summer.web", "RequestAttributes");
-    private static final String PACKAGE = "com.github.dropguard.summer.core.aot";
+    private static final String PACKAGE = "com.github.dropguard.summer.aot.generated";
     private static final String CLASS_NAME = "GeneratedExceptionHandlerAdapter";
 
     public ExceptionHandlerAdapterGenerator() {}

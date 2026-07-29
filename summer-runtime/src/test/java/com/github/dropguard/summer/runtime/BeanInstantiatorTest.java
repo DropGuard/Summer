@@ -60,7 +60,7 @@ class BeanInstantiatorTest {
         // the test asserts the "not found" path.)
         BeanDefinition def =
                 new BeanDefinition(
-                        "com.github.dropguard.summer.tck.negative.fixtures.di.errors.MissingBean",
+                        "com.github.dropguard.summer.tck.negative.fixtures.di.MissingBean",
                         "missing");
 
         BeanCreationException ex =
@@ -72,7 +72,7 @@ class BeanInstantiatorTest {
                 ex.getMessage()
                         .contains(
                                 "Class not found:"
-                                    + " com.github.dropguard.summer.tck.negative.fixtures.di.errors.MissingBean"));
+                                    + " com.github.dropguard.summer.tck.negative.fixtures.di.MissingBean"));
         assertTrue(ex.getCause() instanceof ClassNotFoundException);
     }
 

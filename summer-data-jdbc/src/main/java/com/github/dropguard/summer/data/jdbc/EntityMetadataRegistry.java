@@ -2,7 +2,7 @@ package com.github.dropguard.summer.data.jdbc;
 
 import com.github.dropguard.summer.core.annotation.Configuration;
 import java.util.Collections;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -18,7 +18,7 @@ import java.util.Set;
 @Configuration
 public final class EntityMetadataRegistry {
 
-    private final Map<String, EntityMetadata> byClassName = new LinkedHashMap<>();
+    private final Map<String, EntityMetadata> byClassName = new HashMap<>();
 
     public void register(RowModelMeta meta) {
         Set<String> columns = new java.util.LinkedHashSet<>();

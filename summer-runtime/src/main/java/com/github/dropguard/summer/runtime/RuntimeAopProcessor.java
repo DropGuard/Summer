@@ -7,7 +7,7 @@ import com.github.dropguard.summer.core.bean.BeanDefinition;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.Collections;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -87,7 +87,7 @@ final class RuntimeAopProcessor {
         boolean classLevel = methodBindings.containsKey("");
         Set<String> classLevelNames = classLevel ? methodBindings.get("") : Set.of();
 
-        Map<Method, ProxyFactory.ProxyMethodSpec> specs = new LinkedHashMap<>();
+        Map<Method, ProxyFactory.ProxyMethodSpec> specs = new HashMap<>();
         for (String ifaceName : bean.interfaceNames) {
             Class<?> iface = loadClass(ifaceName);
             if (iface == null) {

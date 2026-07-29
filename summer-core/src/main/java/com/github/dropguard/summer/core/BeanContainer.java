@@ -7,7 +7,7 @@ import com.github.dropguard.summer.core.exception.AmbiguousBeanException;
 import com.github.dropguard.summer.core.exception.NoSuchBeanException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,7 +33,7 @@ public final class BeanContainer implements AutoCloseable {
     private BeanContainer(Map<Class<?>, Object> singletons, Engine engine, List<RouteInfo> routes) {
         // MUST preserve insertion order for correct shutdown (reverse order of
         // creation)
-        this.singletons = Collections.unmodifiableMap(new LinkedHashMap<>(singletons));
+        this.singletons = Collections.unmodifiableMap(new HashMap<>(singletons));
         this.engine = engine;
         this.routes = routes;
     }
@@ -162,7 +162,7 @@ public final class BeanContainer implements AutoCloseable {
      */
     public static final class Builder {
 
-        private final Map<Class<?>, Object> singletons = new LinkedHashMap<>();
+        private final Map<Class<?>, Object> singletons = new HashMap<>();
         private List<RouteInfo> routes = List.of();
 
         /** Registers a bean instance under the given type key. */

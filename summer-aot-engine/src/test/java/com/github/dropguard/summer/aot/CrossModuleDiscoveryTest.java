@@ -142,7 +142,8 @@ class CrossModuleDiscoveryTest {
 
         File generatedFile =
                 new File(
-                        outputDir, "com/github/dropguard/summer/core/aot/GeneratedAotContext.java");
+                        outputDir,
+                        "com/github/dropguard/summer/aot/generated/GeneratedAotContext.java");
         assertTrue(generatedFile.exists(), "Generated AOT context should exist");
         String content = Files.readString(generatedFile.toPath());
         assertTrue(

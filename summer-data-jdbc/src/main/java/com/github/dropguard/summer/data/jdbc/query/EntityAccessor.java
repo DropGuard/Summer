@@ -3,7 +3,7 @@ package com.github.dropguard.summer.data.jdbc.query;
 import com.github.dropguard.summer.data.jdbc.EntityMetadata;
 import com.github.dropguard.summer.data.jdbc.FieldMeta;
 import java.lang.reflect.Method;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -24,7 +24,7 @@ final class EntityAccessor {
      * same field-to-column rule the RowMapper uses.
      */
     static Map<String, Object> columnValues(EntityMetadata metadata, Object entity) {
-        Map<String, Object> values = new LinkedHashMap<>();
+        Map<String, Object> values = new HashMap<>();
         Class<?> type = entity.getClass();
         for (FieldMeta field : metadata.fields()) {
             String column =

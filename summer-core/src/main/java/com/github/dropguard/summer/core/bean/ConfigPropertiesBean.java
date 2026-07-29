@@ -1,6 +1,6 @@
 package com.github.dropguard.summer.core.bean;
 
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -15,10 +15,10 @@ public final class ConfigPropertiesBean extends BeanDefinition {
     public String configPropertiesPrefix;
 
     /** field name → raw @WithDefault string. Populated by BeanDiscovery. */
-    public final Map<String, String> defaultValues = new LinkedHashMap<>();
+    public final Map<String, String> defaultValues = new HashMap<>();
 
     /** field name → target type (e.g. Integer.class, Boolean.class). */
-    public final Map<String, String> fieldTypes = new LinkedHashMap<>();
+    public final Map<String, String> fieldTypes = new HashMap<>();
 
     public ConfigPropertiesBean(String qualifiedName, String simpleName) {
         super(qualifiedName, simpleName);

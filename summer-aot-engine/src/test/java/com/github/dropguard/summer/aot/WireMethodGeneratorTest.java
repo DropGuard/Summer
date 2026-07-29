@@ -4,15 +4,21 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import com.github.dropguard.summer.aot.testfixtures.Consumer;
 import com.github.dropguard.summer.aot.testfixtures.Dep;
+import com.github.dropguard.summer.aot.testfixtures.NumericConfig;
 import com.github.dropguard.summer.aot.testfixtures.Service;
 import com.github.dropguard.summer.aot.testfixtures.ServiceA;
 import com.github.dropguard.summer.aot.testfixtures.ServiceB;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
 import com.github.dropguard.summer.core.bean.InjectionParameter;
+import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
+import com.palantir.javapoet.TypeSpec;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import org.jboss.jandex.ClassInfo;
+import org.jboss.jandex.DotName;
+import org.jboss.jandex.Index;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -99,5 +105,37 @@ class WireMethodGeneratorTest {
                 new InjectionParameter(Dep.class.getName(), new ArrayList<>(List.of(depBean))));
 
         assertEquals("dep", buildArgs(consumer).toString());
+    }
+
+    /**
+     * Regression for the AOT config-binding ClassCast bug: a {@code long} (or any primitive
+     * numeric) config field must be coerced through {@code TypeConverter} at the generated call
+     * site, not via a bare {@code (long)} cast that throws {@code ClassCastException: Integer
+     * cannot be cast to Long} when the resolved section value is a {@code Number}.
+     */
+    @Test
+    void numericConfigFieldUsesTypeConverterNotPrimitiveCast() throws Exception {
+        Index index = Index.of(NumericConfig.class);
+        ClassInfo classInfo =
+                index.getClassByName(DotName.createSimple(NumericConfig.class.getName()));
+        Method m =
+                WireMethodGenerator.class.getDeclaredMethod(
+                        "generateConfigImpl", ClassName.class, ClassInfo.class);
+        m.setAccessible(true);
+        TypeSpec impl =
+                (TypeSpec) m.invoke(generator, ClassName.get(NumericConfig.class), classInfo);
+
+        String generated = impl.toString();
+        // The long/int/double fields must route through TypeConverter (which coerces a Number).
+        org.junit.jupiter.api.Assertions.assertTrue(
+                generated.contains("TypeConverter.convert"),
+                "numeric config fields must use TypeConverter, but generated:\n" + generated);
+        // And must NOT emit a bare primitive cast that would ClassCast an Integer to Long.
+        org.junit.jupiter.api.Assertions.assertFalse(
+                generated.contains("(long) __section.get")
+                        || generated.contains("(int) __section.get")
+                        || generated.contains("(double) __section.get"),
+                "numeric config fields must not use a bare primitive cast, but generated:\n"
+                        + generated);
     }
 }
