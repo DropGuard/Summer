@@ -1,7 +1,7 @@
 package com.github.dropguard.summer.core.bean;
 
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -276,7 +276,7 @@ public final class BeanEnrichment {
         }
 
         // Step 2: Identify interceptor beans and their binding annotations
-        Map<BeanDefinition, Set<DotName>> interceptorBindings = new LinkedHashMap<>();
+        Map<BeanDefinition, Set<DotName>> interceptorBindings = new HashMap<>();
         for (BeanDefinition bean : beans) {
             if (bean instanceof ConfigPropertiesBean) continue;
             ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
@@ -312,7 +312,7 @@ public final class BeanEnrichment {
                 }
             }
 
-            Map<String, Set<String>> methodBindings = new java.util.LinkedHashMap<>();
+            Map<String, Set<String>> methodBindings = new java.util.HashMap<>();
             if (targetBindings.isEmpty()) {
                 for (MethodInfo method : ci.methods()) {
                     Set<String> methodAnnNames = new HashSet<>();
@@ -370,8 +370,7 @@ public final class BeanEnrichment {
             // name). RUNTIME's ProxyFactory derives class-level coverage directly
             // from the implementation class annotations, so this key is the AOT
             // engine's signal that the whole bean is bound.
-            Map<String, Set<String>> finalMethodBindings =
-                    new java.util.LinkedHashMap<>(methodBindings);
+            Map<String, Set<String>> finalMethodBindings = new java.util.HashMap<>(methodBindings);
             if (!targetBindings.isEmpty()) {
                 Set<String> classLevel =
                         targetBindings.stream()

@@ -60,6 +60,21 @@ class TypeConverterTest {
     }
 
     @Test
+    void shouldCoerceNumberToLong() {
+        // The AOT config binder resolves scalar section values as Numbers (e.g. an Integer from
+        // YAML) and must coerce them to the target boxed type — this is exactly the path that used
+        // to throw ClassCastException: Integer cannot be cast to Long on a `long` config field.
+        assertEquals(3600000L, TypeConverter.convert(Integer.valueOf(3600000), Long.class));
+        assertEquals(3600000L, TypeConverter.convert(3600000L, Long.class));
+    }
+
+    @Test
+    void shouldCoerceNumberToIntegerAndDouble() {
+        assertEquals(42, TypeConverter.convert(Long.valueOf(42), Integer.class));
+        assertEquals(3.0, TypeConverter.convert(Integer.valueOf(3), Double.class));
+    }
+
+    @Test
     void shouldThrowForInvalidInteger() {
         assertThrows(
                 NumberFormatException.class, () -> TypeConverter.convert("abc", Integer.class));

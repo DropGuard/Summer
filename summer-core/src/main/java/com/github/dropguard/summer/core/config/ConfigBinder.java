@@ -6,7 +6,7 @@ import com.github.dropguard.summer.core.exception.ConfigurationException;
 import com.github.dropguard.summer.core.json.SummerObjectMapper;
 import java.io.InputStream;
 import java.util.Arrays;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -177,11 +177,11 @@ public final class ConfigBinder {
                 Map<String, Object> root = YAML_MAPPER.readValue(stream, Map.class);
                 section = prefix != null && !prefix.isEmpty() ? extractSection(root, prefix) : root;
                 if (section == null) {
-                    section = new LinkedHashMap<>();
+                    section = new HashMap<>();
                 }
                 section = normalizeKeys(section);
             } else {
-                section = new LinkedHashMap<>();
+                section = new HashMap<>();
             }
             section = applyFieldDefaults(section, fieldDefaults);
             section = applyProfileOverrides(section, prefix, ctx.overrides());
@@ -205,7 +205,7 @@ public final class ConfigBinder {
         if (fieldDefaults.isEmpty()) {
             return section;
         }
-        Map<String, Object> result = new LinkedHashMap<>(section);
+        Map<String, Object> result = new HashMap<>(section);
         for (Map.Entry<String, Object> entry : fieldDefaults.entrySet()) {
             result.putIfAbsent(entry.getKey(), entry.getValue());
         }
@@ -234,7 +234,7 @@ public final class ConfigBinder {
      * they match Java record component names.
      */
     public static Map<String, Object> normalizeKeys(Map<String, Object> map) {
-        Map<String, Object> result = new LinkedHashMap<>();
+        Map<String, Object> result = new HashMap<>();
         for (Map.Entry<String, Object> entry : map.entrySet()) {
             String key = toCamelCase(entry.getKey());
             Object value = entry.getValue();
@@ -280,7 +280,7 @@ public final class ConfigBinder {
             return section;
         }
         String scope = (prefix == null || prefix.isEmpty()) ? "" : prefix + ".";
-        Map<String, Object> result = new LinkedHashMap<>(section);
+        Map<String, Object> result = new HashMap<>(section);
         for (Map.Entry<String, Object> entry : overrides.entrySet()) {
             String key = entry.getKey();
             if (!scope.isEmpty() && !key.startsWith(scope)) {
@@ -301,7 +301,7 @@ public final class ConfigBinder {
 
     /**
      * Walks {@code path} (already camelCased segments) into {@code target}, creating intermediate
-     * {@link LinkedHashMap}s as needed, and sets the leaf to {@code value}.
+     * {@link HashMap}s as needed, and sets the leaf to {@code value}.
      */
     @SuppressWarnings("unchecked")
     private static Map<String, Object> writeNested(
@@ -312,16 +312,16 @@ public final class ConfigBinder {
         String head = path[0];
         if (path.length == 1) {
             // Leaf: replace the value directly, without wrapping it in a container.
-            Map<String, Object> copy = new LinkedHashMap<>(target);
+            Map<String, Object> copy = new HashMap<>(target);
             copy.put(head, value);
             return copy;
         }
         Map<String, Object> child =
                 (target.get(head) instanceof Map<?, ?> m)
-                        ? new LinkedHashMap<>((Map<String, Object>) m)
-                        : new LinkedHashMap<>();
+                        ? new HashMap<>((Map<String, Object>) m)
+                        : new HashMap<>();
         child = writeNested(child, Arrays.copyOfRange(path, 1, path.length), value);
-        Map<String, Object> copy = new LinkedHashMap<>(target);
+        Map<String, Object> copy = new HashMap<>(target);
         copy.put(head, child);
         return copy;
     }
@@ -337,7 +337,7 @@ public final class ConfigBinder {
      * (e.g. a JDBC URL with no placeholder) bind exactly as before.
      */
     static Map<String, Object> resolveEnvPlaceholders(Map<String, Object> section) {
-        Map<String, Object> result = new LinkedHashMap<>();
+        Map<String, Object> result = new HashMap<>();
         for (Map.Entry<String, Object> entry : section.entrySet()) {
             Object value = entry.getValue();
             if (value instanceof Map<?, ?> nested) {
