@@ -28,7 +28,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
 import com.github.dropguard.summer.core.BeanContainer;
-import com.github.dropguard.summer.test.Testing;
+import com.github.dropguard.summer.test.TestContainer;
 import com.github.dropguard.summer.web.server.NettyServerRunner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -44,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * at the real database via the {@code com.github.dropguard.summer.test.datasource.url} /
  * {@code com.github.dropguard.summer.redis.uri} system properties. It does NOT use any
  * {@code com.github.dropguard.summer.test.internal} type — that is reserved for framework-owned
- * integration tests (see {@code summer-integration-test}), not for demos.
+ * framework integration tests, not for demos.
  * </p>
  *
  * <p>
@@ -117,7 +117,7 @@ abstract class AbstractTwitterIT {
 		System.setProperty("com.github.dropguard.summer.redis.uri",
 				"redis://" + REDIS.getHost() + ":" + REDIS.getMappedPort(6379));
 
-		context = Testing.buildForTest(AbstractTwitterIT.class);
+		context = TestContainer.builder().testClass(AbstractTwitterIT.class).build();
 
 		for (Object runner : context.getBeans(NettyServerRunner.class)) {
 			serverRunner = (NettyServerRunner) runner;

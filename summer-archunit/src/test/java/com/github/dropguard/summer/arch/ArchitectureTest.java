@@ -41,6 +41,25 @@ class ArchitectureTest {
         "com.github.dropguard.summer.arch"
     };
 
+    /**
+     * Production packages only — excludes test, tck, arch, benchmark, and demo modules. Single
+     * source of truth for rules that differ between production and non-production code.
+     */
+    private static final String[] PRODUCTION = {
+        "com.github.dropguard.summer.core..",
+        "com.github.dropguard.summer.web..",
+        "com.github.dropguard.summer.aop..",
+        "com.github.dropguard.summer.tx..",
+        "com.github.dropguard.summer.runtime..",
+        "com.github.dropguard.summer.plugin..",
+        "com.github.dropguard.summer.data..",
+        "com.github.dropguard.summer.boot..",
+        "com.github.dropguard.summer.web.netty..",
+        "com.github.dropguard.summer.grpc..",
+        "com.github.dropguard.summer.validation..",
+        "com.github.dropguard.summer.aot.."
+    };
+
     private static JavaClasses classes;
 
     @BeforeAll
@@ -170,11 +189,6 @@ class ArchitectureTest {
     @Test
     @DisplayName("AOT engine must not depend on the runtime engine")
     void aotMustNotDependOnRuntime() {
-        // The two DI engines are peers: the AOT path is compile-time
-        // code generation (reflection-free), the runtime path is reflective
-        // bean discovery. Neither may compile-depend on the other, or the
-        // engine boundary collapses and the AOT path silently re-introduces
-        // runtime coupling.
         ArchRule rule =
                 noClasses()
                         .that()
@@ -188,8 +202,6 @@ class ArchitectureTest {
     @Test
     @DisplayName("Runtime engine must not depend on the AOT engine")
     void runtimeMustNotDependOnAot() {
-        // Symmetric counterpart of {@link #aotMustNotDependOnRuntime}: the
-        // runtime engine must not pull in the compile-time generator either.
         ArchRule rule =
                 noClasses()
                         .that()
@@ -203,28 +215,12 @@ class ArchitectureTest {
     @Test
     @DisplayName("@Replaces must be on @Configuration in framework packages (not plain @Component)")
     void replacesRequiresConfigurationInFramework() {
-        // Rule 1: framework/middleware code must use @Configuration for @Replaces,
-        // never on a plain @Component. Business logic and test cases are exempt.
-        String[] frameworkPackages = {
-            "com.github.dropguard.summer.core..",
-            "com.github.dropguard.summer.web..",
-            "com.github.dropguard.summer.aop..",
-            "com.github.dropguard.summer.tx..",
-            "com.github.dropguard.summer.runtime..",
-            "com.github.dropguard.summer.plugin..",
-            "com.github.dropguard.summer.data..",
-            "com.github.dropguard.summer.boot..",
-            "com.github.dropguard.summer.web.netty..",
-            "com.github.dropguard.summer.grpc..",
-            "com.github.dropguard.summer.validation.."
-        };
-
         ArchRule rule =
                 com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes()
                         .that()
                         .areAnnotatedWith("com.github.dropguard.summer.core.annotation.Replaces")
                         .and()
-                        .resideInAnyPackage(frameworkPackages)
+                        .resideInAnyPackage(PRODUCTION)
                         .should()
                         .beAnnotatedWith(
                                 "com.github.dropguard.summer.core.annotation.Configuration")
@@ -237,21 +233,7 @@ class ArchitectureTest {
     @Test
     @DisplayName("Framework code must use @Configuration + @Bean, not @Component")
     void frameworkCodeMustUseConfigurationNotComponent() {
-        String[] frameworkPackages = {
-            "com.github.dropguard.summer.core..",
-            "com.github.dropguard.summer.web..",
-            "com.github.dropguard.summer.aop..",
-            "com.github.dropguard.summer.tx..",
-            "com.github.dropguard.summer.runtime..",
-            "com.github.dropguard.summer.plugin..",
-            "com.github.dropguard.summer.data..",
-            "com.github.dropguard.summer.boot..",
-            "com.github.dropguard.summer.web.netty..",
-            "com.github.dropguard.summer.grpc..",
-            "com.github.dropguard.summer.validation.."
-        };
         // Exclude annotation packages (meta-annotations like @RestController,
-        //
         // are @Component by design) and specific marker beans
         String[] annotationPackages = {
             "com.github.dropguard.summer.core.annotation..",
@@ -260,7 +242,7 @@ class ArchitectureTest {
         ArchRule rule =
                 com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes()
                         .that()
-                        .resideInAnyPackage(frameworkPackages)
+                        .resideInAnyPackage(PRODUCTION)
                         .and()
                         .doNotHaveSimpleName("Configuration")
                         .and()
@@ -276,28 +258,15 @@ class ArchitectureTest {
         rule.check(classes);
     }
 
-    // --- ServiceLoader restrictions ---
+    // --- Library bans ---
 
     @Test
-    @DisplayName("No ConcurrentHashMap usage")
+    @DisplayName("No ConcurrentHashMap usage in production code")
     void noConcurrentHashMap() {
-        String[] productionPackages = {
-            "com.github.dropguard.summer.core..",
-            "com.github.dropguard.summer.web..",
-            "com.github.dropguard.summer.aop..",
-            "com.github.dropguard.summer.tx..",
-            "com.github.dropguard.summer.runtime..",
-            "com.github.dropguard.summer.plugin..",
-            "com.github.dropguard.summer.data..",
-            "com.github.dropguard.summer.boot..",
-            "com.github.dropguard.summer.web.netty..",
-            "com.github.dropguard.summer.grpc..",
-            "com.github.dropguard.summer.validation.."
-        };
         ArchRule rule =
                 noClasses()
                         .that()
-                        .resideInAnyPackage(productionPackages)
+                        .resideInAnyPackage(PRODUCTION)
                         .should()
                         .dependOnClassesThat()
                         .haveFullyQualifiedName("java.util.concurrent.ConcurrentHashMap")
@@ -306,25 +275,26 @@ class ArchitectureTest {
     }
 
     @Test
-    @DisplayName("No ServiceLoader usage in production code")
-    void noServiceLoaderInProduction() {
-        String[] productionPackages = {
-            "com.github.dropguard.summer.core..",
-            "com.github.dropguard.summer.web..",
-            "com.github.dropguard.summer.aop..",
-            "com.github.dropguard.summer.tx..",
-            "com.github.dropguard.summer.runtime..",
-            "com.github.dropguard.summer.plugin..",
-            "com.github.dropguard.summer.data..",
-            "com.github.dropguard.summer.boot..",
-            "com.github.dropguard.summer.web.netty..",
-            "com.github.dropguard.summer.grpc..",
-            "com.github.dropguard.summer.validation.."
-        };
+    @DisplayName("No LinkedHashMap usage in production code")
+    void noLinkedHashMap() {
         ArchRule rule =
                 noClasses()
                         .that()
-                        .resideInAnyPackage(productionPackages)
+                        .resideInAnyPackage(PRODUCTION)
+                        .should()
+                        .dependOnClassesThat()
+                        .haveFullyQualifiedName("java.util.LinkedHashMap")
+                        .allowEmptyShould(true);
+        rule.check(classes);
+    }
+
+    @Test
+    @DisplayName("No ServiceLoader usage in production code")
+    void noServiceLoaderInProduction() {
+        ArchRule rule =
+                noClasses()
+                        .that()
+                        .resideInAnyPackage(PRODUCTION)
                         .should()
                         .dependOnClassesThat()
                         .haveFullyQualifiedName("java.util.ServiceLoader")

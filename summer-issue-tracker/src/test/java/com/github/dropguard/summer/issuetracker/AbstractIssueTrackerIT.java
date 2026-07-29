@@ -28,7 +28,7 @@ import org.testcontainers.utility.DockerImageName;
 
 import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.core.Engine;
-import com.github.dropguard.summer.test.Testing;
+import com.github.dropguard.summer.test.TestContainer;
 import com.github.dropguard.summer.web.server.NettyServerRunner;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -105,8 +105,8 @@ public abstract class AbstractIssueTrackerIT {
         // Runtime is the dev/escape-hatch engine; production uses AOT (selected by
         // SummerApplication/DiEngine in jar mode). The demo's ITs exercise the
         // runtime engine, which is the supported local-dev path.
-        context = Testing.buildForTest(AbstractIssueTrackerIT.class, Engine.RUNTIME,
-                java.util.List.of());
+        context = TestContainer.builder().testClass(AbstractIssueTrackerIT.class).mocks(
+                java.util.List.of()).build();
         for (Object runner : context.getBeans(NettyServerRunner.class)) {
             serverRunner = (NettyServerRunner) runner;
             serverRunner.run(context);
