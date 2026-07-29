@@ -1,4 +1,5 @@
 package com.github.dropguard.summer.core;
+import com.github.dropguard.summer.core.Internal;
 
 /**
  * Marker bean that signals the reflection-based DI engine is active.
@@ -10,4 +11,5 @@ package com.github.dropguard.summer.core;
  * <p>Downstream configurations use {@code @ConditionalOnBean(RuntimeDiMarker.class)} to activate
  * only when the runtime/reflection engine is in use, as opposed to AOT.
  */
+@Internal
 public class RuntimeDiMarker {}

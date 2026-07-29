@@ -1,4 +1,5 @@
 package com.github.dropguard.summer.core.bean;
+import com.github.dropguard.summer.core.Internal;
 
 import java.util.List;
 
@@ -25,6 +26,7 @@ import java.util.List;
  * stateless accessor that extracts the {@code <...>} argument; it carries no information beyond the
  * type name, it merely centralises the one bit of parsing the consumers share.
  */
+@Internal
 public record InjectionParameter(String typeName, List<BeanDefinition> resolved) {
 
     /**

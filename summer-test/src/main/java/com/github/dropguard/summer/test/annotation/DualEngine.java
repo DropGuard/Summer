@@ -1,6 +1,6 @@
 package com.github.dropguard.summer.test.annotation;
 
-import com.github.dropguard.summer.test.internal.DualEngineInvocationProvider;
+import com.github.dropguard.summer.test.DualEngineInvocationProvider;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

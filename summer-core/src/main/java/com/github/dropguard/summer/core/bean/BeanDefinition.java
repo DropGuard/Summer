@@ -1,4 +1,5 @@
 package com.github.dropguard.summer.core.bean;
+import com.github.dropguard.summer.core.Internal;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,6 +21,7 @@ import java.util.Set;
  *
  * <p>{@link ConfigPropertiesBean} extends this for YAML-bound configuration beans.
  */
+@Internal
 public sealed class BeanDefinition permits ConfigPropertiesBean {
 
     // ── Phase 1: Identity (immutable) ─────────────────────────────────

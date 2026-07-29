@@ -1,4 +1,5 @@
 package com.github.dropguard.summer.core;
+import com.github.dropguard.summer.core.Internal;
 
 /**
  * Marker bean that signals the AOT-based DI engine is active.
@@ -10,4 +11,5 @@ package com.github.dropguard.summer.core;
  * <p>Downstream configurations use {@code @ConditionalOnBean(AotDiMarker.class)} to activate only
  * when the AOT engine is in use, as opposed to the runtime/reflection engine.
  */
+@Internal
 public class AotDiMarker {}

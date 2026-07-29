@@ -8,7 +8,6 @@ import java.util.Map;
  * SPI for building DI containers. Implementations are discovered via ServiceLoader and selected by
  * {@link #engine()}.
  */
-@Internal
 public interface ContainerEngine {
 
     Engine engine();

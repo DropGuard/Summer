@@ -1,6 +1,6 @@
 package com.github.dropguard.summer.test.annotation;
 
-import com.github.dropguard.summer.test.internal.SummerExtension;
+import com.github.dropguard.summer.test.SummerExtension;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

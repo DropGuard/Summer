@@ -1,4 +1,4 @@
-package com.github.dropguard.summer.test.internal;
+package com.github.dropguard.summer.test;
 
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.test.annotation.Mock;
