@@ -68,7 +68,7 @@ public final class AotKey {
 
     /**
      * Identity for a whole-universe container built without a test class (e.g. {@code
-     * Testing.build()} from an integration test). Fixed fingerprint — such containers always
+     * TestContainer.build()} from an integration test). Fixed fingerprint — such containers always
      * observe the same full test universe.
      */
     public static AotKey forUniverse() {

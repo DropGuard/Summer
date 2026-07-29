@@ -25,9 +25,20 @@
             <artifactId>summer-runtime</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- Full JUnit + Mockito runtime, compile-scoped so consumers of summer-test (test
+             scope) transparently get a runnable test runtime without declaring JUnit/Mockito.
+             junit-jupiter-api is part of the aggregate and is what summer-test's public API
+             (@SummerTest, @DualEngine) references on the main classpath. -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-api</artifactId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>compile</scope>
+        </dependency>
+        <!-- Mockito JUnit integration: brings @Mock / MockitoExtension and transitively
+             mockito-core, so consumers need not declare any Mockito artifact directly. -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
             <scope>compile</scope>
         </dependency>
     </dependencies>
