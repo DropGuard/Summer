@@ -1,11 +1,14 @@
 package com.github.dropguard.summer.realworld.auth;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import java.util.Date;
 import javax.crypto.SecretKey;
 import com.github.dropguard.summer.core.Component;
+import com.github.dropguard.summer.realworld.common.BusinessException;
+import com.github.dropguard.summer.web.HttpStatus;
 
 /**
  * JWT utility for token generation and validation.
@@ -76,5 +79,64 @@ public record JwtUtil(JwtProperties jwtProperties) {
 
 	public boolean isRefreshToken(String token) {
 		return "refresh".equals(getTokenType(token));
+	}
+
+	/**
+	 * Validates an access token end-to-end and returns the user ID.
+	 *
+	 * @throws BusinessException 401 with {@code "token"} field if the token is
+	 *                            missing, not an access token, expired, or
+	 *                            otherwise unparseable.
+	 */
+	public Long validateAccessToken(String token) {
+		if (token == null || token.isBlank()) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "token_missing", "token", "is missing");
+		}
+		String type;
+		Claims claims;
+		try {
+			type = getTokenType(token);
+			claims = parseToken(token);
+		} catch (ExpiredJwtException e) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "token_expired", "token", "is expired");
+		} catch (Exception e) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "token_invalid", "token", "is invalid");
+		}
+		if (!"access".equals(type)) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "token_invalid", "token", "is invalid");
+		}
+		if (claims.getExpiration().before(new Date())) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "token_expired", "token", "is expired");
+		}
+		return Long.parseLong(claims.getSubject());
+	}
+
+	/**
+	 * Validates a refresh token end-to-end and returns the user ID.
+	 *
+	 * @throws BusinessException 401 if the token is missing, not a refresh
+	 *                            token, expired, or otherwise unparseable.
+	 */
+	public Long validateRefreshToken(String token) {
+		if (token == null || token.isBlank()) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "token_missing", "token", "is missing");
+		}
+		String type;
+		Claims claims;
+		try {
+			type = getTokenType(token);
+			claims = parseToken(token);
+		} catch (ExpiredJwtException e) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "token_expired", "token", "is expired");
+		} catch (Exception e) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "token_invalid", "token", "is invalid");
+		}
+		if (!"refresh".equals(type)) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "token_invalid", "token", "is invalid");
+		}
+		if (claims.getExpiration().before(new Date())) {
+			throw new BusinessException(HttpStatus.UNAUTHORIZED, "token_expired", "token", "is expired");
+		}
+		return Long.parseLong(claims.getSubject());
 	}
 }

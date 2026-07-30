@@ -6,6 +6,7 @@ import com.github.dropguard.summer.realworld.article.ArticleRepository;
 import com.github.dropguard.summer.realworld.comment.CommentRepository;
 import com.github.dropguard.summer.realworld.article.FavoriteRepository;
 import com.github.dropguard.summer.realworld.user.FollowRepository;
+import com.github.dropguard.summer.realworld.user.FollowService;
 import com.github.dropguard.summer.realworld.user.UserRepository;
 import com.github.dropguard.summer.realworld.article.ArticleService;
 import com.github.dropguard.summer.realworld.comment.CommentService;
@@ -45,8 +46,14 @@ public class AppConfig {
 	}
 
 	@Bean
-	public ArticleService articleService(ArticleRepository articleRepository) {
-		return new ArticleService(articleRepository);
+	public FollowService followService(FollowRepository followRepository) {
+		return new FollowService(followRepository);
+	}
+
+	@Bean
+	public ArticleService articleService(ArticleRepository articleRepository, FavoriteRepository favoriteRepository,
+			CommentRepository commentRepository) {
+		return new ArticleService(articleRepository, favoriteRepository, commentRepository);
 	}
 
 	@Bean

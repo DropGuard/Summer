@@ -113,15 +113,18 @@ class IssueServiceImplTest {
     }
 
     @Test
-    void invalidStatusDefaultsToOpen() {
+    void nullStatusOrPriorityRejected() {
         Project project = new Project(PROJECT_ID, ORG_ID, "DEMO", "Demo", OWNER_ID, null);
         when(projectRepository.findById(PROJECT_ID)).thenReturn(Optional.of(project));
         when(projectRepository.nextIssueSeq(PROJECT_ID)).thenReturn(1L);
         when(userRepository.findById(OWNER_ID)).thenReturn(Optional.of(user(OWNER_ID, "MEMBER")));
 
-        Issue result = service.createIssue(PROJECT_ID, "Title", "Desc", null, null, null);
-        assertEquals("OPEN", result.status());
-        assertEquals("MEDIUM", result.priority());
+        assertThrows(BusinessException.class,
+                () -> service.createIssue(PROJECT_ID, "Title", "Desc", null, "MEDIUM", null),
+                "null status should be rejected");
+        assertThrows(BusinessException.class,
+                () -> service.createIssue(PROJECT_ID, "Title", "Desc", "OPEN", null, null),
+                "null priority should be rejected");
     }
 
     @Test

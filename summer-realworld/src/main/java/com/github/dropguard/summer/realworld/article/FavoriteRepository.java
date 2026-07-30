@@ -15,6 +15,12 @@ public class FavoriteRepository {
 		favorites.remove(userId + ":" + articleId);
 	}
 
+	/** Remove all favorites for an article — called when the article is deleted. */
+	public void deleteByArticleId(Long articleId) {
+		String suffix = ":" + articleId;
+		favorites.removeIf(key -> key.endsWith(suffix));
+	}
+
 	public boolean isFavorited(Long userId, Long articleId) {
 		return favorites.contains(userId + ":" + articleId);
 	}

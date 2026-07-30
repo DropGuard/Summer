@@ -3,13 +3,15 @@ package com.github.dropguard.summer.realworld.user;
 import java.util.List;
 import java.util.Map;
 
+import jakarta.validation.constraints.Size;
+
 public class UserDtos {
 
 	public record RegisterRequest(User user) {
 		public record User(
 				@jakarta.validation.constraints.NotBlank String username,
-				@jakarta.validation.constraints.NotBlank String email,
-				@jakarta.validation.constraints.NotBlank String password) {
+				@jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Email String email,
+				@jakarta.validation.constraints.NotBlank @Size(min = 8) String password) {
 		}
 	}
 
@@ -26,8 +28,13 @@ public class UserDtos {
 	}
 
 	public record UserResponse(User user) {
-		public record User(String email, String token, String username, String bio, String image) {
+		public record User(String email, String token, String username, String bio, String image,
+				String refreshToken) {
 		}
+	}
+
+	public record RefreshRequest(
+			@jakarta.validation.constraints.NotBlank String refreshToken) {
 	}
 
 	public record ProfileResponse(Profile profile) {

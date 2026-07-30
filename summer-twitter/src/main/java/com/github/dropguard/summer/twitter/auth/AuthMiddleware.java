@@ -1,6 +1,5 @@
 package com.github.dropguard.summer.twitter.auth;
 
-import io.jsonwebtoken.Claims;
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.web.Handler;
 import com.github.dropguard.summer.web.HttpContext;
@@ -35,8 +34,7 @@ public class AuthMiddleware implements Middleware {
 
             String token = authHeader.substring(7);
             try {
-                Claims claims = jwtUtil.extractClaims(token);
-                Long userId = Long.valueOf(claims.getSubject());
+                Long userId = jwtUtil.validateAccessToken(token);
                 ctx.request().setAttribute(RequestAttributes.USER_ID, userId);
                 next.handle(ctx);
             } catch (Exception e) {
@@ -56,7 +54,8 @@ public class AuthMiddleware implements Middleware {
         String path = ctx.path();
 
         // Bootstrap auth
-        if ("POST".equals(method) && ("/api/auth/register".equals(path) || "/api/auth/login".equals(path))) {
+        if ("POST".equals(method) && ("/api/auth/register".equals(path)
+                || "/api/auth/login".equals(path) || "/api/auth/refresh".equals(path))) {
             return true;
         }
 

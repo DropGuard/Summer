@@ -31,11 +31,14 @@ public class AuthService {
         this.jwtUtil = jwtUtil;
     }
 
-    public record AuthResult(Long userId, String username, String token) {}
+    public record AuthResult(Long userId, String username, String token, String refreshToken) {}
 
     public AuthResult register(String username, String displayName, String email, String password, String orgName, String orgSlug) {
         if (userService.findByUsername(username).isPresent()) {
             throw BusinessException.badRequest("Username already taken");
+        }
+        if (password == null || password.length() < 8) {
+            throw BusinessException.badRequest("Password must be at least 8 characters");
         }
         // Demo simplification: every registration creates its own organization. The
         // new user is a plain MEMBER — ADMIN/MANAGER are granted explicitly (e.g. a
@@ -51,7 +54,9 @@ public class AuthService {
                 java.time.OffsetDateTime.now()));
         User user = userService.registerUser(orgId, username, displayName, email,
                 hashPassword(password), Role.MEMBER);
-        return new AuthResult(user.id(), user.username(), jwtUtil.generate(user.id(), user.username()));
+        return new AuthResult(user.id(), user.username(),
+                jwtUtil.generateAccessToken(user.id(), user.username()),
+                jwtUtil.generateRefreshToken(user.id()));
     }
 
     public AuthResult login(String username, String password) {
@@ -60,7 +65,9 @@ public class AuthService {
         if (!verifyPassword(user.passwordHash(), password)) {
             throw BusinessException.unauthorized("Invalid credentials");
         }
-        return new AuthResult(user.id(), user.username(), jwtUtil.generate(user.id(), user.username()));
+        return new AuthResult(user.id(), user.username(),
+                jwtUtil.generateAccessToken(user.id(), user.username()),
+                jwtUtil.generateRefreshToken(user.id()));
     }
 
     private static long hashOrgId(String slug) {

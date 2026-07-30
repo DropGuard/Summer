@@ -1,7 +1,5 @@
 package com.github.dropguard.summer.issuetracker.security;
 
-import io.jsonwebtoken.Claims;
-
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.web.AuthMiddleware;
 import com.github.dropguard.summer.web.HttpContext;
@@ -41,8 +39,7 @@ public class JwtAuthMiddleware implements AuthMiddleware {
             return null;
         }
         try {
-            Claims claims = jwtUtil.extractClaims(authHeader.substring(7));
-            return Long.valueOf(claims.getSubject());
+            return jwtUtil.validateAccessToken(authHeader.substring(7));
         } catch (Exception e) {
             return null;
         }
@@ -51,7 +48,8 @@ public class JwtAuthMiddleware implements AuthMiddleware {
     private static boolean isPublicRequest(HttpContext ctx) {
         String method = ctx.method().name();
         String path = ctx.path();
-        if ("POST".equals(method) && ("/api/auth/register".equals(path) || "/api/auth/login".equals(path))) {
+        if ("POST".equals(method) && ("/api/auth/register".equals(path)
+                || "/api/auth/login".equals(path) || "/api/auth/refresh".equals(path))) {
             return true;
         }
         return "GET".equals(method) && ("/health/live".equals(path) || "/health/ready".equals(path));

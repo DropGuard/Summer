@@ -10,6 +10,7 @@ import com.github.dropguard.summer.realworld.user.UserDtos;
 import com.github.dropguard.summer.realworld.user.User;
 import com.github.dropguard.summer.realworld.user.UserService;
 import com.github.dropguard.summer.realworld.auth.AuthUtils;
+import com.github.dropguard.summer.realworld.auth.LoginRateLimiter;
 import com.github.dropguard.summer.realworld.common.Errors;
 import com.github.dropguard.summer.realworld.auth.JwtUtil;
 import com.github.dropguard.summer.web.HttpContext;
@@ -23,10 +24,12 @@ import com.github.dropguard.summer.web.annotation.RestController;
 public class UserController {
 	private final UserService userService;
 	private final JwtUtil jwtUtil;
+	private final LoginRateLimiter rateLimiter;
 
-	public UserController(UserService userService, JwtUtil jwtUtil) {
+	public UserController(UserService userService, JwtUtil jwtUtil, LoginRateLimiter rateLimiter) {
 		this.userService = userService;
 		this.jwtUtil = jwtUtil;
+		this.rateLimiter = rateLimiter;
 	}
 
 	@Post("/users")
@@ -43,24 +46,25 @@ public class UserController {
 		UserDtos.LoginRequest body = ctx.validatedBody(UserDtos.LoginRequest.class);
 		var u = body.user();
 
+		if (rateLimiter.isBlocked(u.email())) {
+			ctx.json(HttpStatus.TOO_MANY_REQUESTS, Errors.of("rate_limit", "too many attempts, try again later"));
+			return;
+		}
+
 		Optional<User> userOpt = userService.findByEmail(u.email());
 		if (userOpt.isEmpty() || !BCrypt.checkpw(u.password(), userOpt.get().getPassword())) {
+			rateLimiter.recordFailure(u.email());
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.credentials());
 			return;
 		}
 
+		rateLimiter.reset(u.email());
 		ctx.json(HttpStatus.OK, createUserResponse(userOpt.get()));
 	}
 
 	@Get("/user")
 	public void getCurrentUser(HttpContext ctx) {
-		String token = extractToken(ctx);
-		if (token == null || !jwtUtil.isAccessToken(token)) {
-			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
-			return;
-		}
-
-		Long userId = jwtUtil.getUserIdFromToken(token);
+		Long userId = jwtUtil.validateAccessToken(extractToken(ctx));
 		Optional<User> userOpt = userService.findById(userId);
 		if (userOpt.isEmpty()) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
@@ -72,13 +76,7 @@ public class UserController {
 
 	@Put("/user")
 	public void updateUser(HttpContext ctx) {
-		String token = extractToken(ctx);
-		if (token == null || !jwtUtil.isAccessToken(token)) {
-			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
-			return;
-		}
-
-		Long userId = jwtUtil.getUserIdFromToken(token);
+		Long userId = jwtUtil.validateAccessToken(extractToken(ctx));
 		Optional<User> userOpt = userService.findById(userId);
 		if (userOpt.isEmpty()) {
 			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
@@ -119,10 +117,31 @@ public class UserController {
 		ctx.json(HttpStatus.OK, createUserResponse(updatedUser));
 	}
 
+	@Post("/users/refresh")
+	public void refreshToken(HttpContext ctx) {
+		UserDtos.RefreshRequest body = ctx.validatedBody(UserDtos.RefreshRequest.class);
+		Long userId = jwtUtil.validateRefreshToken(body.refreshToken());
+		Optional<User> userOpt = userService.findById(userId);
+		if (userOpt.isEmpty()) {
+			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
+			return;
+		}
+
+		String newAccess = jwtUtil.generateAccessToken(userOpt.get().getId(),
+				userOpt.get().getUsername(), userOpt.get().getEmail());
+		String newRefresh = jwtUtil.generateRefreshToken(userOpt.get().getId());
+		ctx.json(HttpStatus.OK, new UserDtos.UserResponse(
+				new UserDtos.UserResponse.User(userOpt.get().getEmail(), newAccess,
+						userOpt.get().getUsername(), userOpt.get().getBio(),
+						userOpt.get().getImage(), newRefresh)));
+	}
+
 	private UserDtos.UserResponse createUserResponse(User user) {
 		String accessToken = jwtUtil.generateAccessToken(user.getId(), user.getUsername(), user.getEmail());
+		String refreshToken = jwtUtil.generateRefreshToken(user.getId());
 		return new UserDtos.UserResponse(
-				new UserDtos.UserResponse.User(user.getEmail(), accessToken, user.getUsername(), user.getBio(), user.getImage()));
+				new UserDtos.UserResponse.User(user.getEmail(), accessToken, user.getUsername(),
+						user.getBio(), user.getImage(), refreshToken));
 	}
 
 	private String extractToken(HttpContext ctx) {

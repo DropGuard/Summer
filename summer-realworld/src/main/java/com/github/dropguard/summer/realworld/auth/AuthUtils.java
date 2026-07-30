@@ -28,26 +28,26 @@ public final class AuthUtils {
 	}
 
 	/**
-	 * Gets the current user ID from the JWT token in the Authorization header.
-	 * Returns null if token is missing, invalid, or not an access token.
+	 * Validates the access token and returns the authenticated user's ID.
+	 * Use when authentication is required.
 	 *
-	 * @param ctx the HTTP context
-	 * @param jwtUtil the JWT utility for token parsing
-	 * @return the user ID, or null if not authenticated
+	 * @throws BusinessException 401 if the token is missing, expired, or invalid
 	 */
 	public static Long getCurrentUserId(HttpContext ctx, JwtUtil jwtUtil) {
 		String token = extractToken(ctx);
-		if (token == null) {
-			return null;
-		}
-		if (!jwtUtil.isAccessToken(token)) {
-			return null;
-		}
-		try {
-			return jwtUtil.getUserIdFromToken(token);
-		} catch (Exception e) {
-			return null;
-		}
+		return jwtUtil.validateAccessToken(token);
+	}
+
+	/**
+	 * Returns the authenticated user's ID, or {@code null} when no token is
+	 * present (anonymous access). If a token is supplied it must be valid —
+	 * expired or malformed tokens throw a 401 instead of silently falling back
+	 * to null.
+	 */
+	public static Long tryGetCurrentUserId(HttpContext ctx, JwtUtil jwtUtil) {
+		String token = extractToken(ctx);
+		if (token == null) return null;
+		return jwtUtil.validateAccessToken(token);
 	}
 
 	/**
@@ -58,6 +58,6 @@ public final class AuthUtils {
 	 * @return true if a valid access token is present
 	 */
 	public static boolean isAuthenticated(HttpContext ctx, JwtUtil jwtUtil) {
-		return getCurrentUserId(ctx, jwtUtil) != null;
+		return tryGetCurrentUserId(ctx, jwtUtil) != null;
 	}
 }

@@ -4,7 +4,6 @@ import java.util.Optional;
 
 import com.github.dropguard.summer.realworld.user.UserDtos;
 import com.github.dropguard.summer.realworld.user.User;
-import com.github.dropguard.summer.realworld.user.FollowRepository;
 import com.github.dropguard.summer.realworld.user.UserService;
 import com.github.dropguard.summer.realworld.auth.AuthUtils;
 import com.github.dropguard.summer.realworld.common.Errors;
@@ -20,12 +19,12 @@ import com.github.dropguard.summer.web.annotation.RestController;
 @RestController("/api")
 public class ProfileController {
 	private final UserService userService;
-	private final FollowRepository followRepository;
+	private final FollowService followService;
 	private final JwtUtil jwtUtil;
 
-	public ProfileController(UserService userService, FollowRepository followRepository, JwtUtil jwtUtil) {
+	public ProfileController(UserService userService, FollowService followService, JwtUtil jwtUtil) {
 		this.userService = userService;
-		this.followRepository = followRepository;
+		this.followService = followService;
 		this.jwtUtil = jwtUtil;
 	}
 
@@ -37,17 +36,13 @@ public class ProfileController {
 			return;
 		}
 
-		Long currentUserId = AuthUtils.getCurrentUserId(ctx, jwtUtil);
+		Long currentUserId = AuthUtils.tryGetCurrentUserId(ctx, jwtUtil);
 		ctx.json(HttpStatus.OK, createProfileResponse(userOpt.get(), currentUserId));
 	}
 
 	@Post("/profiles/{username}/follow")
 	public void followUser(HttpContext ctx, @PathParam("username") String username) {
 		Long currentUserId = AuthUtils.getCurrentUserId(ctx, jwtUtil);
-		if (currentUserId == null) {
-			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
-			return;
-		}
 
 		Optional<User> userOpt = userService.findByUsername(username);
 		if (userOpt.isEmpty()) {
@@ -55,17 +50,13 @@ public class ProfileController {
 			return;
 		}
 
-		followRepository.follow(currentUserId, userOpt.get().getId());
+		followService.follow(currentUserId, userOpt.get().getId());
 		ctx.json(HttpStatus.OK, createProfileResponse(userOpt.get(), currentUserId));
 	}
 
 	@Delete("/profiles/{username}/follow")
 	public void unfollowUser(HttpContext ctx, @PathParam("username") String username) {
 		Long currentUserId = AuthUtils.getCurrentUserId(ctx, jwtUtil);
-		if (currentUserId == null) {
-			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
-			return;
-		}
 
 		Optional<User> userOpt = userService.findByUsername(username);
 		if (userOpt.isEmpty()) {
@@ -73,12 +64,12 @@ public class ProfileController {
 			return;
 		}
 
-		followRepository.unfollow(currentUserId, userOpt.get().getId());
+		followService.unfollow(currentUserId, userOpt.get().getId());
 		ctx.json(HttpStatus.OK, createProfileResponse(userOpt.get(), currentUserId));
 	}
 
 	private UserDtos.ProfileResponse createProfileResponse(User user, Long currentUserId) {
-		boolean following = currentUserId != null && followRepository.isFollowing(currentUserId, user.getId());
+		boolean following = followService.isFollowing(currentUserId, user.getId());
 		return new UserDtos.ProfileResponse(
 				new UserDtos.ProfileResponse.Profile(user.getUsername(), user.getBio(), user.getImage(), following));
 	}

@@ -11,7 +11,6 @@ import com.github.dropguard.summer.issuetracker.comment.Comment;
 import com.github.dropguard.summer.issuetracker.comment.CommentRepository;
 import com.github.dropguard.summer.issuetracker.common.BusinessException;
 import com.github.dropguard.summer.issuetracker.common.IdGenerator;
-import com.github.dropguard.summer.issuetracker.common.ValidationException;
 import com.github.dropguard.summer.issuetracker.project.Project;
 import com.github.dropguard.summer.issuetracker.tag.Tag;
 import com.github.dropguard.summer.issuetracker.project.ProjectRepository;

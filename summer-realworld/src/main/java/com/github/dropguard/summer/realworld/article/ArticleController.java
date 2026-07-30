@@ -75,7 +75,7 @@ public class ArticleController {
 		articles = new ArrayList<>(articles);
 		articles.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
 
-		Long currentUserId = getCurrentUserId(ctx);
+		Long currentUserId = tryGetCurrentUserId(ctx);
 		int total = articles.size();
 		List<Article> paginatedArticles = pageable.paginate(articles);
 
@@ -88,10 +88,6 @@ public class ArticleController {
 	@Get("/articles/feed")
 	public void feedArticles(HttpContext ctx, LimitOffsetPageable pageable) {
 		Long currentUserId = getCurrentUserId(ctx);
-		if (currentUserId == null) {
-			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
-			return;
-		}
 
 		Set<Long> followingIds = followRepository.getFollowing(currentUserId);
 		List<Article> articles = articleService.findAll().stream().filter(a -> followingIds.contains(a.getAuthorId()))
@@ -114,17 +110,13 @@ public class ArticleController {
 			return;
 		}
 
-		Long currentUserId = getCurrentUserId(ctx);
+		Long currentUserId = tryGetCurrentUserId(ctx);
 		ctx.json(HttpStatus.OK, new ArticleResponse(createArticleData(articleOpt.get(), currentUserId, true)));
 	}
 
 	@Post("/articles")
 	public void createArticle(HttpContext ctx) {
 		Long currentUserId = getCurrentUserId(ctx);
-		if (currentUserId == null) {
-			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
-			return;
-		}
 
 		ArticleDtos.CreateArticleRequest body = ctx.validatedBody(ArticleDtos.CreateArticleRequest.class);
 		var a = body.article();
@@ -136,10 +128,6 @@ public class ArticleController {
 	@Put("/articles/{slug}")
 	public void updateArticle(HttpContext ctx, @PathParam("slug") String slug) {
 		Long currentUserId = getCurrentUserId(ctx);
-		if (currentUserId == null) {
-			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
-			return;
-		}
 
 		Optional<Article> articleOpt = articleService.findBySlug(slug);
 		if (articleOpt.isEmpty()) {
@@ -173,10 +161,6 @@ public class ArticleController {
 	@Delete("/articles/{slug}")
 	public void deleteArticle(HttpContext ctx, @PathParam("slug") String slug) {
 		Long currentUserId = getCurrentUserId(ctx);
-		if (currentUserId == null) {
-			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
-			return;
-		}
 
 		Optional<Article> articleOpt = articleService.findBySlug(slug);
 		if (articleOpt.isEmpty()) {
@@ -197,10 +181,6 @@ public class ArticleController {
 	@Post("/articles/{slug}/favorite")
 	public void favoriteArticle(HttpContext ctx, @PathParam("slug") String slug) {
 		Long currentUserId = getCurrentUserId(ctx);
-		if (currentUserId == null) {
-			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
-			return;
-		}
 
 		Optional<Article> articleOpt = articleService.findBySlug(slug);
 		if (articleOpt.isEmpty()) {
@@ -215,10 +195,6 @@ public class ArticleController {
 	@Delete("/articles/{slug}/favorite")
 	public void unfavoriteArticle(HttpContext ctx, @PathParam("slug") String slug) {
 		Long currentUserId = getCurrentUserId(ctx);
-		if (currentUserId == null) {
-			ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
-			return;
-		}
 
 		Optional<Article> articleOpt = articleService.findBySlug(slug);
 		if (articleOpt.isEmpty()) {
@@ -266,6 +242,10 @@ public class ArticleController {
 
 	private Long getCurrentUserId(HttpContext ctx) {
 		return AuthUtils.getCurrentUserId(ctx, jwtUtil);
+	}
+
+	private Long tryGetCurrentUserId(HttpContext ctx) {
+		return AuthUtils.tryGetCurrentUserId(ctx, jwtUtil);
 	}
 
 }

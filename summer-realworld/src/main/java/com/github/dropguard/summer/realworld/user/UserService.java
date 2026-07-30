@@ -25,6 +25,9 @@ public class UserService {
 		if (password == null || password.isBlank()) {
 			throw new ValidationException("password", "can't be blank");
 		}
+		if (password.length() < 8) {
+			throw new ValidationException("password", "is too short (minimum is 8 characters)");
+		}
 		if (userRepository.findByUsername(username).isPresent()) {
 			throw new ConflictException("username", "has already been taken");
 		}

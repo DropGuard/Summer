@@ -5,16 +5,22 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import com.github.dropguard.summer.realworld.article.*;
+import com.github.dropguard.summer.realworld.comment.CommentRepository;
 import com.github.dropguard.summer.realworld.common.ValidationException;
 import com.github.dropguard.summer.realworld.common.ConflictException;
 import com.github.dropguard.summer.realworld.article.*;
 
 public class ArticleService {
 	private final ArticleRepository articleRepository;
+	private final FavoriteRepository favoriteRepository;
+	private final CommentRepository commentRepository;
 	private final AtomicLong slugCounter = new AtomicLong(1);
 
-	public ArticleService(ArticleRepository articleRepository) {
+	public ArticleService(ArticleRepository articleRepository, FavoriteRepository favoriteRepository,
+			CommentRepository commentRepository) {
 		this.articleRepository = articleRepository;
+		this.favoriteRepository = favoriteRepository;
+		this.commentRepository = commentRepository;
 	}
 
 	public Article create(String title, String description, String body, List<String> tagList, Long authorId) {
@@ -90,6 +96,8 @@ public class ArticleService {
 	}
 
 	public void delete(Long id) {
+		favoriteRepository.deleteByArticleId(id);
+		commentRepository.deleteByArticleId(id);
 		articleRepository.deleteById(id);
 	}
 

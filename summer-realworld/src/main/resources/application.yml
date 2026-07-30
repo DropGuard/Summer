@@ -4,4 +4,4 @@ maxBodySize: 10485760
 readTimeout: 10000
 
 jwt:
-  secret: my-secret-key-for-development-only
+  secret: ${JWT_SECRET:-change-me-in-production}

@@ -37,4 +37,9 @@ public class CommentRepository {
 	public void deleteById(Long id) {
 		comments.remove(id);
 	}
+
+	/** Remove all comments for an article — called when the article is deleted. */
+	public void deleteByArticleId(Long articleId) {
+		comments.values().removeIf(comment -> comment.getArticleId().equals(articleId));
+	}
 }

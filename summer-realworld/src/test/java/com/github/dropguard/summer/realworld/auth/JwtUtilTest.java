@@ -4,8 +4,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.dropguard.summer.core.config.ConfigBinder.BindingContext;
 import com.github.dropguard.summer.core.config.ConfigBinder;
+import com.github.dropguard.summer.realworld.common.BusinessException;
 import com.github.dropguard.summer.runtime.ConfigMappingProxyBinder;
+import io.jsonwebtoken.Jwts;
+import java.util.Date;
 import java.util.Map;
+import javax.crypto.SecretKey;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -92,5 +96,90 @@ class JwtUtilTest {
 		String token = jwtUtil.generateAccessToken(1L, "user", "user@test.com");
 
 		assertFalse(jwtUtil.isTokenExpired(token));
+	}
+
+	// ── validateAccessToken ──────────────────────────────────────────
+
+	@Test
+	void validateAccessTokenReturnsUserIdForValidToken() {
+		String token = jwtUtil.generateAccessToken(99L, "user", "user@test.com");
+
+		Long userId = jwtUtil.validateAccessToken(token);
+
+		assertEquals(99L, userId);
+	}
+
+	@Test
+	void validateAccessTokenThrowsOnNullToken() {
+		BusinessException ex = assertThrows(BusinessException.class,
+				() -> jwtUtil.validateAccessToken(null));
+		assertEquals("token", ex.field());
+		assertEquals("is missing", ex.getMessage());
+	}
+
+	@Test
+	void validateAccessTokenThrowsOnBlankToken() {
+		BusinessException ex = assertThrows(BusinessException.class,
+				() -> jwtUtil.validateAccessToken("   "));
+		assertEquals("token", ex.field());
+		assertEquals("is missing", ex.getMessage());
+	}
+
+	@Test
+	void validateAccessTokenThrowsOnGarbageToken() {
+		BusinessException ex = assertThrows(BusinessException.class,
+				() -> jwtUtil.validateAccessToken("not-a-jwt"));
+		assertEquals("token", ex.field());
+		assertEquals("is invalid", ex.getMessage());
+	}
+
+	@Test
+	void validateAccessTokenThrowsOnExpiredToken() throws Exception {
+		// Build an already-expired token directly so we don't have to sleep
+		SecretKey key = io.jsonwebtoken.security.Keys.hmacShaKeyFor(
+				"test-secret-key-for-unit-tests-32bytes!".getBytes());
+		String expiredToken = Jwts.builder()
+				.subject("1")
+				.claim("type", "access")
+				.issuedAt(new Date(System.currentTimeMillis() - 3600_000))
+				.expiration(new Date(System.currentTimeMillis() - 1))
+				.signWith(key)
+				.compact();
+
+		BusinessException ex = assertThrows(BusinessException.class,
+				() -> jwtUtil.validateAccessToken(expiredToken));
+		assertEquals("token", ex.field());
+		assertEquals("is expired", ex.getMessage());
+	}
+
+	@Test
+	void validateAccessTokenThrowsOnRefreshTokenUsedAsAccess() {
+		String refreshToken = jwtUtil.generateRefreshToken(1L);
+
+		BusinessException ex = assertThrows(BusinessException.class,
+				() -> jwtUtil.validateAccessToken(refreshToken));
+		assertEquals("token", ex.field());
+		assertEquals("is invalid", ex.getMessage());
+	}
+
+	// ── validateRefreshToken ─────────────────────────────────────────
+
+	@Test
+	void validateRefreshTokenReturnsUserIdForValidToken() {
+		String token = jwtUtil.generateRefreshToken(42L);
+
+		Long userId = jwtUtil.validateRefreshToken(token);
+
+		assertEquals(42L, userId);
+	}
+
+	@Test
+	void validateRefreshTokenRejectsAccessToken() {
+		String accessToken = jwtUtil.generateAccessToken(1L, "u", "u@t.com");
+
+		BusinessException ex = assertThrows(BusinessException.class,
+				() -> jwtUtil.validateRefreshToken(accessToken));
+		assertEquals("token", ex.field());
+		assertEquals("is invalid", ex.getMessage());
 	}
 }
