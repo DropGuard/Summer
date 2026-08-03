@@ -27,7 +27,7 @@ public final class TestResources {
             return Map.of();
         }
         Map<String, Object> merged = new LinkedHashMap<>();
-        for (TestResource ann : annotations) {
+        for (com.github.dropguard.summer.test.annotation.TestResource ann : annotations) {
             merged.putAll(forClass(ann.value()));
         }
         return Map.copyOf(merged);
@@ -47,13 +47,13 @@ public final class TestResources {
         }
     }
 
-    private static TestResource[] collectAnnotations(Class<?> testClass) {
-        TestResource.List list = testClass.getAnnotation(TestResource.List.class);
+    private static com.github.dropguard.summer.test.annotation.TestResource[] collectAnnotations(Class<?> testClass) {
+        com.github.dropguard.summer.test.annotation.TestResource.List list = testClass.getAnnotation(com.github.dropguard.summer.test.annotation.TestResource.List.class);
         if (list != null) {
             return list.value();
         }
-        TestResource single = testClass.getAnnotation(TestResource.class);
-        return single != null ? new TestResource[] {single} : new TestResource[0];
+        com.github.dropguard.summer.test.annotation.TestResource single = testClass.getAnnotation(com.github.dropguard.summer.test.annotation.TestResource.class);
+        return single != null ? new com.github.dropguard.summer.test.annotation.TestResource[] {single} : new com.github.dropguard.summer.test.annotation.TestResource[0];
     }
 
     static void shutdown() {

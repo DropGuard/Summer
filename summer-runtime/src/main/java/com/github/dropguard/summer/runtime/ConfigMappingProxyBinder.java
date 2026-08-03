@@ -73,20 +73,20 @@ public final class ConfigMappingProxyBinder implements InterfaceBinder {
 
         @Override
         public Object invoke(Object proxy, Method method, Object[] args) {
+            // Object methods — checked by declaring class, not method name, so
+            // equals(Object) is correctly routed before the argument guard.
+            if (method.getDeclaringClass() == Object.class) {
+                return switch (method.getName()) {
+                    case "equals" -> proxy == args[0];
+                    case "hashCode" -> System.identityHashCode(proxy);
+                    case "toString" -> targetType.getSimpleName() + "ConfigMapping" + section;
+                    default -> throw new UnsupportedOperationException(
+                            "unexpected Object method: " + method);
+                };
+            }
             if (args != null && args.length != 0) {
-                // No config mapping method takes arguments.
                 throw new UnsupportedOperationException(
                         "config mapping method must be parameterless: " + method);
-            }
-            switch (method.getName()) {
-                case "toString":
-                    return targetType.getSimpleName() + "ConfigMapping" + section;
-                case "hashCode":
-                    return System.identityHashCode(proxy);
-                case "equals":
-                    return proxy == (args == null ? null : args[0]);
-                default:
-                    break;
             }
             String key = resolveKey(method);
             Object value = section.get(key);
