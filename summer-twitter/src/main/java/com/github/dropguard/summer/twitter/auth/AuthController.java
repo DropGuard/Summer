@@ -47,6 +47,12 @@ public class AuthController {
             return;
         }
 
+        Optional<User> existingEmail = userRepository.findByEmail(req.email());
+        if (existingEmail.isPresent()) {
+            ctx.text(HttpStatus.BAD_REQUEST, "Email already exists");
+            return;
+        }
+
         String passwordHash = BCrypt.hashpw(req.password(), BCrypt.gensalt());
 
         User user = new User(

@@ -2,7 +2,6 @@ package com.github.dropguard.summer.twitter.social;
 
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
-import java.util.List;
 
 @Component
 public class LikeRepository {
@@ -13,19 +12,22 @@ public class LikeRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public void insert(Like like) {
-        String sql = "INSERT INTO likes (id, user_id, tweet_id, created_at) VALUES (?, ?, ?, ?)";
-        jdbcTemplate.update(sql, like.id(), like.userId(), like.tweetId(), like.createdAt());
+    /** Atomically insert if absent; returns true when a row was actually created. */
+    public boolean insertIfAbsent(Like like) {
+        String sql = "INSERT INTO likes (id, user_id, tweet_id, created_at) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING";
+        int rows = jdbcTemplate.update(sql, like.id(), like.userId(), like.tweetId(), like.createdAt());
+        return rows > 0;
     }
 
-    public void delete(Long userId, Long tweetId) {
+    /** Delete and return the number of rows actually removed (0 or 1). */
+    public int deleteByUserAndTweet(Long userId, Long tweetId) {
         String sql = "DELETE FROM likes WHERE user_id = ? AND tweet_id = ?";
-        jdbcTemplate.update(sql, userId, tweetId);
+        return jdbcTemplate.update(sql, userId, tweetId);
     }
 
-    public boolean exists(Long userId, Long tweetId) {
-        String sql = "SELECT COUNT(*) FROM likes WHERE user_id = ? AND tweet_id = ?";
-        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, userId, tweetId);
-        return count != null && count > 0;
+    /** Delete all likes for a tweet — called before tweet deletion. */
+    public void deleteByTweetId(Long tweetId) {
+        String sql = "DELETE FROM likes WHERE tweet_id = ?";
+        jdbcTemplate.update(sql, tweetId);
     }
 }

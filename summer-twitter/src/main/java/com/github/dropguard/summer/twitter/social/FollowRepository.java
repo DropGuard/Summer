@@ -13,20 +13,17 @@ public class FollowRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-    public void insert(Follow follow) {
-        String sql = "INSERT INTO follows (id, follower_id, following_id, created_at) VALUES (?, ?, ?, ?)";
-        jdbcTemplate.update(sql, follow.id(), follow.followerId(), follow.followingId(), follow.createdAt());
+    /** Atomically insert if absent; returns true when a row was actually created. */
+    public boolean insertIfAbsent(Follow follow) {
+        String sql = "INSERT INTO follows (id, follower_id, following_id, created_at) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING";
+        int rows = jdbcTemplate.update(sql, follow.id(), follow.followerId(), follow.followingId(), follow.createdAt());
+        return rows > 0;
     }
 
-    public void delete(Long followerId, Long followingId) {
+    /** Delete and return the number of rows actually removed (0 or 1). */
+    public int deleteByUsers(Long followerId, Long followingId) {
         String sql = "DELETE FROM follows WHERE follower_id = ? AND following_id = ?";
-        jdbcTemplate.update(sql, followerId, followingId);
-    }
-
-    public boolean exists(Long followerId, Long followingId) {
-        String sql = "SELECT COUNT(*) FROM follows WHERE follower_id = ? AND following_id = ?";
-        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, followerId, followingId);
-        return count != null && count > 0;
+        return jdbcTemplate.update(sql, followerId, followingId);
     }
 
     public List<Follow> findFollowers(Long followingId, Long cursor, int limit) {

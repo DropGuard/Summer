@@ -40,12 +40,12 @@ public class TweetRepository {
     }
 
     public void updateLikeCount(Long id, int delta) {
-        String sql = "UPDATE tweets SET like_count = like_count + ? WHERE id = ?";
+        String sql = "UPDATE tweets SET like_count = GREATEST(0, like_count + ?) WHERE id = ?";
         jdbcTemplate.update(sql, delta, id);
     }
 
     public void updateReplyCount(Long id, int delta) {
-        String sql = "UPDATE tweets SET reply_count = reply_count + ? WHERE id = ?";
+        String sql = "UPDATE tweets SET reply_count = GREATEST(0, reply_count + ?) WHERE id = ?";
         jdbcTemplate.update(sql, delta, id);
     }
 
@@ -61,5 +61,11 @@ public class TweetRepository {
         String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
         String sql = "SELECT id, author_id, content, type, parent_id, like_count, reply_count, retweet_count, created_at FROM tweets WHERE id IN (" + placeholders + ")";
         return jdbcTemplate.queryForList(sql, Tweet.class, ids.toArray());
+    }
+
+    /** Find all replies/retweets/quotes that reference the given parent tweet. */
+    public List<Tweet> findByParentId(Long parentId) {
+        String sql = "SELECT id, author_id, content, type, parent_id, like_count, reply_count, retweet_count, created_at FROM tweets WHERE parent_id = ?";
+        return jdbcTemplate.queryForList(sql, Tweet.class, parentId);
     }
 }

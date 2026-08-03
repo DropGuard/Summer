@@ -20,22 +20,21 @@ public class LikeService {
     }
 
     public void like(Long currentUserId, Long tweetId) {
-        if (likeRepository.exists(currentUserId, tweetId)) {
-            return; // Already liked
-        }
-
+        // Atomically insert — if the row already exists the DB constraint
+        // makes this a no-op and we skip the counter bump.
         Like like = new Like(idGenerator.nextId(), currentUserId, tweetId, OffsetDateTime.now());
-        likeRepository.insert(like);
+        if (!likeRepository.insertIfAbsent(like)) {
+            return; // Already liked — idempotent
+        }
 
         tweetRepository.updateLikeCount(tweetId, 1);
     }
 
     public void unlike(Long currentUserId, Long tweetId) {
-        if (!likeRepository.exists(currentUserId, tweetId)) {
-            return; // Not liked
+        int deleted = likeRepository.deleteByUserAndTweet(currentUserId, tweetId);
+        if (deleted == 0) {
+            return; // Not liked — idempotent
         }
-
-        likeRepository.delete(currentUserId, tweetId);
 
         tweetRepository.updateLikeCount(tweetId, -1);
     }

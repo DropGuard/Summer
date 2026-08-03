@@ -31,12 +31,13 @@ public class FollowService {
             throw new IllegalOperationException("Cannot follow yourself");
         }
 
-        if (followRepository.exists(currentUserId, targetUser.id())) {
-            return; // Already following
-        }
-
+        // Atomically insert — if the row already exists (concurrent follow or
+        // replay) the DB constraint makes this a no-op and we skip the counter
+        // bump so counts stay accurate.
         Follow follow = new Follow(idGenerator.nextId(), currentUserId, targetUser.id(), OffsetDateTime.now());
-        followRepository.insert(follow);
+        if (!followRepository.insertIfAbsent(follow)) {
+            return; // Already following — idempotent
+        }
 
         userRepository.updateCounts(targetUser.id(), 1, 0);
         userRepository.updateCounts(currentUserId, 0, 1);
@@ -46,11 +47,12 @@ public class FollowService {
         User targetUser = userRepository.findByUsername(targetUsername)
                 .orElseThrow(() -> new UserNotFoundException("Target user not found"));
 
-        if (!followRepository.exists(currentUserId, targetUser.id())) {
-            return; // Not following
+        // Delete the follow row — if it doesn't exist (already unfollowed,
+        // concurrent unfollow, or never followed) this is a 0-row no-op.
+        int deleted = followRepository.deleteByUsers(currentUserId, targetUser.id());
+        if (deleted == 0) {
+            return; // Not following — idempotent
         }
-
-        followRepository.delete(currentUserId, targetUser.id());
 
         userRepository.updateCounts(targetUser.id(), -1, 0);
         userRepository.updateCounts(currentUserId, 0, -1);

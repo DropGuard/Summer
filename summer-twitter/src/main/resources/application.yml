@@ -2,17 +2,17 @@ server:
   port: 8080
 
 datasource:
-  url: jdbc:postgresql://localhost:5432/summer
-  username: summer
-  password: summer
+  url: ${DATASOURCE_URL:-jdbc:postgresql://localhost:5432/summer}
+  username: ${DATASOURCE_USERNAME:-summer}
+  password: ${DATASOURCE_PASSWORD:-summer}
   driver-class-name: org.postgresql.Driver
 
 redis:
-  host: localhost
-  port: 6379
+  host: ${REDIS_HOST:-localhost}
+  port: ${REDIS_PORT:-6379}
 
 jwt:
-  secret: a-very-secure-jwt-secret-key-that-is-long-enough-to-be-secure
+  secret: ${JWT_SECRET:-change-me-in-production}
 
 cors:
   allowed-origins: "http://localhost:5173"

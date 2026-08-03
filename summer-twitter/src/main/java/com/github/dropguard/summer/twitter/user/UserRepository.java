@@ -50,9 +50,14 @@ public class UserRepository {
         return Optional.ofNullable(user);
     }
 
+    public Optional<User> findByEmail(String email) {
+        User user = jdbcTemplate.queryForObject("SELECT * FROM users WHERE email = ?", User.class, email);
+        return Optional.ofNullable(user);
+    }
+
     public void updateCounts(Long id, int followerDelta, int followingDelta) {
         jdbcTemplate.update(
-            "UPDATE users SET follower_count = follower_count + ?, following_count = following_count + ? WHERE id = ?",
+            "UPDATE users SET follower_count = GREATEST(0, follower_count + ?), following_count = GREATEST(0, following_count + ?) WHERE id = ?",
             followerDelta, followingDelta, id
         );
     }

@@ -1,11 +1,14 @@
 package com.github.dropguard.summer.twitter.tweet;
 
 import com.github.dropguard.summer.core.Component;
+import com.github.dropguard.summer.twitter.common.BusinessException;
 import com.github.dropguard.summer.twitter.common.ResourceNotFoundException;
 import com.github.dropguard.summer.twitter.common.UserNotFoundException;
 import com.github.dropguard.summer.twitter.infra.SnowflakeIdGenerator;
+import com.github.dropguard.summer.twitter.social.LikeRepository;
 import com.github.dropguard.summer.twitter.user.User;
 import com.github.dropguard.summer.twitter.user.UserRepository;
+import com.github.dropguard.summer.web.HttpStatus;
 
 import com.github.dropguard.summer.twitter.timeline.TimelineService;
 import java.time.OffsetDateTime;
@@ -20,14 +23,16 @@ public class TweetService {
 
     private final TweetRepository tweetRepository;
     private final UserRepository userRepository;
+    private final LikeRepository likeRepository;
     private final SnowflakeIdGenerator idGenerator;
     private final TimelineService timelineService;
 
     private static final Pattern MENTION_PATTERN = Pattern.compile("@(\\w+)");
 
-    public TweetService(TweetRepository tweetRepository, UserRepository userRepository, SnowflakeIdGenerator idGenerator, TimelineService timelineService) {
+    public TweetService(TweetRepository tweetRepository, UserRepository userRepository, LikeRepository likeRepository, SnowflakeIdGenerator idGenerator, TimelineService timelineService) {
         this.tweetRepository = tweetRepository;
         this.userRepository = userRepository;
+        this.likeRepository = likeRepository;
         this.idGenerator = idGenerator;
         this.timelineService = timelineService;
     }
@@ -133,11 +138,36 @@ public class TweetService {
 
     public void deleteTweet(Long id, Long requesterId) {
         Tweet tweet = tweetRepository.findById(id);
-        if (tweet != null && tweet.authorId().equals(requesterId)) {
-            tweetRepository.delete(id);
-            if (tweet.parentId() != null) {
-                tweetRepository.updateReplyCount(tweet.parentId(), -1);
-            }
+        if (tweet == null) {
+            throw new ResourceNotFoundException("Tweet not found");
+        }
+        if (!tweet.authorId().equals(requesterId)) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "forbidden",
+                    "You can only delete your own tweets");
+        }
+
+        // Clean up likes before the tweet goes away (ON DELETE CASCADE handles
+        // the FK at DB level, but we still need to decrement like counts on the
+        // tweet itself — though since it's being deleted that's moot. The primary
+        // benefit is that it keeps the DB and in-memory state consistent in case
+        // the DB cascade fails or in a non-Postgres environment.)
+        likeRepository.deleteByTweetId(id);
+
+        // Collect and delete child tweets (replies, retweets, quotes). ON DELETE
+        // CASCADE on parent_id handles this at the DB level, but we process them
+        // explicitly so that each child's own likes are cleaned up and parent
+        // reply counts are adjusted.
+        List<Tweet> children = tweetRepository.findByParentId(id);
+        for (Tweet child : children) {
+            likeRepository.deleteByTweetId(child.id());
+            tweetRepository.delete(child.id());
+        }
+
+        tweetRepository.delete(id);
+
+        // If this tweet was a reply, update parent reply count
+        if (tweet.parentId() != null) {
+            tweetRepository.updateReplyCount(tweet.parentId(), -1);
         }
     }
 

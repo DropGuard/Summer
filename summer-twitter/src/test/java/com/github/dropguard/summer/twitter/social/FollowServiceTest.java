@@ -42,11 +42,11 @@ class FollowServiceTest {
 	void followInsertsAndUpdatesCounts() {
 		User target = new User(100L, "bob", "Bob", "bob@x.com", "h", "bio", null, null, null);
 		when(mockUserRepo.findByUsername("bob")).thenReturn(Optional.of(target));
-		when(mockFollowRepo.exists(1L, 100L)).thenReturn(false);
+		when(mockFollowRepo.insertIfAbsent(any(Follow.class))).thenReturn(true);
 
 		followService.follow(1L, "bob");
 
-		verify(mockFollowRepo).insert(any(Follow.class));
+		verify(mockFollowRepo).insertIfAbsent(any(Follow.class));
 		verify(mockUserRepo).updateCounts(100L, 1, 0);
 		verify(mockUserRepo).updateCounts(1L, 0, 1);
 	}
@@ -55,11 +55,11 @@ class FollowServiceTest {
 	void followIsIdempotent() {
 		User target = new User(100L, "bob", "Bob", "bob@x.com", "h", "bio", null, null, null);
 		when(mockUserRepo.findByUsername("bob")).thenReturn(Optional.of(target));
-		when(mockFollowRepo.exists(1L, 100L)).thenReturn(true);
+		when(mockFollowRepo.insertIfAbsent(any(Follow.class))).thenReturn(false);
 
 		followService.follow(1L, "bob");
 
-		verify(mockFollowRepo, never()).insert(any());
+		verify(mockFollowRepo).insertIfAbsent(any(Follow.class));
 		verify(mockUserRepo, never()).updateCounts(anyLong(), anyInt(), anyInt());
 	}
 
@@ -80,11 +80,11 @@ class FollowServiceTest {
 	void unfollowDeletesAndDecrementsCounts() {
 		User target = new User(100L, "bob", "Bob", "bob@x.com", "h", "bio", null, null, null);
 		when(mockUserRepo.findByUsername("bob")).thenReturn(Optional.of(target));
-		when(mockFollowRepo.exists(1L, 100L)).thenReturn(true);
+		when(mockFollowRepo.deleteByUsers(1L, 100L)).thenReturn(1);
 
 		followService.unfollow(1L, "bob");
 
-		verify(mockFollowRepo).delete(1L, 100L);
+		verify(mockFollowRepo).deleteByUsers(1L, 100L);
 		verify(mockUserRepo).updateCounts(100L, -1, 0);
 		verify(mockUserRepo).updateCounts(1L, 0, -1);
 	}
@@ -93,11 +93,11 @@ class FollowServiceTest {
 	void unfollowNoopWhenNotFollowing() {
 		User target = new User(100L, "bob", "Bob", "bob@x.com", "h", "bio", null, null, null);
 		when(mockUserRepo.findByUsername("bob")).thenReturn(Optional.of(target));
-		when(mockFollowRepo.exists(1L, 100L)).thenReturn(false);
+		when(mockFollowRepo.deleteByUsers(1L, 100L)).thenReturn(0);
 
 		followService.unfollow(1L, "bob");
 
-		verify(mockFollowRepo, never()).delete(anyLong(), anyLong());
+		verify(mockFollowRepo).deleteByUsers(1L, 100L);
 		verify(mockUserRepo, never()).updateCounts(anyLong(), anyInt(), anyInt());
 	}
 

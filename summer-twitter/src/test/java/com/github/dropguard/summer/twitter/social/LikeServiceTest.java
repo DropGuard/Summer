@@ -37,32 +37,33 @@ class LikeServiceTest {
 
 	@Test
 	void likeInsertsAndIncrementsCount() {
+		when(mockLikeRepo.insertIfAbsent(any(Like.class))).thenReturn(true);
 		likeService.like(1L, 100L);
-		verify(mockLikeRepo).insert(any(Like.class));
+		verify(mockLikeRepo).insertIfAbsent(any(Like.class));
 		verify(mockTweetRepo).updateLikeCount(100L, 1);
 	}
 
 	@Test
 	void likeIsIdempotent() {
-		when(mockLikeRepo.exists(1L, 100L)).thenReturn(true);
+		when(mockLikeRepo.insertIfAbsent(any(Like.class))).thenReturn(false);
 		likeService.like(1L, 100L);
-		verify(mockLikeRepo, never()).insert(any());
+		verify(mockLikeRepo).insertIfAbsent(any(Like.class));
 		verify(mockTweetRepo, never()).updateLikeCount(anyLong(), anyInt());
 	}
 
 	@Test
 	void unlikeDeletesAndDecrementsCount() {
-		when(mockLikeRepo.exists(1L, 100L)).thenReturn(true);
+		when(mockLikeRepo.deleteByUserAndTweet(1L, 100L)).thenReturn(1);
 		likeService.unlike(1L, 100L);
-		verify(mockLikeRepo).delete(1L, 100L);
+		verify(mockLikeRepo).deleteByUserAndTweet(1L, 100L);
 		verify(mockTweetRepo).updateLikeCount(100L, -1);
 	}
 
 	@Test
 	void unlikeNoopWhenNotLiked() {
-		when(mockLikeRepo.exists(1L, 100L)).thenReturn(false);
+		when(mockLikeRepo.deleteByUserAndTweet(1L, 100L)).thenReturn(0);
 		likeService.unlike(1L, 100L);
-		verify(mockLikeRepo, never()).delete(anyLong(), anyLong());
+		verify(mockLikeRepo).deleteByUserAndTweet(1L, 100L);
 		verify(mockTweetRepo, never()).updateLikeCount(anyLong(), anyInt());
 	}
 }

@@ -53,11 +53,16 @@ public class FollowController {
 		ctx.ok(following);
 	}
 
+	private static final int MAX_LIMIT = 100;
+
 	private FollowPage parsePage(HttpContext ctx) {
 		String cursorStr = ctx.request().queryParam("cursor");
 		Long cursor = cursorStr != null ? parseLong(cursorStr, "cursor") : null;
 		String limitStr = ctx.request().queryParam("limit");
 		int limit = limitStr != null ? parseInt(limitStr, "limit") : 20;
+		if (limit > MAX_LIMIT) {
+			limit = MAX_LIMIT;
+		}
 		return new FollowPage(cursor, limit);
 	}
 
