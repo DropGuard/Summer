@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.github.dropguard.summer.core.config.ConfigBinder.BindingContext;
 import com.github.dropguard.summer.core.config.ConfigBinder;
 import com.github.dropguard.summer.realworld.common.BusinessException;
-import com.github.dropguard.summer.runtime.ConfigMappingProxyBinder;
 import io.jsonwebtoken.Jwts;
 import java.util.Date;
 import java.util.Map;
@@ -19,7 +18,6 @@ class JwtUtilTest {
 	@BeforeAll
 	static void installInterfaceBinder() {
 		// Interface config binding (@ConfigMapping) is provided by the runtime module.
-		ConfigMappingProxyBinder.install();
 	}
 
 	private JwtUtil jwtUtil;
@@ -27,7 +25,7 @@ class JwtUtilTest {
 	@BeforeEach
 	void setUp() {
 		JwtProperties properties =
-				ConfigBinder.bind(
+				new ConfigBinder().bind(
 						BindingContext.of(Map.of("jwt.secret", "test-secret-key-for-unit-tests-32bytes!")),
 						"jwt",
 						JwtProperties.class);

@@ -22,13 +22,12 @@ class CursorPageResolverTest {
     @BeforeAll
     static void installInterfaceBinder() {
         // Interface config binding (@ConfigMapping) is provided by the runtime module.
-        ConfigMappingProxyBinder.install();
     }
 
     private final CursorPageResolver resolver = new CursorPageResolver(pageableProps(0, 20));
 
     private static PageableProperties pageableProps(int defaultPage, int defaultSize) {
-        return ConfigBinder.bind(
+        return new ConfigBinder().bind(
                 BindingContext.of(
                         Map.of(
                                 "pageable.defaultPage", defaultPage,

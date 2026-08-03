@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.github.dropguard.summer.core.config.ConfigBinder;
 import com.github.dropguard.summer.core.config.ConfigBinder.BindingContext;
 import com.github.dropguard.summer.realworld.common.BusinessException;
-import com.github.dropguard.summer.runtime.ConfigMappingProxyBinder;
 import com.github.dropguard.summer.web.HttpContext;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeAll;
@@ -17,14 +16,13 @@ class AuthUtilsTest {
 
     @BeforeAll
     static void installInterfaceBinder() {
-        ConfigMappingProxyBinder.install();
     }
 
     private JwtUtil jwtUtil;
 
     @BeforeEach
     void setUp() {
-        JwtProperties properties = ConfigBinder.bind(
+        JwtProperties properties = new ConfigBinder().bind(
                 BindingContext.of(Map.of("jwt.secret", "test-secret-key-for-unit-tests-32bytes!")),
                 "jwt", JwtProperties.class);
         jwtUtil = new JwtUtil(properties);

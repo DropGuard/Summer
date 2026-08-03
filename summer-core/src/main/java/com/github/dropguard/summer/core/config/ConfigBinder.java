@@ -1,9 +1,9 @@
 package com.github.dropguard.summer.core.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.exception.BeanCreationException;
 import com.github.dropguard.summer.core.exception.ConfigurationException;
+import com.github.dropguard.summer.core.exception.MissingFieldException;
 import com.github.dropguard.summer.core.json.SummerObjectMapper;
 import java.io.InputStream;
 import java.util.Arrays;
@@ -13,27 +13,19 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Shared YAML-to-config binding for the {@code @ConfigMapping} interface config model.
+ * Self-contained YAML-to-config binding for the {@code @ConfigMapping} interface model.
  *
- * <p>This class is reflection-free (the AOT/runtime engines and the {@code
- * ReflectionConfinementTest} architecture rule require the {@code core} module to stay
- * reflection-free). The YAML read, section extraction, key normalization,
- * {@code @WithDefault}/{@code @TestProfile} application and {@code ${ENV}} placeholder resolution
- * all live here and are shared by both engines.
- *
- * <p>Interface ({@code @ConfigMapping}) binding needs dynamic proxying, which is confined to the
- * {@code runtime} module (the only place the architecture rule permits {@code java.lang.reflect}).
- * The runtime engine registers an {@link InterfaceBinder} via {@link ServiceLoader}; {@link #bind}
- * delegates interface targets to it, so {@code core} itself never touches {@code Proxy} or {@link
- * java.lang.reflect.Method}. The legacy record path uses Jackson {@code convertValue} and is
- * removed once the migration to interfaces completes.
+ * <p>The full pipeline — YAML read, section extraction, key normalization,
+ * {@code @WithDefault}/{@code @TestProfile} application, {@code ${ENV}} placeholder resolution,
+ * and interface proxying — lives here.  Both the runtime and AOT engines share this single
+ * implementation; no external binder needs to be installed.
  */
 public final class ConfigBinder {
 
     private static final ObjectMapper YAML_MAPPER = SummerObjectMapper.createYaml();
     private static final String YAML_RESOURCE = "application.yml";
 
-    private ConfigBinder() {}
+    public ConfigBinder() {}
 
     /**
      * Immutable carrier for the two inputs that can alter a config binding beyond the YAML itself:
@@ -92,33 +84,19 @@ public final class ConfigBinder {
     /**
      * Full binding pipeline: read {@code application.yml}, extract the prefix section, normalize
      * keys, apply {@code @WithDefault} defaults from the {@link BindingContext}, then profile
-     * overrides, and bind to the target type.
-     *
-     * <p>Interface targets are bound through a runtime-supplied proxy (see {@link
-     * InterfaceBinder}); legacy record targets through Jackson {@code convertValue} (migration
-     * window only).
+     * overrides, resolve {@code ${…}} placeholders, and bind to the target type.
      *
      * @param ctx carries defaults and overrides (never null; use {@link BindingContext#of()})
      * @param prefix the YAML prefix (e.g. "app", "server.tls"), or empty for root
-     * @param targetType the config mapping interface (or legacy record) to bind to
+     * @param targetType the config mapping interface or legacy record to bind to
      * @return the bound instance
      */
     @SuppressWarnings("unchecked")
-    public static <T> T bind(BindingContext ctx, String prefix, Class<T> targetType) {
-        if (targetType.isInterface()) {
-            // Interface binding is confined to the runtime module (reflection rule). The runtime
-            // engine installs the actual binder via {@link #setInterfaceBinder} at startup, so this
-            // method stays reflection-free.
-            if (interfaceBinder == null) {
-                throw new BeanCreationException(
-                        "No InterfaceBinder installed (is the summer-runtime module active?)."
-                                + " Cannot bind @ConfigMapping interface.");
-            }
-            return interfaceBinder.bind(ctx, prefix, targetType);
-        }
-        // Legacy record path — retained only during the migration window; removed
-        // once every config holder has moved to the @ConfigMapping interface model.
+    public <T> T bind(BindingContext ctx, String prefix, Class<T> targetType) {
         Map<String, Object> section = bindSection(ctx, prefix);
+        if (targetType.isInterface()) {
+            return bindInterface(section, targetType);
+        }
         try {
             return YAML_MAPPER.convertValue(section, targetType);
         } catch (ConfigurationException e) {
@@ -128,35 +106,39 @@ public final class ConfigBinder {
         }
     }
 
-    /**
-     * Installs the runtime-supplied binder for {@code @ConfigMapping} interfaces. Called by the
-     * {@code runtime} module (the only place permitted to use {@code java.lang.reflect}) during
-     * engine bootstrap; never invoked by {@code core} itself.
-     */
-    /**
-     * Installs the runtime-supplied binder for {@code @ConfigMapping} interfaces. Idempotent: a
-     * second install is ignored so multiple engines/tests can call it without clobbering the first.
-     * Called by the {@code runtime} module (the only place permitted to use {@code
-     * java.lang.reflect}) during engine bootstrap; never invoked by {@code core} itself.
-     */
-    public static void setInterfaceBinder(InterfaceBinder binder) {
-        if (interfaceBinder != null) {
-            return;
-        }
-        interfaceBinder = binder;
-    }
-
-    private static volatile InterfaceBinder interfaceBinder;
-
-    /**
-     * Binds a {@code @ConfigMapping} interface to its resolved section map. Implemented by the
-     * {@code runtime} module (the only place permitted to use {@code java.lang.reflect}); never
-     * referenced reflectively by {@code core} itself.
-     */
-    @FunctionalInterface
-    @Internal
-    public interface InterfaceBinder {
-        <T> T bind(BindingContext ctx, String prefix, Class<T> targetType);
+    private <T> T bindInterface(Map<String, Object> section, Class<T> type) {
+        return (T)
+                java.lang.reflect.Proxy.newProxyInstance(
+                        type.getClassLoader(),
+                        new Class<?>[] {type},
+                        (proxy, method, args) -> {
+                            if (method.getDeclaringClass() == Object.class) {
+                                return switch (method.getName()) {
+                                    case "equals" -> proxy == args[0];
+                                    case "hashCode" -> System.identityHashCode(proxy);
+                                    case "toString" ->
+                                            type.getSimpleName() + "Config" + section;
+                                    default ->
+                                            throw new UnsupportedOperationException(
+                                                    method.toString());
+                                };
+                            }
+                            String key = toCamelCase(method.getName());
+                            Object value = section.get(key);
+                            if (value == null) {
+                                throw new MissingFieldException(
+                                        method.getName(),
+                                        type.getSimpleName(),
+                                        "Missing config key '"
+                                                + key
+                                                + "' for "
+                                                + type.getName());
+                            }
+                            return YAML_MAPPER.convertValue(
+                                    value,
+                                    YAML_MAPPER.getTypeFactory()
+                                            .constructType(method.getGenericReturnType()));
+                        });
     }
 
     /**
@@ -170,7 +152,7 @@ public final class ConfigBinder {
      * @param prefix the YAML prefix, or empty for root
      * @return the normalized, resolved section map
      */
-    public static Map<String, Object> bindSection(BindingContext ctx, String prefix) {
+    public Map<String, Object> bindSection(BindingContext ctx, String prefix) {
         Map<String, Object> fieldDefaults = ctx.defaults();
         try (InputStream stream =
                 Thread.currentThread().getContextClassLoader().getResourceAsStream(YAML_RESOURCE)) {

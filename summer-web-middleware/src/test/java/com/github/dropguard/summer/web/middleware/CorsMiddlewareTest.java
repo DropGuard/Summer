@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.dropguard.summer.core.config.ConfigBinder;
 import com.github.dropguard.summer.core.config.ConfigBinder.BindingContext;
-import com.github.dropguard.summer.runtime.ConfigMappingProxyBinder;
 import com.github.dropguard.summer.web.*;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -20,12 +19,11 @@ class CorsMiddlewareTest {
     @BeforeAll
     static void installInterfaceBinder() {
         // Interface config binding (@ConfigMapping) is provided by the runtime module.
-        ConfigMappingProxyBinder.install();
     }
 
     private static CorsConfig corsProps(
             String allowedOrigins, String allowedMethods, String allowedHeaders, int maxAge) {
-        return ConfigBinder.bind(
+        return new ConfigBinder().bind(
                 BindingContext.of(
                         Map.of(
                                 "cors.allowedOrigins", allowedOrigins,

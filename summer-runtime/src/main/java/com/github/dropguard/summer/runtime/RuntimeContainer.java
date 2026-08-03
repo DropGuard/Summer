@@ -28,10 +28,6 @@ public final class RuntimeContainer implements ContainerEngine {
 
     private static final Logger log = LoggerFactory.getLogger(RuntimeContainer.class);
 
-    static {
-        ConfigMappingProxyBinder.install();
-    }
-
     @Override
     public Engine engine() {
         return Engine.RUNTIME;
@@ -87,10 +83,17 @@ public final class RuntimeContainer implements ContainerEngine {
                         .collect(java.util.stream.Collectors.toSet());
         new SharedConditionEvaluator().evaluate(candidates, mockedTypeNames, deployment);
 
+        ConfigBinder binder = new ConfigBinder();
         ConfigBinder.BindingContext ctx = ConfigBinder.BindingContext.of(overrides);
-        bindConfiguration(candidates, builder, ctx);
+        bindConfiguration(candidates, builder, binder, ctx);
         BeanDefinitionFactory.populateInterceptors(candidates);
-        RuntimeExceptionHandlerRegistrar.setPrebuiltHandlers(candidates);
+        Map<String, List<BeanDefinition.ExceptionHandlerEntry>> handlerMap = new HashMap<>();
+        for (BeanDefinition bd : candidates) {
+            if (!bd.exceptionHandlerMethods.isEmpty()) {
+                handlerMap.put(bd.qualifiedName, List.copyOf(bd.exceptionHandlerMethods));
+            }
+        }
+        builder.handlerMetadata(handlerMap);
 
         SharedDependencyResolver resolver = new SharedDependencyResolver();
         List<BeanDefinition> sorted = resolver.resolve(candidates, mocks);
@@ -147,6 +150,7 @@ public final class RuntimeContainer implements ContainerEngine {
     private static void bindConfiguration(
             List<BeanDefinition> candidates,
             BeanContainer.Builder builder,
+            ConfigBinder binder,
             ConfigBinder.BindingContext ctx) {
         for (BeanDefinition bd : candidates) {
             if (!(bd instanceof ConfigPropertiesBean c)) continue;
@@ -174,7 +178,7 @@ public final class RuntimeContainer implements ContainerEngine {
                     defaults.isEmpty()
                             ? ctx
                             : ConfigBinder.BindingContext.of(defaults, ctx.overrides());
-            builder.register(configClass, ConfigBinder.bind(pcc, prefix, configClass));
+            builder.register(configClass, binder.bind(pcc, prefix, configClass));
             log.debug(
                     "[Summer] Bound config properties: {} (prefix='{}')",
                     configClass.getSimpleName(),

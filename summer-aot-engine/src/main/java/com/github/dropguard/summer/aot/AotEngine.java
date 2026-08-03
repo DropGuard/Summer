@@ -31,8 +31,6 @@ public final class AotEngine {
 
     private static final Logger log = LoggerFactory.getLogger(AotEngine.class);
 
-    private static final java.util.Map<String, BeanContainer> CACHE = new java.util.HashMap<>();
-
     private AotEngine() {}
 
     /**
@@ -94,11 +92,6 @@ public final class AotEngine {
             String className,
             MockedBean[] mocks,
             java.util.Map<String, Object> overrides) {
-        BeanContainer cached = CACHE.get(cacheKey);
-        if (cached != null) {
-            return cached;
-        }
-
         List<BeanDefinition> beans = Discovery.discover(moduleIndex);
         // Discovery-stage mock replacement: remove the real definitions of every
         // mocked type so they are never generated/instantiated. Shared with Runtime
@@ -176,8 +169,6 @@ public final class AotEngine {
                             new java.net.URL[] {classesUrl},
                             (Object) mocks);
 
-            // 4. Cache and return
-            CACHE.put(cacheKey, container);
             log.debug("[Summer] AOT compile complete: cacheKey={}", cacheKey);
             return container;
 
@@ -191,11 +182,6 @@ public final class AotEngine {
                             + sorted.size(),
                     e);
         }
-    }
-
-    /** Clears the compilation cache. Useful between test suites. */
-    public static void clearCache() {
-        CACHE.clear();
     }
 
     // ── Compilation ─────────────────────────────────────────────────────

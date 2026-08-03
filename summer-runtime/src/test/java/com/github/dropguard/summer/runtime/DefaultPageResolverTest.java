@@ -23,13 +23,12 @@ class DefaultPageResolverTest {
     @BeforeAll
     static void installInterfaceBinder() {
         // Interface config binding (@ConfigMapping) is provided by the runtime module.
-        ConfigMappingProxyBinder.install();
     }
 
     private final DefaultPageResolver resolver = new DefaultPageResolver(pageableProps(0, 20));
 
     private static PageableProperties pageableProps(int defaultPage, int defaultSize) {
-        return ConfigBinder.bind(
+        return new ConfigBinder().bind(
                 BindingContext.of(
                         Map.of(
                                 "pageable.defaultPage", defaultPage,

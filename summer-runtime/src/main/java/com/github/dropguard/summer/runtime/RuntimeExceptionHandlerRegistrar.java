@@ -7,7 +7,6 @@ import com.github.dropguard.summer.web.ExceptionRegistry;
 import com.github.dropguard.summer.web.Handler;
 import com.github.dropguard.summer.web.HttpParameterResolverChain;
 import java.lang.reflect.Method;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -21,37 +20,18 @@ import java.util.Map;
  */
 public class RuntimeExceptionHandlerRegistrar implements ExceptionHandlerRegistrar {
 
-    /**
-     * Pre-computed handler entries keyed by bean qualified name. Populated by {@link
-     * #setPrebuiltHandlers(List)} during container initialization.
-     */
-    static volatile Map<String, List<BeanDefinition.ExceptionHandlerEntry>> prebuiltHandlers =
-            Map.of();
-
     private final HttpParameterResolverChain resolverChain;
+    private final Map<String, List<BeanDefinition.ExceptionHandlerEntry>> handlers;
 
-    public RuntimeExceptionHandlerRegistrar(HttpParameterResolverChain resolverChain) {
+    public RuntimeExceptionHandlerRegistrar(
+            HttpParameterResolverChain resolverChain,
+            Map<String, List<BeanDefinition.ExceptionHandlerEntry>> handlers) {
         this.resolverChain = resolverChain;
-    }
-
-    /**
-     * Pre-computes exception handler metadata from BeanDefinitions. Called by {@code
-     * RuntimeContainer init()} after discovery.
-     */
-    public static void setPrebuiltHandlers(List<BeanDefinition> candidates) {
-        Map<String, List<BeanDefinition.ExceptionHandlerEntry>> map = new HashMap<>();
-        for (BeanDefinition bean : candidates) {
-            if (bean.exceptionHandlerMethods.isEmpty()) {
-                continue;
-            }
-            map.put(bean.qualifiedName, List.copyOf(bean.exceptionHandlerMethods));
-        }
-        prebuiltHandlers = Map.copyOf(map);
+        this.handlers = handlers;
     }
 
     @Override
     public void registerHandlers(ExceptionRegistry registry, BeanContainer context) {
-        Map<String, List<BeanDefinition.ExceptionHandlerEntry>> handlers = prebuiltHandlers;
         if (handlers.isEmpty()) {
             return;
         }
