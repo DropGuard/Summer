@@ -256,7 +256,11 @@ public final class AotProxyGenerator {
         if (returnType.equals(TypeName.VOID)) {
             body.addStatement("chain.proceed()");
         } else {
-            body.addStatement("return ($T) chain.proceed()", returnType);
+            // Cast to boxed type for primitives: (int) chain.proceed() is a
+            // compile error (Object→primitive cast), but (Integer) chain.proceed()
+            // auto-unboxes correctly.
+            TypeName castType = returnType.isPrimitive() ? returnType.box() : returnType;
+            body.addStatement("return ($T) chain.proceed()", castType);
         }
         body.nextControlFlow("catch ($T e)", Throwable.class);
 

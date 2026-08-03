@@ -1,6 +1,5 @@
 package com.github.dropguard.summer.core;
 
-import com.github.dropguard.summer.core.bean.BeanDefinition;
 import com.github.dropguard.summer.core.bean.RouteInfo;
 import com.github.dropguard.summer.core.config.ConfigBinder;
 import com.github.dropguard.summer.core.config.ShutdownConfig;
@@ -165,7 +164,6 @@ public final class BeanContainer implements AutoCloseable {
 
         private final Map<Class<?>, Object> singletons = new HashMap<>();
         private List<RouteInfo> routes = List.of();
-        private Map<String, List<BeanDefinition.ExceptionHandlerEntry>> handlerMetadata = Map.of();
 
         /** Registers a bean instance under the given type key. */
         public void register(Class<?> type, Object instance) {
@@ -175,17 +173,6 @@ public final class BeanContainer implements AutoCloseable {
         /** Sets route metadata collected during container construction. */
         public void routes(List<RouteInfo> routes) {
             this.routes = List.copyOf(routes);
-        }
-
-        /** Pre-computed exception handler metadata, populated during discovery. */
-        public void handlerMetadata(
-                Map<String, List<BeanDefinition.ExceptionHandlerEntry>> data) {
-            this.handlerMetadata = Map.copyOf(data);
-        }
-
-        /** @return pre-computed exception handler metadata (empty if none). */
-        public Map<String, List<BeanDefinition.ExceptionHandlerEntry>> handlerMetadata() {
-            return handlerMetadata;
         }
 
         /**

@@ -16,8 +16,8 @@ import java.util.regex.Pattern;
  * Self-contained YAML-to-config binding for the {@code @ConfigMapping} interface model.
  *
  * <p>The full pipeline — YAML read, section extraction, key normalization,
- * {@code @WithDefault}/{@code @TestProfile} application, {@code ${ENV}} placeholder resolution,
- * and interface proxying — lives here.  Both the runtime and AOT engines share this single
+ * {@code @WithDefault}/{@code @TestProfile} application, {@code ${ENV}} placeholder resolution, and
+ * interface proxying — lives here. Both the runtime and AOT engines share this single
  * implementation; no external binder needs to be installed.
  */
 public final class ConfigBinder {
@@ -116,8 +116,7 @@ public final class ConfigBinder {
                                 return switch (method.getName()) {
                                     case "equals" -> proxy == args[0];
                                     case "hashCode" -> System.identityHashCode(proxy);
-                                    case "toString" ->
-                                            type.getSimpleName() + "Config" + section;
+                                    case "toString" -> type.getSimpleName() + "Config" + section;
                                     default ->
                                             throw new UnsupportedOperationException(
                                                     method.toString());
@@ -129,14 +128,18 @@ public final class ConfigBinder {
                                 throw new MissingFieldException(
                                         method.getName(),
                                         type.getSimpleName(),
-                                        "Missing config key '"
-                                                + key
-                                                + "' for "
-                                                + type.getName());
+                                        "Missing config key '" + key + "' for " + type.getName());
+                            }
+                            Class<?> returnType = method.getReturnType();
+                            if (returnType.isInterface() && value instanceof Map<?, ?> nested) {
+                                @SuppressWarnings("unchecked")
+                                Map<String, Object> nestedSection = (Map<String, Object>) nested;
+                                return bindInterface(nestedSection, returnType);
                             }
                             return YAML_MAPPER.convertValue(
                                     value,
-                                    YAML_MAPPER.getTypeFactory()
+                                    YAML_MAPPER
+                                            .getTypeFactory()
                                             .constructType(method.getGenericReturnType()));
                         });
     }

@@ -79,7 +79,8 @@ public final class DiEngine {
         // FrameworkConfig carries @WithDefault("runtime"), so a bare project (no application.yml at
         // all) still resolves to RUNTIME. Production builds flip it to AOT at build time.
         Engine configured =
-                new ConfigBinder().bind(ConfigBinder.BindingContext.of(), "summer", FrameworkConfig.class)
+                new ConfigBinder()
+                        .bind(ConfigBinder.BindingContext.of(), "summer", FrameworkConfig.class)
                         .engine();
         log.info("[Summer] Engine from configuration: {}", configured);
         return configured;

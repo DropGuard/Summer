@@ -93,7 +93,10 @@ public final class RuntimeContainer implements ContainerEngine {
                 handlerMap.put(bd.qualifiedName, List.copyOf(bd.exceptionHandlerMethods));
             }
         }
-        builder.handlerMetadata(handlerMap);
+        BeanDefinition handlerMetaDef =
+                new BeanDefinition(HandlerMetadata.class.getName(), "HandlerMetadata");
+        handlerMetaDef.syntheticInstance = new HandlerMetadata(handlerMap);
+        candidates.add(handlerMetaDef);
 
         SharedDependencyResolver resolver = new SharedDependencyResolver();
         List<BeanDefinition> sorted = resolver.resolve(candidates, mocks);

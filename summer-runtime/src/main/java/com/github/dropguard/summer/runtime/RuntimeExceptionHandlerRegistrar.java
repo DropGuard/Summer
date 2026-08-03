@@ -24,10 +24,9 @@ public class RuntimeExceptionHandlerRegistrar implements ExceptionHandlerRegistr
     private final Map<String, List<BeanDefinition.ExceptionHandlerEntry>> handlers;
 
     public RuntimeExceptionHandlerRegistrar(
-            HttpParameterResolverChain resolverChain,
-            Map<String, List<BeanDefinition.ExceptionHandlerEntry>> handlers) {
+            HttpParameterResolverChain resolverChain, HandlerMetadata handlerMetadata) {
         this.resolverChain = resolverChain;
-        this.handlers = handlers;
+        this.handlers = handlerMetadata.entries();
     }
 
     @Override
