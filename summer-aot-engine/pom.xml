@@ -53,6 +53,7 @@
             <groupId>com.github.dropguard</groupId>
             <artifactId>summer-data-jdbc</artifactId>
             <version>${project.version}</version>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- Test -->

@@ -45,6 +45,14 @@ public class GrpcTestConfig {
                     .setResponseMarshaller(STRING_MARSHALLER)
                     .build();
 
+    public static final MethodDescriptor<String, String> STREAM_METHOD =
+            MethodDescriptor.<String, String>newBuilder()
+                    .setType(MethodDescriptor.MethodType.SERVER_STREAMING)
+                    .setFullMethodName("TestService/StreamCall")
+                    .setRequestMarshaller(STRING_MARSHALLER)
+                    .setResponseMarshaller(STRING_MARSHALLER)
+                    .build();
+
     @Bean
     public BindableService dummyService() {
         return new BindableService() {
@@ -65,6 +73,27 @@ public class GrpcTestConfig {
                                         trailers.put(RESPONSE_TRAILER_KEY, "InterceptedResponse");
                                         call.close(io.grpc.Status.OK, trailers);
 
+                                        return new ServerCall.Listener<String>() {};
+                                    }
+                                })
+                        .addMethod(
+                                STREAM_METHOD,
+                                new ServerCallHandler<String, String>() {
+                                    @Override
+                                    public ServerCall.Listener<String> startCall(
+                                            ServerCall<String, String> call, Metadata headers) {
+                                        String countStr = headers.get(TEST_HEADER_KEY);
+                                        int count;
+                                        try {
+                                            count = Integer.parseInt(countStr);
+                                        } catch (NumberFormatException e) {
+                                            count = 3;
+                                        }
+                                        call.sendHeaders(new Metadata());
+                                        for (int i = 1; i <= count; i++) {
+                                            call.sendMessage("Chunk " + i);
+                                        }
+                                        call.close(io.grpc.Status.OK, new Metadata());
                                         return new ServerCall.Listener<String>() {};
                                     }
                                 })

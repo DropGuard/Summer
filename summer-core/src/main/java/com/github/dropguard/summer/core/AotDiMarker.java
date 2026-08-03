@@ -1,5 +1,4 @@
 package com.github.dropguard.summer.core;
-import com.github.dropguard.summer.core.Internal;
 
 /**
  * Marker bean that signals the AOT-based DI engine is active.

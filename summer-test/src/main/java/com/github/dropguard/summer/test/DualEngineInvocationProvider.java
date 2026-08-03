@@ -2,7 +2,6 @@ package com.github.dropguard.summer.test;
 
 import com.github.dropguard.summer.core.Engine;
 import com.github.dropguard.summer.core.Internal;
-import com.github.dropguard.summer.test.SummerTestExtension;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 import java.util.List;
 import java.util.stream.Stream;

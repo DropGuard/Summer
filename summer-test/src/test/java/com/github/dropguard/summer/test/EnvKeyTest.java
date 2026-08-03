@@ -1,4 +1,4 @@
-package com.github.dropguard.summer.test.internal;
+package com.github.dropguard.summer.test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;

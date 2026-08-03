@@ -1,7 +1,7 @@
 package com.github.dropguard.summer.core.config;
-import com.github.dropguard.summer.core.Internal;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.exception.BeanCreationException;
 import com.github.dropguard.summer.core.exception.ConfigurationException;
 import com.github.dropguard.summer.core.json.SummerObjectMapper;
@@ -154,7 +154,7 @@ public final class ConfigBinder {
      * referenced reflectively by {@code core} itself.
      */
     @FunctionalInterface
-@Internal
+    @Internal
     public interface InterfaceBinder {
         <T> T bind(BindingContext ctx, String prefix, Class<T> targetType);
     }

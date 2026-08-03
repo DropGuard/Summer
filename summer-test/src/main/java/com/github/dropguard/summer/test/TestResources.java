@@ -1,7 +1,6 @@
 package com.github.dropguard.summer.test;
 
 import com.github.dropguard.summer.core.Internal;
-import com.github.dropguard.summer.test.TestResource;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -47,13 +46,20 @@ public final class TestResources {
         }
     }
 
-    private static com.github.dropguard.summer.test.annotation.TestResource[] collectAnnotations(Class<?> testClass) {
-        com.github.dropguard.summer.test.annotation.TestResource.List list = testClass.getAnnotation(com.github.dropguard.summer.test.annotation.TestResource.List.class);
+    private static com.github.dropguard.summer.test.annotation.TestResource[] collectAnnotations(
+            Class<?> testClass) {
+        com.github.dropguard.summer.test.annotation.TestResource.List list =
+                testClass.getAnnotation(
+                        com.github.dropguard.summer.test.annotation.TestResource.List.class);
         if (list != null) {
             return list.value();
         }
-        com.github.dropguard.summer.test.annotation.TestResource single = testClass.getAnnotation(com.github.dropguard.summer.test.annotation.TestResource.class);
-        return single != null ? new com.github.dropguard.summer.test.annotation.TestResource[] {single} : new com.github.dropguard.summer.test.annotation.TestResource[0];
+        com.github.dropguard.summer.test.annotation.TestResource single =
+                testClass.getAnnotation(
+                        com.github.dropguard.summer.test.annotation.TestResource.class);
+        return single != null
+                ? new com.github.dropguard.summer.test.annotation.TestResource[] {single}
+                : new com.github.dropguard.summer.test.annotation.TestResource[0];
     }
 
     static void shutdown() {

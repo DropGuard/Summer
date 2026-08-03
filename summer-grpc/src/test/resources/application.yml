@@ -1,0 +1,7 @@
+grpc:
+  server:
+    port: 0
+  tls:
+    cert-chain: ""
+    private-key: ""
+    trust-cert: ""

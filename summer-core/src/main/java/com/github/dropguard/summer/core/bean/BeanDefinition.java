@@ -1,6 +1,6 @@
 package com.github.dropguard.summer.core.bean;
-import com.github.dropguard.summer.core.Internal;
 
+import com.github.dropguard.summer.core.Internal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;

@@ -20,6 +20,7 @@
             <groupId>com.github.dropguard</groupId>
             <artifactId>summer-runtime</artifactId>
             <version>${project.version}</version>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- Summer AOP (for ProxyFactory and MethodInterceptor) -->

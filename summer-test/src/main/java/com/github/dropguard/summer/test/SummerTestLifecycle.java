@@ -5,8 +5,6 @@ import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.core.Engine;
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.bean.MockedBean;
-import com.github.dropguard.summer.test.SummerTestExtension;
-import com.github.dropguard.summer.test.TestContainer;
 import com.github.dropguard.summer.test.annotation.Mock;
 import com.github.dropguard.summer.test.annotation.TestProfile;
 import java.lang.annotation.Annotation;
