@@ -41,7 +41,7 @@ class TwitterApplicationIT extends AbstractTwitterIT {
     @Test
     void registerAndLoginHappyPath() throws Exception {
         String user = "smoke_" + System.nanoTime();
-        String token = registerAndGetToken(user, "pass123").token();
+        String token = registerAndGetToken(user, "password123").token();
         assertNotNull(token, "JWT token must not be null");
         assertFalse(token.isBlank(), "JWT token must not be blank");
     }

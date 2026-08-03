@@ -8,11 +8,10 @@ datasource:
   driver-class-name: org.postgresql.Driver
 
 redis:
-  host: ${REDIS_HOST:-localhost}
-  port: ${REDIS_PORT:-6379}
+  uri: ${REDIS_URI:-redis://localhost:6379}
 
 jwt:
-  secret: ${JWT_SECRET:-change-me-in-production}
+  secret: ${JWT_SECRET:-this-is-a-dev-secret-at-least-256-bits-long-do-not-use-in-production}
 
 cors:
   allowed-origins: "http://localhost:5173"

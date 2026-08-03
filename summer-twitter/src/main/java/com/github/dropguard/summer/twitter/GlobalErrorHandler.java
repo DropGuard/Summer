@@ -7,6 +7,8 @@ import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.annotation.ExceptionHandler;
 import com.github.dropguard.summer.web.exception.ValidationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Global exception handler for the twitter demo.
@@ -37,8 +39,11 @@ public class GlobalErrorHandler {
 				new ErrorResponse("VALIDATION_ERROR", e.errors().get(0)));
 	}
 
+	private static final Logger log = LoggerFactory.getLogger(GlobalErrorHandler.class);
+
 	@ExceptionHandler(Exception.class)
 	public void handleUnexpected(HttpContext ctx, Exception e) {
+		log.error("Unhandled exception", e);
 		ctx.json(HttpStatus.INTERNAL_SERVER_ERROR, ErrorResponse.internalError());
 	}
 }

@@ -20,7 +20,15 @@ public class JwtUtil {
     private static final long REFRESH_EXPIRATION = 7 * 24 * 60 * 60 * 1000L; // 7 days
 
     public JwtUtil(JwtProperties jwtProperties) {
-        this.key = Keys.hmacShaKeyFor(jwtProperties.secret().getBytes(StandardCharsets.UTF_8));
+        byte[] secretBytes = jwtProperties.secret().getBytes(StandardCharsets.UTF_8);
+        // jjwt HS256 requires ≥256 bits; fail fast with a clear message rather
+        // than surfacing a confusing WeakKeyException on the first request.
+        if (secretBytes.length < 32) {
+            throw new IllegalStateException(
+                    "JWT secret must be at least 256 bits (32 bytes). "
+                            + "Set JWT_SECRET environment variable to a secure random value.");
+        }
+        this.key = Keys.hmacShaKeyFor(secretBytes);
     }
 
     public String generateAccessToken(Long userId, String username) {

@@ -20,7 +20,7 @@ class AuthIT extends AbstractTwitterIT {
     @Test
     void registerAndLoginFlow() throws Exception {
         String user = "auth_flow_" + System.nanoTime();
-        String token = registerAndGetToken(user, "pass123").token();
+        String token = registerAndGetToken(user, "password123").token();
         assertNotNull(token, "JWT token must not be null");
         assertFalse(token.isBlank(), "JWT token must not be blank");
     }
@@ -28,10 +28,10 @@ class AuthIT extends AbstractTwitterIT {
     @Test
     void wrongPasswordReturns401() throws Exception {
         String user = "auth_wrong_" + System.nanoTime();
-        registerAndGetToken(user, "correct");
+        registerAndGetToken(user, "password123");
 
         var res = post("/api/auth/login", """
-                {"username":"%s","password":"wrong"}
+                {"username":"%s","password":"wrongpassword"}
                 """.formatted(user));
         assertEquals(401, res.statusCode(), "Wrong password should return 401");
     }
@@ -44,7 +44,7 @@ class AuthIT extends AbstractTwitterIT {
 
     @Test
     void authenticatedProfileUpdateHidesSensitiveFields() throws Exception {
-        String token = registerAndGetToken("auth_prof_" + System.nanoTime(), "pw").token();
+        String token = registerAndGetToken("auth_prof_" + System.nanoTime(), "password123").token();
 
         var updateRes = put("/api/users/me", token, """
                 {"displayName":"Updated Name","bio":"Integration test bio"}
@@ -61,7 +61,7 @@ class AuthIT extends AbstractTwitterIT {
 
     @Test
     void readNonExistentUserReturns404() throws Exception {
-        String token = registerAndGetToken("auth_reader_" + System.nanoTime(), "pw").token();
+        String token = registerAndGetToken("auth_reader_" + System.nanoTime(), "password123").token();
 
         var res = authGet("/api/users/profile_tester", token);
         assertEquals(404, res.statusCode(), "Non-existent user should return 404");
@@ -70,10 +70,10 @@ class AuthIT extends AbstractTwitterIT {
     @Test
     void registrationRequiresUniqueUsername() throws Exception {
         String user = "auth_dup_" + System.nanoTime();
-        registerAndGetToken(user, "pw");
+        registerAndGetToken(user, "password123");
 
         var dup = post("/api/auth/register", """
-                {"username":"%s","displayName":"Dup","email":"dup@test.com","password":"pw"}
+                {"username":"%s","displayName":"Dup","email":"dup@test.com","password":"password123"}
                 """.formatted(user));
         assertEquals(400, dup.statusCode(), "Duplicate username should be rejected");
         // Error body is plain text ("Username already exists"), not JSON — no token

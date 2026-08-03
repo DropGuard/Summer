@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.twitter.auth;
 
+import jakarta.validation.Valid;
 import org.mindrot.jbcrypt.BCrypt;
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.twitter.user.User;
@@ -25,14 +26,17 @@ public class AuthController {
         this.rateLimiter = rateLimiter;
     }
 
+    @Valid
     public record RegisterRequest(
             @jakarta.validation.constraints.NotBlank String username,
             @jakarta.validation.constraints.NotBlank String displayName,
             @jakarta.validation.constraints.Email String email,
             @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(min = 8) String password) {}
+    @Valid
     public record LoginRequest(
             @jakarta.validation.constraints.NotBlank String username,
             @jakarta.validation.constraints.NotBlank String password) {}
+    @Valid
     public record RefreshRequest(
             @jakarta.validation.constraints.NotBlank String refreshToken) {}
     public record TokenResponse(String token, String refreshToken) {}

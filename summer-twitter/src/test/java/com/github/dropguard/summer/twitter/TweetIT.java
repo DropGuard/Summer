@@ -17,7 +17,7 @@ class TweetIT extends AbstractTwitterIT {
 
     @Test
     void tweetCreateAndRead() throws Exception {
-        String token = registerAndGetToken("tweet_" + System.nanoTime(), "pw").token();
+        String token = registerAndGetToken("tweet_" + System.nanoTime(), "password123").token();
 
         var createRes = post("/api/tweets", """
                 {"content":"Hello from integration test"}
@@ -38,7 +38,7 @@ class TweetIT extends AbstractTwitterIT {
 
     @Test
     void tweetReplyFlow() throws Exception {
-        String token = registerAndGetToken("reply_" + System.nanoTime(), "pw").token();
+        String token = registerAndGetToken("reply_" + System.nanoTime(), "password123").token();
 
         var createRes = post("/api/tweets", """
                 {"content":"Parent tweet"}
@@ -60,7 +60,7 @@ class TweetIT extends AbstractTwitterIT {
 
     @Test
     void retweetFansOutAndIncrementsCount() throws Exception {
-        String token = registerAndGetToken("retweet_" + System.nanoTime(), "pw").token();
+        String token = registerAndGetToken("retweet_" + System.nanoTime(), "password123").token();
         long originalId = createTweet(token, "Original to be retweeted");
 
         var retweetRes = post("/api/tweets/" + originalId + "/retweet", "", token);
@@ -84,7 +84,7 @@ class TweetIT extends AbstractTwitterIT {
 
     @Test
     void retweetMissingOriginalReturns404() throws Exception {
-        String token = registerAndGetToken("retweet_missing_" + System.nanoTime(), "pw").token();
+        String token = registerAndGetToken("retweet_missing_" + System.nanoTime(), "password123").token();
         var res = post("/api/tweets/99999999/retweet", "", token);
         assertEquals(404, res.statusCode(), "Retweeting a missing tweet should 404");
     }

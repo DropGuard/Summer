@@ -26,4 +26,5 @@
         <module>benchmark-spring-boot</module>
         <module>benchmark-summer</module>
     </modules>
+    <build><plugins><plugin><groupId>io.smallrye</groupId><artifactId>jandex-maven-plugin</artifactId></plugin></plugins></build>
 </project>

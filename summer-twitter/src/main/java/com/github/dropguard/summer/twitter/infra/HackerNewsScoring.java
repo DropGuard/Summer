@@ -18,7 +18,7 @@ public class HackerNewsScoring {
      */
     public static double calculateScore(int likeCount, int replyCount, int retweetCount, Instant createdAt) {
         double points = likeCount + (replyCount * 2) + (retweetCount * 3);
-        double hours = Math.max(0, Duration.between(createdAt, Instant.now()).toMillis() / 3600000.0);
-        return (points - 1) / Math.pow(hours + 2, GRAVITY);
+        long hours = Math.max(0, Duration.between(createdAt, Instant.now()).toHours());
+        return (points + 1) / Math.pow(hours + 2, GRAVITY);
     }
 }

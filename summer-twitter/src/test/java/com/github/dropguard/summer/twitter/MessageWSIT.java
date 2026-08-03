@@ -46,8 +46,8 @@ class MessageWSIT extends AbstractTwitterIT {
         // sender -> receiver, receiver connected on /ws/dm. The receive frame proves
         // the handler ran insertMessage + upsertConversation + push end to end (DM
         // has no REST read endpoint, so persistence is covered by the same path).
-        TokenAndUser sender = registerAndGetToken("ws_sender_" + System.nanoTime(), "pw");
-        TokenAndUser receiver = registerAndGetToken("ws_receiver_" + System.nanoTime(), "pw");
+        TokenAndUser sender = registerAndGetToken("ws_sender_" + System.nanoTime(), "password123");
+        TokenAndUser receiver = registerAndGetToken("ws_receiver_" + System.nanoTime(), "password123");
 
         CopyOnWriteArrayList<String> receiverFrames = new CopyOnWriteArrayList<>();
         CountDownLatch received = new CountDownLatch(1);
@@ -72,7 +72,7 @@ class MessageWSIT extends AbstractTwitterIT {
 
     @Test
     void dmSendToMissingRecipientReturnsError() throws Exception {
-        TokenAndUser sender = registerAndGetToken("ws_sender2_" + System.nanoTime(), "pw");
+        TokenAndUser sender = registerAndGetToken("ws_sender2_" + System.nanoTime(), "password123");
 
         CopyOnWriteArrayList<String> frames = new CopyOnWriteArrayList<>();
         CountDownLatch latch = new CountDownLatch(1);
@@ -94,8 +94,8 @@ class MessageWSIT extends AbstractTwitterIT {
     void eventsPushNewTweetToConnectedFollower() throws Exception {
         // Connect as a follower of author on /ws/events, then have author tweet.
         // The fan-out must push a new_tweet frame over the live socket.
-        TokenAndUser follower = registerAndGetToken("ws_follower_" + System.nanoTime(), "pw");
-        TokenAndUser author = registerAndGetToken("ws_author_" + System.nanoTime(), "pw");
+        TokenAndUser follower = registerAndGetToken("ws_follower_" + System.nanoTime(), "password123");
+        TokenAndUser author = registerAndGetToken("ws_author_" + System.nanoTime(), "password123");
         post("/api/users/" + author.username() + "/follow", "", follower.token());
 
         CopyOnWriteArrayList<String> frames = new CopyOnWriteArrayList<>();

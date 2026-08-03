@@ -10,8 +10,7 @@ datasource:
   driver-class-name: org.postgresql.Driver
 
 redis:
-  host: ${REDIS_HOST:-localhost}
-  port: ${REDIS_PORT:-6379}
+  uri: ${com.github.dropguard.summer.redis.uri:-redis://localhost:6379}
 
 jwt:
-  secret: ${JWT_SECRET:-test-secret-for-unit-tests-only-256-bit}
+  secret: ${JWT_SECRET:-test-secret-for-unit-tests-only-256-bit-long-enough}

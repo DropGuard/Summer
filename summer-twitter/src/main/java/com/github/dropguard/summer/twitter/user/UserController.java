@@ -8,6 +8,7 @@ import com.github.dropguard.summer.web.annotation.Get;
 import com.github.dropguard.summer.web.annotation.Put;
 import com.github.dropguard.summer.web.annotation.RestController;
 
+import jakarta.validation.Valid;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 
@@ -42,6 +43,7 @@ public class UserController {
         }
     }
 
+    @Valid
     public record UpdateProfileRequest(@jakarta.validation.constraints.NotBlank String displayName, String bio) {}
 
     @Get("/api/users/:username")

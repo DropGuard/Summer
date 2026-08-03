@@ -23,8 +23,8 @@ class TimelineIT extends AbstractTwitterIT {
     void fanOutLandsInFollowersTimeline() throws Exception {
         // follower F follows author B; when B tweets, the virtual-thread fan-out
         // must land B's tweet in F's real-Redis timeline.
-        TokenAndUser follower = registerAndGetToken("tl_follower_" + System.nanoTime(), "pw");
-        TokenAndUser author = registerAndGetToken("tl_author_" + System.nanoTime(), "pw");
+        TokenAndUser follower = registerAndGetToken("tl_follower_" + System.nanoTime(), "password123");
+        TokenAndUser author = registerAndGetToken("tl_author_" + System.nanoTime(), "password123");
         post("/api/users/" + author.username() + "/follow", "", follower.token());
 
         long tweetId = createTweet(author.token(), "timeline integration tweet");
@@ -38,9 +38,9 @@ class TimelineIT extends AbstractTwitterIT {
     void timelineOrdersByIdDescendingOnEqualScore() throws Exception {
         // Follower C follows two authors who each post; with equal (zero) scores the
         // merge must order by id descending (newest first).
-        TokenAndUser follower = registerAndGetToken("tl_c_" + System.nanoTime(), "pw");
-        TokenAndUser b1 = registerAndGetToken("tl_b1_" + System.nanoTime(), "pw");
-        TokenAndUser b2 = registerAndGetToken("tl_b2_" + System.nanoTime(), "pw");
+        TokenAndUser follower = registerAndGetToken("tl_c_" + System.nanoTime(), "password123");
+        TokenAndUser b1 = registerAndGetToken("tl_b1_" + System.nanoTime(), "password123");
+        TokenAndUser b2 = registerAndGetToken("tl_b2_" + System.nanoTime(), "password123");
         post("/api/users/" + b1.username() + "/follow", "", follower.token());
         post("/api/users/" + b2.username() + "/follow", "", follower.token());
 
@@ -64,8 +64,8 @@ class TimelineIT extends AbstractTwitterIT {
     void cursorStaleFallsBackToHead() throws Exception {
         // A cursor id absent from the merged set must fall back to the feed head
         // rather than an empty page (deleted-tweet tolerance).
-        TokenAndUser follower = registerAndGetToken("tl_cursor_" + System.nanoTime(), "pw");
-        TokenAndUser author = registerAndGetToken("tl_cur_author_" + System.nanoTime(), "pw");
+        TokenAndUser follower = registerAndGetToken("tl_cursor_" + System.nanoTime(), "password123");
+        TokenAndUser author = registerAndGetToken("tl_cur_author_" + System.nanoTime(), "password123");
         post("/api/users/" + author.username() + "/follow", "", follower.token());
         createTweet(author.token(), "cursor fallback tweet");
 

@@ -55,9 +55,9 @@ public final class OriginPolicy {
             return false;
         }
         String originHost = hostOf(origin);
-        int originPort = portOf(origin, originHost);
+        int originPort = portOf(origin);
         String reqHost = hostOf(requestHost);
-        int reqPort = portOf(requestHost, reqHost);
+        int reqPort = portOf(requestHost);
         if (originHost == null || reqHost == null) {
             return false;
         }
@@ -65,27 +65,25 @@ public final class OriginPolicy {
     }
 
     private static String hostOf(String value) {
-        try {
-            java.net.URI uri = java.net.URI.create(value);
-            return uri.getHost();
-        } catch (IllegalArgumentException e) {
-            // A bare Host header ("localhost:8080") is not a valid URI; treat the whole value as
-            // host.
-            int colon = value.lastIndexOf(':');
-            return colon < 0 ? value : value.substring(0, colon);
+        java.net.URI uri = java.net.URI.create(value);
+        // In Java 25+, URI.create("localhost:8080") produces an opaque URI
+        // (scheme=localhost, host=null) instead of throwing — check isOpaque()
+        // rather than relying on a catch that never fires.
+        if (!uri.isOpaque()) {
+            String host = uri.getHost();
+            if (host != null) return host;
         }
+        int colon = value.lastIndexOf(':');
+        return colon < 0 ? value : value.substring(0, colon);
     }
 
-    private static int portOf(String value, String host) {
-        try {
-            java.net.URI uri = java.net.URI.create(value);
-            if (uri.getPort() != -1) {
-                return uri.getPort();
-            }
+    private static int portOf(String value) {
+        java.net.URI uri = java.net.URI.create(value);
+        if (!uri.isOpaque()) {
+            if (uri.getPort() != -1) return uri.getPort();
             return "https".equals(uri.getScheme()) ? 443 : 80;
-        } catch (IllegalArgumentException e) {
-            int colon = value.lastIndexOf(':');
-            return colon < 0 ? 80 : Integer.parseInt(value.substring(colon + 1));
         }
+        int colon = value.lastIndexOf(':');
+        return colon < 0 ? 80 : Integer.parseInt(value.substring(colon + 1));
     }
 }

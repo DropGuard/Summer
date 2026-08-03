@@ -12,6 +12,7 @@ import com.github.dropguard.summer.web.annotation.QueryParam;
 import com.github.dropguard.summer.web.annotation.RestController;
 
 import com.github.dropguard.summer.web.CursorPageable;
+import jakarta.validation.Valid;
 import java.util.List;
 
 @RestController
@@ -24,6 +25,7 @@ public class TweetController {
         this.tweetService = tweetService;
     }
 
+    @Valid
     public record CreateTweetRequest(
             @jakarta.validation.constraints.NotBlank String content,
             Long parentId) {}
@@ -79,6 +81,7 @@ public class TweetController {
         ctx.json(HttpStatus.CREATED, tweet);
     }
 
+    @Valid
     public record QuoteTweetRequest(
             @jakarta.validation.constraints.NotBlank String content) {}
 
