@@ -14,7 +14,6 @@ import com.github.dropguard.summer.core.bean.RouteInfo;
 import com.github.dropguard.summer.core.bean.SharedConditionEvaluator;
 import com.github.dropguard.summer.core.bean.SharedDependencyResolver;
 import com.github.dropguard.summer.core.config.ConfigBinder;
-import com.github.dropguard.summer.core.config.TypeConverter;
 import com.github.dropguard.summer.core.validation.Validator;
 import java.util.HashMap;
 import java.util.List;
@@ -83,7 +82,7 @@ public final class RuntimeContainer implements ContainerEngine {
                         .collect(java.util.stream.Collectors.toSet());
         new SharedConditionEvaluator().evaluate(candidates, mockedTypeNames, deployment);
 
-        ConfigBinder binder = new ConfigBinder();
+        RuntimeConfigBinder binder = new RuntimeConfigBinder();
         ConfigBinder.BindingContext ctx = ConfigBinder.BindingContext.of(overrides);
         bindConfiguration(candidates, builder, binder, ctx);
         BeanDefinitionFactory.populateInterceptors(candidates);
@@ -153,7 +152,7 @@ public final class RuntimeContainer implements ContainerEngine {
     private static void bindConfiguration(
             List<BeanDefinition> candidates,
             BeanContainer.Builder builder,
-            ConfigBinder binder,
+            RuntimeConfigBinder binder,
             ConfigBinder.BindingContext ctx) {
         for (BeanDefinition bd : candidates) {
             if (!(bd instanceof ConfigPropertiesBean c)) continue;
@@ -166,22 +165,9 @@ public final class RuntimeContainer implements ContainerEngine {
             }
             if (builder.peek(configClass) != null) continue;
             String prefix = c.configPropertiesPrefix;
-            Map<String, Object> defaults = new HashMap<>();
-            for (var e : c.defaultValues.entrySet()) {
-                String ft = c.fieldTypes.get(e.getKey());
-                if (ft != null) {
-                    try {
-                        defaults.put(
-                                e.getKey(), TypeConverter.convert(e.getValue(), Class.forName(ft)));
-                    } catch (Exception ignored) {
-                    }
-                }
-            }
-            ConfigBinder.BindingContext pcc =
-                    defaults.isEmpty()
-                            ? ctx
-                            : ConfigBinder.BindingContext.of(defaults, ctx.overrides());
-            builder.register(configClass, binder.bind(pcc, prefix, configClass));
+            // @WithDefault is read directly from method annotations by bindInterface,
+            // so only profile overrides are passed via BindingContext.
+            builder.register(configClass, binder.bind(ctx, prefix, configClass));
             log.debug(
                     "[Summer] Bound config properties: {} (prefix='{}')",
                     configClass.getSimpleName(),

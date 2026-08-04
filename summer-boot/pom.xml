@@ -15,12 +15,18 @@
     <description>Application bootstrap module for Summer framework</description>
 
     <dependencies>
+        <!-- Summer Web (Middleware class referenced in public API) -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-web</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- Summer Runtime (for RuntimeDiEngine) -->
         <dependency>
             <groupId>com.github.dropguard</groupId>
             <artifactId>summer-runtime</artifactId>
             <version>${project.version}</version>
-            <scope>runtime</scope>
         </dependency>
 
         <!-- Summer AOP (for ProxyFactory and MethodInterceptor) -->

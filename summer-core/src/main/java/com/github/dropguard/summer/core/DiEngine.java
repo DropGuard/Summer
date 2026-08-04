@@ -1,7 +1,5 @@
 package com.github.dropguard.summer.core;
 
-import com.github.dropguard.summer.core.config.ConfigBinder;
-import com.github.dropguard.summer.core.config.FrameworkConfig;
 import com.github.dropguard.summer.core.exception.ConfigurationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,6 +8,7 @@ import org.slf4j.LoggerFactory;
  * DI engine bootstrap. Loads the engine implementation via {@code Class.forName} and invokes its
  * static {@code build()} method.
  */
+@Internal
 public final class DiEngine {
 
     private static final Logger log = LoggerFactory.getLogger(DiEngine.class);
@@ -34,6 +33,7 @@ public final class DiEngine {
      *     {@code SummerApplication.apply(...)}); never exposed to tests
      */
     public static BeanContainer create(Engine engine, Object... externalBeans) {
+        engine = resolveEngine(engine);
         if (engine == Engine.AOT) {
             log.info("[Summer] Building container via AOT engine");
             return invokeBuild(
@@ -52,36 +52,15 @@ public final class DiEngine {
     }
 
     /**
-     * Creates a {@link BeanContainer} by resolving the engine from configuration and command-line
-     * override. Resolution order: {@code -Dsummer.engine} (highest) &gt; {@code summer.engine} in
-     * {@code application.yml} &gt; {@link Engine#RUNTIME} default. No environment sniffing is
-     * performed — the engine is always an explicit, auditable choice.
-     *
-     * <p>The optional {@code externalBeans} are boot-time application beans supplied only by {@code
-     * SummerApplication}; they are never exposed to tests. Global middleware is otherwise
-     * discovered as {@code @GlobalMiddleware}-annotated beans.
+     * Resolves the effective engine: system property override wins, otherwise the configured
+     * default (typically from {@code FrameworkConfig.engine()}).
      */
-    public static BeanContainer create(Object... externalBeans) {
-        Engine engine = resolveEngine();
-        return create(engine, externalBeans);
-    }
-
-    /**
-     * Resolves the DI engine without building a container. Visible for tests and for callers that
-     * need to know the resolved engine before construction.
-     */
-    public static Engine resolveEngine() {
+    public static Engine resolveEngine(Engine configured) {
         Engine override = Engine.fromString(System.getProperty(ENGINE_PROPERTY));
         if (override != null) {
             log.info("[Summer] Engine override (-D{}): {}", ENGINE_PROPERTY, override);
             return override;
         }
-        // FrameworkConfig carries @WithDefault("runtime"), so a bare project (no application.yml at
-        // all) still resolves to RUNTIME. Production builds flip it to AOT at build time.
-        Engine configured =
-                new ConfigBinder()
-                        .bind(ConfigBinder.BindingContext.of(), "summer", FrameworkConfig.class)
-                        .engine();
         log.info("[Summer] Engine from configuration: {}", configured);
         return configured;
     }

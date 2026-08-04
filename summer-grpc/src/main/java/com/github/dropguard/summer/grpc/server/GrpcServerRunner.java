@@ -2,6 +2,8 @@ package com.github.dropguard.summer.grpc.server;
 
 import com.github.dropguard.summer.core.ApplicationRunner;
 import com.github.dropguard.summer.core.BeanContainer;
+import com.github.dropguard.summer.core.Internal;
+import com.github.dropguard.summer.core.config.ShutdownConfig;
 import com.github.dropguard.summer.grpc.config.GrpcServerConfig;
 import com.github.dropguard.summer.grpc.config.GrpcTlsConfig;
 import com.github.dropguard.summer.grpc.exception.SummerGrpcException;
@@ -21,17 +23,21 @@ import org.slf4j.LoggerFactory;
  *
  * <p>This is a framework infrastructure bean provided by {@code GrpcInfrastructureConfiguration}.
  */
+@Internal
 public class GrpcServerRunner implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(GrpcServerRunner.class);
 
     private final GrpcTlsConfig tlsConfig;
     private final GrpcServerConfig serverConfig;
+    private final ShutdownConfig shutdownConfig;
     private Server server;
 
-    public GrpcServerRunner(GrpcTlsConfig tlsConfig, GrpcServerConfig serverConfig) {
+    public GrpcServerRunner(
+            GrpcTlsConfig tlsConfig, GrpcServerConfig serverConfig, ShutdownConfig shutdownConfig) {
         this.tlsConfig = tlsConfig;
         this.serverConfig = serverConfig;
+        this.shutdownConfig = shutdownConfig;
     }
 
     public int getPort() {
@@ -80,11 +86,14 @@ public class GrpcServerRunner implements ApplicationRunner {
             this.server.start();
             log.info("gRPC Server started on port {}", this.server.getPort());
         } catch (IOException e) {
-            throw new SummerGrpcException("Failed to start gRPC Server on port " + port, e);
+            throw new SummerGrpcException(
+                    io.grpc.Status.INTERNAL.withDescription(
+                            "Failed to start gRPC Server on port " + port),
+                    e);
         }
 
-        long timeoutMs = context.getShutdownConfig().timeoutMs();
-        context.addShutdownTask(() -> shutdown(java.time.Duration.ofMillis(timeoutMs)));
+        context.addShutdownTask(
+                () -> shutdown(java.time.Duration.ofMillis(shutdownConfig.timeoutMs())));
     }
 
     private void shutdown(java.time.Duration timeout) {

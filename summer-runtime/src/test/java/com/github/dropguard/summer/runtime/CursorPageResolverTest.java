@@ -2,7 +2,6 @@ package com.github.dropguard.summer.runtime;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.github.dropguard.summer.core.config.ConfigBinder;
 import com.github.dropguard.summer.core.config.ConfigBinder.BindingContext;
 import com.github.dropguard.summer.core.config.PageableProperties;
 import com.github.dropguard.summer.web.CursorPageResolver;
@@ -27,13 +26,14 @@ class CursorPageResolverTest {
     private final CursorPageResolver resolver = new CursorPageResolver(pageableProps(0, 20));
 
     private static PageableProperties pageableProps(int defaultPage, int defaultSize) {
-        return new ConfigBinder().bind(
-                BindingContext.of(
-                        Map.of(
-                                "pageable.defaultPage", defaultPage,
-                                "pageable.defaultSize", defaultSize)),
-                "pageable",
-                PageableProperties.class);
+        return new RuntimeConfigBinder()
+                .bind(
+                        BindingContext.of(
+                                Map.of(
+                                        "pageable.defaultPage", defaultPage,
+                                        "pageable.defaultSize", defaultSize)),
+                        "pageable",
+                        PageableProperties.class);
     }
 
     private HttpContext ctx(String query) {

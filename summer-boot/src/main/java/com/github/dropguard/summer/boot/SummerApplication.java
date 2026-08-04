@@ -2,6 +2,9 @@ package com.github.dropguard.summer.boot;
 
 import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.core.DiEngine;
+import com.github.dropguard.summer.core.config.ConfigBinder;
+import com.github.dropguard.summer.core.config.FrameworkConfig;
+import com.github.dropguard.summer.runtime.RuntimeConfigBinder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -41,11 +44,15 @@ public final class SummerApplication {
     }
 
     public BeanContainer start(String[] args) throws Exception {
+        // Resolve engine from FrameworkConfig (with @WithDefault("runtime")).
+        FrameworkConfig fw =
+                new RuntimeConfigBinder()
+                        .bind(ConfigBinder.BindingContext.of(), "summer", FrameworkConfig.class);
         // The ordered list of middleware classes declared via apply(...) is passed
         // as a boot-time external bean (keyed by the plain List type) so the web
         // server runner can apply them in declaration order. Middleware beans
         // annotated with @GlobalMiddleware are collected automatically without this.
-        BeanContainer context = DiEngine.create(this.middlewareEntries);
+        BeanContainer context = DiEngine.create(fw.engine(), this.middlewareEntries);
 
         System.out.println(Banner.format(context.engine().name()));
 

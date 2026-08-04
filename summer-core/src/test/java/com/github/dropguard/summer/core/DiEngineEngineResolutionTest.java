@@ -24,13 +24,13 @@ class DiEngineEngineResolutionTest {
     @Test
     void overrideRuntimeIsResolvedCaseInsensitively() {
         System.setProperty("summer.engine", "RUNTIME");
-        assertEquals(Engine.RUNTIME, DiEngine.resolveEngine());
+        assertEquals(Engine.RUNTIME, DiEngine.resolveEngine(Engine.RUNTIME));
     }
 
     @Test
     void overrideAotIsResolved() {
         System.setProperty("summer.engine", "aot");
-        assertEquals(Engine.AOT, DiEngine.resolveEngine());
+        assertEquals(Engine.AOT, DiEngine.resolveEngine(Engine.RUNTIME));
     }
 
     @Test

@@ -1,9 +1,9 @@
 package com.github.dropguard.summer.core.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.exception.BeanCreationException;
 import com.github.dropguard.summer.core.exception.ConfigurationException;
-import com.github.dropguard.summer.core.exception.MissingFieldException;
 import com.github.dropguard.summer.core.json.SummerObjectMapper;
 import java.io.InputStream;
 import java.util.Arrays;
@@ -20,6 +20,7 @@ import java.util.regex.Pattern;
  * interface proxying — lives here. Both the runtime and AOT engines share this single
  * implementation; no external binder needs to be installed.
  */
+@Internal
 public final class ConfigBinder {
 
     private static final ObjectMapper YAML_MAPPER = SummerObjectMapper.createYaml();
@@ -94,9 +95,6 @@ public final class ConfigBinder {
     @SuppressWarnings("unchecked")
     public <T> T bind(BindingContext ctx, String prefix, Class<T> targetType) {
         Map<String, Object> section = bindSection(ctx, prefix);
-        if (targetType.isInterface()) {
-            return bindInterface(section, targetType);
-        }
         try {
             return YAML_MAPPER.convertValue(section, targetType);
         } catch (ConfigurationException e) {
@@ -104,44 +102,6 @@ public final class ConfigBinder {
         } catch (Exception e) {
             throw new BeanCreationException("Failed to bind config: " + targetType.getName(), e);
         }
-    }
-
-    private <T> T bindInterface(Map<String, Object> section, Class<T> type) {
-        return (T)
-                java.lang.reflect.Proxy.newProxyInstance(
-                        type.getClassLoader(),
-                        new Class<?>[] {type},
-                        (proxy, method, args) -> {
-                            if (method.getDeclaringClass() == Object.class) {
-                                return switch (method.getName()) {
-                                    case "equals" -> proxy == args[0];
-                                    case "hashCode" -> System.identityHashCode(proxy);
-                                    case "toString" -> type.getSimpleName() + "Config" + section;
-                                    default ->
-                                            throw new UnsupportedOperationException(
-                                                    method.toString());
-                                };
-                            }
-                            String key = toCamelCase(method.getName());
-                            Object value = section.get(key);
-                            if (value == null) {
-                                throw new MissingFieldException(
-                                        method.getName(),
-                                        type.getSimpleName(),
-                                        "Missing config key '" + key + "' for " + type.getName());
-                            }
-                            Class<?> returnType = method.getReturnType();
-                            if (returnType.isInterface() && value instanceof Map<?, ?> nested) {
-                                @SuppressWarnings("unchecked")
-                                Map<String, Object> nestedSection = (Map<String, Object>) nested;
-                                return bindInterface(nestedSection, returnType);
-                            }
-                            return YAML_MAPPER.convertValue(
-                                    value,
-                                    YAML_MAPPER
-                                            .getTypeFactory()
-                                            .constructType(method.getGenericReturnType()));
-                        });
     }
 
     /**

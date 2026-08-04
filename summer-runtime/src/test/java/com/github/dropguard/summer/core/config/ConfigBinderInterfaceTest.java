@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.github.dropguard.summer.core.exception.MissingFieldException;
+import com.github.dropguard.summer.runtime.RuntimeConfigBinder;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -32,10 +33,11 @@ class ConfigBinderInterfaceTest {
     void bindsInterfaceFromDefaults() {
         Map<String, Object> defaults = Map.of("host", "localhost", "port", 8080);
         SampleConfig cfg =
-                new ConfigBinder().bind(
-                        ConfigBinder.BindingContext.of(defaults, Map.of()),
-                        "sample",
-                        SampleConfig.class);
+                new RuntimeConfigBinder()
+                        .bind(
+                                ConfigBinder.BindingContext.of(defaults, Map.of()),
+                                "sample",
+                                SampleConfig.class);
         assertEquals("localhost", cfg.host());
         assertEquals(8080, cfg.port());
     }
@@ -44,10 +46,11 @@ class ConfigBinderInterfaceTest {
     void withDefaultAppliesWhenUnbound() {
         Map<String, Object> defaults = Map.of("host", "localhost");
         SampleConfig cfg =
-                new ConfigBinder().bind(
-                        ConfigBinder.BindingContext.of(defaults, Map.of()),
-                        "sample",
-                        SampleConfig.class);
+                new RuntimeConfigBinder()
+                        .bind(
+                                ConfigBinder.BindingContext.of(defaults, Map.of()),
+                                "sample",
+                                SampleConfig.class);
         assertEquals("localhost", cfg.host());
         assertEquals(8080, cfg.port()); // from @WithDefault
     }
@@ -58,10 +61,11 @@ class ConfigBinderInterfaceTest {
         // Interface binding is lazy: the proxy resolves fields on access, so the
         // missing-key error surfaces when the accessor is invoked, not at bind time.
         SampleConfig cfg =
-                new ConfigBinder().bind(
-                        ConfigBinder.BindingContext.of(empty, Map.of()),
-                        "sample",
-                        SampleConfig.class);
+                new RuntimeConfigBinder()
+                        .bind(
+                                ConfigBinder.BindingContext.of(empty, Map.of()),
+                                "sample",
+                                SampleConfig.class);
         MissingFieldException ex = assertThrows(MissingFieldException.class, cfg::host);
         assertTrue(ex.getMessage().contains("host"));
     }
@@ -81,10 +85,11 @@ class ConfigBinderInterfaceTest {
         // The defaults map is keyed by the resolved key (camelCased @WithName value).
         Map<String, Object> defaults = Map.of("maxConn", 5, "host", "h");
         ConnConfig cfg =
-                new ConfigBinder().bind(
-                        ConfigBinder.BindingContext.of(defaults, Map.of()),
-                        "conn",
-                        ConnConfig.class);
+                new RuntimeConfigBinder()
+                        .bind(
+                                ConfigBinder.BindingContext.of(defaults, Map.of()),
+                                "conn",
+                                ConnConfig.class);
         assertEquals(5, cfg.maxConn());
         assertEquals("h", cfg.host());
     }
@@ -114,10 +119,11 @@ class ConfigBinderInterfaceTest {
         Map<String, Object> db = Map.of("url", "jdbc:x");
         Map<String, Object> defaults = Map.of("host", "h", "database", db);
         ServerConfig cfg =
-                new ConfigBinder().bind(
-                        ConfigBinder.BindingContext.of(defaults, Map.of()),
-                        "myserver",
-                        ServerConfig.class);
+                new RuntimeConfigBinder()
+                        .bind(
+                                ConfigBinder.BindingContext.of(defaults, Map.of()),
+                                "myserver",
+                                ServerConfig.class);
         assertEquals("h", cfg.host());
         assertEquals("jdbc:x", cfg.database().url());
         assertEquals("postgres", cfg.database().driver()); // nested @WithDefault
@@ -144,8 +150,11 @@ class ConfigBinderInterfaceTest {
         Map<String, Object> defaults =
                 Map.of("routerType", "LINEAR", "allowedOrigins", List.of("https://a", "https://b"));
         WebConfig cfg =
-                new ConfigBinder().bind(
-                        ConfigBinder.BindingContext.of(defaults, Map.of()), "web", WebConfig.class);
+                new RuntimeConfigBinder()
+                        .bind(
+                                ConfigBinder.BindingContext.of(defaults, Map.of()),
+                                "web",
+                                WebConfig.class);
         assertEquals(RouterType.LINEAR, cfg.routerType());
         assertEquals(List.of("https://a", "https://b"), cfg.allowedOrigins());
     }
@@ -157,10 +166,11 @@ class ConfigBinderInterfaceTest {
         Map<String, Object> defaults = Map.of("host", "localhost", "port", 8080);
         Map<String, Object> overrides = Map.of("sample.port", 9090);
         SampleConfig cfg =
-                new ConfigBinder().bind(
-                        ConfigBinder.BindingContext.of(defaults, overrides),
-                        "sample",
-                        SampleConfig.class);
+                new RuntimeConfigBinder()
+                        .bind(
+                                ConfigBinder.BindingContext.of(defaults, overrides),
+                                "sample",
+                                SampleConfig.class);
         assertEquals("localhost", cfg.host());
         assertEquals(9090, cfg.port()); // override wins over @WithDefault/default
     }

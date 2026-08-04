@@ -3,6 +3,7 @@ package com.github.dropguard.summer.realworld.auth;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.dropguard.summer.core.config.ConfigBinder;
+import com.github.dropguard.summer.runtime.RuntimeConfigBinder;
 import com.github.dropguard.summer.core.config.ConfigBinder.BindingContext;
 import com.github.dropguard.summer.realworld.common.BusinessException;
 import com.github.dropguard.summer.web.HttpContext;
@@ -22,7 +23,7 @@ class AuthUtilsTest {
 
     @BeforeEach
     void setUp() {
-        JwtProperties properties = new ConfigBinder().bind(
+        JwtProperties properties = new RuntimeConfigBinder().bind(
                 BindingContext.of(Map.of("jwt.secret", "test-secret-key-for-unit-tests-32bytes!")),
                 "jwt", JwtProperties.class);
         jwtUtil = new JwtUtil(properties);

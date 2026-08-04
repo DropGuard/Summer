@@ -2,8 +2,8 @@ package com.github.dropguard.summer.web.middleware;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.github.dropguard.summer.core.config.ConfigBinder;
 import com.github.dropguard.summer.core.config.ConfigBinder.BindingContext;
+import com.github.dropguard.summer.runtime.RuntimeConfigBinder;
 import com.github.dropguard.summer.web.*;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
@@ -23,15 +23,16 @@ class CorsMiddlewareTest {
 
     private static CorsConfig corsProps(
             String allowedOrigins, String allowedMethods, String allowedHeaders, int maxAge) {
-        return new ConfigBinder().bind(
-                BindingContext.of(
-                        Map.of(
-                                "cors.allowedOrigins", allowedOrigins,
-                                "cors.allowedMethods", allowedMethods,
-                                "cors.allowedHeaders", allowedHeaders,
-                                "cors.maxAge", maxAge)),
-                "cors",
-                CorsConfig.class);
+        return new RuntimeConfigBinder()
+                .bind(
+                        BindingContext.of(
+                                Map.of(
+                                        "cors.allowedOrigins", allowedOrigins,
+                                        "cors.allowedMethods", allowedMethods,
+                                        "cors.allowedHeaders", allowedHeaders,
+                                        "cors.maxAge", maxAge)),
+                        "cors",
+                        CorsConfig.class);
     }
 
     @Test

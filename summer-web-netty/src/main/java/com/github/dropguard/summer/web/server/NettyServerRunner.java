@@ -2,6 +2,7 @@ package com.github.dropguard.summer.web.server;
 
 import com.github.dropguard.summer.core.ApplicationRunner;
 import com.github.dropguard.summer.core.BeanContainer;
+import com.github.dropguard.summer.core.config.ShutdownConfig;
 import com.github.dropguard.summer.runtime.RuntimeWebConfiguration;
 import com.github.dropguard.summer.web.ExceptionHandlerRegistrar;
 import com.github.dropguard.summer.web.ExceptionRegistry;
@@ -40,6 +41,7 @@ public class NettyServerRunner implements ApplicationRunner {
 
     private final RouterRegistry routerRegistry;
     private final ServerConfig config;
+    private final ShutdownConfig shutdownConfig;
     private NettyHttpServer runningServer;
     // Port is a property of THIS server instance, not JVM-global state. Each
     // container owns its own runner, so the bound port is read through the
@@ -47,9 +49,11 @@ public class NettyServerRunner implements ApplicationRunner {
     // in the same JVM and race on the value (the original port-conflict bug).
     private int actualPort = -1;
 
-    public NettyServerRunner(RouterRegistry routerRegistry, ServerConfig config) {
+    public NettyServerRunner(
+            RouterRegistry routerRegistry, ServerConfig config, ShutdownConfig shutdownConfig) {
         this.routerRegistry = routerRegistry;
         this.config = config;
+        this.shutdownConfig = shutdownConfig;
     }
 
     @Override
@@ -72,8 +76,8 @@ public class NettyServerRunner implements ApplicationRunner {
         runningServer.start();
         this.actualPort = runningServer.getPort();
 
-        long timeoutMs = context.getShutdownConfig().timeoutMs();
-        context.addShutdownTask(() -> shutdown(java.time.Duration.ofMillis(timeoutMs)));
+        context.addShutdownTask(
+                () -> shutdown(java.time.Duration.ofMillis(shutdownConfig.timeoutMs())));
     }
 
     /**

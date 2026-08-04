@@ -1,7 +1,9 @@
 package com.github.dropguard.summer.grpc;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.annotation.Bean;
 import com.github.dropguard.summer.core.annotation.Configuration;
+import com.github.dropguard.summer.core.config.ShutdownConfig;
 import com.github.dropguard.summer.grpc.client.GrpcChannelManager;
 import com.github.dropguard.summer.grpc.config.GrpcServerConfig;
 import com.github.dropguard.summer.grpc.config.GrpcTlsConfig;
@@ -14,6 +16,7 @@ import com.github.dropguard.summer.grpc.server.GrpcServerRunner;
  * for server lifecycle.
  */
 @Configuration
+@Internal
 public class GrpcInfrastructureConfiguration {
 
     @Bean
@@ -23,7 +26,7 @@ public class GrpcInfrastructureConfiguration {
 
     @Bean
     public GrpcServerRunner grpcServerRunner(
-            GrpcTlsConfig tlsConfig, GrpcServerConfig serverConfig) {
-        return new GrpcServerRunner(tlsConfig, serverConfig);
+            GrpcTlsConfig tlsConfig, GrpcServerConfig serverConfig, ShutdownConfig shutdownConfig) {
+        return new GrpcServerRunner(tlsConfig, serverConfig, shutdownConfig);
     }
 }

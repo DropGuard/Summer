@@ -1,13 +1,14 @@
 package com.github.dropguard.summer.core;
 
+import com.github.dropguard.summer.core.annotation.Order;
 import com.github.dropguard.summer.core.bean.RouteInfo;
-import com.github.dropguard.summer.core.config.ConfigBinder;
-import com.github.dropguard.summer.core.config.ShutdownConfig;
 import com.github.dropguard.summer.core.exception.AmbiguousBeanException;
 import com.github.dropguard.summer.core.exception.NoSuchBeanException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -78,20 +79,40 @@ public final class BeanContainer implements AutoCloseable {
         return matches.get(0);
     }
 
-    /** Returns all beans whose type is assignable to the given type. */
+    /** Returns all beans whose type is assignable to the given type, sorted by {@code @Order}. */
     @SuppressWarnings("unchecked")
     public <T> List<T> getBeans(Class<T> type) {
         if (type == null) {
             throw new IllegalArgumentException("getBeans requires a non-null type");
         }
         List<T> result = new ArrayList<>();
+        Set<Object> seen = new HashSet<>();
         for (Object bean : singletons.values()) {
-            if (type.isInstance(bean) && !result.contains(bean)) {
+            if (type.isInstance(bean) && seen.add(bean)) {
                 result.add((T) bean);
             }
         }
+        result.sort(ORDER_COMPARATOR);
         return result;
     }
+
+    /**
+     * Resolves the {@code @Order} value for a bean. Checks the concrete class first, then its
+     * interfaces (JDK proxies report their proxy class, not the original).
+     */
+    static int orderOf(Object bean) {
+        Class<?> cls = bean.getClass();
+        Order order = cls.getAnnotation(Order.class);
+        if (order != null) return order.value();
+        for (Class<?> iface : cls.getInterfaces()) {
+            order = iface.getAnnotation(Order.class);
+            if (order != null) return order.value();
+        }
+        return Integer.MAX_VALUE;
+    }
+
+    private static final Comparator<Object> ORDER_COMPARATOR =
+            Comparator.comparingInt(BeanContainer::orderOf);
 
     /** Checks whether a bean of the given type is registered (exact key or assignable). */
     public boolean containsBean(Class<?> type) {
@@ -137,21 +158,6 @@ public final class BeanContainer implements AutoCloseable {
      */
     public void addShutdownTask(Runnable task) {
         shutdownContext.addShutdownTask(task);
-    }
-
-    /**
-     * Resolves the global {@link ShutdownConfig}, falling back to defaults when no
-     * {@code @ConfigMapping} bean is present. Used by input drivers at registration time to read
-     * the in-flight drain timeout.
-     */
-    public ShutdownConfig getShutdownConfig() {
-        Object bean = singletons.get(ShutdownConfig.class);
-        if (bean instanceof ShutdownConfig c) {
-            return c;
-        }
-        // No @ConfigMapping bean present — bind the defaults (ShutdownConfig is @WithDefault only).
-        return new ConfigBinder()
-                .bind(ConfigBinder.BindingContext.of(), "shutdown", ShutdownConfig.class);
     }
 
     // ---- Builder ----
@@ -204,15 +210,19 @@ public final class BeanContainer implements AutoCloseable {
             return matches.get(0);
         }
 
-        /** Returns all beans whose type is assignable to the given type. */
+        /**
+         * Returns all beans whose type is assignable to the given type, sorted by {@code @Order}.
+         */
         @SuppressWarnings("unchecked")
         public <T> List<T> getBeans(Class<T> type) {
             List<T> result = new ArrayList<>();
+            Set<Object> seen = new HashSet<>();
             for (Object bean : singletons.values()) {
-                if (type.isInstance(bean) && !result.contains(bean)) {
+                if (type.isInstance(bean) && seen.add(bean)) {
                     result.add((T) bean);
                 }
             }
+            result.sort(ORDER_COMPARATOR);
             return result;
         }
 
