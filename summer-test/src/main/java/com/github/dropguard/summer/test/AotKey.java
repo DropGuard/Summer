@@ -108,6 +108,7 @@ public final class AotKey {
      * annotations, not from instantiated mocks — the identity stage must not construct anything.
      */
     private static String mockedTypes(Class<?> testClass) {
+        if (testClass == null) return "";
         SortedSet<String> names = new TreeSet<>();
         Constructor<?>[] ctors = testClass.getDeclaredConstructors();
         if (ctors.length == 1) {

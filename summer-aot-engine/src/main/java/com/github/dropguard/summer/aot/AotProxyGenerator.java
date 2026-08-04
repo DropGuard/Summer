@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.aot;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
 import com.palantir.javapoet.AnnotationSpec;
 import com.palantir.javapoet.ClassName;
@@ -34,6 +35,7 @@ import org.slf4j.LoggerFactory;
  * com.github.dropguard.summer.aop.InterceptedMethod} — a zero- reflection, compile-time-constant
  * method view — so proxies never touch {@code java.lang.reflect.Method} at runtime.
  */
+@Internal
 public final class AotProxyGenerator {
 
     private static final Logger log = LoggerFactory.getLogger(AotProxyGenerator.class);
@@ -377,7 +379,10 @@ public final class AotProxyGenerator {
                 || type.equals(TypeName.CHAR)) {
             return "0";
         }
-        if (type.equals(TypeName.FLOAT) || type.equals(TypeName.DOUBLE)) {
+        if (type.equals(TypeName.FLOAT)) {
+            return "0.0f";
+        }
+        if (type.equals(TypeName.DOUBLE)) {
             return "0.0";
         }
         if (type.equals(TypeName.BOOLEAN)) {

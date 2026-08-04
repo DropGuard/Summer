@@ -8,9 +8,8 @@ import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 
 /**
- * Verifies that AOT proxy codegen handles primitive return types correctly.
- * Without the boxed-cast fix, the AOT engine emits {@code (int) chain.proceed()}
- * which is a compile error.
+ * Verifies that AOT proxy codegen handles primitive return types correctly. Without the boxed-cast
+ * fix, the AOT engine emits {@code (int) chain.proceed()} which is a compile error.
  */
 @SummerTest
 class AopPrimitiveReturnTest {

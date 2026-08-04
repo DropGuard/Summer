@@ -10,8 +10,7 @@ import java.util.List;
 
 /**
  * A test-purpose interceptor that: 1. Records every intercepted method call into a log (for order
- * verification). 2. Wraps the return value with "[intercepted] " prefix (for result mutation
- * verification).
+ * verification). 2. Records the result for mutation verification via call-log. verification).
  *
  * <p>Bound to methods annotated with {@code @Logged}.
  */
@@ -29,8 +28,7 @@ public class RecordingInterceptor implements MethodInterceptor {
         callLog.add("before:" + methodName);
         Object result = chain.proceed();
         callLog.add("after:" + methodName);
-        // Prefix the return value to prove interception ran
-        return "[intercepted] " + result;
+        return result;
     }
 
     public List<String> getCallLog() {

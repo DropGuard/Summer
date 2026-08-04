@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.aot;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
 import com.github.dropguard.summer.core.bean.ConfigPropertiesBean;
 import com.github.dropguard.summer.core.bean.InjectionParameter;
@@ -25,6 +26,7 @@ import org.jboss.jandex.Type;
  * <p>Handles constructor injection, {@code @Bean} method invocation, {@code @ConfigMapping}
  * binding, AOP proxy wrapping, and interface registration.
  */
+@Internal
 public final class WireMethodGenerator {
 
     private static final ClassName JDBC_TEMPLATE =
@@ -391,7 +393,7 @@ public final class WireMethodGenerator {
                     ClassName.get(
                             AotContextGenerator.PACKAGE, beanClass.simpleName() + "$$ConfigImpl");
             wire.addStatement(
-                    "$T $N = new $T($T.bindSection($L, $S))",
+                    "$T $N = new $T(new $T().bindSection($L, $S))",
                     implClass,
                     varName,
                     implClass,

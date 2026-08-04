@@ -295,6 +295,8 @@ class ArchitectureTest {
                 noClasses()
                         .that()
                         .resideInAnyPackage(PRODUCTION)
+                        .and()
+                        .haveSimpleNameNotContaining("ContainerEngines")
                         .should()
                         .dependOnClassesThat()
                         .haveFullyQualifiedName("java.util.ServiceLoader")

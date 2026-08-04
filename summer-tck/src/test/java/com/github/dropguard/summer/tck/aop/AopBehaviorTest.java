@@ -8,6 +8,7 @@ import com.github.dropguard.summer.fixtures.aop.Greeter;
 import com.github.dropguard.summer.fixtures.aop.RecordingInterceptor;
 import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
+import java.util.List;
 
 @SummerTest
 public class AopBehaviorTest {
@@ -19,23 +20,31 @@ public class AopBehaviorTest {
     }
 
     @DualEngine
-    void testInterceptedMethodReturnsWrappedResult() {
+    void testInterceptedMethodFiresInterceptor() {
+        RecordingInterceptor interceptor = context.getBean(RecordingInterceptor.class);
+        interceptor.clearLog();
+
         Greeter greeter = context.getBean(Greeter.class);
         String result = greeter.greet("Alice");
+        assertEquals("Hello, Alice", result);
+
         assertEquals(
-                "[intercepted] Hello, Alice",
-                result,
-                "Intercepted method must return the mutated value from the interceptor");
+                List.of("before:greet", "after:greet"),
+                interceptor.getCallLog(),
+                "Interceptor must record before/after calls");
     }
 
     @DualEngine
     void testNonInterceptedMethodIsUnaffected() {
+        RecordingInterceptor interceptor = context.getBean(RecordingInterceptor.class);
+        interceptor.clearLog();
+
         Greeter greeter = context.getBean(Greeter.class);
         String result = greeter.shout("hello");
-        assertEquals(
-                "HELLO",
-                result,
-                "Non-intercepted method must return the raw result, without any prefix");
+        assertEquals("HELLO", result);
+        assertTrue(
+                interceptor.getCallLog().isEmpty(),
+                "Interceptor must not fire for non-@Logged methods");
     }
 
     @DualEngine
@@ -69,14 +78,16 @@ public class AopBehaviorTest {
 
     @DualEngine
     void testClassLevelBindingInterceptsAllMethods() {
+        RecordingInterceptor interceptor = context.getBean(RecordingInterceptor.class);
+        interceptor.clearLog();
+
         ClassLevelGreeter greeter = context.getBean(ClassLevelGreeter.class);
+        assertEquals("Hello, Alice", greeter.greet("Alice"));
+        assertEquals("HELLO", greeter.shout("hello"));
+
         assertEquals(
-                "[intercepted] Hello, Alice",
-                greeter.greet("Alice"),
-                "Class-level @Logged must intercept greet()");
-        assertEquals(
-                "[intercepted] HELLO",
-                greeter.shout("hello"),
-                "Class-level @Logged must intercept shout() even without method-level annotation");
+                List.of("before:greet", "after:greet", "before:shout", "after:shout"),
+                interceptor.getCallLog(),
+                "Class-level @Logged must intercept all methods");
     }
 }

@@ -38,9 +38,6 @@ public enum ErrorCode {
     // Transaction (6xxx)
     TRANSACTION_ERROR(6001, "Transaction operation failed"),
 
-    // gRPC (7xxx)
-    GRPC_ERROR(7001, "gRPC operation failed"),
-
     // Internal (9xxx)
     INTERNAL_ERROR(9999, "Internal framework error");
 

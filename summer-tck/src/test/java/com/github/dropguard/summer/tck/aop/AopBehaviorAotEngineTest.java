@@ -13,6 +13,7 @@ import com.github.dropguard.summer.fixtures.aop.GreeterService;
 import com.github.dropguard.summer.fixtures.aop.RecordingInterceptor;
 import com.github.dropguard.summer.test.TestContainer;
 import com.github.dropguard.summer.test.annotation.SummerTest;
+import java.util.List;
 
 /**
  * AOT-engine-specific pin for AOP interception behaviour.
@@ -33,51 +34,37 @@ public class AopBehaviorAotEngineTest {
         BeanContainer context =
                 TestContainer.builder().testClass(getClass()).engine(Engine.AOT).build();
 
-        // Method-level @Logged on GreeterService.greet must be intercepted.
-        Greeter greeter = context.getBean(Greeter.class);
-        assertEquals(
-                "[intercepted] Hello, Alice",
-                greeter.greet("Alice"),
-                "AOT: method-level @Logged must intercept greet()");
-
-        // Non-annotated method must pass through untouched.
-        assertEquals(
-                "HELLO",
-                greeter.shout("hello"),
-                "AOT: non-annotated method must return the raw result");
-
-        // Returned bean must be a JDK proxy, not the raw impl.
-        assertNotEquals(
-                GreeterService.class,
-                greeter.getClass(),
-                "AOT: getBean(Greeter.class) must return a proxy");
-        assertInstanceOf(Greeter.class, greeter);
-
-        // Class-level @Logged on ClassLevelService must intercept EVERY method.
-        ClassLevelGreeter classLevel = context.getBean(ClassLevelGreeter.class);
-        assertEquals(
-                "[intercepted] Hello, Alice",
-                classLevel.greet("Alice"),
-                "AOT: class-level @Logged must intercept greet()");
-        assertEquals(
-                "[intercepted] HELLO",
-                classLevel.shout("hello"),
-                "AOT: class-level @Logged must intercept shout() too");
-
-        // Raw instance (concrete class) must NOT be proxied or intercepted.
         RecordingInterceptor interceptor = context.getBean(RecordingInterceptor.class);
         interceptor.clearLog();
+
+        // Method-level @Logged on GreeterService.greet must be intercepted.
+        Greeter greeter = context.getBean(Greeter.class);
+        assertEquals("Hello, Alice", greeter.greet("Alice"));
+        assertEquals(List.of("before:greet", "after:greet"), interceptor.getCallLog());
+
+        // Non-annotated method must pass through untouched.
+        interceptor.clearLog();
+        assertEquals("HELLO", greeter.shout("hello"));
+        assertTrue(interceptor.getCallLog().isEmpty());
+
+        // Returned bean must be a JDK proxy, not the raw impl.
+        assertNotEquals(GreeterService.class, greeter.getClass());
+        assertInstanceOf(Greeter.class, greeter);
+
+        // Class-level @Logged must intercept EVERY method.
+        interceptor.clearLog();
+        ClassLevelGreeter classLevel = context.getBean(ClassLevelGreeter.class);
+        assertEquals("Hello, Alice", classLevel.greet("Alice"));
+        assertEquals("HELLO", classLevel.shout("hello"));
+        assertEquals(
+                List.of("before:greet", "after:greet", "before:shout", "after:shout"),
+                interceptor.getCallLog());
+
+        // Raw instance must NOT be proxied or intercepted.
+        interceptor.clearLog();
         GreeterService raw = context.getBean(GreeterService.class);
-        assertEquals(
-                GreeterService.class,
-                raw.getClass(),
-                "AOT: getBean(concrete class) returns the raw instance");
-        assertEquals(
-                "Hello, Charlie",
-                raw.greet("Charlie"),
-                "AOT: greet() on raw instance must NOT be intercepted");
-        assertTrue(
-                interceptor.getCallLog().isEmpty(),
-                "AOT: interceptor must not fire on the raw instance");
+        assertEquals(GreeterService.class, raw.getClass());
+        assertEquals("Hello, Charlie", raw.greet("Charlie"));
+        assertTrue(interceptor.getCallLog().isEmpty());
     }
 }
