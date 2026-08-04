@@ -81,18 +81,19 @@ class ProxyFactoryTest {
     }
 
     @Test
-    void shouldDelegateToObjectMethods() {
+    void shouldHandleObjectMethodsOnProxyItself() {
         TestService target = new TestServiceImpl();
         TestService proxy = ProxyFactory.createProxy(target, emptyPlan());
 
-        // Test toString
-        assertEquals(target.toString(), proxy.toString());
+        // toString returns proxy identity, not target identity
+        assertTrue(proxy.toString().startsWith("Proxy["));
 
-        // Test hashCode
-        assertEquals(target.hashCode(), proxy.hashCode());
+        // hashCode uses identity hash of the proxy (not the target)
+        assertEquals(System.identityHashCode(proxy), proxy.hashCode());
 
-        // Test equals
-        assertTrue(proxy.equals(target));
+        // equals uses reference equality on the proxy
+        assertTrue(proxy.equals(proxy));
+        assertFalse(proxy.equals(target));
     }
 
     @Test

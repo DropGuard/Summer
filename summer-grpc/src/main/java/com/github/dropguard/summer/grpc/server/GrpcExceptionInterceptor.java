@@ -1,7 +1,6 @@
 package com.github.dropguard.summer.grpc.server;
 
-import com.github.dropguard.summer.core.ErrorCode;
-import com.github.dropguard.summer.core.exception.SummerException;
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.grpc.exception.SummerGrpcException;
 import io.grpc.ForwardingServerCallListener;
 import io.grpc.Metadata;
@@ -30,6 +29,7 @@ import org.slf4j.LoggerFactory;
  * }
  * }</pre>
  */
+@Internal
 public class GrpcExceptionInterceptor implements ServerInterceptor {
 
     private static final Logger log = LoggerFactory.getLogger(GrpcExceptionInterceptor.class);
@@ -59,37 +59,21 @@ public class GrpcExceptionInterceptor implements ServerInterceptor {
             e = cause;
         }
 
-        Status status = mapStatus(e);
-        log.error("gRPC call failed: {} --{}", status.getCode(), e.getMessage(), e);
+        Status status = toGrpcStatus(e);
+        log.error("gRPC call failed: {} -- {}", status.getCode(), status.getDescription(), e);
 
         Metadata trailers = new Metadata();
-        call.close(status.withDescription(e.getMessage()), trailers);
+        call.close(status, trailers);
     }
 
-    /** Maps an exception to a gRPC {@link Status}. */
-    static Status mapStatus(Exception e) {
+    /** Extracts the gRPC {@link Status} from an exception. */
+    static Status toGrpcStatus(Exception e) {
         if (e instanceof SummerGrpcException grpcEx) {
-            return mapErrorCode(grpcEx.errorCode());
-        }
-        if (e instanceof SummerException summerEx) {
-            return mapErrorCode(summerEx.errorCode());
+            return grpcEx.getStatus();
         }
         if (e instanceof StatusRuntimeException sre) {
             return sre.getStatus();
         }
-        if (e instanceof IllegalArgumentException || e instanceof IllegalStateException) {
-            return Status.INVALID_ARGUMENT;
-        }
-        return Status.INTERNAL;
-    }
-
-    private static Status mapErrorCode(ErrorCode code) {
-        return switch (code) {
-            case VALIDATION_FAILED, BODY_PARSE_ERROR -> Status.INVALID_ARGUMENT;
-            case BEAN_NOT_FOUND, AMBIGUOUS_BEAN -> Status.UNAVAILABLE;
-            case DATA_ACCESS_ERROR, DATA_SERIALIZATION_ERROR -> Status.INTERNAL;
-            case GRPC_ERROR -> Status.INTERNAL;
-            default -> Status.INTERNAL;
-        };
+        return Status.INTERNAL.withDescription("Internal error");
     }
 }

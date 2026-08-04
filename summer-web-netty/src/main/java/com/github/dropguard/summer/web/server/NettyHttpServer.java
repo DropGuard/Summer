@@ -19,12 +19,15 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
+import io.netty.handler.timeout.IdleStateHandler;
+import io.netty.handler.timeout.ReadTimeoutHandler;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class NettyHttpServer {
+class NettyHttpServer {
     private static final Logger log = LoggerFactory.getLogger(NettyHttpServer.class);
 
     private final ServerConfig config;
@@ -118,6 +121,17 @@ public class NettyHttpServer {
                                 protected void initChannel(SocketChannel ch) {
                                     ch.pipeline()
                                             .addLast(new HttpServerCodec())
+                                            .addLast(
+                                                    new IdleStateHandler(
+                                                            config.idleTimeout(),
+                                                            0, // writerIdleTime — server doesn't
+                                                            // track write idle
+                                                            0, // allIdleTime — not needed
+                                                            TimeUnit.MILLISECONDS))
+                                            .addLast(
+                                                    new ReadTimeoutHandler(
+                                                            config.readTimeout(),
+                                                            TimeUnit.MILLISECONDS))
                                             .addLast(
                                                     new HttpObjectAggregator(
                                                             config.maxBodySize())) // Combine HTTP

@@ -4,6 +4,7 @@ import com.github.dropguard.summer.aop.MethodInterceptor;
 import com.github.dropguard.summer.aop.ProxyInterceptorChain;
 import com.github.dropguard.summer.aop.SummerAopException;
 import com.github.dropguard.summer.core.ErrorCode;
+import com.github.dropguard.summer.core.Internal;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -22,6 +23,7 @@ import java.util.Set;
  * either forwards straight to the target or runs the method's interceptor chain. No annotation
  * scanning, no impl-vs-interface ambiguity to resolve here.
  */
+@Internal
 public class ProxyFactory {
 
     private ProxyFactory() {}
@@ -65,9 +67,19 @@ public class ProxyFactory {
 
         @Override
         public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-            // Handle Object methods specially (equals, hashCode, toString)
+            // Object methods must be handled on the proxy itself, not delegated
+            // to the target — otherwise equals/hashCode symmetry and reflexivity break.
             if (method.getDeclaringClass() == Object.class) {
-                return method.invoke(target, args);
+                return switch (method.getName()) {
+                    case "equals" -> proxy == args[0];
+                    case "hashCode" -> System.identityHashCode(proxy);
+                    case "toString" ->
+                            "Proxy["
+                                    + target.getClass().getName()
+                                    + "]@"
+                                    + Integer.toHexString(System.identityHashCode(proxy));
+                    default -> throw new UnsupportedOperationException(method.toString());
+                };
             }
 
             ProxyMethodSpec spec = methodSpecs.getOrDefault(method, ProxyMethodSpec.NONE);

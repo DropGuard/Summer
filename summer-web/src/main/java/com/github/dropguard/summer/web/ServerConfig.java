@@ -11,8 +11,8 @@ public interface ServerConfig {
     @WithDefault("8080")
     Integer port();
 
-    @WithDefault("30000")
-    Integer connectionTimeout();
+    @WithDefault("60000")
+    Integer idleTimeout();
 
     @WithDefault("10485760")
     Integer maxBodySize();

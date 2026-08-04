@@ -18,11 +18,12 @@ import io.netty.handler.codec.http.HttpHeaderValues;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
+import io.netty.handler.timeout.IdleStateEvent;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
 
     private static final Logger log = LoggerFactory.getLogger(NettyHttpServerHandler.class);
 
@@ -231,6 +232,16 @@ public class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttp
             ctx.writeAndFlush(errorResp).addListener(ChannelFutureListener.CLOSE);
         }
         return errorResp;
+    }
+
+    @Override
+    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
+        if (evt instanceof IdleStateEvent) {
+            log.debug("[Summer] Closing idle connection: {}", ctx.channel().remoteAddress());
+            ctx.close();
+            return;
+        }
+        ctx.fireUserEventTriggered(evt);
     }
 
     @Override

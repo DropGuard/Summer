@@ -6,8 +6,8 @@ import com.github.dropguard.summer.test.annotation.SummerTest;
 import org.junit.jupiter.api.Test;
 
 /**
- * Verifies that gRPC config binding pulls defaults correctly from
- * {@code application.yml} (none provided = all defaults).
+ * Verifies that gRPC config binding pulls defaults correctly from {@code application.yml} (none
+ * provided = all defaults).
  */
 @SummerTest
 class GrpcConfigTest {

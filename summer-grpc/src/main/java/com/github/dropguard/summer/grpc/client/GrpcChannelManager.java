@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.grpc.client;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.grpc.config.GrpcTlsConfig;
 import com.github.dropguard.summer.grpc.exception.SummerGrpcException;
 import io.grpc.ManagedChannel;
@@ -20,6 +21,7 @@ import org.slf4j.LoggerFactory;
  *
  * <p>This is a framework infrastructure bean provided by {@code GrpcInfrastructureConfiguration}.
  */
+@Internal
 public class GrpcChannelManager implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(GrpcChannelManager.class);
@@ -53,7 +55,10 @@ public class GrpcChannelManager implements AutoCloseable {
                             return NettyChannelBuilder.forTarget(t).sslContext(sslContext).build();
                         } catch (Exception e) {
                             log.error("Failed to configure TLS for gRPC client", e);
-                            throw new SummerGrpcException("Failed to configure TLS", e);
+                            throw new SummerGrpcException(
+                                    io.grpc.Status.INTERNAL.withDescription(
+                                            "Failed to configure TLS"),
+                                    e);
                         }
                     } else {
                         // Plaintext mode (development)
