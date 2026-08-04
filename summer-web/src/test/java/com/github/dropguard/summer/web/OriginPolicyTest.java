@@ -59,7 +59,8 @@ class OriginPolicyTest {
 
     @Test
     void wildcardAllowsAnyOrigin() {
-        assertTrue(OriginPolicy.isAllowed("http://anything.com:9999", List.of("*"), "localhost:8080"));
+        assertTrue(
+                OriginPolicy.isAllowed("http://anything.com:9999", List.of("*"), "localhost:8080"));
     }
 
     @Test
@@ -72,13 +73,15 @@ class OriginPolicyTest {
     @Test
     void explicitAllowListMatchesExactOrigin() {
         List<String> allowed = List.of("http://app.example.com:8443");
-        assertTrue(OriginPolicy.isAllowed("http://app.example.com:8443", allowed, "localhost:8080"));
+        assertTrue(
+                OriginPolicy.isAllowed("http://app.example.com:8443", allowed, "localhost:8080"));
     }
 
     @Test
     void explicitAllowListRejectsDifferentOrigin() {
         List<String> allowed = List.of("http://app.example.com:8443");
-        assertFalse(OriginPolicy.isAllowed("http://evil.example.com:8443", allowed, "localhost:8080"));
+        assertFalse(
+                OriginPolicy.isAllowed("http://evil.example.com:8443", allowed, "localhost:8080"));
     }
 
     @Test

@@ -8,11 +8,14 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import com.github.dropguard.summer.data.redis.SummerRedisTemplate;
 import com.github.dropguard.summer.twitter.common.IllegalOperationException;
 import com.github.dropguard.summer.twitter.common.UserNotFoundException;
 import com.github.dropguard.summer.twitter.infra.SnowflakeIdGenerator;
 import com.github.dropguard.summer.twitter.user.User;
 import com.github.dropguard.summer.twitter.user.UserRepository;
+
+import io.lettuce.core.api.sync.RedisCommands;
 
 /**
  * Plain unit test for {@link FollowService}.
@@ -29,13 +32,22 @@ class FollowServiceTest {
 
 	private FollowRepository mockFollowRepo;
 	private UserRepository mockUserRepo;
+	private SummerRedisTemplate mockRedis;
+	private RedisCommands<String, Object> mockRedisCommands;
 	private FollowService followService;
 
+	@SuppressWarnings("unchecked")
 	@BeforeEach
 	void setUp() {
 		mockFollowRepo = mock(FollowRepository.class);
 		mockUserRepo = mock(UserRepository.class);
-		followService = new FollowService(mockFollowRepo, mockUserRepo, new SnowflakeIdGenerator());
+		mockRedis = mock(SummerRedisTemplate.class);
+		mockRedisCommands = mock(RedisCommands.class);
+		when(mockRedis.getCommands()).thenReturn(mockRedisCommands);
+		// unfollow timeline cleanup queries the author's tweet set — return empty by default
+		when(mockRedisCommands.zrange(anyString(), eq(0L), eq(-1L))).thenReturn(List.of());
+		followService = new FollowService(mockFollowRepo, mockUserRepo,
+				new SnowflakeIdGenerator(), mockRedis);
 	}
 
 	@Test

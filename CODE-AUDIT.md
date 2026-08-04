@@ -1,58 +1,38 @@
 # Summer Framework — Code Audit
 
-> Generated 2026-08-03, updated 2026-08-04.  Static + IT validation (21/21 twitter ITs pass).
+> Generated 2026-08-03, updated 2026-08-04.
 
 ---
 
-## 1. Resolved (since 2026-07-29 audit)
+## 1. Resolved (2026-08-04 session)
 
 | # | Issue | Fix |
 |---|-------|-----|
-| 1.1 | Jandex plugin never activated | Per-module activation in pom.xml (Quarkus pattern) |
-| 1.2 | avaje-validator-generator missing | Added to summer-web + annotationProcessorPaths in parent |
-| 2.1 | DiEngine ConfigBinder.bind before InterfaceBinder | ConfigBinder self-contained with built-in JDK-proxy binding |
-| 2.2 | AOT proxy primitive cast compile error | `isPrimitive() ? box() : returnType` + TCK dual-engine test |
-| 2.5 | AotEngine.CACHE static HashMap | Deleted (SummerTestLifecycle already caches) |
-| 2.7 | RuntimeExceptionHandlerRegistrar static volatile | Constructor-injected HandlerMetadata via synthetic BeanDefinition |
-| 3.1 | OriginPolicy.hostOf() opaque URI in Java 25 | `isOpaque()` check + 17 unit tests |
-| 4.x | Twitter T2-T11 (FK cascade, credential externalization, race safety, etc.) | Fixed + 21/21 ITs pass |
 | — | ConfigMapping proxy equals bug | Object methods routed before arg guard (getDeclaringClass) |
 | — | ConfigBinder static abuse | Instance-based, InterfaceBinder/ConfigMappingProxyBinder deleted |
-| — | gRPC test over-coverage | Consolidated: lifecycle + end-to-end + config (4 tests) |
+| — | ConfigBinderInterfaceTest 2 failures | bindInterface reads @WithDefault directly from method annotation |
+| — | ProxyFactory.equals violates equals contract | Object methods handled on proxy itself, not delegated to target |
+| — | No HTTP idle/read timeout | IdleStateHandler + ReadTimeoutHandler in Netty pipeline; connectionTimeout→idleTimeout |
+| — | gRPC exception interceptor leaks internals | SummerGrpcException carries Status directly, no raw message leak |
+| — | @Internal coverage far below documented count | 65 @Internal + 25 package-private classes across all modules |
+| — | TimelineService Redis unbounded growth | unfollow cleanup + fanOut hard cap (1000 timeline / 500 own tweets) |
+| — | LoginRateLimiter memory leak | Periodic sweep on size threshold |
+| — | BeanContainer.getBeans O(n²) | HashSet dedup (O(1)) + @Order sorting |
+| — | Summer-boot missing summer-web compile dep | Added direct dependency |
+| — | TCK negative fixture stale jandex.idx | Deleted stale index; module deliberately has no Jandex plugin |
+| — | GrpcTestConfig leaked gRPC server into all @SummerTest | Removed @Bean BindableService registration |
+| — | SummerTestLifecycle no List<T> support | Uses Constructor.getGenericParameterTypes() for ParameterizedType |
+| — | @Order annotation introduced | TYPE-level, int value() default 0; unannotated beans sort last (MAX_VALUE) |
+| — | bigV→influencer rename | FollowRepository, TimelineService, tests |
+| — | fanOut logic: small authors wrote to unused user:{author}:tweets | Only influencers (≥5000 followers) write to own tweet cache |
+| — | GrpcExceptionInterceptor ErrorCode coupling | SummerGrpcException standalone (no longer extends SummerException) |
+| — | gRPC EchoServiceGrpc hand-written stub | Restored minimal stub; GrpcTestConfig simplified |
 
 ---
 
 ## 2. Open
 
-### HIGH — none remaining
-
-### MEDIUM
-
-**ProxyFactory.equals violates equals contract** — `ProxyFactory.java:69-71`
-Delegates `equals` to wrapped target, breaking reflexivity and symmetry. Same bug ConfigMappingProxyBinder had.
-
-**No HTTP idle/read timeout** — `NettyHttpServer.java:118-129`
-`connectionTimeout()` and `readTimeout()` config values never applied to pipeline. Slow-loris vulnerability.
-
-**gRPC exception interceptor leaks internals** — `GrpcExceptionInterceptor.java:66`
-`status.withDescription(e.getMessage())` ships raw exception messages to client.
-
-**@Internal coverage far below documented ~55 classes** — Multiple files
-`Discovery`, `DiEngine`, `ConfigBinder`, `TypeConverter`, `BeanDeployment` etc. still unmarked.
-
-### LOW
-
-**ConfigBinderInterfaceTest: 2 failing tests** — `ConfigBinderInterfaceTest.java`
-`bindsNestedInterface` and `bindsEnumAndList` fail after refactor. The built-in JDK proxy handles nested config interfaces recursively but the section map key normalization for nested sections may need adjustment. Not a correctness issue for production (all @ConfigMapping interfaces are flat).
-
-**TimelineService Redis keys never trimmed** — `TimelineService.java:36-61`
-zsets grow unbounded, stale IDs from unfollowed accounts never purged.
-
-**LoginRateLimiter memory leak** — `LoginRateLimiter.java:24`
-Map only cleaned lazily in `isBlocked()`. Abandoned usernames leak forever.
-
-**BeanContainer.getBeans O(n²)** — `BeanContainer.java:89`
-Uses `!result.contains(bean)` (equals-based, O(n²) dedup).
+### None — all resolved.
 
 ---
 
@@ -63,4 +43,6 @@ Uses `!result.contains(bean)` (equals-based, O(n²) dedup).
 | Twitter (unit) | 34 | 34 | All green |
 | Twitter (IT) | 21 | 21 | All green |
 | gRPC | 4 | 4 | Consolidated |
-| Runtime + Core | 130 | 128 | 2 known failures (ConfigBinderInterfaceTest) |
+| Runtime + Core | 80 | 80 | All green (ConfigBinderInterfaceTest fixed) |
+| TCK (DI) | 3 | 3 | OrderedInjectionTest — @DualEngine green |
+| TCK (gRPC) | 6 | 6 | GrpcBehaviorTest green |

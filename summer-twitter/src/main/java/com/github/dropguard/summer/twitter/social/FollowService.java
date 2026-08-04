@@ -1,6 +1,7 @@
 package com.github.dropguard.summer.twitter.social;
 
 import com.github.dropguard.summer.core.Component;
+import com.github.dropguard.summer.data.redis.SummerRedisTemplate;
 import com.github.dropguard.summer.twitter.common.IllegalOperationException;
 import com.github.dropguard.summer.twitter.common.UserNotFoundException;
 import com.github.dropguard.summer.twitter.user.User;
@@ -16,11 +17,14 @@ public class FollowService {
     private final FollowRepository followRepository;
     private final UserRepository userRepository;
     private final SnowflakeIdGenerator idGenerator;
+    private final SummerRedisTemplate redisTemplate;
 
-    public FollowService(FollowRepository followRepository, UserRepository userRepository, SnowflakeIdGenerator idGenerator) {
+    public FollowService(FollowRepository followRepository, UserRepository userRepository,
+                         SnowflakeIdGenerator idGenerator, SummerRedisTemplate redisTemplate) {
         this.followRepository = followRepository;
         this.userRepository = userRepository;
         this.idGenerator = idGenerator;
+        this.redisTemplate = redisTemplate;
     }
 
     public void follow(Long currentUserId, String targetUsername) {
@@ -52,6 +56,22 @@ public class FollowService {
         int deleted = followRepository.deleteByUsers(currentUserId, targetUser.id());
         if (deleted == 0) {
             return; // Not following — idempotent
+        }
+
+        // Clean up the unfollowed user's tweet IDs from the follower's timeline.
+        // Best-effort: Redis failure must not block the unfollow.
+        try {
+            List<Object> authorTweetIds = redisTemplate.getCommands()
+                    .zrange("user:" + targetUser.id() + ":tweets", 0, -1);
+            if (authorTweetIds != null && !authorTweetIds.isEmpty()) {
+                String[] ids = authorTweetIds.stream()
+                        .map(Object::toString).toArray(String[]::new);
+                redisTemplate.getCommands().zrem("timeline:" + currentUserId, ids);
+            }
+        } catch (Exception e) {
+            // Redis cleanup is best-effort — timeline entries are capped by fanOut
+            // as a backstop, so transient Redis failures during unfollow are not
+            // data-loss events.
         }
 
         userRepository.updateCounts(targetUser.id(), -1, 0);

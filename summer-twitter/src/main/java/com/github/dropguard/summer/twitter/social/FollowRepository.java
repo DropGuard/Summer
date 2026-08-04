@@ -46,7 +46,7 @@ public class FollowRepository {
         }
     }
 
-    public List<Long> findBigVFollowing(Long followerId, int followerCountThreshold) {
+    public List<Long> findInfluencerFollowing(Long followerId, int followerCountThreshold) {
         String sql = "SELECT f.following_id FROM follows f JOIN users u ON f.following_id = u.id WHERE f.follower_id = ? AND u.follower_count >= ?";
         return jdbcTemplate.queryForList(sql, Long.class, followerId, followerCountThreshold);
     }

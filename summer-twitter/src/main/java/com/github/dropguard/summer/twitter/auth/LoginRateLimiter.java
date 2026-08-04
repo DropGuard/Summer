@@ -20,6 +20,7 @@ public class LoginRateLimiter {
 
     static final int MAX_ATTEMPTS = 5;
     static final long WINDOW_SECONDS = 15 * 60;
+    private static final int MAX_ENTRIES = 10_000;
 
     private final ConcurrentHashMap<String, FailureRecord> attempts = new ConcurrentHashMap<>();
 
@@ -38,6 +39,9 @@ public class LoginRateLimiter {
 
     /** Record a failed login attempt for the given username. */
     public void recordFailure(String username) {
+        if (attempts.size() > MAX_ENTRIES) {
+            attempts.entrySet().removeIf(e -> isExpired(e.getValue()));
+        }
         attempts.compute(username, (k, existing) -> {
             if (existing == null || isExpired(existing)) {
                 return new FailureRecord(1, now());

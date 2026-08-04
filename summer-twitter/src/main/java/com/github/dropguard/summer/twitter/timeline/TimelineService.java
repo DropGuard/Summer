@@ -15,6 +15,13 @@ import java.util.stream.Collectors;
 @Component
 public class TimelineService {
 
+    /** Follower threshold above which an author is treated as an influencer. */
+    static final int INFLUENCER_THRESHOLD = 5000;
+    /** Maximum number of tweets retained in a user's timeline ZSET. */
+    private static final int MAX_TIMELINE_SIZE = 1000;
+    /** Maximum number of a user's own tweets retained for influencer fanout queries. */
+    private static final int MAX_OWN_TWEETS = 500;
+
     private final SummerRedisTemplate redisTemplate;
     private final TweetRepository tweetRepository;
     private final FollowRepository followRepository;
@@ -32,10 +39,13 @@ public class TimelineService {
         long timestamp = tweet.createdAt().toInstant().toEpochMilli();
         long authorId = tweet.authorId();
 
-        // Always add to the author's own tweet list
-        redisTemplate.getCommands().zadd("user:" + authorId + ":tweets", timestamp, tweet.id().toString());
-
-        if (authorFollowerCount < 5000) {
+        if (authorFollowerCount >= INFLUENCER_THRESHOLD) {
+            // Influencer: store in the author's tweet cache so getTimeline can
+            // merge them at read time without fanout.
+            String ownKey = "user:" + authorId + ":tweets";
+            redisTemplate.getCommands().zadd(ownKey, timestamp, tweet.id().toString());
+            redisTemplate.getCommands().zremrangebyrank(ownKey, 0, -(MAX_OWN_TWEETS + 1));
+        } else {
             Thread.startVirtualThread(() -> {
                 Long cursor = null;
                 do {
@@ -48,8 +58,10 @@ public class TimelineService {
                             "authorId", String.valueOf(authorId),
                             "content", tweet.content());
                     for (Follow follow : followers) {
-                        redisTemplate.getCommands().zadd("timeline:" + follow.followerId(), timestamp,
+                        String tlKey = "timeline:" + follow.followerId();
+                        redisTemplate.getCommands().zadd(tlKey, timestamp,
                                 tweet.id().toString());
+                        redisTemplate.getCommands().zremrangebyrank(tlKey, 0, -(MAX_TIMELINE_SIZE + 1));
                         // Push a real-time new_tweet event to each follower who is
                         // connected on /ws/events. EventPublisher is a no-op when the
                         // follower has no open session, so offline followers are skipped.
@@ -74,11 +86,11 @@ public class TimelineService {
             }
         }
         
-        List<Long> bigVs = followRepository.findBigVFollowing(userId, 5000);
-        for (Long bigV : bigVs) {
-            List<Object> bigVTweets = redisTemplate.getCommands().zrevrange("user:" + bigV + ":tweets", 0, 50);
-            if (bigVTweets != null) {
-                for (Object idObj : bigVTweets) {
+        List<Long> influencers = followRepository.findInfluencerFollowing(userId, INFLUENCER_THRESHOLD);
+        for (Long influencer : influencers) {
+            List<Object> influencerTweets = redisTemplate.getCommands().zrevrange("user:" + influencer + ":tweets", 0, 50);
+            if (influencerTweets != null) {
+                for (Object idObj : influencerTweets) {
                     if (idObj != null) {
                         mergedIds.add(Long.valueOf(idObj.toString().replace("\"", "")));
                     }

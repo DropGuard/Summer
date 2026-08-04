@@ -66,14 +66,14 @@ class TimelineServiceTest {
 	void fanOutWritesAuthorTimeline() {
 		Tweet tweet = new Tweet(10L, 1L, "hi", "POST", null, 0, 0, 0, OffsetDateTime.now());
 		// 5000+ followers => synchronous path, no virtual thread
-		timelineService.fanOut(tweet, 5000);
+		timelineService.fanOut(tweet, TimelineService.INFLUENCER_THRESHOLD);
 		verify(mockCommands).zadd(eq("user:1:tweets"), anyDouble(), eq("10"));
 	}
 
 	@Test
 	void getTimelineReturnsEmptyWhenNoIds() {
 		when(mockCommands.zrevrange("timeline:7", 0, 200)).thenReturn(List.of());
-		when(mockFollowRepo.findBigVFollowing(7L, 5000)).thenReturn(List.of());
+		when(mockFollowRepo.findInfluencerFollowing(7L, TimelineService.INFLUENCER_THRESHOLD)).thenReturn(List.of());
 		List<Tweet> result = timelineService.getTimeline(7L, null, 20);
 		assertTrue(result.isEmpty());
 	}
@@ -81,7 +81,7 @@ class TimelineServiceTest {
 	@Test
 	void getTimelineMergesAndScoresTweets() {
 		when(mockCommands.zrevrange("timeline:7", 0, 200)).thenReturn(List.of("\"10\"", "\"11\""));
-		when(mockFollowRepo.findBigVFollowing(7L, 5000)).thenReturn(List.of());
+		when(mockFollowRepo.findInfluencerFollowing(7L, TimelineService.INFLUENCER_THRESHOLD)).thenReturn(List.of());
 		Tweet t10 = new Tweet(10L, 1L, "a", "POST", null, 5, 0, 0, OffsetDateTime.now().minusMinutes(10));
 		Tweet t11 = new Tweet(11L, 2L, "b", "POST", null, 50, 1, 2, OffsetDateTime.now().minusMinutes(1));
 		when(mockTweetRepo.findByIds(anyList())).thenReturn(List.of(t10, t11));
@@ -101,7 +101,7 @@ class TimelineServiceTest {
 		// the whole result set. Here 99L was the prior cursor but is no longer in the
 		// merged set; the correct contract returns the head of the feed, not empty.
 		when(mockCommands.zrevrange("timeline:7", 0, 200)).thenReturn(List.of("\"10\"", "\"11\""));
-		when(mockFollowRepo.findBigVFollowing(7L, 5000)).thenReturn(List.of());
+		when(mockFollowRepo.findInfluencerFollowing(7L, TimelineService.INFLUENCER_THRESHOLD)).thenReturn(List.of());
 		Tweet t10 = new Tweet(10L, 1L, "a", "POST", null, 5, 0, 0, OffsetDateTime.now().minusMinutes(10));
 		Tweet t11 = new Tweet(11L, 2L, "b", "POST", null, 50, 1, 2, OffsetDateTime.now().minusMinutes(1));
 		when(mockTweetRepo.findByIds(anyList())).thenReturn(List.of(t10, t11));
