@@ -9,6 +9,8 @@ import com.github.dropguard.summer.test.annotation.Mock;
 import com.github.dropguard.summer.test.annotation.TestProfile;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -132,24 +134,37 @@ public final class SummerTestLifecycle {
 
     // ── constructor injection ─────────────────────────────────────────
 
+    @SuppressWarnings("unchecked")
     private static Object instantiate(Class<?> testClass, BeanContainer container) {
         Constructor<?> ctor = singleConstructor(testClass);
-        Class<?>[] paramTypes = ctor.getParameterTypes();
-        Object[] args = new Object[paramTypes.length];
-        for (int i = 0; i < paramTypes.length; i++) {
-            if (paramTypes[i] == BeanContainer.class) {
+        Type[] genericParamTypes = ctor.getGenericParameterTypes();
+        Object[] args = new Object[genericParamTypes.length];
+        for (int i = 0; i < genericParamTypes.length; i++) {
+            Type paramType = genericParamTypes[i];
+            if (paramType == BeanContainer.class) {
                 args[i] = container;
-            } else {
+            } else if (paramType instanceof ParameterizedType pt
+                    && pt.getRawType() == List.class
+                    && pt.getActualTypeArguments().length == 1
+                    && pt.getActualTypeArguments()[0] instanceof Class<?> elementType) {
+                args[i] = container.getBeans(elementType);
+            } else if (paramType instanceof Class<?> clazz) {
                 try {
-                    args[i] = container.getBean(paramTypes[i]);
+                    args[i] = container.getBean(clazz);
                 } catch (Exception e) {
                     throw new TestInstantiationException(
                             "Cannot resolve constructor parameter "
-                                    + paramTypes[i].getSimpleName()
+                                    + clazz.getSimpleName()
                                     + " for @SummerTest "
                                     + testClass.getSimpleName(),
                             e);
                 }
+            } else {
+                throw new TestInstantiationException(
+                        "Unsupported constructor parameter type "
+                                + paramType.getTypeName()
+                                + " for @SummerTest "
+                                + testClass.getSimpleName());
             }
         }
         try {
