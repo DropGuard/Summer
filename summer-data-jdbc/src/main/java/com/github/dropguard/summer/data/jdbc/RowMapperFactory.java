@@ -1,6 +1,7 @@
 package com.github.dropguard.summer.data.jdbc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.dropguard.summer.core.Internal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -32,6 +33,7 @@ import org.jboss.jandex.RecordComponentInfo;
  * {@code TypeReads.jdbcRead}); it reuses {@link #scanJandex(IndexView)} and the {@link
  * #resolveFieldType(String)} contract so both engines share one type truth.
  */
+@Internal
 public final class RowMapperFactory {
 
     private static final DotName ROW_MODEL_DOT =

@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.data.redis.config;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.annotation.Bean;
 import com.github.dropguard.summer.core.annotation.Configuration;
 import com.github.dropguard.summer.data.redis.SummerRedisTemplate;
@@ -7,6 +8,7 @@ import com.github.dropguard.summer.data.redis.codec.JsonRedisCodec;
 import io.lettuce.core.RedisClient;
 
 @Configuration
+@Internal
 public class RedisAutoConfiguration {
 
     /**

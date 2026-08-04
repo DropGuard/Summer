@@ -1,6 +1,7 @@
 package com.github.dropguard.summer.runtime;
 
 import com.github.dropguard.summer.core.ErrorCode;
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.exception.ConfigurationException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -42,6 +43,7 @@ import org.slf4j.LoggerFactory;
  *       on the path of any application's {@code test-classes} directory.
  * </ul>
  */
+@Internal
 public final class JandexIndexLoader {
 
     private static final Logger log = LoggerFactory.getLogger(JandexIndexLoader.class);

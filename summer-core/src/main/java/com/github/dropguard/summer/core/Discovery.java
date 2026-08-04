@@ -40,6 +40,7 @@ import org.jboss.jandex.MethodInfo;
  * Keeping them out of discovery means a mock-free discovery result is cached and reused, and the
  * mocked-type removal happens exactly once with the mocks in scope.
  */
+@Internal
 public final class Discovery {
 
     private static final DotName COMPONENT_DOT =

@@ -11,7 +11,7 @@ import java.lang.reflect.Parameter;
 import java.util.function.Function;
 
 /** Creates {@link Handler}s from controller or exception-handler methods. */
-public final class HandlerFactory {
+final class HandlerFactory {
 
     private HandlerFactory() {}
 

@@ -1,11 +1,13 @@
 package com.github.dropguard.summer.data.jdbc.tx;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.tx.SummerTransactionException;
 import com.github.dropguard.summer.tx.TransactionStatus;
 import java.sql.Connection;
 import java.sql.SQLException;
 
 /** ThreadLocal based transaction context that manages connections per thread. */
+@Internal
 public class ThreadLocalTransactionContext implements TransactionStatus {
     private static final ThreadLocal<Connection> connectionThreadLocal = new ThreadLocal<>();
     private boolean rollbackOnly = false;

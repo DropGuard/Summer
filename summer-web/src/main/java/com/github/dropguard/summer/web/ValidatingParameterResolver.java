@@ -1,5 +1,7 @@
 package com.github.dropguard.summer.web;
 
+import com.github.dropguard.summer.core.Internal;
+
 /**
  * Parameter resolver that handles {@code @Valid}-annotated parameters.
  *
@@ -7,6 +9,7 @@ package com.github.dropguard.summer.web;
  * com.github.dropguard.summer.validation.BodyValidator}; throws a {@link
  * com.github.dropguard.summer.web.exception.ValidationException} on failure.
  */
+@Internal
 public class ValidatingParameterResolver implements HttpParameterResolver {
 
     @Override

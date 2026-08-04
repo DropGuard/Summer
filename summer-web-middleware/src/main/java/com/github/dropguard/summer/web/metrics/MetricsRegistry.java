@@ -1,6 +1,7 @@
 package com.github.dropguard.summer.web.metrics;
 
 import com.github.dropguard.summer.core.Component;
+import com.github.dropguard.summer.core.Internal;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -9,6 +10,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * output.
  */
 @Component
+@Internal
 public class MetricsRegistry {
     private final AtomicInteger activeRequests = new AtomicInteger(0);
     private final AtomicLong totalRequests = new AtomicLong(0);

@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web.server;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.annotation.Bean;
 import com.github.dropguard.summer.core.annotation.Configuration;
 import com.github.dropguard.summer.web.RouterRegistry;
@@ -20,6 +21,7 @@ import com.github.dropguard.summer.web.websocket.RadixWsRouter;
  * {@code @Configuration} that provides a different {@link RouterRegistry}.
  */
 @Configuration
+@Internal
 public class RouterConfiguration {
 
     @Bean

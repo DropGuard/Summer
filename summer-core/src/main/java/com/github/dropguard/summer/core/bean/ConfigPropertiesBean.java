@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.core.bean;
 
+import com.github.dropguard.summer.core.Internal;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -9,6 +10,7 @@ import java.util.Map;
  * <p>Enrichment fields ({@link #configPropertiesPrefix}, {@link #defaultValues}, {@link
  * #fieldTypes}) are populated by the discovery phase immediately after construction.
  */
+@Internal
 public final class ConfigPropertiesBean extends BeanDefinition {
 
     /** YAML prefix for property binding. */

@@ -2,6 +2,7 @@ package com.github.dropguard.summer.data.redis.codec;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.exception.DataSerializationException;
 import com.github.dropguard.summer.core.json.SummerObjectMapper;
 import io.lettuce.core.codec.RedisCodec;
@@ -20,6 +21,7 @@ import java.nio.charset.StandardCharsets;
  * <p>Null handling is explicit: a missing/absent value decodes to {@code null}. The codec never
  * stores a JSON {@code null} for a value — callers remove keys with {@code delete} instead.
  */
+@Internal
 public class JsonRedisCodec implements RedisCodec<String, Object> {
 
     private final ObjectMapper mapper;

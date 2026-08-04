@@ -18,7 +18,7 @@ import java.util.Map;
  * registrar itself only resolves {@code Method} handles by name and parameter count (no annotation
  * scanning).
  */
-public class RuntimeExceptionHandlerRegistrar implements ExceptionHandlerRegistrar {
+class RuntimeExceptionHandlerRegistrar implements ExceptionHandlerRegistrar {
 
     private final HttpParameterResolverChain resolverChain;
     private final Map<String, List<BeanDefinition.ExceptionHandlerEntry>> handlers;

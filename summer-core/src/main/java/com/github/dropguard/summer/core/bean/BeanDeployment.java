@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.core.bean;
 
+import com.github.dropguard.summer.core.Internal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -46,6 +47,7 @@ import org.jboss.jandex.IndexView;
  * the <em>same</em> archive (see {@link #archiveOf(String)}). Bean <em>injection</em> remains
  * global; only the condition-evaluation boundary is archive-scoped.
  */
+@Internal
 public final class BeanDeployment {
 
     private final IndexView productionIndex;

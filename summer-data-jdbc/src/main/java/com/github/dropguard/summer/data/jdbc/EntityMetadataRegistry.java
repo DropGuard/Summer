@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.data.jdbc;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.annotation.Configuration;
 import java.util.Collections;
 import java.util.HashMap;
@@ -16,6 +17,7 @@ import java.util.Set;
  * model.
  */
 @Configuration
+@Internal
 public final class EntityMetadataRegistry {
 
     private final Map<String, EntityMetadata> byClassName = new HashMap<>();

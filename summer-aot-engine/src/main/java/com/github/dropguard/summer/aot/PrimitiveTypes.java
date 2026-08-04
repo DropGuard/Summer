@@ -12,7 +12,7 @@ package com.github.dropguard.summer.aot;
  * dimensions, not the same mapping, so they are not folded in here. This lives in the AOT engine
  * because it serves only AOT code generation.
  */
-public final class PrimitiveTypes {
+final class PrimitiveTypes {
 
     private PrimitiveTypes() {}
 

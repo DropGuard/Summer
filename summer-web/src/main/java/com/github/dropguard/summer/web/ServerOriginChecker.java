@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web;
 
+import com.github.dropguard.summer.core.Internal;
 import java.util.List;
 
 /**
@@ -15,6 +16,7 @@ import java.util.List;
  * with {@code @Component} (see {@code
  * ArchitectureTest.frameworkCodeMustUseConfigurationNotComponent}).
  */
+@Internal
 public class ServerOriginChecker {
 
     private final ServerConfig config;

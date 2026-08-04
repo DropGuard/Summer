@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.annotation.Bean;
 import com.github.dropguard.summer.core.annotation.Configuration;
 
@@ -9,6 +10,7 @@ import com.github.dropguard.summer.core.annotation.Configuration;
  * <p>Provides {@link JsonBodyConverter} which handles JSON request/response binding via Jackson.
  */
 @Configuration
+@Internal
 public class WebInfrastructureConfiguration {
 
     @Bean

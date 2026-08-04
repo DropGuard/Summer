@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web;
 
+import com.github.dropguard.summer.core.Internal;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -13,6 +14,7 @@ import java.util.regex.Pattern;
  * <p>Provides static methods to compile path patterns (with {@code {param}}, {@code *}, {@code **}
  * wildcards) into regex-based {@link RouteEntry}s and to match concrete paths against them.
  */
+@Internal
 public final class PathMatcher {
 
     private PathMatcher() {}

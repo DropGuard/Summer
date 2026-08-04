@@ -2,12 +2,14 @@ package com.github.dropguard.summer.web.health;
 
 import com.github.dropguard.summer.core.ApplicationState;
 import com.github.dropguard.summer.core.BeanContainer;
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.web.HttpRouter;
 import com.github.dropguard.summer.web.RouteRegistrar;
 
 /**
  * Built-in health check routes. Exposes /health/ready which turns to 503 during graceful shutdown.
  */
+@Internal
 public class HealthRouteRegistrar implements RouteRegistrar {
 
     @Override

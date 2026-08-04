@@ -16,7 +16,7 @@ import java.util.function.Consumer;
  * });
  * }</pre>
  */
-public interface WsLifecycleBuilder {
+interface WsLifecycleBuilder {
 
     /**
      * Registers a handler invoked when a WebSocket connection is established.

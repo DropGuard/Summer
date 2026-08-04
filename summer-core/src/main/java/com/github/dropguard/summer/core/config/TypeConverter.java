@@ -1,6 +1,7 @@
 package com.github.dropguard.summer.core.config;
 
 import com.github.dropguard.summer.core.ErrorCode;
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.exception.ConfigurationException;
 
 /**
@@ -12,6 +13,7 @@ import com.github.dropguard.summer.core.exception.ConfigurationException;
  * receives section values as {@code Number}s and must coerce them to the declared boxed type
  * instead of emitting a bare primitive cast that throws {@code ClassCastException}.
  */
+@Internal
 public final class TypeConverter {
 
     private TypeConverter() {}

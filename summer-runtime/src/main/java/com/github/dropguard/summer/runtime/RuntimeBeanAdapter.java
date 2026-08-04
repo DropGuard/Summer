@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.runtime;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.annotation.Replaces;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
 import com.github.dropguard.summer.core.bean.ConfigPropertiesBean;
@@ -21,6 +22,7 @@ import org.slf4j.LoggerFactory;
  * engine discovers beans via reflection, but downstream algorithms (condition evaluation,
  * dependency resolution) operate on BeanDefinitions.
  */
+@Internal
 public final class RuntimeBeanAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(RuntimeBeanAdapter.class);

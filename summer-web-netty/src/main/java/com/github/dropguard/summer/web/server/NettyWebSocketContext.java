@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 
-public class NettyWebSocketContext implements WebSocketContext {
+class NettyWebSocketContext implements WebSocketContext {
 
     private final ChannelHandlerContext ctx;
     private final Map<String, String> pathParams;

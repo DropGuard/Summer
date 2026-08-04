@@ -1,6 +1,9 @@
 package com.github.dropguard.summer.web;
 
+import com.github.dropguard.summer.core.Internal;
+
 /** Resolves parameters typed as {@link HttpContext} or {@link Request}. */
+@Internal
 public class TypeParameterResolver implements HttpParameterResolver {
 
     @Override

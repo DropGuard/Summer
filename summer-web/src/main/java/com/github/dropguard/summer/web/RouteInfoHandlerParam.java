@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.bean.RouteInfo.ParamBinding;
 
 /**
@@ -14,6 +15,7 @@ import com.github.dropguard.summer.core.bean.RouteInfo.ParamBinding;
  * PATH}/{@code QUERY}/{@code BODY} are emitted inline by the generator because they have no
  * swappable resolver.
  */
+@Internal
 public final class RouteInfoHandlerParam implements HandlerParam {
 
     private final Class<?> type;

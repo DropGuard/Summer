@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web.http;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.web.Handler;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpMethod;
@@ -22,6 +23,7 @@ import java.util.Map;
  * runtime, consumers hold an {@link HttpRouter} reference and can only call {@link
  * #route(HttpContext)}.
  */
+@Internal
 public class RadixTreeHttpRouter implements HttpRouter {
 
     private final Map<String, RadixTrie<Handler>> tries = new HashMap<>();

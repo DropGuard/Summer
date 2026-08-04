@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web;
 
+import com.github.dropguard.summer.core.Internal;
 import java.util.List;
 
 /**
@@ -22,6 +23,7 @@ import java.util.List;
  * for WebSocket upgrades, or reflecting the matched origin back into a {@code
  * Access-Control-Allow-Origin} header for CORS).
  */
+@Internal
 public final class OriginPolicy {
 
     private OriginPolicy() {}

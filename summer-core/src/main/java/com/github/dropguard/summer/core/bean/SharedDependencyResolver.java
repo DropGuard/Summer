@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.core.bean;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.exception.AmbiguousBeanException;
 import com.github.dropguard.summer.core.exception.CircularDependencyException;
 import com.github.dropguard.summer.core.exception.NoSuchBeanException;
@@ -28,6 +29,7 @@ import org.slf4j.LoggerFactory;
  *   <li>Topological sort with cycle detection (Kahn's algorithm)
  * </ul>
  */
+@Internal
 public final class SharedDependencyResolver {
 
     private static final Logger log = LoggerFactory.getLogger(SharedDependencyResolver.class);

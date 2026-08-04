@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.bean.RouteInfo.ParamBinding;
 import com.github.dropguard.summer.core.config.TypeConverter;
 import com.github.dropguard.summer.web.annotation.QueryParam;
@@ -8,6 +9,7 @@ import com.github.dropguard.summer.web.annotation.QueryParam;
  * Resolves {@link QueryParam @QueryParam}-annotated parameters from the URL query string. Uses
  * {@link TypeConverter} for type conversion.
  */
+@Internal
 public class QueryParamResolver implements HttpParameterResolver {
 
     @Override

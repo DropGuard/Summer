@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web.websocket;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.web.PathMatcher;
 import com.github.dropguard.summer.web.PathMatcher.RouteEntry;
 import com.github.dropguard.summer.web.PathUtils;
@@ -14,6 +15,7 @@ import java.util.Map;
  * <p>This implementation prioritizes simplicity and readability over raw performance. Routes are
  * provided at construction time, making the router truly immutable and thread-safe.
  */
+@Internal
 public class MapWsRouter implements WsRouter {
 
     private final Map<String, RouteEntryWithHandler> routes;

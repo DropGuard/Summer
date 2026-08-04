@@ -9,7 +9,7 @@ import java.util.concurrent.Executor;
  * Wraps a java.sql.Connection to suppress close(), commit(), and rollback() calls, leaving
  * transaction management to the Summer @Transactional interceptor.
  */
-public class TransactionAwareConnectionWrapper implements Connection {
+class TransactionAwareConnectionWrapper implements Connection {
 
     private final Connection target;
 

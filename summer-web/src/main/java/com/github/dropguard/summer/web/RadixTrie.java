@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web;
 
+import com.github.dropguard.summer.core.Internal;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -14,6 +15,7 @@ import java.util.Map;
  *
  * @param <T> the type of handler stored at each node
  */
+@Internal
 public class RadixTrie<T> {
 
     private final Node<T> root = new Node<>();

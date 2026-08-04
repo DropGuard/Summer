@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.aot;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
 import com.github.dropguard.summer.core.bean.RouteInfo;
 import com.palantir.javapoet.ClassName;
@@ -18,6 +19,7 @@ import org.slf4j.LoggerFactory;
  * <p>In AOT mode, routes are registered statically instead of via reflection. This generator
  * creates a RouteRegistrar that wires up controllers and exception handlers at compile time.
  */
+@Internal
 public final class RouteAdapterGenerator {
 
     private static final Logger log = LoggerFactory.getLogger(RouteAdapterGenerator.class);

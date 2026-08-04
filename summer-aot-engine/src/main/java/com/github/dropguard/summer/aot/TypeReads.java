@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.aot;
 
+import com.github.dropguard.summer.core.Internal;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.TypeName;
 import org.jboss.jandex.Type;
@@ -23,6 +24,7 @@ import org.jboss.jandex.Type;
  * dependency graph. The AOT side reuses that single contract via {@link #jdbcRead} and resolves the
  * canonical name to emit {@code X.class} literals.
  */
+@Internal
 public final class TypeReads {
 
     private TypeReads() {}

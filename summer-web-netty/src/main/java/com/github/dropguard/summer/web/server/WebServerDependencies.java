@@ -8,7 +8,7 @@ import com.github.dropguard.summer.web.WsRouter;
 import com.github.dropguard.summer.web.websocket.WsInterceptor;
 import java.util.List;
 
-public record WebServerDependencies(
+record WebServerDependencies(
         HttpRouter httpRouter,
         WsRouter wsRouter,
         List<Middleware> middlewares,

@@ -25,7 +25,7 @@ import org.jboss.jandex.MethodParameterInfo;
  * then reads method signatures from Jandex for code generation (parameter types, names, exceptions
  * — these are code shape concerns, not bean metadata).
  */
-public final class ExceptionHandlerAdapterGenerator {
+final class ExceptionHandlerAdapterGenerator {
 
     private static final DotName EXCEPTION_HANDLER_DOT =
             DotName.createSimple("com.github.dropguard.summer.web.annotation.ExceptionHandler");

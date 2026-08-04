@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.core.bean;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.exception.AmbiguousBeanException;
 import com.github.dropguard.summer.core.exception.NoSuchBeanException;
 import java.util.ArrayList;
@@ -26,6 +27,7 @@ import org.slf4j.LoggerFactory;
  * <p>Reads conditions and replaces from {@link BeanDefinition} fields populated during discovery —
  * no Jandex access at evaluation time.
  */
+@Internal
 public final class SharedConditionEvaluator {
 
     private static final Logger log = LoggerFactory.getLogger(SharedConditionEvaluator.class);

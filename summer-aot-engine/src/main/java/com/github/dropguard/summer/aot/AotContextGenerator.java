@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.aot;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
 import com.github.dropguard.summer.core.bean.MockedBean;
 import com.palantir.javapoet.ClassName;
@@ -20,6 +21,7 @@ import org.slf4j.LoggerFactory;
  *
  * <p>Dependencies are injected via constructor — no mutable state.
  */
+@Internal
 public final class AotContextGenerator {
 
     private static final Logger log = LoggerFactory.getLogger(AotContextGenerator.class);

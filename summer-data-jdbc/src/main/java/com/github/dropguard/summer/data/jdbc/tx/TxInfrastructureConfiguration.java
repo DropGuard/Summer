@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.data.jdbc.tx;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.annotation.Bean;
 import com.github.dropguard.summer.core.annotation.ConditionalOnBean;
 import com.github.dropguard.summer.core.annotation.Configuration;
@@ -18,6 +19,7 @@ import javax.sql.DataSource;
  */
 @Configuration
 @ConditionalOnBean(DataSource.class)
+@Internal
 public class TxInfrastructureConfiguration {
 
     @Bean

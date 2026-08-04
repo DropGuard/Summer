@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
  * <p>This class is stateless and thread-safe. All methods accept their dependencies as parameters
  * rather than holding mutable state.
  */
-public final class BeanDefinitionFactory {
+final class BeanDefinitionFactory {
 
     private BeanDefinitionFactory() {}
 

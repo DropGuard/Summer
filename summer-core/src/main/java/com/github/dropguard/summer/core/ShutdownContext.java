@@ -16,6 +16,7 @@ import org.slf4j.LoggerFactory;
  * coordinator stays transport-agnostic and knows nothing about any individual server. Mirrors
  * Quarkus' {@code ShutdownContext}: a task list, not an orchestration of typed stages.
  */
+@Internal
 public final class ShutdownContext {
 
     private static final Logger log = LoggerFactory.getLogger(ShutdownContext.class);

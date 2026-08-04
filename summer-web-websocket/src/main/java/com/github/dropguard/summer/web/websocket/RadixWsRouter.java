@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web.websocket;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.web.RadixTrie;
 import com.github.dropguard.summer.web.WsRouter;
 import java.util.List;
@@ -12,6 +13,7 @@ import java.util.List;
  *
  * <p>This router is immutable — routes are provided at construction time.
  */
+@Internal
 public class RadixWsRouter implements WsRouter {
 
     private final RadixTrie<WebSocketHandler> trie = new RadixTrie<>();

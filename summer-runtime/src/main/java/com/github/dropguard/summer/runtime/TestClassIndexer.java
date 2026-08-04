@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.runtime;
 
+import com.github.dropguard.summer.core.Internal;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -29,6 +30,7 @@ import org.jboss.jandex.Indexer;
  * {@code .class} bytes directly via {@link NarrowIndexBuilder}), never through the whole-universe
  * path.
  */
+@Internal
 public final class TestClassIndexer {
 
     private TestClassIndexer() {}

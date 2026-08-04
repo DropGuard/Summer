@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateSerializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.ZonedDateTimeSerializer;
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.json.SummerObjectMapper;
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
@@ -15,6 +16,7 @@ import java.time.format.DateTimeFormatter;
  *
  * <p>This is a framework infrastructure bean provided by {@code WebInfrastructureConfiguration}.
  */
+@Internal
 public class JsonBodyConverter implements BodyConverter {
     private static final ObjectMapper objectMapper;
 

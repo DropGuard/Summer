@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.data.jdbc;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.annotation.Bean;
 import com.github.dropguard.summer.core.annotation.ConditionalOnBean;
 import com.github.dropguard.summer.core.annotation.Configuration;
@@ -24,6 +25,7 @@ import org.jboss.jandex.IndexView;
  */
 @Configuration
 @ConditionalOnBean(JdbcTemplate.class)
+@Internal
 public class RowMapperConfiguration {
 
     @Bean

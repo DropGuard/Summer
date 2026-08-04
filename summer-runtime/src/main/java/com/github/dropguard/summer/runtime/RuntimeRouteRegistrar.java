@@ -1,6 +1,7 @@
 package com.github.dropguard.summer.runtime;
 
 import com.github.dropguard.summer.core.BeanContainer;
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.bean.RouteInfo;
 import com.github.dropguard.summer.web.Handler;
 import com.github.dropguard.summer.web.HttpParameterResolverChain;
@@ -18,6 +19,7 @@ import org.slf4j.LoggerFactory;
  * inside the runtime module (the only place permitted to hold a {@code Method}), by name lookup on
  * the controller class — no extra state is carried on the shared {@link RouteInfo} type.
  */
+@Internal
 public class RuntimeRouteRegistrar implements RouteRegistrar {
 
     private static final Logger log = LoggerFactory.getLogger(RuntimeRouteRegistrar.class);

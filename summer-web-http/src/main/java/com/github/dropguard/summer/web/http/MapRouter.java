@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web.http;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.web.Handler;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpMethod;
@@ -20,6 +21,7 @@ import java.util.Map;
  *
  * <p>Route patterns support path parameters using curly braces (e.g., {@code /users/{id}}).
  */
+@Internal
 public class MapRouter implements HttpRouter {
 
     private final Map<String, RouteEntryWithHandler> routes;

@@ -6,7 +6,7 @@ import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SummerWebSocketFrameHandler extends SimpleChannelInboundHandler<TextWebSocketFrame> {
+class SummerWebSocketFrameHandler extends SimpleChannelInboundHandler<TextWebSocketFrame> {
 
     private static final Logger log = LoggerFactory.getLogger(SummerWebSocketFrameHandler.class);
 

@@ -16,7 +16,7 @@ import org.jboss.jandex.IndexView;
  * engines.
  */
 @ConditionalOnBean(RuntimeDiMarker.class)
-public final class ReflectiveRowMapperRegistrar {
+final class ReflectiveRowMapperRegistrar {
 
     private final JdbcTemplate jdbcTemplate;
 

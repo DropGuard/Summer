@@ -6,7 +6,7 @@ import io.netty.handler.codec.http.FullHttpRequest;
 import java.util.HashMap;
 import java.util.Map;
 
-public class NettyRequestAdapter {
+class NettyRequestAdapter {
 
     private NettyRequestAdapter() {}
 

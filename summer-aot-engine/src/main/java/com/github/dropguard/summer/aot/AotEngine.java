@@ -3,6 +3,7 @@ package com.github.dropguard.summer.aot;
 import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.core.DiEngine;
 import com.github.dropguard.summer.core.Discovery;
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
 import com.github.dropguard.summer.core.bean.BeanDeployment;
 import com.github.dropguard.summer.core.bean.MockedBean;
@@ -27,6 +28,7 @@ import org.slf4j.LoggerFactory;
  * com.github.dropguard.summer.test.Testing} to avoid a compile-time dependency cycle
  * (summer-data-jdbc → summer-test ← summer-aot-engine).
  */
+@Internal
 public final class AotEngine {
 
     private static final Logger log = LoggerFactory.getLogger(AotEngine.class);

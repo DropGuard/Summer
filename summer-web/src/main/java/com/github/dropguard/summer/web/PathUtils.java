@@ -1,6 +1,9 @@
 package com.github.dropguard.summer.web;
 
+import com.github.dropguard.summer.core.Internal;
+
 /** Shared path normalization utilities for route registration and matching. */
+@Internal
 public final class PathUtils {
 
     private PathUtils() {}

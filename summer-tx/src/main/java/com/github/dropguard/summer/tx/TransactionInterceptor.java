@@ -3,6 +3,7 @@ package com.github.dropguard.summer.tx;
 import com.github.dropguard.summer.aop.Interceptor;
 import com.github.dropguard.summer.aop.InterceptorChain;
 import com.github.dropguard.summer.aop.MethodInterceptor;
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.annotation.ConditionalOnBean;
 
 /**
@@ -15,6 +16,7 @@ import com.github.dropguard.summer.core.annotation.ConditionalOnBean;
 @Interceptor
 @ConditionalOnBean(TransactionManager.class)
 @Transactional
+@Internal
 public class TransactionInterceptor implements MethodInterceptor {
     private static final ThreadLocal<Boolean> interceptorActive =
             ThreadLocal.withInitial(() -> false);

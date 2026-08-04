@@ -14,7 +14,7 @@ import java.util.List;
  * BodyConverter} handles serialization format (JSON, etc.) and the {@link Validator} handles
  * constraint validation.
  */
-public class BodyParser {
+class BodyParser {
 
     private final BodyConverter converter;
     private final Validator validator;
