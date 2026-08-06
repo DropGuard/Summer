@@ -77,11 +77,10 @@ Three tiers, from highest to lowest level:
 
 ## Current Work / Pending
 
-- **CODE-AUDIT.md** in repo root: git-tracked, comprehensive audit doc. §10 = items resolved by the 2026-08 SPI refactor; §11 = re-verification table of every remaining item (verdicts: resolved / fixed / reduced / live). Delete when §11 has no live items left.
+- **Audit complete (2026-08-07)** — the SPI refactor + two audit rounds (§11-§14, previously tracked in the deleted `CODE-AUDIT.md`) are fully resolved; durable decisions live in code comments/javadoc.
 - **Do NOT commit without explicit user permission.**
-- Pending (see CODE-AUDIT.md §11): engine-level dedup (6.4 `@WithDefault`×3, 6.7 `@Mock`×2, 6.10 `List<T>`×4), design decisions (8.5 `MetricsRegistry` annotation style, 8.8 `BeanEnrichment` visibility), god-class split (9.4 `WireMethodGenerator`).
+- Pending: AOT codegen emits `@Bean` products by declared return type — a **package-private product class breaks the generated code** (cross-package access), and in **narrow test universes** (index = seeds only) a product class's class-level `@ConditionalOnBean` is invisible. Both surfaced via the row-mapper config; the test avoids `ReflectiveRowMapperRegistrar` (package-private) rather than fixing the generator. Needs a decision: reject package-private `@Bean` return types at codegen, or widen the narrow-index closure.
 - Pending: `PostgresTestResource` for demo ITs (only `RedisTestResource` exists today).
-- Dead code eliminated: §5 items verified in CODE-AUDIT.md §11 — most auto-resolved by the refactor (5.1/5.2/5.3/5.6/5.7), 5.8 dead overloads removed, 5.9-5.11 fixed.
 
 ## Conventions
 
@@ -93,3 +92,4 @@ Three tiers, from highest to lowest level:
 - Logging through SLF4J with `[Summer]` prefix. No `System.out`/`System.err` in framework code.
 - No `module-info.java` — everything runs on classpath.
 - TCK tests are in `summer-tck` (test-only, no `src/main`). Fixtures in `summer-tck-fixtures` (main-only, no `src/test`).
+- Test fixtures: a whole-universe `@SummerTest` scans the running module's test-classes, so nested bean fixtures become **global** — keep them behavior-neutral (nothing may depend on their absence). Behavior-affecting fixtures (e.g. `@Replaces`) go in a dedicated fixture module (no jandex.idx) reachable only via narrow `@SummerTest(classes=...)`. `@DualEngine` tests whose universe contains a server need `server.port: 0` — each leg binds its own ephemeral port (see `@DualEngine` javadoc).
