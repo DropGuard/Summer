@@ -2,7 +2,7 @@
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![Version](https://img.shields.io/badge/version-0.1.0-blue.svg)]()
-[![Java](https://img.shields.io/badge/Java-26+-blue.svg)]()
+[![Java](https://img.shields.io/badge/Java-25+-blue.svg)]()
 [![License](https://img.shields.io/badge/License-MIT-green.svg)]()
 
 > A minimalist JDK-native framework for building CRUD APIs.
@@ -60,27 +60,32 @@ Instead of relying on deep container magic, there is no hidden execution layer b
 
 ## ⚡ Dual DI Engine
 
-Summer's DI container has two interchangeable implementations:
+Summer is a Java web framework with two interchangeable DI engines: reflection-based
+runtime wiring and compile-time code generation. **AOT is the production engine** — the
+`summer-maven-plugin` generates the wiring at build time, so startup is direct
+constructor calls with no reflection. **Runtime is the test engine** — it scans Jandex
+indexes at startup and is the default during development. Dev mode is an escape hatch
+for debugging: pin either engine explicitly with `-Dsummer.engine`.
 
 | | Runtime Engine | AOT Engine |
 |---|---|---|
-| **How it works** | Scans Jandex indexes at startup, resolves dependencies via reflection | Generates a `wire()` method at compile time that calls constructors directly |
-| **When to use** | Development, debugging | Production, fast startup |
-| **Activation** | `SummerApplication.run(Engine.RUNTIME, args)` | `SummerApplication.run(Engine.AOT, args)` |
+| **Wiring** | Reflection at startup (Jandex index scan) | Compile-time code generation |
+| **Role** | Test engine (development default) | Production engine (build-time default) |
 | **Startup cost** | ~200ms (classpath scanning) | ~10ms (direct constructor calls) |
 | **Failure point** | `NoSuchBeanException` at runtime | Compilation error (fail-fast) |
 
-Both engines share the same annotation contract ({@code @Component}, {@code @Configuration}, {@code @Bean}, {@code @ConditionalOnBean}). Switching requires no code changes — only the {@code Engine} enum:
+Both engines share the same annotation contract (`@Component`, `@Configuration`, `@Bean`, `@ConditionalOnBean`, `@ConfigMapping`). Switching requires no code changes: `application.yml` defaults to `runtime` for development, and the Maven plugin rewrites it to `aot` at build time — so production builds run AOT.
 
-```java
-// Production — compile-time generated wiring
-SummerApplication.run(Engine.AOT, args);
-
-// Development — runtime classpath scanning
-SummerApplication.run(Engine.RUNTIME, args);
+```yaml
+# application.yml — development default; the Maven plugin flips it to aot at build time
+summer:
+  engine: runtime
 ```
 
-The AOT engine works by scanning Jandex indexes at build time via the `summer-maven-plugin`, resolving the dependency graph, and emitting a `GeneratedAotContext` class that wires all beans in a single `wire()` method. At runtime, `DiEngine.create()` loads this class via `Class.forName` — the only reflective call on the AOT path. All bean creation and wiring thereafter is direct instantiation.
+```java
+// Single entry point; engine resolved from configuration.
+SummerApplication.run(args);
+```
 
 * * *
 ## 🎯 The Hypothesis (What Summer Tries to Prove)
@@ -104,7 +109,7 @@ Summer intentionally enforces strict architectural constraints. If something req
 1. **Clarity over convenience.** (No hidden initialization phases).
 2. **Constructor injection only.** Fail-fast on ambiguity. No circular dependency resolution.
 3. **Interface-first AOP (JDK dynamic proxy).** No subclass-based proxying (CGLIB).
-4. **Stateless by default, Context by necessity.** All components (`@Component`) are instantiated as singletons. Request state flows explicitly as method arguments (`WebContext`). However, for cross-cutting infrastructural state like Database Transactions, Summer leverages safe `ThreadLocals` backed by ephemeral Virtual Threads to prevent method signature pollution.
+4. **Stateless by default, Context by necessity.** All components (`@Component`) are instantiated as singletons. Request state flows explicitly as method arguments (`HttpContext`). However, for cross-cutting infrastructural state like Database Transactions, Summer leverages safe `ThreadLocals` backed by ephemeral Virtual Threads to prevent method signature pollution.
 5. **Composition over Inheritance.** Small interfaces are preferred over abstract base classes. Summer avoids deep inheritance hierarchies.
 6. **Minimal feature surface.** Summer core is intentionally minimal and does not bundle validation or security. Validation is provided via optional modules.
 7. **Code as Configuration / Code as Documentation.** Summer avoids externalizing every possible tweak into YAML or JSON. Moving all runtime logic into configuration files fragments the application's intent and makes it harder to trace. Instead, Summer encourages utilizing fluent builders and explicit code to configure server parameters (like timeouts). This keeps logic cohesive and ensures that the configuration is as readable and version-controlled as the rest of the application.
@@ -117,21 +122,21 @@ Summer intentionally enforces strict architectural constraints. If something req
 *   Singleton IoC container
 *   Constructor injection (records seamlessly supported)
 *   `@Configuration` + `@Bean` (framework-standard bean registration)
-*   `@ConfigurationProperties` + `@DefaultValue` (type-safe config binding to Java Records)
+*   `@ConfigMapping` + `@WithDefault` (type-safe YAML config binding to interfaces)
+*   `@ConditionalOnBean` / `@Replaces` (declarative conditional assembly)
 *   Interface-based AOP
 *   `@Transactional` (single datasource, REQUIRED only)
 *   Middleware-based HTTP handling (with explicit Annotation Routing)
 *   Basic annotation routing (`@RestController`, `@Get`, `@Post`, `@Put`, `@Delete`)
-*   JSON request/response binding
-*   YAML configuration mapped to Java Records (`application.yml`)
+*   JSON request/response binding + built-in validation (`ctx.validatedBody`, Jakarta Validation + avaje-validator)
+*   YAML configuration (`application.yml`, `${VAR}` / `${VAR:-default}` placeholders)
 *   JDBC template with `@RowModel` (record-based row mapping)
-*   Redis client (`@EnableRedis`)
+*   Redis client (`summer-data-redis` + starter)
 *   gRPC client & server
 *   WebSocket support
 *   Virtual thread-based HTTP request handling (Project Loom)
 *   Global exception middleware
-*   Optional validation system (`summer-validation-hv`)
-*   Prometheus-compatible metrics (`MetricsMiddleware`)
+*   Prometheus-compatible metrics (`MetricsMiddleware`, `summer-web-middleware`)
 
 * * *
 
@@ -152,9 +157,9 @@ public class SystemController {
     }
 
     @Get("/metrics")
-    public String metrics(WebContext ctx) {
-        ctx.response().setHeader("Content-Type", "text/plain; version=0.0.4");
-        return registry.scrape();
+    public void metrics(HttpContext ctx) {
+        ctx.setHeader("Content-Type", "text/plain; version=0.0.4");
+        ctx.text(HttpStatus.OK, registry.scrape());
     }
 }
 ```
@@ -170,7 +175,7 @@ Summer is designed for high-concurrency throughput using Java's virtual threads 
 1. **Start the Showcase App**:
    ```bash
    cd summer-twitter
-   mvn exec:java -Dexec.mainClass="summer.twitter.Application"
+   mvn exec:java -Dexec.mainClass="com.github.dropguard.summer.twitter.Application"
    ```
 
 2. **Run a Load Test** (using `wrk`):
@@ -228,9 +233,9 @@ pool.submit(() -> myBlockingIoTask());
 
 > **⚠️ THREAD SAFETY WARNING**
 >
-> `WebContext` and `Request` are **not thread-safe**. Since Summer dispatches each request on an isolated virtual thread, internal state is safely confined to the call stack. 
+> `HttpContext` and `Request` are **not thread-safe**. Since Summer dispatches each request on an isolated virtual thread, internal state is safely confined to the call stack. 
 > 
-> If you initiate a background task (e.g., using an ExecutorService), you **must not** pass the `WebContext` or `Request` object directly to the other thread. Instead, extract the required data (strings, parsed objects, etc.) and pass only those. This mirrors the design of frameworks like Gin.
+> If you initiate a background task (e.g., using an ExecutorService), you **must not** pass the `HttpContext` or `Request` object directly to the other thread. Instead, extract the required data (strings, parsed objects, etc.) and pass only those. This mirrors the design of frameworks like Gin.
 
 * * *
 
@@ -322,26 +327,27 @@ public class UserServiceImpl implements UserService {
     }
 }
 
-// 3. Controller
+// 3. Controller — Gin-style: write to the context, return void
 @RestController("/users")
 public class UserController {
-    
+
     private final UserService userService;
 
     public UserController(UserService userService) {
         this.userService = userService;
     }
-    
+
     @Get("/{id}")
-    public User getUser(@PathParam("id") String id) {
+    public void getUser(HttpContext ctx, @PathParam("id") String id) {
         // Zero-reflection parameter binding
-        return userService.getUser(id);
+        ctx.json(HttpStatus.OK, userService.getUser(id));
     }
 
     @Post("")
-    public User createUser(User user) {
+    public void createUser(HttpContext ctx) {
         // Automatic JSON body binding & validation
-        return userService.createUser(user);
+        User user = ctx.validatedBody(User.class);
+        ctx.json(HttpStatus.CREATED, userService.createUser(user));
     }
 }
 
@@ -349,9 +355,9 @@ public class UserController {
 @Component
 public class GlobalErrorHandler {
     @ExceptionHandler(UserNotFoundException.class)
-    public void handleNotFound(WebContext ctx, UserNotFoundException e) {
-        ctx.response().setStatusCode(404);
-        ctx.ok(new ErrorResponse("Not Found", e.getMessage()));
+    public void handleNotFound(UserNotFoundException e, HttpContext ctx) {
+        ctx.status(HttpStatus.NOT_FOUND);
+        ctx.json(HttpStatus.NOT_FOUND, new ErrorResponse("Not Found", e.getMessage()));
     }
 }
 ```
@@ -360,7 +366,7 @@ For a fully working, runnable sample—featuring domain models, nested repositor
 
 ```bash
 cd summer-twitter
-mvn exec:java -Dexec.mainClass="summer.twitter.Application"
+mvn exec:java -Dexec.mainClass="com.github.dropguard.summer.twitter.Application"
 ```
 
 * * *
