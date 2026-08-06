@@ -15,17 +15,20 @@ import org.junit.jupiter.api.Test;
 @SummerTest
 public class OrderedMiddlewareTest {
 
+    // Declared OUT of @Order order on purpose: discovery order is [Second, First, Last], so this
+    // test only passes because the resolved list is sorted by @Order — it would fail on the AOT
+    // engine if the discovery-time slice were emitted as-is (the pre-fix divergence).
     @Component
-    @Order(1)
-    public static class FirstMw implements Middleware {
+    @Order(2)
+    public static class SecondMw implements Middleware {
         public Handler apply(Handler next) {
             return next;
         }
     }
 
     @Component
-    @Order(2)
-    public static class SecondMw implements Middleware {
+    @Order(1)
+    public static class FirstMw implements Middleware {
         public Handler apply(Handler next) {
             return next;
         }

@@ -51,4 +51,20 @@ public class ConditionalOnBeanBehaviorTest {
                 conditional,
                 "ConditionalOnInterface should be registered when RequiredInterface exists");
     }
+
+    @DualEngine
+    void testAndSemanticsClassAndMethodConditions() {
+        // AND semantics (Quarkus/Spring parity): a @Bean product's class-level and method-level
+        // conditions are BOTH checked — the method-level one must NOT let a failing class-level
+        // prerequisite through (the regression a single-slot evaluator would cause).
+        assertThrows(
+                Exception.class,
+                () -> context.getBean(MethodOnlySatisfiedProduct.class),
+                "class-level prerequisite is missing — the bean must be excluded despite the"
+                        + " method-level condition being satisfied");
+
+        assertNotNull(
+                context.getBean(BothConditionalProduct.class),
+                "both prerequisites exist — the bean must be registered");
+    }
 }

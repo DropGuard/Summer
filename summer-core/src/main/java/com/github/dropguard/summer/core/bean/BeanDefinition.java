@@ -43,6 +43,14 @@ public sealed class BeanDefinition permits ConfigPropertiesBean {
     /** Java identifier for AOT code gen. Mutable for dedup. */
     public String variableName;
 
+    /**
+     * {@code @Order} value, resolved at discovery time. Mirrors {@code BeanContainer.orderOf}
+     * semantics (class annotation wins, else first interface annotation, else MAX_VALUE) so the AOT
+     * engine can sort {@code List<T>} injection slices the same way the runtime sorts {@code
+     * getBeans} by instance order.
+     */
+    public int order = Integer.MAX_VALUE;
+
     // ── Phase 1b: Discovery / enrichment fields ───────────────────────
 
     /** Routes (for @RestController beans). Enrichment populates. */

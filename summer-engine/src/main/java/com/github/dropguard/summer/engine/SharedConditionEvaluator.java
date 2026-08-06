@@ -68,7 +68,7 @@ public final class SharedConditionEvaluator {
      */
     public void evaluate(List<BeanDefinition> beans, Set<String> mockedTypes) {
         removeMockedBeans(beans, mockedTypes);
-        Map<String, String> requiredTypes = collectConditionalRequirements(beans);
+        Map<String, Set<String>> requiredTypes = collectConditionalRequirements(beans);
         List<BeanDefinition> topoOrder = buildTopologicalOrder(beans, requiredTypes);
         resolveConditionalOnBean(beans, topoOrder, requiredTypes);
         resolveReplaces(beans);
@@ -99,14 +99,21 @@ public final class SharedConditionEvaluator {
 
     // ── Collect @ConditionalOnBean requirements ───────────────────
 
-    private Map<String, String> collectConditionalRequirements(List<BeanDefinition> beans) {
-        Map<String, String> requiredTypes = new HashMap<>();
+    private Map<String, Set<String>> collectConditionalRequirements(List<BeanDefinition> beans) {
+        Map<String, Set<String>> requiredTypes = new HashMap<>();
         for (BeanDefinition bean : beans) {
+            // AND semantics (Quarkus/Spring parity): a @Bean product's class-level condition and
+            // its producer method's condition are BOTH checked — each declared prerequisite is
+            // accumulated, neither is dropped by a single-slot overwrite.
+            Set<String> required = new HashSet<>();
             if (bean.conditionalOnBeanType != null) {
-                requiredTypes.put(bean.qualifiedName, bean.conditionalOnBeanType);
+                required.add(bean.conditionalOnBeanType);
             }
             if (bean.methodConditionalOnBeanType != null) {
-                requiredTypes.put(bean.qualifiedName, bean.methodConditionalOnBeanType);
+                required.add(bean.methodConditionalOnBeanType);
+            }
+            if (!required.isEmpty()) {
+                requiredTypes.put(bean.qualifiedName, required);
             }
         }
         return requiredTypes;
@@ -115,18 +122,20 @@ public final class SharedConditionEvaluator {
     // ── Topological sort ──────────────────────────────────────────
 
     private List<BeanDefinition> buildTopologicalOrder(
-            List<BeanDefinition> beans, Map<String, String> requiredTypes) {
+            List<BeanDefinition> beans, Map<String, Set<String>> requiredTypes) {
         Map<BeanDefinition, Set<BeanDefinition>> deps = new HashMap<>();
         for (BeanDefinition bean : beans) {
-            String required = requiredTypes.get(bean.qualifiedName);
+            Set<String> required = requiredTypes.get(bean.qualifiedName);
             if (required == null) continue;
 
             Set<BeanDefinition> matches = new HashSet<>();
-            for (BeanDefinition other : beans) {
-                if (other.qualifiedName.equals(required)) {
-                    matches.add(other);
-                } else if (other.interfaceNames.contains(required)) {
-                    matches.add(other);
+            for (String requiredType : required) {
+                for (BeanDefinition other : beans) {
+                    if (other.qualifiedName.equals(requiredType)) {
+                        matches.add(other);
+                    } else if (other.interfaceNames.contains(requiredType)) {
+                        matches.add(other);
+                    }
                 }
             }
             if (!matches.isEmpty()) {
@@ -240,7 +249,7 @@ public final class SharedConditionEvaluator {
     private void resolveConditionalOnBean(
             List<BeanDefinition> beans,
             List<BeanDefinition> topoOrder,
-            Map<String, String> requiredTypes) {
+            Map<String, Set<String>> requiredTypes) {
         // Visibility is currently GLOBAL: a @ConditionalOnBean(X) on bean B is
         // satisfied by any bean T (or interface it implements) in the candidate set,
         // regardless of archive. The {@link BeanDefinition#archiveName} field
@@ -261,10 +270,18 @@ public final class SharedConditionEvaluator {
         for (BeanDefinition bean : topoOrder) {
             if (!beans.contains(bean)) continue;
 
-            String required = requiredTypes.get(bean.qualifiedName);
+            Set<String> required = requiredTypes.get(bean.qualifiedName);
             if (required == null) continue;
 
-            if (!available.contains(required)) {
+            // AND semantics: the bean survives only if EVERY declared prerequisite exists.
+            boolean allPresent = true;
+            for (String requiredType : required) {
+                if (!available.contains(requiredType)) {
+                    allPresent = false;
+                    break;
+                }
+            }
+            if (!allPresent) {
                 available.remove(bean.qualifiedName);
                 available.removeAll(bean.interfaceNames);
                 beans.remove(bean);

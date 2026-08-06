@@ -35,6 +35,8 @@ import org.jboss.jandex.MethodInfo;
 @Internal
 public final class BeanEnrichment {
 
+    private static final DotName ORDER_DOT =
+            DotName.createSimple("com.github.dropguard.summer.core.annotation.Order");
     private static final DotName INTERCEPTOR_BINDING_DOT =
             DotName.createSimple("com.github.dropguard.summer.aop.InterceptorBinding");
     private static final DotName INTERCEPTOR_DOT =
@@ -62,9 +64,34 @@ public final class BeanEnrichment {
                     collectConstructorParams(bean, ci);
                 }
                 collectConditions(bean, ci);
+                collectOrder(bean, ci);
             }
         }
         detectAopBindings(beans);
+    }
+
+    /**
+     * Captures the {@code @Order} value at discovery time (Jandex), mirroring {@code
+     * BeanContainer.orderOf}: the class annotation wins, else the first {@code @Order} found on an
+     * implemented interface, else {@code MAX_VALUE}. The AOT engine uses {@code
+     * BeanDefinition.order} to sort {@code List<T>} injection slices; the runtime sorts {@code
+     * getBeans} by instance order — both must agree.
+     */
+    private void collectOrder(BeanDefinition bean, ClassInfo ci) {
+        AnnotationInstance order = ci.classAnnotation(ORDER_DOT);
+        if (order != null) {
+            bean.order = order.value().asInt();
+            return;
+        }
+        for (DotName iface : ci.interfaceNames()) {
+            ClassInfo ifaceInfo = index.getClassByName(iface);
+            if (ifaceInfo == null) continue;
+            AnnotationInstance ifaceOrder = ifaceInfo.classAnnotation(ORDER_DOT);
+            if (ifaceOrder != null) {
+                bean.order = ifaceOrder.value().asInt();
+                return;
+            }
+        }
     }
 
     // ── Constructor Params ────────────────────────────────────────────

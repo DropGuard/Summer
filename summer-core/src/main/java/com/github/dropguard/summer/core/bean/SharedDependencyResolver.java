@@ -6,6 +6,7 @@ import com.github.dropguard.summer.core.exception.CircularDependencyException;
 import com.github.dropguard.summer.core.exception.NoSuchBeanException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -167,6 +168,10 @@ public final class SharedDependencyResolver {
                 // List<MockedType>, satisfied by the single mock at injection time).
                 List<BeanDefinition> matches =
                         findAllBeans(parameter.elementType(), allBeans, mockedTypeNames);
+                // @Order alignment: the runtime sorts getBeans by instance order
+                // (BeanContainer.ORDER_COMPARATOR); sort the discovery-time slice by the captured
+                // BeanDefinition.order so the AOT engine emits List<T> in the same order.
+                matches.sort(Comparator.comparingInt(b -> b.order));
                 parameter.resolved().addAll(matches);
                 continue;
             }

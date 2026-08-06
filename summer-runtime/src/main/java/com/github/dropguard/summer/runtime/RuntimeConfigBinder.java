@@ -18,7 +18,16 @@ import java.util.Map;
 @Internal
 public final class RuntimeConfigBinder {
 
-    private static final ObjectMapper YAML_MAPPER = SummerObjectMapper.createYaml();
+    // Case-insensitive enums for the config-binding path only (not the shared mapper): the AOT
+    // generator coerces enum values via Enum.valueOf(raw.toUpperCase()), so the runtime proxy must
+    // accept the same lowercase YAML values — otherwise @WithDefault("dev") binds on AOT and throws
+    // here. Dual-engine convergence on enum config values.
+    private static final ObjectMapper YAML_MAPPER =
+            SummerObjectMapper.createYaml(
+                    m ->
+                            m.enable(
+                                    com.fasterxml.jackson.databind.MapperFeature
+                                            .ACCEPT_CASE_INSENSITIVE_ENUMS));
     private final ConfigBinder delegate = new ConfigBinder();
 
     public RuntimeConfigBinder() {}
