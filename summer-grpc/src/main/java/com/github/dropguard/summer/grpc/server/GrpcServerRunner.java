@@ -52,7 +52,7 @@ public class GrpcServerRunner implements ApplicationRunner {
             return; // No gRPC services to expose
         }
 
-        int port = resolvePort(serverConfig.port());
+        int port = serverConfig.port();
         ServerBuilder<?> serverBuilder = ServerBuilder.forPort(port);
 
         List<ServerInterceptor> interceptors = context.getBeans(ServerInterceptor.class);
@@ -105,10 +105,19 @@ public class GrpcServerRunner implements ApplicationRunner {
         // ones finish, then terminates.
         server.shutdown();
         try {
-            if (!timeout.isZero()) {
-                server.awaitTermination(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            if (timeout.isZero()) {
+                // Zero drain timeout: the caller asked for an immediate stop — force
+                // termination rather than blocking on an unbounded awaitTermination().
+                server.shutdownNow();
+                server.awaitTermination();
+                return;
             }
-            server.awaitTermination();
+            if (!server.awaitTermination(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
+                // Graceful drain exceeded the timeout — force-terminate remaining calls,
+                // then wait for the (now bounded) termination to complete.
+                server.shutdownNow();
+                server.awaitTermination();
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
@@ -122,10 +131,5 @@ public class GrpcServerRunner implements ApplicationRunner {
      */
     public void stop() {
         shutdown(java.time.Duration.ZERO);
-    }
-
-    private int resolvePort(int defaultPort) {
-        String prop = System.getProperty("com.github.dropguard.summer.grpc.port");
-        return prop != null ? Integer.parseInt(prop) : defaultPort;
     }
 }

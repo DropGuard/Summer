@@ -1,7 +1,6 @@
 package com.github.dropguard.summer.web;
 
 import com.github.dropguard.summer.core.Internal;
-import com.github.dropguard.summer.core.bean.RouteInfo.ParamBinding;
 import com.github.dropguard.summer.web.annotation.PathParam;
 
 /** Resolves {@link PathParam @PathParam}-annotated parameters from URL path segments. */
@@ -10,7 +9,7 @@ public class PathParamResolver implements HttpParameterResolver {
 
     @Override
     public boolean supports(HandlerParam param) {
-        return param.binding() == ParamBinding.PATH;
+        return param.hasAnnotation(PathParam.class);
     }
 
     @Override

@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web.server;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.annotation.Bean;
 import com.github.dropguard.summer.core.annotation.Configuration;
 import com.github.dropguard.summer.core.config.ShutdownConfig;
@@ -12,6 +13,7 @@ import com.github.dropguard.summer.web.ServerConfig;
  * <p>Provides {@link NettyServerRunner} and {@link NettyWebSocketBroadcaster}.
  */
 @Configuration
+@Internal
 public class NettyServerConfiguration {
 
     @Bean

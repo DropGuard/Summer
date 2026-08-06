@@ -7,8 +7,8 @@ import com.github.dropguard.summer.web.RouterRegistry;
 import com.github.dropguard.summer.web.RouterType;
 import com.github.dropguard.summer.web.http.MapRouter;
 import com.github.dropguard.summer.web.http.RadixTreeHttpRouter;
-import com.github.dropguard.summer.web.websocket.MapWsRouter;
-import com.github.dropguard.summer.web.websocket.RadixWsRouter;
+import com.github.dropguard.summer.web.websocket.router.MapWsRouter;
+import com.github.dropguard.summer.web.websocket.router.RadixWsRouter;
 
 /**
  * Framework configuration for router factories.

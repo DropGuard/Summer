@@ -5,5 +5,9 @@ public enum HttpMethod {
     POST,
     PUT,
     DELETE,
-    OPTIONS;
+    PATCH,
+    HEAD,
+    OPTIONS,
+    /** Any HTTP method not in the known set — handler should return 405. */
+    UNKNOWN;
 }

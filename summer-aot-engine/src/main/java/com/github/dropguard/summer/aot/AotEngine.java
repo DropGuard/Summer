@@ -1,14 +1,16 @@
 package com.github.dropguard.summer.aot;
 
 import com.github.dropguard.summer.core.BeanContainer;
-import com.github.dropguard.summer.core.DiEngine;
-import com.github.dropguard.summer.core.Discovery;
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
-import com.github.dropguard.summer.core.bean.BeanDeployment;
 import com.github.dropguard.summer.core.bean.MockedBean;
-import com.github.dropguard.summer.core.bean.SharedConditionEvaluator;
 import com.github.dropguard.summer.core.bean.SharedDependencyResolver;
+import com.github.dropguard.summer.core.exception.AotCompilationException;
+import com.github.dropguard.summer.core.spi.RouteRegistrarLoader;
+import com.github.dropguard.summer.engine.BeanDeployment;
+import com.github.dropguard.summer.engine.DiEngine;
+import com.github.dropguard.summer.engine.Discovery;
+import com.github.dropguard.summer.engine.SharedConditionEvaluator;
 import java.io.File;
 import java.nio.file.Files;
 import java.util.ArrayList;
@@ -21,12 +23,14 @@ import org.slf4j.LoggerFactory;
 /**
  * Runtime AOT compiler for testing.
  *
- * <p>Generates, compiles, and loads AOT code at test time — no Maven plugin required. Results are
- * cached by bean-closure hash so identical seeds skip recompilation.
+ * <p>Generates, compiles, and loads AOT code at test time — no Maven plugin required. The {@code
+ * cacheKey} / {@code className} pair must be unique per test universe because the JVM loads a
+ * generated class once: there is no in-memory container cache here, each distinct key triggers a
+ * fresh compile-and-load (identical keys would collide on the class name, not dedupe).
  *
- * <p>This class lives in {@code summer-aot-engine} and is loaded reflectively by {@code
- * com.github.dropguard.summer.test.Testing} to avoid a compile-time dependency cycle
- * (summer-data-jdbc → summer-test ← summer-aot-engine).
+ * <p>This class lives in {@code summer-aot-engine} and is invoked by the {@code ContainerEngine}
+ * SPI implementation {@link AotContainer} (resolved via {@code ContainerEngines.forEngine}) to
+ * avoid a compile-time dependency cycle (summer-data-jdbc → summer-test ← summer-aot-engine).
  */
 @Internal
 public final class AotEngine {
@@ -54,10 +58,10 @@ public final class AotEngine {
     /**
      * Full AOT pipeline: discover → resolve → generate → compile → load.
      *
-     * <p>Cache check happens once, here at the outermost boundary: if a container for this {@code
-     * cacheKey} already exists it is returned immediately, skipping all discovery/compilation work.
-     * The {@code cacheKey} must encode everything that affects the generated graph — profile
-     * override content and mocked types — or two distinct tests would silently share one container.
+     * <p>There is no container cache — every call compiles and loads fresh. The {@code cacheKey}
+     * exists so tests can derive a deterministic, per-universe {@code className}: the JVM loads a
+     * generated class at most once, so distinct test universes must not share a name (identical
+     * keys would collide on the class name, not reuse a container).
      *
      * @param index Jandex index
      * @param cacheKey unique cache key (deterministic, must encode profile override content +
@@ -95,6 +99,11 @@ public final class AotEngine {
             MockedBean[] mocks,
             java.util.Map<String, Object> overrides) {
         List<BeanDefinition> beans = Discovery.discover(moduleIndex);
+        // SPI route collection (shared with the Runtime engine): loads every
+        // RouteRegistrar on the classpath (e.g. summer-runtime-web's WebRouteScanner)
+        // and merges routes / exception handlers into the candidate definitions
+        // before condition evaluation, so AOT codegen sees the same web surface.
+        RouteRegistrarLoader.mergeInto(RouteRegistrarLoader.load(beans), beans);
         // Discovery-stage mock replacement: remove the real definitions of every
         // mocked type so they are never generated/instantiated. Shared with Runtime
         // via SharedConditionEvaluator, so concrete-class @Mock behaves identically on
@@ -104,7 +113,7 @@ public final class AotEngine {
         for (MockedBean mocked : mocks) {
             mockedTypeNames.add(mocked.targetTypeName());
         }
-        new SharedConditionEvaluator().evaluate(beans, mockedTypeNames, moduleIndex);
+        new SharedConditionEvaluator().evaluate(beans, mockedTypeNames);
         List<BeanDefinition> sorted =
                 new SharedDependencyResolver().resolve(beans, java.util.Arrays.asList(mocks));
 
@@ -146,12 +155,16 @@ public final class AotEngine {
             tempDir.deleteOnExit();
             IndexView index = moduleIndex.discoveryIndex();
 
-            WireMethodGenerator wireGen = new WireMethodGenerator(index, overrides);
+            WireMethodGenerator wireGen = new WireMethodGenerator(index);
             log.debug("[Summer] AOT phase: generate context");
             new AotContextGenerator(index, tempDir, wireGen, overrides)
                     .generate(sorted, className, mocks);
             new AotProxyGenerator().generate(sorted, index, tempDir);
-            new RouteAdapterGenerator().generate(sorted, tempDir);
+            // Route adapter imports web types — generate only when routes exist,
+            // or non-web applications fail to compile the generated sources.
+            if (sorted.stream().anyMatch(b -> !b.routes.isEmpty())) {
+                new RouteAdapterGenerator().generate(sorted, tempDir);
+            }
 
             // 2. Compile generated sources
             log.debug("[Summer] AOT phase: compile generated sources");
@@ -169,13 +182,17 @@ public final class AotEngine {
                     DiEngine.loadCompiledEngine(
                             AotContextGenerator.PACKAGE + "." + className,
                             new java.net.URL[] {classesUrl},
+                            // Pack the MockedBean[] as a single Object element so the
+                            // reflective lookup hits the sole build(Object...) entry point;
+                            // the generated build unpacks MockedBean[] elements and registers
+                            // mocks by declared type.
                             (Object) mocks);
 
             log.debug("[Summer] AOT compile complete: cacheKey={}", cacheKey);
             return container;
 
         } catch (Exception e) {
-            throw new RuntimeException(
+            throw new AotCompilationException(
                     "[Summer] AOT compilation failed: cacheKey="
                             + cacheKey
                             + " className="
@@ -238,15 +255,7 @@ public final class AotEngine {
     }
 
     private static void collectJavaFiles(File dir, List<File> result) {
-        File[] files = dir.listFiles();
-        if (files == null) return;
-        for (File f : files) {
-            if (f.isDirectory()) {
-                collectJavaFiles(f, result);
-            } else if (f.getName().endsWith(".java")) {
-                result.add(f);
-            }
-        }
+        JavaSourceFiles.collect(dir, result);
     }
 
     /**

@@ -3,6 +3,7 @@ package com.github.dropguard.summer.tck.di;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.fixtures.dummy.ServiceA;
 import com.github.dropguard.summer.fixtures.dummy.ServiceB;
 import com.github.dropguard.summer.test.annotation.DualEngine;
@@ -15,20 +16,23 @@ import com.github.dropguard.summer.test.annotation.SummerTest;
  * <p>Runs on BOTH engines via {@link DualEngine} — {@code @Mock} replacement is a known dual-engine
  * divergence risk (the AOT path must drop the mocked type from codegen and register the Mockito
  * stub), so the Runtime-only default would hide any AOT break.
+ *
+ * <p>Assertions read beans from the per-engine {@link BeanContainer} passed as a method parameter
+ * (the test instance itself is always built by the RUNTIME container), so the AOT invocation
+ * genuinely asserts AOT mock injection.
  */
 @SummerTest
 class MockBehaviorTest {
 
-    private final ServiceA serviceA;
-    private final ServiceB mockB;
-
     MockBehaviorTest(ServiceA serviceA, @Mock ServiceB mockB) {
-        this.serviceA = serviceA;
-        this.mockB = mockB;
+        // Constructor params drive the container build (@Mock registration). Assertions
+        // use the per-engine container passed to each @DualEngine method instead.
     }
 
     @DualEngine
-    void mockReplacesRealBean() {
+    void mockReplacesRealBean(BeanContainer container) {
+        ServiceA serviceA = container.getBean(ServiceA.class);
+        ServiceB mockB = container.getBean(ServiceB.class);
         assertSame(
                 mockB,
                 serviceA.getServiceB(),
@@ -36,7 +40,9 @@ class MockBehaviorTest {
     }
 
     @DualEngine
-    void mockStubWorks() {
+    void mockStubWorks(BeanContainer container) {
+        ServiceA serviceA = container.getBean(ServiceA.class);
+        ServiceB mockB = container.getBean(ServiceB.class);
         when(mockB.getServiceC()).thenReturn(null);
 
         assertNull(

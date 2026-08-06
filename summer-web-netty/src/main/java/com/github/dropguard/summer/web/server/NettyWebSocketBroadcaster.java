@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web.server;
 
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.web.websocket.WebSocketBroadcaster;
 import com.github.dropguard.summer.web.websocket.WebSocketContext;
 import io.netty.channel.group.ChannelGroup;
@@ -11,8 +12,10 @@ import java.util.HashMap;
 /**
  * Netty-based WebSocket broadcaster.
  *
- * <p>This is a framework infrastructure bean provided by {@link RuntimeWebConfiguration}.
+ * <p>This is a framework infrastructure bean provided by the runtime-web bridge module's {@code
+ * RuntimeWebConfiguration}.
  */
+@Internal
 public class NettyWebSocketBroadcaster implements WebSocketBroadcaster {
 
     private final ChannelGroup globalGroup = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);

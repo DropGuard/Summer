@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web;
 
+import com.github.dropguard.summer.web.exception.ExceptionHandlerConflictException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -11,6 +12,12 @@ public class ExceptionRegistry {
     private final Map<Class<? extends Throwable>, Handler> handlers = new HashMap<>();
 
     public void register(Class<? extends Throwable> exceptionType, Handler handler) {
+        if (handlers.containsKey(exceptionType)) {
+            throw new ExceptionHandlerConflictException(
+                    "Duplicate @ExceptionHandler for "
+                            + exceptionType.getName()
+                            + ". Only one handler per exception type is allowed.");
+        }
         handlers.put(exceptionType, handler);
     }
 

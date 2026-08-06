@@ -66,6 +66,11 @@
             <artifactId>summer-core</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-engine</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <!-- Summer AOP (for AOP analysis) -->
         <dependency>

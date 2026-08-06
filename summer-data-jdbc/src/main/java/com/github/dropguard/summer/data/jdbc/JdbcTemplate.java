@@ -44,9 +44,12 @@ public class JdbcTemplate {
     }
 
     /**
-     * Registers a {@code RowMapper} for the given row type. Called by the DI engine at startup; not
-     * part of the public API.
+     * Registers a {@code RowMapper} for the given row type. Called by the DI engine at startup
+     * (reflective registrar) and by AOT-generated wire code — {@code @Internal}: part of the
+     * framework's engine contract, not the public API. Kept {@code public} because the AOT engine
+     * emits this call from a generated class in another package.
      */
+    @com.github.dropguard.summer.core.Internal
     public void registerMapper(Class<?> rowType, RowMapper<?> mapper) {
         mappers.put(rowType, mapper);
     }
@@ -76,34 +79,19 @@ public class JdbcTemplate {
 
     @SuppressWarnings("unchecked")
     public <T> List<T> queryForList(String sql, Class<T> rowType, Object... args) {
-        RowMapper<T> mapper = (RowMapper<T>) mappers.get(rowType);
-        if (mapper == null) {
-            mapper =
-                    switch (rowType.getName()) {
-                        case "java.lang.Long" ->
-                                (rs, rowNum) -> {
-                                    long val = rs.getLong(1);
-                                    return rs.wasNull() ? null : (T) Long.valueOf(val);
-                                };
-                        case "java.lang.Integer" ->
-                                (rs, rowNum) -> {
-                                    int val = rs.getInt(1);
-                                    return rs.wasNull() ? null : (T) Integer.valueOf(val);
-                                };
-                        case "java.lang.String" -> (rs, rowNum) -> (T) rs.getString(1);
-                        case "java.lang.Boolean" ->
-                                (rs, rowNum) -> {
-                                    boolean val = rs.getBoolean(1);
-                                    return rs.wasNull() ? null : (T) Boolean.valueOf(val);
-                                };
-                        default ->
-                                throw new DataAccessException(
-                                        "No RowMapper registered for "
-                                                + rowType.getName()
-                                                + ". Ensure the class is annotated with @RowModel"
-                                                + " and summer-maven-plugin is configured.");
-                    };
-        }
+        return queryForList(sql, resolveMapper(rowType), args);
+    }
+
+    /**
+     * Queries rows with an explicit {@link RowMapper}, for custom mappings that do not go through
+     * the registered {@code @RowModel} mapper (joins, DTO projections, ad-hoc transforms).
+     *
+     * @param sql the SQL query
+     * @param mapper the row mapper to apply
+     * @param args bind parameters
+     * @return mapped rows
+     */
+    public <T> List<T> queryForList(String sql, RowMapper<T> mapper, Object... args) {
         List<T> results = new ArrayList<>();
         try (Connection conn = getConnection();
                 PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -120,8 +108,58 @@ public class JdbcTemplate {
         }
     }
 
+    @SuppressWarnings("unchecked")
+    private <T> RowMapper<T> resolveMapper(Class<T> rowType) {
+        RowMapper<T> mapper = (RowMapper<T>) mappers.get(rowType);
+        if (mapper != null) {
+            return mapper;
+        }
+        return switch (rowType.getName()) {
+            case "java.lang.Long" ->
+                    (rs, rowNum) -> {
+                        long val = rs.getLong(1);
+                        return rs.wasNull() ? null : (T) Long.valueOf(val);
+                    };
+            case "java.lang.Integer" ->
+                    (rs, rowNum) -> {
+                        int val = rs.getInt(1);
+                        return rs.wasNull() ? null : (T) Integer.valueOf(val);
+                    };
+            case "java.lang.String" -> (rs, rowNum) -> (T) rs.getString(1);
+            case "java.lang.Boolean" ->
+                    (rs, rowNum) -> {
+                        boolean val = rs.getBoolean(1);
+                        return rs.wasNull() ? null : (T) Boolean.valueOf(val);
+                    };
+            default ->
+                    throw new DataAccessException(
+                            "No RowMapper registered for "
+                                    + rowType.getName()
+                                    + ". Ensure the class is annotated with @RowModel"
+                                    + " and summer-maven-plugin is configured.");
+        };
+    }
+
     public <T> T queryForObject(String sql, Class<T> rowType, Object... args) {
         List<T> results = queryForList(sql, rowType, args);
+        return singleResult(results);
+    }
+
+    /**
+     * Queries a single row with an explicit {@link RowMapper} (custom mappings, DTO projections).
+     *
+     * @param sql the SQL query
+     * @param mapper the row mapper to apply
+     * @param args bind parameters
+     * @return the mapped row, or {@code null} when no row matched
+     * @throws DataAccessException when more than one row matched
+     */
+    public <T> T queryForObject(String sql, RowMapper<T> mapper, Object... args) {
+        List<T> results = queryForList(sql, mapper, args);
+        return singleResult(results);
+    }
+
+    private <T> T singleResult(List<T> results) {
         if (results.isEmpty()) {
             return null;
         }

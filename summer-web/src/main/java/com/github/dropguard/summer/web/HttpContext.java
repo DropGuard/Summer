@@ -17,8 +17,8 @@ import org.slf4j.LoggerFactory;
  *   <li><b>Virtual thread</b> (request processing): Controller calls {@code ctx.ok(data)} or {@code
  *       ctx.json(status, data)} to write the response into this context.
  *   <li><b>Netty Event Loop</b> (IO): After processing completes, Netty reads from this context via
- *       {@code statusCode()}, {@code resultObject()}, {@code body()} etc. and writes the actual
- *       HTTP response to the channel.
+ *       {@code status()}, {@code resultObject()}, {@code body()} etc. and writes the actual HTTP
+ *       response to the channel.
  * </ul>
  *
  * <p>This separation is intentional --the response is <em>deferred</em> until the IO thread is
@@ -32,6 +32,9 @@ public class HttpContext {
 
     private static final Logger log = LoggerFactory.getLogger(HttpContext.class);
 
+    private static final io.avaje.validation.Validator AVALIDATOR =
+            io.avaje.validation.Validator.builder().build();
+
     private final Request request;
     private final Response response = new Response();
     private final BodyParser bodyParser;
@@ -42,9 +45,7 @@ public class HttpContext {
     }
 
     public HttpContext(Request request, BodyConverter jsonConverter) {
-        this(
-                request,
-                new BodyParser(jsonConverter, io.avaje.validation.Validator.builder().build()));
+        this(request, new BodyParser(jsonConverter, AVALIDATOR));
     }
 
     public HttpContext(Request request, BodyParser bodyParser) {
@@ -58,16 +59,24 @@ public class HttpContext {
         return request;
     }
 
-    public HttpStatus statusCode() {
+    public HttpStatus status() {
         return response.status;
     }
 
+    /**
+     * The response body, as a <em>read-only view</em> of the internal buffer (zero-copy — no
+     * defensive copy). Consumers (the IO layer, middleware wrappers) must not mutate the returned
+     * array; to replace the response body, use {@link #text(HttpStatus, String)} / {@link
+     * #json(HttpStatus, Object)} which install a new buffer. The middleware read-modify-write
+     * pattern (read, transform, {@code ctx.text(...)} back) is safe: the original array is never
+     * mutated and is dropped once replaced.
+     */
     public byte[] body() {
         return response.body;
     }
 
     public Map<String, String> headers() {
-        return response.headers;
+        return java.util.Collections.unmodifiableMap(response.headers);
     }
 
     public Object resultObject() {

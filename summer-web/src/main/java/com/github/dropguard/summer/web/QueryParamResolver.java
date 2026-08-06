@@ -1,7 +1,6 @@
 package com.github.dropguard.summer.web;
 
 import com.github.dropguard.summer.core.Internal;
-import com.github.dropguard.summer.core.bean.RouteInfo.ParamBinding;
 import com.github.dropguard.summer.core.config.TypeConverter;
 import com.github.dropguard.summer.web.annotation.QueryParam;
 
@@ -14,7 +13,7 @@ public class QueryParamResolver implements HttpParameterResolver {
 
     @Override
     public boolean supports(HandlerParam param) {
-        return param.binding() == ParamBinding.QUERY;
+        return param.hasAnnotation(QueryParam.class);
     }
 
     @Override

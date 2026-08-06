@@ -1,9 +1,6 @@
 package com.github.dropguard.summer.test;
 
 import com.github.dropguard.summer.core.Internal;
-import com.github.dropguard.summer.test.annotation.Mock;
-import java.lang.annotation.Annotation;
-import java.lang.reflect.Constructor;
 import java.security.MessageDigest;
 import java.util.SortedSet;
 import java.util.TreeSet;
@@ -78,7 +75,7 @@ public final class AotKey {
     public static AotKey forTest(Class<?> testClass, java.util.Map<String, Object> overrides) {
         SortedSet<String> dimensions = new TreeSet<>();
         dimensions.add("kind=test");
-        dimensions.add("test=" + (testClass != null ? testClass.getName() : "<anonymous>"));
+        dimensions.add("test=" + testClass.getName());
         // Profile content (not name) — same overrides ⇒ same container. Shared with
         // the AOT wire() generation, so identity and the baked-in BindingContext can
         // never drift apart.
@@ -88,7 +85,11 @@ public final class AotKey {
         return new AotKey(String.join("|", dimensions));
     }
 
-    /** Cache key for {@code AotEngine}'s container cache. */
+    /**
+     * Deterministic per-test-universe key (profile + mocked types). Tests derive the generated
+     * class name from it so distinct universes never share a JVM-loaded class name — there is no
+     * container cache to hit; see {@code AotEngine}.
+     */
     public String cacheKey() {
         return "aot-" + hash(fingerprint);
     }
@@ -108,20 +109,9 @@ public final class AotKey {
      * annotations, not from instantiated mocks — the identity stage must not construct anything.
      */
     private static String mockedTypes(Class<?> testClass) {
-        if (testClass == null) return "";
         SortedSet<String> names = new TreeSet<>();
-        Constructor<?>[] ctors = testClass.getDeclaredConstructors();
-        if (ctors.length == 1) {
-            Annotation[][] paramAnnotations = ctors[0].getParameterAnnotations();
-            Class<?>[] paramTypes = ctors[0].getParameterTypes();
-            for (int i = 0; i < paramTypes.length; i++) {
-                for (Annotation a : paramAnnotations[i]) {
-                    if (a instanceof Mock) {
-                        names.add(paramTypes[i].getName());
-                        break;
-                    }
-                }
-            }
+        for (Class<?> mockedType : MockedParams.scan(testClass)) {
+            names.add(mockedType.getName());
         }
         return String.join(",", names);
     }

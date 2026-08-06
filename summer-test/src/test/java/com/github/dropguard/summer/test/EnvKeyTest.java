@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 
+import com.github.dropguard.summer.core.Engine;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -16,13 +17,18 @@ import org.junit.jupiter.api.Test;
  */
 class EnvKeyTest {
 
-    private static final EnvKey A = EnvKey.of("p1", List.of("com.X", "com.Y"), "BuilderA");
-    private static final EnvKey B = EnvKey.of("p1", List.of("com.X", "com.Y"), "BuilderA");
+    private static final EnvKey A =
+            EnvKey.of("p1", List.of("com.X", "com.Y"), Engine.RUNTIME, "BuilderA");
+    private static final EnvKey B =
+            EnvKey.of("p1", List.of("com.X", "com.Y"), Engine.RUNTIME, "BuilderA");
     private static final EnvKey DIFF_PROFILE =
-            EnvKey.of("p2", List.of("com.X", "com.Y"), "BuilderA");
-    private static final EnvKey DIFF_MOCKS = EnvKey.of("p1", List.of("com.X", "com.Z"), "BuilderA");
+            EnvKey.of("p2", List.of("com.X", "com.Y"), Engine.RUNTIME, "BuilderA");
+    private static final EnvKey DIFF_MOCKS =
+            EnvKey.of("p1", List.of("com.X", "com.Z"), Engine.RUNTIME, "BuilderA");
+    private static final EnvKey DIFF_ENGINE =
+            EnvKey.of("p1", List.of("com.X", "com.Y"), Engine.AOT, "BuilderA");
     private static final EnvKey DIFFERENT_BUILDER =
-            EnvKey.of("p1", List.of("com.X", "com.Y"), "BuilderB");
+            EnvKey.of("p1", List.of("com.X", "com.Y"), Engine.RUNTIME, "BuilderB");
 
     @Test
     void equalKeysAreEqualAndShareHash() {
@@ -44,6 +50,13 @@ class EnvKeyTest {
     @Test
     void differentMockSetIsNotEqual() {
         assertNotEquals(A, DIFF_MOCKS);
+    }
+
+    @Test
+    void differentEngineIsNotEqual() {
+        // Runtime and AOT build different containers — the AOT branch must never
+        // reuse the RUNTIME container, or the AOT engine is never actually tested.
+        assertNotEquals(A, DIFF_ENGINE);
     }
 
     @Test
@@ -78,7 +91,7 @@ class EnvKeyTest {
         // (Callers that build the key from @Mock parameters normalize the order
         // via a sorted set before calling EnvKey.of, which is why order only
         // matters here at the key level — this test pins that contract.)
-        EnvKey reordered = EnvKey.of("p1", List.of("com.Y", "com.X"), "BuilderA");
+        EnvKey reordered = EnvKey.of("p1", List.of("com.Y", "com.X"), Engine.RUNTIME, "BuilderA");
         assertNotEquals(A, reordered);
     }
 }

@@ -78,23 +78,42 @@ class WireMethodGeneratorTest {
     }
 
     @Test
-    void emptyListEmitsEmptyListOf() throws Exception {
+    void emptyResolvedListRescansBuilderAtRuntime() throws Exception {
+        // Mirrors the runtime engine (BeanInstantiator): an empty resolved list is re-scanned from
+        // the builder at runtime — for a mocked element type this yields the single mock instead of
+        // silently dropping it (List<MockedType> divergence fix).
         BeanDefinition consumer = new BeanDefinition(Consumer.class.getName(), "Consumer");
         consumer.parameters.add(
                 new InjectionParameter(
                         "java.util.List<" + Service.class.getName() + ">", new ArrayList<>()));
 
-        assertEquals("java.util.List.of()", buildArgs(consumer).toString());
+        assertEquals(
+                "builder.getBeans(com.github.dropguard.summer.aot.testfixtures.Service.class)",
+                buildArgs(consumer).toString());
     }
 
     @Test
-    void beanContainerScalarEmitsNull() throws Exception {
+    void beanContainerScalarIsRejected() throws Exception {
+        // Mirrors the runtime engine (BeanInstantiator): injecting the container into a bean
+        // would create a circular bootstrap reference — codegen must reject it, not emit null.
         BeanDefinition consumer = new BeanDefinition(Consumer.class.getName(), "Consumer");
         consumer.parameters.add(
                 new InjectionParameter(
                         "com.github.dropguard.summer.core.BeanContainer", new ArrayList<>()));
 
-        assertEquals("null", buildArgs(consumer).toString());
+        com.github.dropguard.summer.core.exception.BeanCreationException ex =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        com.github.dropguard.summer.core.exception.BeanCreationException.class,
+                        () -> {
+                            try {
+                                buildArgs(consumer);
+                            } catch (java.lang.reflect.InvocationTargetException e) {
+                                // reflective helper wraps the real exception
+                                throw (RuntimeException) e.getCause();
+                            }
+                        });
+        org.junit.jupiter.api.Assertions.assertTrue(
+                ex.getMessage().contains("ApplicationContext injection is not supported"));
     }
 
     @Test
@@ -119,11 +138,15 @@ class WireMethodGeneratorTest {
         ClassInfo classInfo =
                 index.getClassByName(DotName.createSimple(NumericConfig.class.getName()));
         Method m =
-                WireMethodGenerator.class.getDeclaredMethod(
+                ConfigImplGenerator.class.getDeclaredMethod(
                         "generateConfigImpl", ClassName.class, ClassInfo.class);
         m.setAccessible(true);
         TypeSpec impl =
-                (TypeSpec) m.invoke(generator, ClassName.get(NumericConfig.class), classInfo);
+                (TypeSpec)
+                        m.invoke(
+                                new ConfigImplGenerator(emptyIndex()),
+                                ClassName.get(NumericConfig.class),
+                                classInfo);
 
         String generated = impl.toString();
         // The long/int/double fields must route through TypeConverter (which coerces a Number).

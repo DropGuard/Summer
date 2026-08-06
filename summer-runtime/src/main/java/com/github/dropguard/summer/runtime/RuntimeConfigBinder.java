@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.config.ConfigBinder;
 import com.github.dropguard.summer.core.config.WithDefault;
+import com.github.dropguard.summer.core.config.WithName;
 import com.github.dropguard.summer.core.exception.MissingFieldException;
 import com.github.dropguard.summer.core.json.SummerObjectMapper;
 import java.util.Map;
@@ -30,6 +31,23 @@ public final class RuntimeConfigBinder {
         return delegate.bind(ctx, prefix, targetType);
     }
 
+    /**
+     * Mirrors {@code ConfigImplGenerator.defaultExpr}: collection-typed defaults resolve to the
+     * empty collection (the raw {@code @WithDefault} string is not coercible to a collection),
+     * everything else uses the raw string and lets the YAML mapper coerce it.
+     */
+    private static Object withDefaultValue(
+            java.lang.reflect.Method method, WithDefault withDefault) {
+        Class<?> returnType = method.getReturnType();
+        if (returnType == java.util.List.class || returnType == java.util.Collection.class) {
+            return java.util.List.of();
+        }
+        if (returnType == java.util.Map.class) {
+            return java.util.Map.of();
+        }
+        return withDefault.value();
+    }
+
     @SuppressWarnings("unchecked")
     private <T> T bindInterface(Map<String, Object> section, Class<T> type) {
         return (T)
@@ -47,12 +65,20 @@ public final class RuntimeConfigBinder {
                                                     method.toString());
                                 };
                             }
-                            String key = ConfigBinder.toCamelCase(method.getName());
+                            // Key resolution must mirror the AOT generator
+                            // (ConfigImplGenerator.resolveKey): @WithName wins, else the
+                            // camelCased method name — both engines must resolve the same key.
+                            WithName withName = method.getAnnotation(WithName.class);
+                            String base =
+                                    (withName != null && !withName.value().isEmpty())
+                                            ? withName.value()
+                                            : method.getName();
+                            String key = ConfigBinder.toCamelCase(base);
                             Object value = section.get(key);
                             if (value == null) {
                                 WithDefault withDefault = method.getAnnotation(WithDefault.class);
                                 if (withDefault != null) {
-                                    value = withDefault.value();
+                                    value = withDefaultValue(method, withDefault);
                                 } else {
                                     throw new MissingFieldException(
                                             method.getName(),

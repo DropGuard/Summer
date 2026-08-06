@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web;
 
+import com.github.dropguard.summer.core.Internal;
 import java.util.List;
 
 /**
@@ -9,6 +10,7 @@ import java.util.List;
  * passed to the constructor. If no resolver supports a parameter, the chain falls back to {@code
  * ctx.body(param.type())}.
  */
+@Internal
 public final class HttpParameterResolverChain {
 
     private final List<HttpParameterResolver> resolvers;

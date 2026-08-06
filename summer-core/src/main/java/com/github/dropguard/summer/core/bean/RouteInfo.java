@@ -1,6 +1,5 @@
 package com.github.dropguard.summer.core.bean;
 
-import com.github.dropguard.summer.core.Internal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,12 +18,21 @@ import java.util.List;
  */
 public final class RouteInfo {
 
-    @Internal
     public enum ParamBinding {
         PATH,
         QUERY,
         BODY,
-        PAGEABLE
+        PAGEABLE,
+        SCROLL,
+        CONTEXT,
+        REQUEST,
+        RESPONSE,
+        HEADER,
+        COOKIE,
+        PRINCIPAL,
+        VALIDATED_BODY,
+        /** Fallback for unknown bindings — engines must treat as unsupported. */
+        UNKNOWN
     }
 
     /** Method parameter binding metadata. */
@@ -74,6 +82,12 @@ public final class RouteInfo {
     public final String controllerClass;
     public final String methodName;
     public final String returnType;
+
+    /**
+     * Parameter binding metadata, populated by the route scanners during container construction
+     * (mutable list by design — scanners append as they walk methods). Read-only once the container
+     * is built: no framework code mutates it after construction, and consumers must not.
+     */
     public final List<ParamInfo> params = new ArrayList<>();
 
     /**

@@ -1,7 +1,7 @@
 package com.github.dropguard.summer.tck.web.ws;
 
 import com.github.dropguard.summer.web.WsRouter;
-import com.github.dropguard.summer.web.websocket.RadixWsRouter;
+import com.github.dropguard.summer.web.websocket.router.RadixWsRouter;
 
 /** TCK tests for RadixWsRouter implementation. */
 public class RadixRouterWebSocketTCKTest extends AbstractWebSocketTCK {

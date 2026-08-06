@@ -31,6 +31,9 @@ public final class BeanContainer implements AutoCloseable {
     private final List<RouteInfo> routes;
     private final ShutdownContext shutdownContext = ShutdownContext.create();
 
+    /** Guards {@link #close()} so a duplicate call is a no-op (idempotent teardown). */
+    private boolean closed;
+
     private BeanContainer(Map<Class<?>, Object> singletons, Engine engine, List<RouteInfo> routes) {
         // MUST preserve insertion order for correct shutdown (reverse order of
         // creation)
@@ -60,8 +63,20 @@ public final class BeanContainer implements AutoCloseable {
      * Gets a bean by type. First tries exact key match, then falls back to {@code isInstance}
      * scanning. Throws if zero or multiple matches.
      */
-    @SuppressWarnings("unchecked")
     public <T> T getBean(Class<T> type) {
+        return getBean(singletons, type);
+    }
+
+    /** Returns all beans whose type is assignable to the given type, sorted by {@code @Order}. */
+    public <T> List<T> getBeans(Class<T> type) {
+        return getBeans(singletons, type);
+    }
+
+    // Shared lookup core for BeanContainer and Builder: the two operate on different maps (the
+    // frozen container map vs the builder's mutable pre-build map), so the map is passed in —
+    // the lookup logic itself is single-sourced here to prevent drift between the two views.
+    @SuppressWarnings("unchecked")
+    private static <T> T getBean(Map<Class<?>, Object> singletons, Class<T> type) {
         if (type == null) {
             throw new IllegalArgumentException("getBean requires a non-null type");
         }
@@ -69,7 +84,7 @@ public final class BeanContainer implements AutoCloseable {
         if (exact != null) {
             return (T) exact;
         }
-        List<T> matches = getBeans(type);
+        List<T> matches = getBeans(singletons, type);
         if (matches.isEmpty()) {
             throw new NoSuchBeanException("No bean found of type: " + type.getName());
         }
@@ -79,9 +94,8 @@ public final class BeanContainer implements AutoCloseable {
         return matches.get(0);
     }
 
-    /** Returns all beans whose type is assignable to the given type, sorted by {@code @Order}. */
     @SuppressWarnings("unchecked")
-    public <T> List<T> getBeans(Class<T> type) {
+    private static <T> List<T> getBeans(Map<Class<?>, Object> singletons, Class<T> type) {
         if (type == null) {
             throw new IllegalArgumentException("getBeans requires a non-null type");
         }
@@ -129,6 +143,13 @@ public final class BeanContainer implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
+        synchronized (this) {
+            if (closed) {
+                log.debug("[Summer] BeanContainer already closed — ignoring duplicate close()");
+                return;
+            }
+            closed = true;
+        }
         // Phase 1: input drivers (servers) tear down first, each via its own
         // registered task (stop accepting, drain in-flight, release resources),
         // in reverse registration order — so external traffic stops before
@@ -193,37 +214,16 @@ public final class BeanContainer implements AutoCloseable {
          * Gets a bean by type. First tries exact key match, then falls back to {@code isInstance}
          * scanning. Throws if zero or multiple matches.
          */
-        @SuppressWarnings("unchecked")
         public <T> T getBean(Class<T> type) {
-            Object exact = singletons.get(type);
-            if (exact != null) {
-                return (T) exact;
-            }
-            List<T> matches = getBeans(type);
-            if (matches.isEmpty()) {
-                throw new NoSuchBeanException("No bean found of type: " + type.getName());
-            }
-            if (matches.size() > 1) {
-                throw new AmbiguousBeanException(
-                        "Multiple beans found for type: " + type.getName());
-            }
-            return matches.get(0);
+            // Qualified call: the Builder's own getBean(Class) shadows the shared static.
+            return BeanContainer.getBean(singletons, type);
         }
 
         /**
          * Returns all beans whose type is assignable to the given type, sorted by {@code @Order}.
          */
-        @SuppressWarnings("unchecked")
         public <T> List<T> getBeans(Class<T> type) {
-            List<T> result = new ArrayList<>();
-            Set<Object> seen = new HashSet<>();
-            for (Object bean : singletons.values()) {
-                if (type.isInstance(bean) && seen.add(bean)) {
-                    result.add((T) bean);
-                }
-            }
-            result.sort(ORDER_COMPARATOR);
-            return result;
+            return BeanContainer.getBeans(singletons, type);
         }
 
         /** Returns a read-only view of all registered singletons. */
@@ -239,17 +239,11 @@ public final class BeanContainer implements AutoCloseable {
             return singletons.remove(type);
         }
 
-        /**
-         * Removes all entries whose value is {@code ==} to the given instance (identity check).
-         * Returns the instance that was removed.
-         */
-        public Object removeByInstance(Object instance) {
-            singletons.values().removeIf(v -> v == instance);
-            return instance;
-        }
-
         /** Produces an immutable {@link BeanContainer}. */
         public BeanContainer build(Engine engine) {
+            // The container constructor defensively copies the singleton map
+            // (unmodifiableMap + fresh HashMap), so a builder still referenced after
+            // build() can no longer mutate the built container.
             return new BeanContainer(singletons, engine, routes);
         }
 

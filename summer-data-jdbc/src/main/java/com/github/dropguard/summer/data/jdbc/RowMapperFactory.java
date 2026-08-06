@@ -2,6 +2,7 @@ package com.github.dropguard.summer.data.jdbc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.dropguard.summer.core.Internal;
+import com.github.dropguard.summer.core.json.SummerObjectMapper;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -134,7 +135,9 @@ public final class RowMapperFactory {
     }
 
     private static final class ReflectiveRowMapper<T> implements RowMapper<T> {
-        private static final ObjectMapper MAPPER = new ObjectMapper().findAndRegisterModules();
+        // Shared framework mapper: JavaTimeModule registered, unknown properties ignored
+        // (extra map keys must not break record conversion), no per-module mapper drift.
+        private static final ObjectMapper MAPPER = SummerObjectMapper.create();
         private final Class<T> modelClass;
         private final String[] fieldNames;
         private final String[] columnNames;

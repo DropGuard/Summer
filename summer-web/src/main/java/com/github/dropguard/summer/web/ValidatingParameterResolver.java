@@ -5,8 +5,8 @@ import com.github.dropguard.summer.core.Internal;
 /**
  * Parameter resolver that handles {@code @Valid}-annotated parameters.
  *
- * <p>Parses the request body and validates it using the configured {@link
- * com.github.dropguard.summer.validation.BodyValidator}; throws a {@link
+ * <p>Parses the request body and validates it via the framework's body-validation contract ({@code
+ * ctx.validatedBody(...)}); throws a {@link
  * com.github.dropguard.summer.web.exception.ValidationException} on failure.
  */
 @Internal

@@ -68,15 +68,6 @@ public final class AotContextGenerator {
         this.profileOverrides = profileOverrides != null ? profileOverrides : java.util.Map.of();
     }
 
-    public void generate(List<BeanDefinition> sortedBeans, MockedBean[] mocks) throws IOException {
-        generate(sortedBeans, CLASS_NAME, mocks);
-    }
-
-    /**
-     * Production entry point (invoked by {@code summer-maven-plugin}). Emits only the boot {@code
-     * build(Object...)} method — production never consumes mocks, so the typed {@code
-     * build(MockedBean[])} test channel is not generated here.
-     */
     public void generate(List<BeanDefinition> sortedBeans) throws IOException {
         generate(sortedBeans, CLASS_NAME, null);
     }
@@ -93,7 +84,13 @@ public final class AotContextGenerator {
     public void generate(List<BeanDefinition> sortedBeans, String className, MockedBean[] mocks)
             throws IOException {
         log.debug("[Summer] Generating AOT context {} for {} beans", className, sortedBeans.size());
-        new ExceptionHandlerAdapterGenerator().generate(sortedBeans, index, outputDir);
+        // The generated adapter imports web types — emit it only when handlers exist,
+        // or non-web applications fail to compile the generated sources.
+        boolean hasExceptionHandlers =
+                sortedBeans.stream().anyMatch(b -> !b.exceptionHandlerMethods.isEmpty());
+        if (hasExceptionHandlers) {
+            new ExceptionHandlerAdapterGenerator().generate(sortedBeans, index, outputDir);
+        }
 
         JavaFile javaFile = buildJavaFile(sortedBeans, className, mocks);
         javaFile.writeTo(outputDir);
@@ -103,10 +100,6 @@ public final class AotContextGenerator {
         for (TypeSpec impl : wireGen.configImpls()) {
             JavaFile.builder(PACKAGE, impl).indent("    ").build().writeTo(outputDir);
         }
-    }
-
-    private JavaFile buildJavaFile(List<BeanDefinition> sortedBeans, MockedBean[] mocks) {
-        return buildJavaFile(sortedBeans, CLASS_NAME, mocks);
     }
 
     private JavaFile buildJavaFile(
@@ -129,53 +122,23 @@ public final class AotContextGenerator {
                         .initializer("$S", "dev-mode-fallback")
                         .build());
 
-        // Production path (mocks == null) emits only the boot build(Object...) method.
-        // Test path (mocks != null) additionally emits the typed build(MockedBean[])
-        // channel so a concrete-class @Mock resolves under its declared type.
+        // Single build entry point: the boot path (SummerApplication passes the ordered
+        // middleware list from apply(...) as external beans) and the test path (mocks travel
+        // as a MockedBean[] element) share one build(Object...) method — a single reflective
+        // contract instead of two signature-matched entry points.
         TypeSpec.Builder spec = type.addMethod(buildProductionCreateMethod(sortedBeans));
-        if (mocks != null) {
-            spec.addMethod(buildCreateMethod(sortedBeans, mocks));
-        }
         TypeSpec built = spec.build();
         return JavaFile.builder(PACKAGE, built).indent("    ").build();
     }
 
     /**
-     * Test entry point: {@code build(MockedBean[])}. Each mock is registered under its declared
-     * {@link MockedBean#targetType()} (and every interface that type implements) rather than under
-     * {@code instance.getClass()} — the Mockito proxy's own class. The real definition of the
-     * target type has already been removed at discovery stage, so injection matches on the declared
-     * type and a concrete-class {@code @Mock} resolves correctly.
-     */
-    private MethodSpec buildCreateMethod(List<BeanDefinition> sortedBeans, MockedBean[] mocks) {
-        MethodSpec.Builder method =
-                MethodSpec.methodBuilder("build")
-                        .addModifiers(
-                                javax.lang.model.element.Modifier.PUBLIC,
-                                javax.lang.model.element.Modifier.STATIC)
-                        .addParameter(MockedBean[].class, "mocks")
-                        .returns(BEAN_CONTAINER)
-                        .addException(Exception.class);
-        method.addStatement(
-                "$T builder = new $T()", BEAN_CONTAINER_BUILDER, BEAN_CONTAINER_BUILDER);
-        method.beginControlFlow("if (mocks != null)");
-        method.beginControlFlow("for ($T mocked : mocks)", MOCKED_BEAN);
-        method.addStatement("builder.register(mocked.targetType(), mocked.instance())");
-        method.beginControlFlow("for (Class<?> iface : mocked.targetType().getInterfaces())");
-        method.addStatement("builder.register(iface, mocked.instance())");
-        method.endControlFlow();
-        method.endControlFlow();
-        method.endControlFlow();
-        emitSharedBody(method, sortedBeans);
-        return method.build();
-    }
-
-    /**
-     * Production entry point: {@code build(Object[])}. Retained for the boot path ({@code
-     * SummerApplication} passes the ordered middleware list from {@code apply(...)} as an external
-     * bean). External beans are registered under their own concrete class — the only caller is
-     * framework startup, never the test channel, so this stays an untyped {@code Object[]} by
-     * design.
+     * The single build entry point: {@code build(Object... externalBeans)}. External beans are
+     * registered under their own concrete class; {@link MockedBean}s (and a {@code MockedBean[]}
+     * element, as passed by the test channel) are registered under their declared {@link
+     * MockedBean#targetType()} (and every interface that type implements) rather than under {@code
+     * instance.getClass()} — the Mockito proxy's own class. The real definition of the target type
+     * has already been removed at discovery stage, so injection matches on the declared type and a
+     * concrete-class {@code @Mock} resolves correctly.
      */
     private MethodSpec buildProductionCreateMethod(List<BeanDefinition> sortedBeans) {
         MethodSpec.Builder method =
@@ -191,7 +154,21 @@ public final class AotContextGenerator {
                 "$T builder = new $T()", BEAN_CONTAINER_BUILDER, BEAN_CONTAINER_BUILDER);
         method.beginControlFlow("if (externalBeans != null)");
         method.beginControlFlow("for (Object bean : externalBeans)");
+        method.beginControlFlow("if (bean instanceof $T mocked)", MOCKED_BEAN);
+        method.addStatement("builder.register(mocked.targetType(), mocked.instance())");
+        method.beginControlFlow("for (Class<?> iface : mocked.targetType().getInterfaces())");
+        method.addStatement("builder.register(iface, mocked.instance())");
+        method.endControlFlow();
+        method.nextControlFlow("else if (bean instanceof $T[] mocksArr)", MOCKED_BEAN);
+        method.beginControlFlow("for ($T mocked : mocksArr)", MOCKED_BEAN);
+        method.addStatement("builder.register(mocked.targetType(), mocked.instance())");
+        method.beginControlFlow("for (Class<?> iface : mocked.targetType().getInterfaces())");
+        method.addStatement("builder.register(iface, mocked.instance())");
+        method.endControlFlow();
+        method.endControlFlow();
+        method.nextControlFlow("else");
         method.addStatement("builder.register(bean.getClass(), bean)");
+        method.endControlFlow();
         method.endControlFlow();
         method.endControlFlow();
         emitSharedBody(method, sortedBeans);
@@ -212,7 +189,7 @@ public final class AotContextGenerator {
         // counterpart of data-jdbc's reflective RowMapperRegistrar, which is
         // @ConditionalOnBean(RuntimeDiMarker) and therefore skipped on the AOT engine
         // (it uses AotDiMarker) — see WireMethodGenerator#emitRowMapperRegistrations.
-        wireGen.emitRowMapperRegistrations(method, index, null, sortedBeans);
+        wireGen.emitRowMapperRegistrations(method, null, sortedBeans);
 
         // Route adapter
         if (sortedBeans.stream().anyMatch(b -> !b.routes.isEmpty())) {
@@ -222,12 +199,21 @@ public final class AotContextGenerator {
             method.addStatement("builder.register($T.class, _routeAdapter)", ROUTE_REGISTRAR);
         }
 
-        // Exception handler adapter — always present (empty if no handlers)
-        method.addCode("\n");
-        method.addComment("Register exception handler adapter");
-        method.addStatement(
-                "$T _ehAdapter = new $T()", EXCEPTION_HANDLER_ADAPTER, EXCEPTION_HANDLER_ADAPTER);
-        method.addStatement("builder.register($T.class, _ehAdapter)", EXCEPTION_HANDLER_REGISTRAR);
+        // Exception handler adapter — emitted only when handlers exist. The generated
+        // adapter imports web types, so emitting it unconditionally would break AOT
+        // compilation for non-web applications (no summer-web on the classpath).
+        boolean hasExceptionHandlers =
+                sortedBeans.stream().anyMatch(b -> !b.exceptionHandlerMethods.isEmpty());
+        if (hasExceptionHandlers) {
+            method.addCode("\n");
+            method.addComment("Register exception handler adapter");
+            method.addStatement(
+                    "$T _ehAdapter = new $T()",
+                    EXCEPTION_HANDLER_ADAPTER,
+                    EXCEPTION_HANDLER_ADAPTER);
+            method.addStatement(
+                    "builder.register($T.class, _ehAdapter)", EXCEPTION_HANDLER_REGISTRAR);
+        }
 
         method.addCode("\n");
         method.addStatement("return builder.build($T.AOT)", ENGINE);

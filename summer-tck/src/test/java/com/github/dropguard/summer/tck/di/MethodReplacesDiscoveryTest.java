@@ -2,10 +2,10 @@ package com.github.dropguard.summer.tck.di;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.github.dropguard.summer.core.Discovery;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
-import com.github.dropguard.summer.core.bean.BeanDeployment;
-import com.github.dropguard.summer.core.bean.SharedConditionEvaluator;
+import com.github.dropguard.summer.engine.BeanDeployment;
+import com.github.dropguard.summer.engine.Discovery;
+import com.github.dropguard.summer.engine.SharedConditionEvaluator;
 import com.github.dropguard.summer.fixtures.di.MethodReplacesBean;
 import com.github.dropguard.summer.fixtures.di.MethodReplacesConfig;
 import com.github.dropguard.summer.fixtures.di.MethodReplacesReplacementConfig;

@@ -49,7 +49,7 @@ public final class RouteAdapterGenerator {
         for (BeanDefinition controller : controllers) {
             log.debug("[Summer] Generating route adapter for {}", controller.qualifiedName);
             String varName = controller.variableName;
-            ClassName controllerClass = safeClassName(controller.qualifiedName);
+            ClassName controllerClass = AotTypeNames.safeClassName(controller.qualifiedName);
             registerBody.addStatement(
                     "$T $N = context.getBean($T.class)", controllerClass, varName, controllerClass);
 
@@ -96,18 +96,19 @@ public final class RouteAdapterGenerator {
 
         // Extract parameters
         for (RouteInfo.ParamInfo param : route.params) {
+            String key = param.bindingName.isEmpty() ? param.name : param.bindingName;
             if (param.binding == RouteInfo.ParamBinding.PATH) {
                 body.add(
                         "$T $N = $L;\n",
                         TypeReads.typeName(param.type),
                         param.name,
-                        TypeReads.httpParse(param.type, "ctx.request().pathParam", param.name));
+                        TypeReads.httpParse(param.type, "ctx.request().pathParam", key));
             } else if (param.binding == RouteInfo.ParamBinding.QUERY) {
                 body.add(
                         "$T $N = $L;\n",
                         TypeReads.typeName(param.type),
                         param.name,
-                        TypeReads.httpParse(param.type, "ctx.request().queryParam", param.name));
+                        TypeReads.httpParse(param.type, "ctx.request().queryParam", key));
             } else if (param.binding == RouteInfo.ParamBinding.BODY) {
                 String method = param.validated ? "validatedBody" : "body";
                 body.add(
@@ -121,9 +122,11 @@ public final class RouteAdapterGenerator {
                 // resolve it through the same HttpParameterResolverChain the runtime uses.
                 // This keeps @Replaces behaviour identical across engines. PATH/QUERY/BODY
                 // stay inline because they have no swappable resolver.
+                // annotationType is null for pageable params — resolvers match by the
+                // parameter TYPE (DefaultPageResolver.supports), mirroring RuntimeHandlerParam.
                 body.add(
                         "$T $N = ($T) context.getBean($T.class).resolve(ctx, new $T($T.class, $S,"
-                                + " $T.PAGEABLE, $L));\n",
+                                + " $L, $L));\n",
                         TypeReads.typeName(param.type),
                         param.name,
                         TypeReads.typeName(param.type),
@@ -132,8 +135,7 @@ public final class RouteAdapterGenerator {
                         ClassName.get("com.github.dropguard.summer.web", "RouteInfoHandlerParam"),
                         ClassName.bestGuess(param.type),
                         param.bindingName,
-                        ClassName.get(
-                                "com.github.dropguard.summer.core.bean.RouteInfo", "ParamBinding"),
+                        annotationType(param.binding),
                         param.validated);
             }
         }
@@ -146,17 +148,7 @@ public final class RouteAdapterGenerator {
             args.append(route.params.get(i).name);
         }
 
-        if (route.returnType.equals("void")) {
-            body.add("$N.$L($N);\n", controllerVar, route.methodName, args.toString());
-        } else {
-            body.add(
-                    "$T result = $N.$L($N);\n",
-                    ClassName.bestGuess(route.returnType),
-                    controllerVar,
-                    route.methodName,
-                    args.toString());
-            body.add("ctx.ok(result);\n");
-        }
+        body.add("$N.$L($N);\n", controllerVar, route.methodName, args.toString());
 
         body.unindent();
         body.add("}");
@@ -165,7 +157,22 @@ public final class RouteAdapterGenerator {
     }
 
     /** Resolve parameter type string to TypeName. */
-    private static ClassName safeClassName(String qualifiedName) {
-        return ClassName.bestGuess(qualifiedName.replace('$', '.'));
+
+    /** Map ParamBinding to annotation class literal for use in generated code. */
+    private static com.palantir.javapoet.CodeBlock annotationType(
+            com.github.dropguard.summer.core.bean.RouteInfo.ParamBinding binding) {
+        return switch (binding) {
+            case PATH ->
+                    com.palantir.javapoet.CodeBlock.of(
+                            "$T.class",
+                            ClassName.get(
+                                    "com.github.dropguard.summer.web.annotation", "PathParam"));
+            case QUERY ->
+                    com.palantir.javapoet.CodeBlock.of(
+                            "$T.class",
+                            ClassName.get(
+                                    "com.github.dropguard.summer.web.annotation", "QueryParam"));
+            default -> com.palantir.javapoet.CodeBlock.of("null");
+        };
     }
 }

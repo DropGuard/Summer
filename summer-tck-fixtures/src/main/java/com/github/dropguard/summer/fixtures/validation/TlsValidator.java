@@ -1,7 +1,7 @@
 package com.github.dropguard.summer.fixtures.validation;
 
 import com.github.dropguard.summer.core.Component;
-import com.github.dropguard.summer.core.validation.ValidationException;
+import com.github.dropguard.summer.core.validation.ConfigValidationException;
 import com.github.dropguard.summer.core.validation.Validator;
 
 /** Test fixture: validates TLS config. Throws when TLS is enabled but certs are missing. */
@@ -17,10 +17,10 @@ public class TlsValidator implements Validator<TlsConfig> {
     public void validate(TlsConfig config) {
         if (config.enabled() != null && config.enabled()) {
             if (config.certChain() == null) {
-                throw new ValidationException("TLS enabled but cert-chain is required");
+                throw new ConfigValidationException("TLS enabled but cert-chain is required");
             }
             if (config.privateKey() == null) {
-                throw new ValidationException("TLS enabled but private-key is required");
+                throw new ConfigValidationException("TLS enabled but private-key is required");
             }
         }
     }

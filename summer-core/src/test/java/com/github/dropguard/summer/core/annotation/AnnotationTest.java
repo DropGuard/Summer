@@ -12,14 +12,6 @@ class AnnotationTest {
     void shouldHaveComponentAnnotation() {
         Component annotation = TestComponent.class.getAnnotation(Component.class);
         assertNotNull(annotation);
-        assertEquals("", annotation.value());
-    }
-
-    @Test
-    void shouldHaveComponentAnnotationWithValue() {
-        Component annotation = TestComponentWithValue.class.getAnnotation(Component.class);
-        assertNotNull(annotation);
-        assertEquals("test", annotation.value());
     }
 
     @Test
@@ -82,9 +74,6 @@ class AnnotationTest {
     // Test helper classes
     @Component
     public static class TestComponent {}
-
-    @Component("test")
-    public static class TestComponentWithValue {}
 
     @Configuration
     public static class TestConfiguration {

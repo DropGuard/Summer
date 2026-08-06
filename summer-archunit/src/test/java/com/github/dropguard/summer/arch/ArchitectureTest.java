@@ -29,6 +29,7 @@ class ArchitectureTest {
         "com.github.dropguard.summer.aop",
         "com.github.dropguard.summer.tx",
         "com.github.dropguard.summer.runtime",
+        "com.github.dropguard.summer.engine",
         "com.github.dropguard.summer.plugin",
         "com.github.dropguard.summer.data",
         "com.github.dropguard.summer.boot",
@@ -51,6 +52,7 @@ class ArchitectureTest {
         "com.github.dropguard.summer.aop..",
         "com.github.dropguard.summer.tx..",
         "com.github.dropguard.summer.runtime..",
+        "com.github.dropguard.summer.engine..",
         "com.github.dropguard.summer.plugin..",
         "com.github.dropguard.summer.data..",
         "com.github.dropguard.summer.boot..",
@@ -87,6 +89,7 @@ class ArchitectureTest {
                         .layer("Infrastructure")
                         .definedBy(
                                 "..com.github.dropguard.summer.runtime..",
+                                "..com.github.dropguard.summer.engine..",
                                 "..com.github.dropguard.summer.plugin..",
                                 "..com.github.dropguard.summer.aot..")
                         .layer("Web")
@@ -213,6 +216,24 @@ class ArchitectureTest {
     }
 
     @Test
+    @DisplayName("Runtime engine must not depend on the web module (except the runtime-web bridge)")
+    void runtimeMustNotDependOnWeb() {
+        // The 2.1 decoupling: summer-runtime is a pure DI engine. All web awareness
+        // lives in the runtime-web bridge module (com.github.dropguard.summer.runtime.web),
+        // which may depend on summer-web.
+        ArchRule rule =
+                noClasses()
+                        .that()
+                        .resideInAnyPackage("..com.github.dropguard.summer.runtime..")
+                        .and()
+                        .resideOutsideOfPackages("..com.github.dropguard.summer.runtime.web..")
+                        .should()
+                        .dependOnClassesThat()
+                        .resideInAnyPackage("..com.github.dropguard.summer.web..");
+        rule.check(classes);
+    }
+
+    @Test
     @DisplayName("@Replaces must be on @Configuration in framework packages (not plain @Component)")
     void replacesRequiresConfigurationInFramework() {
         ArchRule rule =
@@ -291,12 +312,16 @@ class ArchitectureTest {
     @Test
     @DisplayName("No ServiceLoader usage in production code")
     void noServiceLoaderInProduction() {
+        // RouteRegistrarLoader (core.spi) is the SPI discovery point — the one place
+        // framework code is allowed to use ServiceLoader, alongside ContainerEngines.
         ArchRule rule =
                 noClasses()
                         .that()
                         .resideInAnyPackage(PRODUCTION)
                         .and()
                         .haveSimpleNameNotContaining("ContainerEngines")
+                        .and()
+                        .resideOutsideOfPackages("..com.github.dropguard.summer.core.spi..")
                         .should()
                         .dependOnClassesThat()
                         .haveFullyQualifiedName("java.util.ServiceLoader")

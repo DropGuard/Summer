@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.github.dropguard</groupId>
+        <artifactId>summer-framework</artifactId>
+        <version>0.1.0</version>
+    </parent>
+
+    <artifactId>summer-runtime-web</artifactId>
+    <name>Summer Runtime Web Bridge</name>
+    <description>Web bridge for the Runtime DI engine — keeps summer-runtime free of summer-web</description>
+
+    <dependencies>
+        <!-- Summer Core -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Summer Web (HttpParameterResolver, annotations, web types) -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-web</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Summer AOP (for ProxyFactory and MethodInterceptor) -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-aop</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Summer Runtime (pure DI engine; HandlerMetadata lives there) -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-runtime</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Summer Web HTTP (for router implementations in tests) -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-web-http</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Shared test fixtures -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-tck-fixtures</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Jandex for fast bean discovery -->
+        <dependency>
+            <groupId>io.smallrye</groupId>
+            <artifactId>jandex</artifactId>
+        </dependency>
+
+        <!-- Testing -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>io.smallrye</groupId>
+                <artifactId>jandex-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>

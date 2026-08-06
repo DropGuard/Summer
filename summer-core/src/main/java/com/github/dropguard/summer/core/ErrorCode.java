@@ -19,6 +19,7 @@ public enum ErrorCode {
     CONFIG_VALIDATION_FAILED(2004, "Configuration validation failed"),
     CONFIG_AOT_CONTEXT_NOT_FOUND(2005, "AOT context not generated"),
     CONFIG_RUNTIME_NOT_ON_CLASSPATH(2006, "Runtime engine not on classpath"),
+    CONFIG_AOT_COMPILATION_FAILED(2007, "AOT code generation or compilation failed"),
 
     // Web (3xxx)
     VALIDATION_FAILED(3001, "Request validation failed"),

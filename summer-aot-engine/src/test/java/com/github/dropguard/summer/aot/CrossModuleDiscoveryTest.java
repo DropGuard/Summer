@@ -2,12 +2,13 @@ package com.github.dropguard.summer.aot;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.github.dropguard.summer.core.Discovery;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
-import com.github.dropguard.summer.core.bean.BeanDeployment;
 import com.github.dropguard.summer.core.bean.ConfigPropertiesBean;
 import com.github.dropguard.summer.core.bean.RouteInfo;
 import com.github.dropguard.summer.core.bean.SharedDependencyResolver;
+import com.github.dropguard.summer.core.spi.RouteRegistrarLoader;
+import com.github.dropguard.summer.engine.BeanDeployment;
+import com.github.dropguard.summer.engine.Discovery;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -170,6 +171,10 @@ class CrossModuleDiscoveryTest {
                         "com.github.dropguard.summer.web.annotation.PathParam");
         List<BeanDefinition> beans = Discovery.discover(BeanDeployment.forNarrow(index));
 
+        // Route scanning lives in the SPI layer now (2.5): WebRouteScanner fills
+        // the routes via RouteRegistrarLoader — the same shared path AotEngine uses.
+        RouteRegistrarLoader.mergeInto(RouteRegistrarLoader.load(beans), beans);
+
         // Find the DummyController bean
         BeanDefinition controller =
                 beans.stream()
@@ -199,9 +204,11 @@ class CrossModuleDiscoveryTest {
                         .findFirst()
                         .orElse(null);
         assertNotNull(idParam, "Should have a PATH parameter");
+        // The binding key comes from the @PathParam value (the reflection path has no
+        // -parameters, so the JVM-synthesized name arg1 must not leak into the binding).
         assertEquals(
                 "id",
-                idParam.name,
+                idParam.bindingName,
                 "@PathParam(\"id\") binding name should be 'id', not the default parameter name");
     }
 

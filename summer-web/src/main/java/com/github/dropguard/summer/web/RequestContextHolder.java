@@ -1,5 +1,7 @@
 package com.github.dropguard.summer.web;
 
+import com.github.dropguard.summer.core.Internal;
+
 /**
  * Static, request-scoped accessor for the active {@link RequestContext}.
  *
@@ -18,6 +20,7 @@ package com.github.dropguard.summer.web;
  * authenticated. Consumers (services, {@code MethodInterceptor}s) call {@link #current()}. Never
  * call {@link #set} outside the request lifecycle.
  */
+@Internal
 public final class RequestContextHolder {
 
     private RequestContextHolder() {}

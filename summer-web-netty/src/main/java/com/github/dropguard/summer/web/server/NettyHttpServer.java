@@ -45,7 +45,7 @@ class NettyHttpServer {
     }
 
     /** Creates a NettyHttpServer by assembling components from the application context. */
-    public static NettyHttpServer create(
+    static NettyHttpServer create(
             BeanContainer context,
             ServerConfig config,
             HttpRouter httpRouter,
@@ -59,8 +59,9 @@ class NettyHttpServer {
             jsonConverter = new JsonBodyConverter();
         }
 
-        List<com.github.dropguard.summer.web.websocket.WsInterceptor> wsInterceptors =
-                context.getBeans(com.github.dropguard.summer.web.websocket.WsInterceptor.class);
+        List<com.github.dropguard.summer.web.websocket.WebSocketInterceptor> wsInterceptors =
+                context.getBeans(
+                        com.github.dropguard.summer.web.websocket.WebSocketInterceptor.class);
         ServerOriginChecker serverOriginChecker = context.getBean(ServerOriginChecker.class);
         WebSocketUpgradeHandler wsUpgradeHandler =
                 new WebSocketUpgradeHandler(

@@ -86,6 +86,14 @@ public final class OriginPolicy {
             return "https".equals(uri.getScheme()) ? 443 : 80;
         }
         int colon = value.lastIndexOf(':');
-        return colon < 0 ? 80 : Integer.parseInt(value.substring(colon + 1));
+        if (colon < 0) {
+            return 80;
+        }
+        try {
+            return Integer.parseInt(value.substring(colon + 1));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                    "Malformed origin (unparsable port): '" + value + "'", e);
+        }
     }
 }

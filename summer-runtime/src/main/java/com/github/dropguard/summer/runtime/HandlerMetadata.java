@@ -7,7 +7,8 @@ import java.util.Map;
 
 /**
  * Pre-computed exception handler metadata, registered as a synthetic bean during container build so
- * {@link RuntimeExceptionHandlerRegistrar} can receive it via constructor injection.
+ * {@code com.github.dropguard.summer.runtime.web.RuntimeExceptionHandlerRegistrar} can receive it
+ * via constructor injection.
  */
 @Internal
 public final class HandlerMetadata {

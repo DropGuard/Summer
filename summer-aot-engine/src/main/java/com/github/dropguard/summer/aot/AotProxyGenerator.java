@@ -93,10 +93,10 @@ public final class AotProxyGenerator {
                         .addModifiers(Modifier.PUBLIC, Modifier.FINAL);
 
         for (String ifaceName : bean.interfaceNames) {
-            proxyBuilder.addSuperinterface(safeClassName(ifaceName));
+            proxyBuilder.addSuperinterface(AotTypeNames.safeClassName(ifaceName));
         }
 
-        ClassName targetClass = safeClassName(bean.qualifiedName);
+        ClassName targetClass = AotTypeNames.safeClassName(bean.qualifiedName);
         proxyBuilder.addField(targetClass, "target", Modifier.PRIVATE, Modifier.FINAL);
 
         ClassName interceptorType =
@@ -173,7 +173,7 @@ public final class AotProxyGenerator {
         Set<ClassName> annotationClasses = new HashSet<>();
         for (AnnotationInstance ann : method.annotations()) {
             if (bindingAnnotations.contains(ann.name())) {
-                annotationClasses.add(safeClassName(ann.name().toString()));
+                annotationClasses.add(AotTypeNames.safeClassName(ann.name().toString()));
             }
         }
 
@@ -405,9 +405,5 @@ public final class AotProxyGenerator {
     private String getPackageName(String qualifiedName) {
         int lastDot = qualifiedName.lastIndexOf('.');
         return lastDot > 0 ? qualifiedName.substring(0, lastDot) : "";
-    }
-
-    private static ClassName safeClassName(String qualifiedName) {
-        return ClassName.bestGuess(qualifiedName.replace('$', '.'));
     }
 }

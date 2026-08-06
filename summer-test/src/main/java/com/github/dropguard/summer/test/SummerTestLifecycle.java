@@ -5,9 +5,8 @@ import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.core.Engine;
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.bean.MockedBean;
-import com.github.dropguard.summer.test.annotation.Mock;
+import com.github.dropguard.summer.runtime.JandexIndexLoader;
 import com.github.dropguard.summer.test.annotation.TestProfile;
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -31,10 +30,37 @@ import org.junit.jupiter.api.extension.TestInstantiationException;
 @Internal
 public final class SummerTestLifecycle {
 
+    private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(SummerTestLifecycle.class);
+
     private static final SummerTestLifecycle INSTANCE = new SummerTestLifecycle();
 
     private final Map<EnvKey, CachedUniverse> universeCache = new HashMap<>();
     private final AtomicLong cacheHits = new AtomicLong();
+
+    // Shared index DTOs, owned by this JVM-singleton instance (not static fields on the loader
+    // classes): the classpath and the module's test-classes directory are immutable during a JVM
+    // run, so each is loaded once per run and threaded into container builds — a full classpath
+    // sweep / test-classes walk happens once, not once per distinct @SummerTest universe. Cleared
+    // in shutdown() alongside universeCache.
+    private volatile JandexIndexLoader.LoadedIndex productionIndex;
+    // ConcurrentHashMap: computeIfAbsent in TestClassIndexer must be atomic even if a future
+    // surefire/JUnit parallel configuration runs test classes concurrently.
+    private final java.util.Map<java.nio.file.Path, org.jboss.jandex.Index> testIndexCache =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    private JandexIndexLoader.LoadedIndex productionIndex() {
+        JandexIndexLoader.LoadedIndex p = productionIndex;
+        if (p == null) {
+            synchronized (this) {
+                p = productionIndex;
+                if (p == null) {
+                    productionIndex = p = JandexIndexLoader.productionIndex();
+                }
+            }
+        }
+        return p;
+    }
 
     private SummerTestLifecycle() {
         Runtime.getRuntime()
@@ -59,8 +85,11 @@ public final class SummerTestLifecycle {
         List<MockedBean> mocks = createMocks(testClass);
 
         BeanContainer container;
+        boolean fresh;
         try {
-            container = INSTANCE.acquireUniverse(testClass, engine, mocks, config);
+            var result = INSTANCE.acquireUniverse(testClass, engine, mocks, config);
+            container = result.container();
+            fresh = result.fresh();
         } catch (Exception buildFailure) {
             if (!shouldFail) {
                 throw new TestInstantiationException(
@@ -85,14 +114,20 @@ public final class SummerTestLifecycle {
                             + " should have been rejected.");
         }
         // Start application runners (HTTP server, gRPC, etc.) — mirrors
-        // SummerApplication's post-build hook.
-        for (ApplicationRunner runner : container.getBeans(ApplicationRunner.class)) {
-            try {
-                runner.run(container);
-            } catch (Exception e) {
-                throw new TestInstantiationException(
-                        "Failed to start ApplicationRunner " + runner.getClass().getSimpleName(),
-                        e);
+        // SummerApplication's post-build hook — but only when the container was freshly built:
+        // the cached-container path (e.g. the RUNTIME leg of a @DualEngine test, which reuses the
+        // universe SummerExtension already built) must not re-run NettyServerRunner and bind the
+        // port a second time.
+        if (fresh) {
+            for (ApplicationRunner runner : container.getBeans(ApplicationRunner.class)) {
+                try {
+                    runner.run(container);
+                } catch (Exception e) {
+                    throw new TestInstantiationException(
+                            "Failed to start ApplicationRunner "
+                                    + runner.getClass().getSimpleName(),
+                            e);
+                }
             }
         }
         return new BuildOutcome(instantiate(testClass, container), container);
@@ -103,16 +138,19 @@ public final class SummerTestLifecycle {
 
     // ── container build + caching ─────────────────────────────────────
 
-    BeanContainer acquireUniverse(
+    /** A universe lookup result: the container plus whether it was freshly built (vs cache hit). */
+    private record UniverseResult(BeanContainer container, boolean fresh) {}
+
+    private UniverseResult acquireUniverse(
             Class<?> testClass, Engine engine, List<MockedBean> mocks, SummerTestExtension config) {
         Map<String, Object> overrides = new HashMap<>(profileOverrides(testClass));
         // TestResource properties win over profile overrides
         overrides.putAll(TestResources.resolveProperties(testClass));
-        EnvKey key = envKeyFor(testClass, mocks, overrides);
+        EnvKey key = envKeyFor(testClass, engine, mocks, overrides);
         CachedUniverse cached = universeCache.get(key);
         if (cached != null) {
             cacheHits.incrementAndGet();
-            return cached.container();
+            return new UniverseResult(cached.container(), false);
         }
 
         Class<?>[] seeds = config != null ? config.beanClasses() : new Class<?>[0];
@@ -123,9 +161,10 @@ public final class SummerTestLifecycle {
                         .mocks(mocks)
                         .overrides(overrides)
                         .beans(seeds)
+                        .withIndexes(productionIndex(), testIndexCache)
                         .build();
         universeCache.put(key, new CachedUniverse(built));
-        return built;
+        return new UniverseResult(built, true);
     }
 
     public long cacheHits() {
@@ -210,20 +249,8 @@ public final class SummerTestLifecycle {
 
     private static List<MockedBean> createMocks(Class<?> testClass) {
         List<MockedBean> mocks = new ArrayList<>();
-        Constructor<?>[] ctors = testClass.getDeclaredConstructors();
-        if (ctors.length != 1) {
-            return mocks;
-        }
-        Annotation[][] paramAnnotations = ctors[0].getParameterAnnotations();
-        Class<?>[] paramTypes = ctors[0].getParameterTypes();
-        for (int i = 0; i < paramTypes.length; i++) {
-            for (Annotation ann : paramAnnotations[i]) {
-                if (ann instanceof Mock) {
-                    mocks.add(
-                            MockedBean.of(
-                                    paramTypes[i], SummerExtension.createMock(paramTypes[i])));
-                }
-            }
+        for (Class<?> mockedType : MockedParams.scan(testClass)) {
+            mocks.add(MockedBean.of(mockedType, SummerExtension.createMock(mockedType)));
         }
         return mocks;
     }
@@ -238,19 +265,24 @@ public final class SummerTestLifecycle {
             }
         }
         universeCache.clear();
+        testIndexCache.clear();
+        productionIndex = null;
         TestResources.shutdown();
     }
 
     // ── helpers ───────────────────────────────────────────────────────
 
     private EnvKey envKeyFor(
-            Class<?> testClass, List<MockedBean> mocks, Map<String, Object> overrides) {
+            Class<?> testClass,
+            Engine engine,
+            List<MockedBean> mocks,
+            Map<String, Object> overrides) {
         String profile = overrides.isEmpty() ? EnvKey.NO_PROFILE : overrides.toString();
         SortedSet<String> mocked = new TreeSet<>();
         for (MockedBean m : mocks) {
             mocked.add(m.targetType().getName());
         }
-        return EnvKey.of(profile, List.copyOf(mocked), testClass.getName());
+        return EnvKey.of(profile, List.copyOf(mocked), engine, testClass.getName());
     }
 
     private Map<String, Object> profileOverrides(Class<?> testClass) {

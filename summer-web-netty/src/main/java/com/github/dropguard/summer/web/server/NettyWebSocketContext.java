@@ -2,8 +2,8 @@ package com.github.dropguard.summer.web.server;
 
 import com.github.dropguard.summer.web.BodyConverter;
 import com.github.dropguard.summer.web.websocket.WebSocketContext;
-import com.github.dropguard.summer.web.websocket.WsFilterChain;
-import com.github.dropguard.summer.web.websocket.WsInterceptor;
+import com.github.dropguard.summer.web.websocket.WebSocketInterceptor;
+import com.github.dropguard.summer.web.websocket.WebSocketInterceptorChain;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import java.util.List;
@@ -15,7 +15,7 @@ class NettyWebSocketContext implements WebSocketContext {
     private final ChannelHandlerContext ctx;
     private final Map<String, String> pathParams;
     private final Map<String, String> headers;
-    private final List<WsInterceptor> wsInterceptors;
+    private final List<WebSocketInterceptor> wsInterceptors;
     private final BodyConverter jsonConverter;
     private Consumer<String> messageConsumer;
     private Runnable closeHandler;
@@ -24,7 +24,7 @@ class NettyWebSocketContext implements WebSocketContext {
             ChannelHandlerContext ctx,
             Map<String, String> pathParams,
             Map<String, String> headers,
-            List<WsInterceptor> wsInterceptors,
+            List<WebSocketInterceptor> wsInterceptors,
             BodyConverter jsonConverter) {
         this.ctx = ctx;
         this.pathParams = pathParams;
@@ -99,21 +99,21 @@ class NettyWebSocketContext implements WebSocketContext {
 
     void invokeMessageConsumer(String message) {
         if (messageConsumer != null) {
-            WsFilterChain chain =
-                    new WsFilterChain() {
+            WebSocketInterceptorChain chain =
+                    new WebSocketInterceptorChain() {
                         private int index = 0;
 
                         @Override
-                        public void doFilter(WebSocketContext ctx, String msg) {
+                        public void proceed(WebSocketContext ctx, String msg) {
                             if (wsInterceptors != null && index < wsInterceptors.size()) {
-                                WsInterceptor interceptor = wsInterceptors.get(index++);
+                                WebSocketInterceptor interceptor = wsInterceptors.get(index++);
                                 interceptor.intercept(ctx, msg, this);
                             } else {
                                 messageConsumer.accept(msg);
                             }
                         }
                     };
-            chain.doFilter(this, message);
+            chain.proceed(this, message);
         }
     }
 

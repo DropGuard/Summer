@@ -29,8 +29,10 @@
         <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-test</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-core</artifactId></dependency>
         <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-runtime</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-engine</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-aop</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-web</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-runtime-web</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-web-http</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-web-websocket</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-boot</artifactId><version>${project.version}</version></dependency>

@@ -4,21 +4,23 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.github.dropguard.summer.aot.AotContextGenerator;
 import com.github.dropguard.summer.aot.AotProxyGenerator;
+import com.github.dropguard.summer.aot.JavaSourceFiles;
 import com.github.dropguard.summer.aot.RouteAdapterGenerator;
 import com.github.dropguard.summer.aot.WireMethodGenerator;
-import com.github.dropguard.summer.core.Discovery;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
-import com.github.dropguard.summer.core.bean.BeanDeployment;
-import com.github.dropguard.summer.core.bean.SharedConditionEvaluator;
 import com.github.dropguard.summer.core.bean.SharedDependencyResolver;
+import com.github.dropguard.summer.core.spi.RouteRegistrarLoader;
+import com.github.dropguard.summer.engine.BeanDeployment;
+import com.github.dropguard.summer.engine.Discovery;
+import com.github.dropguard.summer.engine.SharedConditionEvaluator;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -93,7 +95,13 @@ public class SummerMojo extends AbstractMojo {
             List<BeanDefinition> beans = Discovery.discover(deployment);
             log.info("[Summer] Discovered {} beans", beans.size());
 
-            new SharedConditionEvaluator().evaluate(beans, Set.of(), deployment);
+            // SPI route collection (shared with the Runtime engine): loads every
+            // RouteRegistrar on the classpath (e.g. summer-runtime-web's WebRouteScanner)
+            // and merges routes / exception handlers into the candidate definitions
+            // before condition evaluation, so AOT codegen sees the same web surface.
+            RouteRegistrarLoader.mergeInto(RouteRegistrarLoader.load(beans), beans);
+
+            new SharedConditionEvaluator().evaluate(beans);
             log.info("[Summer] After condition evaluation: {} beans", beans.size());
 
             SharedDependencyResolver resolver = new SharedDependencyResolver();
@@ -126,7 +134,11 @@ public class SummerMojo extends AbstractMojo {
             currentBean = "(proxies)";
             new AotProxyGenerator().generate(sorted, index, generatedDir);
             currentBean = "(route-adapters)";
-            new RouteAdapterGenerator().generate(sorted, generatedDir);
+            // Route adapter imports web types — generate only when routes exist,
+            // or non-web applications fail to compile the generated sources.
+            if (sorted.stream().anyMatch(b -> !b.routes.isEmpty())) {
+                new RouteAdapterGenerator().generate(sorted, generatedDir);
+            }
 
             compileGeneratedSources(generatedDir);
 
@@ -245,12 +257,7 @@ public class SummerMojo extends AbstractMojo {
     }
 
     private void collectJavaFiles(File dir, List<File> result) {
-        File[] files = dir.listFiles();
-        if (files == null) return;
-        for (File f : files) {
-            if (f.isDirectory()) collectJavaFiles(f, result);
-            else if (f.getName().endsWith(".java")) result.add(f);
-        }
+        JavaSourceFiles.collect(dir, result);
     }
 
     private CompositeIndex loadIndexes() throws IOException {
@@ -282,12 +289,19 @@ public class SummerMojo extends AbstractMojo {
     private void loadFromJar(File file, List<IndexView> indexes, Set<String> seen) {
         try (var jar = new java.util.jar.JarFile(file)) {
             var e = jar.getJarEntry("META-INF/jandex.idx");
-            if (e != null && seen.add(file.getAbsolutePath())) {
-                try (InputStream is = jar.getInputStream(e)) {
-                    indexes.add(new IndexReader(is).read());
-                }
+            if (e == null || !seen.add(file.getAbsolutePath())) {
+                return;
             }
-        } catch (Exception ignored) {
+            try (InputStream is = jar.getInputStream(e)) {
+                indexes.add(new IndexReader(is).read());
+            } catch (IOException ex) {
+                // A declared-but-corrupt index would otherwise be dropped silently, hiding
+                // that jar's beans from discovery (confusing NoSuchBeanException later).
+                // Warn instead of failing: the jar may be an optional dependency.
+                log.warn("[Summer] Ignoring corrupt Jandex index in {}: {}", file, ex.getMessage());
+            }
+        } catch (IOException ignored) {
+            // Not a readable jar (directory / empty artifact) — skip.
         }
     }
 }

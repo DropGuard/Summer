@@ -37,8 +37,15 @@ class NettyRequestAdapter {
             nettyReq.content().readBytes(body);
         }
 
+        HttpMethod httpMethod;
+        try {
+            httpMethod = HttpMethod.valueOf(method);
+        } catch (IllegalArgumentException e) {
+            httpMethod = HttpMethod.UNKNOWN;
+        }
+
         return new Request(
-                (HttpMethod.valueOf(method)),
+                httpMethod,
                 path,
                 query,
                 contentType,

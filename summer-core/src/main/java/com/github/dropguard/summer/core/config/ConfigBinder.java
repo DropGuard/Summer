@@ -35,7 +35,7 @@ public final class ConfigBinder {
      *   <li>{@code defaults} — pre-converted {@code @WithDefault} values, keyed by method name (for
      *       interfaces) or record component name (legacy). Supplied by the caller (runtime extracts
      *       them reflectively; AOT emits them inline via {@link
-     *       com.github.dropguard.summer.core.util.TypeConverter}).
+     *       com.github.dropguard.summer.core.config.TypeConverter}).
      *   <li>{@code overrides} — per-profile overrides, keyed by dotted YAML path, in the original
      *       YAML key form. Baked in at code-generation time from {@code @TestProfile} so no runtime
      *       {@code ThreadLocal} is needed.

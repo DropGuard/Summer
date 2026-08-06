@@ -24,7 +24,7 @@ public class MetricsMiddleware implements Middleware {
                 next.handle(ctx);
 
                 // If status is an error status, record it
-                HttpStatus status = ctx.statusCode();
+                HttpStatus status = ctx.status();
                 if (status != null && status.code() >= 500) {
                     registry.recordError();
                 }

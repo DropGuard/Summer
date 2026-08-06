@@ -25,12 +25,6 @@
             <groupId>com.github.dropguard</groupId>
             <artifactId>summer-web-http</artifactId>
         </dependency>
-        <!-- Summer Runtime (for RuntimeBeanContainerBuilder) -->
-        <dependency>
-            <groupId>com.github.dropguard</groupId>
-            <artifactId>summer-runtime</artifactId>
-            <version>${project.version}</version>
-        </dependency>
 
         <!-- Netty -->
         <dependency>
@@ -52,6 +46,13 @@
         <dependency>
             <groupId>com.github.dropguard</groupId>
             <artifactId>summer-test</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Runtime web bridge: test apps rely on RuntimeWebConfiguration to register routes -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-runtime-web</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>

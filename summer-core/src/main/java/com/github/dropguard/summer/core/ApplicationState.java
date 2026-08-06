@@ -3,6 +3,7 @@ package com.github.dropguard.summer.core;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Tracks the global state of the Summer application. */
+@Internal
 public final class ApplicationState {
 
     private static final AtomicBoolean shuttingDown = new AtomicBoolean(false);

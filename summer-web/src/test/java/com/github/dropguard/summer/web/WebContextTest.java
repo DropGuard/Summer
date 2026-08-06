@@ -21,7 +21,7 @@ class WebContextTest {
         HttpContext ctx = new HttpContext(request);
 
         assertSame(request, ctx.request());
-        assertNull(ctx.statusCode());
+        assertNull(ctx.status());
     }
 
     @Test
@@ -74,7 +74,7 @@ class WebContextTest {
 
         HttpContext result = ctx.status(HttpStatus.CREATED);
         assertSame(ctx, result);
-        assertEquals(HttpStatus.CREATED, ctx.statusCode());
+        assertEquals(HttpStatus.CREATED, ctx.status());
     }
 
     @Test
@@ -146,7 +146,7 @@ class WebContextTest {
 
         ctx.ok("test result");
 
-        assertEquals(HttpStatus.OK, ctx.statusCode());
+        assertEquals(HttpStatus.OK, ctx.status());
     }
 
     @Test
@@ -156,7 +156,7 @@ class WebContextTest {
 
         ctx.json(HttpStatus.NOT_FOUND, "Not Found");
 
-        assertEquals(HttpStatus.NOT_FOUND, ctx.statusCode());
+        assertEquals(HttpStatus.NOT_FOUND, ctx.status());
     }
 
     @Test
@@ -167,7 +167,7 @@ class WebContextTest {
         Exception error = new RuntimeException("Test error");
         ctx.error(error);
 
-        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, ctx.statusCode());
+        assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, ctx.status());
     }
 
     @Test
@@ -177,7 +177,7 @@ class WebContextTest {
 
         ctx.json(HttpStatus.CREATED, "created");
 
-        assertEquals(HttpStatus.CREATED, ctx.statusCode());
+        assertEquals(HttpStatus.CREATED, ctx.status());
     }
 
     // Helper methods to create Request objects

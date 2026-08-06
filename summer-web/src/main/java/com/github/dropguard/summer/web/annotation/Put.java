@@ -9,5 +9,11 @@ import java.lang.annotation.Target;
 @Target(ElementType.METHOD)
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Put {
+    /**
+     * The route path relative to the controller's base path ({@code @RestController.value()}).
+     * Empty (the default) means "use the base path itself" — the method handles the controller's
+     * own base path; a non-empty value is appended to the base path (or stands alone when the
+     * controller declares no base path).
+     */
     String value() default "";
 }

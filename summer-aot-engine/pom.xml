@@ -34,24 +34,17 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- Summer Engine (shared discovery pipeline + ContainerEngine SPI) -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-engine</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <!-- Summer AOP (for interceptor analysis) -->
         <dependency>
             <groupId>com.github.dropguard</groupId>
             <artifactId>summer-aop</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <!-- Summer Web (for route/controller annotation constants) -->
-        <dependency>
-            <groupId>com.github.dropguard</groupId>
-            <artifactId>summer-web</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <!-- Summer Data JDBC (for RowMapperFactory) -->
-        <dependency>
-            <groupId>com.github.dropguard</groupId>
-            <artifactId>summer-data-jdbc</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -76,6 +69,23 @@
             <artifactId>summer-tck-negative-fixtures</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
+        </dependency>
+        <!-- Runtime web bridge (test scope): its WebRouteScanner is the ServiceLoader-discovered
+             RouteRegistrar implementation the SPI collector needs on the test classpath -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-runtime-web</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Data JDBC (REAL type dependency: WireMethodGenerator / TypeReads call
+             RowMapperFactory.scanJandex/camelToSnake/resolveFieldType and RowModelMeta by
+             fully-qualified name — the AOT generator needs the JDBC type-mapping contract.
+             This is NOT redundant classpath supply like the removed summer-web dep. -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-data-jdbc</artifactId>
+            <version>${project.version}</version>
         </dependency>
     </dependencies>
 

@@ -1,11 +1,15 @@
 package com.github.dropguard.summer.web;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Represents an HTTP request. */
 public class Request {
+    private static final Logger log = LoggerFactory.getLogger(Request.class);
+
     private final HttpMethod method;
     private final String path;
     private final byte[] rawPathBytes;
@@ -51,6 +55,15 @@ public class Request {
         return path;
     }
 
+    /**
+     * The raw (undecoded) request path bytes, for zero-allocation radix-trie matching.
+     *
+     * <p>{@code @Internal}: an engine-level optimization channel used by {@code
+     * RadixTreeHttpRouter} to match against the exact bytes on the wire — the public API surface is
+     * {@link #path()} (decoded {@code String}). Kept public because the router lives in a different
+     * module/package. The returned array is a reference to internal state and must not be mutated.
+     */
+    @com.github.dropguard.summer.core.Internal
     public byte[] getRawPathBytes() {
         return rawPathBytes;
     }
@@ -71,10 +84,6 @@ public class Request {
         return headers.get(name.toLowerCase());
     }
 
-    public Map<String, String> getHeaders() {
-        return headers;
-    }
-
     public boolean isGet() {
         return HttpMethod.GET == method;
     }
@@ -89,21 +98,6 @@ public class Request {
 
     public boolean isDelete() {
         return HttpMethod.DELETE == method;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || getClass() != o.getClass()) return false;
-        Request request = (Request) o;
-        return Objects.equals(method, request.method)
-                && Objects.equals(path, request.path)
-                && Objects.equals(query, request.query);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(method, path, query);
     }
 
     @Override
@@ -134,35 +128,58 @@ public class Request {
         return (T) attributes.get(key.name());
     }
 
+    /**
+     * All request attributes, as an immutable view. Mutations go through the explicit write surface
+     * ({@link #setAttribute} / {@link #setPathParam}) — the returned map is a zero-copy
+     * unmodifiable wrapper, so callers cannot corrupt internal state.
+     */
     public Map<String, Object> getAttributes() {
-        return attributes;
+        return Collections.unmodifiableMap(attributes);
     }
 
-    // Query parameters parsing
+    // Query parameters — lazily parsed and cached
+    private Map<String, String> queryParams;
+
+    /**
+     * Parses and caches the query string once (subsequent calls return the cached map).
+     *
+     * <p>Duplicate keys are <em>first-wins</em>, matching the servlet {@code getParameter}
+     * convention. Unparseable percent-encodings fall back to the raw value (lenient, same as
+     * Spring's {@code UrlUtils}).
+     */
     public Map<String, String> getQueryParameters() {
-        Map<String, String> params = new HashMap<>();
+        if (queryParams != null) return queryParams;
+        queryParams = new HashMap<>();
         if (query != null && !query.isEmpty()) {
-            String[] pairs = query.split("&");
-            for (String pair : pairs) {
-                int eqIndex = pair.indexOf('=');
-                if (eqIndex != -1) {
-                    String name = pair.substring(0, eqIndex);
-                    String value = pair.substring(eqIndex + 1);
-                    try {
-                        params.put(name, java.net.URLDecoder.decode(value, "UTF-8"));
-                    } catch (Exception e) {
-                        params.put(name, value);
-                    }
-                } else {
-                    params.put(pair, "");
+            for (String pair : query.split("&")) {
+                if (pair.isEmpty()) {
+                    continue; // empty segment from "&&" or a leading "&" — no key/value
                 }
+                int eqIndex = pair.indexOf('=');
+                String name, value;
+                if (eqIndex != -1) {
+                    name = pair.substring(0, eqIndex);
+                    value = pair.substring(eqIndex + 1);
+                } else {
+                    name = pair;
+                    value = "";
+                }
+                queryParams.putIfAbsent(decodeParam(name), decodeParam(value));
             }
         }
-        return params;
+        return queryParams;
     }
 
-    public String getQueryParameter(String name) {
-        return getQueryParameters().get(name);
+    private static String decodeParam(String raw) {
+        try {
+            return java.net.URLDecoder.decode(raw, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (IllegalArgumentException e) {
+            // Malformed percent-encoding (e.g. %zz) — fall back to the raw value.
+            // Lenient by design: query strings are untrusted input and a decode failure
+            // must not abort request handling.
+            log.debug("[Summer] Malformed query parameter encoding: '{}' — using raw value", raw);
+            return raw;
+        }
     }
 
     // --- Explicit Parameter Extraction APIs ---
@@ -184,6 +201,6 @@ public class Request {
      * prevent XSS. For JSON responses, Jackson handles escaping automatically.
      */
     public String queryParam(String name) {
-        return getQueryParameter(name);
+        return getQueryParameters().get(name);
     }
 }

@@ -33,6 +33,13 @@
             <groupId>com.github.dropguard</groupId>
             <artifactId>summer-web</artifactId>
         </dependency>
+        <!-- Runtime web bridge (RuntimeWebConfiguration: route/exception registrars,
+             HTTP parameter resolvers for the runtime DI engine) -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-runtime-web</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>com.github.dropguard</groupId>
             <artifactId>summer-web-netty</artifactId>

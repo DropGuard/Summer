@@ -49,6 +49,18 @@
         </dependency>
         <dependency>
             <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-runtime-web</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-engine</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
             <artifactId>summer-web-netty</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>

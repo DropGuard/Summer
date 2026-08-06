@@ -5,7 +5,7 @@ import com.github.dropguard.summer.web.ExceptionRegistry;
 import com.github.dropguard.summer.web.HttpRouter;
 import com.github.dropguard.summer.web.Middleware;
 import com.github.dropguard.summer.web.WsRouter;
-import com.github.dropguard.summer.web.websocket.WsInterceptor;
+import com.github.dropguard.summer.web.websocket.WebSocketInterceptor;
 import java.util.List;
 
 record WebServerDependencies(
@@ -14,5 +14,5 @@ record WebServerDependencies(
         List<Middleware> middlewares,
         BodyConverter jsonConverter,
         ExceptionRegistry exceptionRegistry,
-        List<WsInterceptor> wsInterceptors,
+        List<WebSocketInterceptor> wsInterceptors,
         WebSocketUpgradeHandler wsUpgradeHandler) {}

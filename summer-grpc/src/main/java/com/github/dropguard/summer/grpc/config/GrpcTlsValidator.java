@@ -1,7 +1,7 @@
 package com.github.dropguard.summer.grpc.config;
 
 import com.github.dropguard.summer.core.annotation.Configuration;
-import com.github.dropguard.summer.core.validation.ValidationException;
+import com.github.dropguard.summer.core.validation.ConfigValidationException;
 import com.github.dropguard.summer.core.validation.Validator;
 
 /**
@@ -23,10 +23,12 @@ public class GrpcTlsValidator implements Validator<GrpcTlsConfig> {
             return;
         }
         if (config.certChain() == null) {
-            throw new ValidationException("TLS enabled but 'grpc.tls.cert-chain' is required");
+            throw new ConfigValidationException(
+                    "TLS enabled but 'grpc.tls.cert-chain' is required");
         }
         if (config.privateKey() == null) {
-            throw new ValidationException("TLS enabled but 'grpc.tls.private-key' is required");
+            throw new ConfigValidationException(
+                    "TLS enabled but 'grpc.tls.private-key' is required");
         }
     }
 }

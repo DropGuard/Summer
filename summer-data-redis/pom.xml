@@ -52,6 +52,13 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- AOT engine (test scope): @DualEngine tests build the AOT container via ServiceLoader -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-aot-engine</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>

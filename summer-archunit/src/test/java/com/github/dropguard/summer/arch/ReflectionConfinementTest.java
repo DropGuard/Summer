@@ -33,7 +33,9 @@ import org.junit.jupiter.api.Test;
  *       test-time AOT compiler funnel through it, so reflective loading of generated classes lives
  *       in exactly one place.
  *   <li>{@code com.github.dropguard.summer.runtime} — the runtime engine discovers and instantiates
- *       beans via reflection; this is its defining mechanism.
+ *       beans via reflection; this is its defining mechanism. The runtime-web bridge ({@code
+ *       ..summer.runtime.web..}) inherits the exemption for its reflective route scanner and
+ *       handler invocation.
  *   <li>{@code com.github.dropguard.summer.test} — test infrastructure reflectively loads the
  *       optional AOT engine and Mockito to break compile-time dependency cycles.
  *   <li>{@code com.github.dropguard.summer.data.jdbc} — loads user-declared {@code @RowModel}

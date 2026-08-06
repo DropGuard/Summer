@@ -22,7 +22,7 @@ package com.github.dropguard.summer.core.validation;
  * 		@Override
  * 		public void validate(GrpcTlsConfig config) {
  * 			if (config.enabled() && config.certChain() == null) {
- * 				throw new ValidationException("TLS enabled but cert-chain is required");
+ * 				throw new ConfigValidationException("TLS enabled but cert-chain is required");
  * 			}
  * 		}
  * 	}
@@ -40,7 +40,7 @@ public interface Validator<T> {
      * Validates the given bean.
      *
      * @param bean the bean to validate
-     * @throws ValidationException if validation fails
+     * @throws ConfigValidationException if validation fails
      */
     void validate(T bean);
 }

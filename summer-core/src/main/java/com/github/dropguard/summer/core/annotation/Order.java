@@ -9,7 +9,7 @@ import java.lang.annotation.Target;
  * Declares the sort order of a bean within a {@code List<T>} injection.
  *
  * <p>Beans are sorted in ascending order (lower values come first); beans without {@code @Order}
- * default to {@code 0}. Beans with the same order value fall back to registration order.
+ * sort last. Beans with the same order value fall back to registration order.
  *
  * <pre>{@code
  * @Component
@@ -25,6 +25,13 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Order {
 
-    /** Lower values have higher priority. Default is {@code 0}. */
+    /**
+     * Sort priority. Lower values come first.
+     *
+     * <p>The Java default {@code 0} applies only when {@code @Order} is present without an explicit
+     * value (sorts first). A bean with <em>no</em> {@code @Order} annotation at all is not treated
+     * as {@code 0} — it sorts last (see {@code BeanContainer.orderOf}, which returns {@code
+     * Integer.MAX_VALUE} in that case).
+     */
     int value() default 0;
 }

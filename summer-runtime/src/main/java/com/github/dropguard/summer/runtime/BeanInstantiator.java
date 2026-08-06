@@ -35,8 +35,9 @@ import java.util.Set;
  * </ul>
  *
  * <p>Parameter type information is read from the {@link InjectionParameter}s of a {@link
- * BeanDefinition} rather than re-derived via reflection. This ensures that once {@link
- * RuntimeBeanAdapter} populates a {@link BeanDefinition}, it becomes the single source of truth.
+ * BeanDefinition} rather than re-derived via reflection. This ensures that once discovery ({@code
+ * Discovery} + {@code BeanEnrichment}) populates a {@link BeanDefinition}, it becomes the single
+ * source of truth.
  */
 final class BeanInstantiator {
 

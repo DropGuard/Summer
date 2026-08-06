@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web;
 
+import com.github.dropguard.summer.core.Internal;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +18,7 @@ import java.util.function.Function;
  *
  * @see RouterType
  */
+@Internal
 public final class RouterRegistry {
 
     private final Map<RouterType, Function<List<HttpRouter.Builder.Route>, HttpRouter>>

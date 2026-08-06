@@ -6,7 +6,7 @@ import java.util.Locale;
 /**
  * DI engine selection enum.
  *
- * <p>Passed to {@link com.github.dropguard.summer.core.DiEngine#create(Engine, Object...)} for
+ * <p>Passed to {@code com.github.dropguard.summer.engine.DiEngine#create(Engine, Object...)} for
  * explicit engine selection, or resolved from configuration / {@code -Dsummer.engine} via {@link
  * #fromString(String)}. The enum is the single source of truth for valid engine names — callers
  * must go through {@link #fromString(String)} rather than comparing raw strings, so the allowed

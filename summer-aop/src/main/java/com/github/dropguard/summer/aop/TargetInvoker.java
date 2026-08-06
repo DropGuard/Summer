@@ -2,7 +2,7 @@ package com.github.dropguard.summer.aop;
 
 /**
  * Functional interface used to execute the target method without reflection. This allows the
- * DefaultInvocationContext to be 100% reflection-free during invocation.
+ * interception path to be 100% reflection-free during invocation.
  */
 @FunctionalInterface
 public interface TargetInvoker {

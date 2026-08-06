@@ -143,9 +143,6 @@ public sealed class BeanDefinition permits ConfigPropertiesBean {
     /** AOP interceptors matched to this bean. */
     public final List<BeanDefinition> interceptors = new ArrayList<>();
 
-    /** Whether the bean implements AutoCloseable. */
-    public boolean isAutoCloseable;
-
     // ── Constructor ───────────────────────────────────────────────────
 
     public BeanDefinition(String qualifiedName, String simpleName) {

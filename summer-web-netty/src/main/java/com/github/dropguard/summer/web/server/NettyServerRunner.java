@@ -2,8 +2,8 @@ package com.github.dropguard.summer.web.server;
 
 import com.github.dropguard.summer.core.ApplicationRunner;
 import com.github.dropguard.summer.core.BeanContainer;
+import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.config.ShutdownConfig;
-import com.github.dropguard.summer.runtime.RuntimeWebConfiguration;
 import com.github.dropguard.summer.web.ExceptionHandlerRegistrar;
 import com.github.dropguard.summer.web.ExceptionRegistry;
 import com.github.dropguard.summer.web.HttpRouter;
@@ -22,8 +22,10 @@ import org.slf4j.LoggerFactory;
 /**
  * Netty-based application runner that starts the HTTP server.
  *
- * <p>This is a framework infrastructure bean provided by {@link RuntimeWebConfiguration}.
+ * <p>This is a framework infrastructure bean provided by the runtime-web bridge module's {@code
+ * RuntimeWebConfiguration}.
  */
+@Internal
 public class NettyServerRunner implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(NettyServerRunner.class);

@@ -53,10 +53,12 @@ class NettyHttpServerHandlerTest {
     }
 
     @Test
-    void shouldRethrowWhenCloseFails() {
+    void shouldNotPropagateCloseFailure() {
         Throwable cause = new RuntimeException("Test exception");
         when(ctx.close()).thenThrow(new RuntimeException("Close failed"));
 
-        assertThrows(RuntimeException.class, () -> handler.exceptionCaught(ctx, cause));
+        // Best-effort cleanup: a close failure is logged, never propagated out of
+        // exceptionCaught (a throwing callback would re-enter Netty's exception path).
+        assertDoesNotThrow(() -> handler.exceptionCaught(ctx, cause));
     }
 }

@@ -3,6 +3,7 @@ package com.github.dropguard.summer.web;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateSerializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer;
 import com.fasterxml.jackson.datatype.jsr310.ser.ZonedDateTimeSerializer;
@@ -25,23 +26,28 @@ public class JsonBodyConverter implements BodyConverter {
                 SummerObjectMapper.create(
                         m -> {
                             m.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+                            // Deliberate API-response defaults (Summer is a JSON-first web
+                            // framework): pretty-printed output and explicit nulls keep field
+                            // presence stable for clients. These intentionally differ from the
+                            // compact NON_NULL defaults of SummerObjectMapper.
                             m.configure(SerializationFeature.INDENT_OUTPUT, true);
+                            m.setSerializationInclusion(JsonInclude.Include.ALWAYS);
 
-                            var javaTimeModule =
-                                    new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule();
-                            javaTimeModule.addSerializer(
+                            // Custom serializers only — SummerObjectMapper.create() already
+                            // registers JavaTimeModule, so registering them on a fresh
+                            // SimpleModule avoids double-registering it.
+                            var customTimeSerializers = new SimpleModule();
+                            customTimeSerializers.addSerializer(
                                     java.time.LocalDate.class,
                                     new LocalDateSerializer(DateTimeFormatter.ISO_DATE));
-                            javaTimeModule.addSerializer(
+                            customTimeSerializers.addSerializer(
                                     java.time.LocalDateTime.class,
                                     new LocalDateTimeSerializer(DateTimeFormatter.ISO_DATE_TIME));
-                            javaTimeModule.addSerializer(
+                            customTimeSerializers.addSerializer(
                                     java.time.ZonedDateTime.class,
                                     new ZonedDateTimeSerializer(
                                             DateTimeFormatter.ISO_ZONED_DATE_TIME));
-                            m.registerModule(javaTimeModule);
-
-                            m.setSerializationInclusion(JsonInclude.Include.ALWAYS);
+                            m.registerModule(customTimeSerializers);
                         });
     }
 

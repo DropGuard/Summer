@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.test;
 
+import com.github.dropguard.summer.core.Engine;
 import com.github.dropguard.summer.core.Internal;
 import java.util.List;
 import java.util.Objects;
@@ -16,14 +17,16 @@ import java.util.Objects;
  *
  * <ul>
  *   <li><b>profile content</b> — {@code @TestProfile#configOverrides()} values;
- *   <li><b>mocked types</b> — the set of {@code @Mock} constructor parameter types.
+ *   <li><b>mocked types</b> — the set of {@code @Mock} constructor parameter types;
+ *   <li><b>engine</b> — Runtime and AOT build <em>different</em> containers (different discovery,
+ *       different mock handling, generated vs reflective code). Sharing one container across the
+ *       two engines would silently test the RUNTIME container twice and never exercise the AOT
+ *       engine, so the engine is a mandatory key dimension.
  * </ul>
  *
  * A separate scope dimension is deliberately <em>absent</em>: the test universe is always
  * full-width, so a scope dimension would offer no distinguishing power (it would be a redundant
- * abstraction). Engine is also absent: Runtime and AOT are two parallel instances keyed by the same
- * EnvKey, not two environments — reuse therefore happens across the two engines of one class, not
- * across classes.
+ * abstraction).
  *
  * <p>The key is built from <em>printable fields</em>, never a black-box hash, so a reuse failure
  * can be answered by reading the key's {@link #toString()}. If two tests unexpectedly share a
@@ -37,11 +40,13 @@ public final class EnvKey {
 
     private final String profile;
     private final List<String> mockedTypes;
+    private final Engine engine;
     private final String firstBuilder;
 
-    private EnvKey(String profile, List<String> mockedTypes, String firstBuilder) {
+    private EnvKey(String profile, List<String> mockedTypes, Engine engine, String firstBuilder) {
         this.profile = profile;
         this.mockedTypes = List.copyOf(mockedTypes);
+        this.engine = engine;
         this.firstBuilder = firstBuilder;
     }
 
@@ -51,10 +56,13 @@ public final class EnvKey {
      * @param profile printable content signature of the test's {@code @TestProfile}, or {@link
      *     #NO_PROFILE}
      * @param mockedTypes fully-qualified names of every type replaced by {@code @Mock}
+     * @param engine the DI engine the container is built with (Runtime and AOT never share a cached
+     *     universe)
      * @param firstBuilder the class that first built the cached universe under this key
      */
-    public static EnvKey of(String profile, List<String> mockedTypes, String firstBuilder) {
-        return new EnvKey(profile, mockedTypes, firstBuilder);
+    public static EnvKey of(
+            String profile, List<String> mockedTypes, Engine engine, String firstBuilder) {
+        return new EnvKey(profile, mockedTypes, engine, firstBuilder);
     }
 
     public String profile() {
@@ -63,6 +71,10 @@ public final class EnvKey {
 
     public List<String> mockedTypes() {
         return mockedTypes;
+    }
+
+    public Engine engine() {
+        return engine;
     }
 
     public String firstBuilder() {
@@ -81,12 +93,13 @@ public final class EnvKey {
         // of re-attempting its own (failing) assembly.
         return profile.equals(other.profile)
                 && mockedTypes.equals(other.mockedTypes)
+                && engine == other.engine
                 && firstBuilder.equals(other.firstBuilder);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(profile, mockedTypes, firstBuilder);
+        return Objects.hash(profile, mockedTypes, engine, firstBuilder);
     }
 
     /**
@@ -99,6 +112,8 @@ public final class EnvKey {
                 + profile
                 + ", mocks="
                 + mockedTypes
+                + ", engine="
+                + engine
                 + ", builtBy="
                 + firstBuilder
                 + "}";

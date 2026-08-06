@@ -22,18 +22,11 @@
             <version>${project.version}</version>
         </dependency>
 
-            <!-- Summer Web (for HttpParameterResolver, annotations, web types) -->
+        <!-- Summer Engine (shared discovery pipeline + ContainerEngine SPI) -->
         <dependency>
             <groupId>com.github.dropguard</groupId>
-            <artifactId>summer-web</artifactId>
+            <artifactId>summer-engine</artifactId>
             <version>${project.version}</version>
-        </dependency>
-        <!-- Summer Web HTTP (for router implementations in tests) -->
-        <dependency>
-            <groupId>com.github.dropguard</groupId>
-            <artifactId>summer-web-http</artifactId>
-            <version>${project.version}</version>
-            <scope>test</scope>
         </dependency>
 
         <!-- Summer AOP (for ProxyFactory and MethodInterceptor) -->

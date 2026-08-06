@@ -2,6 +2,7 @@ package com.github.dropguard.summer.web.server;
 
 import com.github.dropguard.summer.web.Handler;
 import com.github.dropguard.summer.web.HttpContext;
+import com.github.dropguard.summer.web.HttpMethod;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.Middleware;
 import com.github.dropguard.summer.web.Request;
@@ -78,6 +79,12 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
             Request request = NettyRequestAdapter.adapt(nettyReq);
             HttpContext webCtx = new HttpContext(request, deps.jsonConverter());
 
+            if (request.getMethod() == HttpMethod.UNKNOWN) {
+                webCtx.text(HttpStatus.METHOD_NOT_ALLOWED, "Method Not Allowed");
+                sendResponse(ctx, webCtx, keepAlive);
+                return;
+            }
+
             Handler handler = createHandlerChain(ctx, nettyReq);
             try {
                 handler.handle(webCtx);
@@ -91,7 +98,7 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
                 return;
             }
 
-            if (webCtx.statusCode() == null) {
+            if (webCtx.status() == null) {
                 webCtx.text(HttpStatus.NOT_FOUND, "Not Found");
             }
 
@@ -159,7 +166,7 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
     }
 
     private void sendResponse(ChannelHandlerContext ctx, HttpContext webCtx, boolean keepAlive) {
-        HttpResponseStatus status = HttpResponseStatus.valueOf(webCtx.statusCode().code());
+        HttpResponseStatus status = HttpResponseStatus.valueOf(webCtx.status().code());
 
         FullHttpResponse nettyResp;
         if (webCtx.resultObject() != null && webCtx.converter() != null) {
@@ -249,8 +256,10 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
         log.error("Channel exception", cause);
         try {
             ctx.close();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        } catch (Exception closeFailure) {
+            // Best-effort cleanup: a close failure must not turn into a throwing callback,
+            // which would re-enter Netty's exception path from within exceptionCaught.
+            log.warn("Failed to close channel after exception", closeFailure);
         }
     }
 }

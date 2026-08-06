@@ -1,20 +1,22 @@
 package com.github.dropguard.summer.runtime;
 
 import com.github.dropguard.summer.core.BeanContainer;
-import com.github.dropguard.summer.core.ContainerEngine;
-import com.github.dropguard.summer.core.Discovery;
 import com.github.dropguard.summer.core.Engine;
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.RuntimeDiMarker;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
-import com.github.dropguard.summer.core.bean.BeanDeployment;
 import com.github.dropguard.summer.core.bean.ConfigPropertiesBean;
 import com.github.dropguard.summer.core.bean.MockedBean;
 import com.github.dropguard.summer.core.bean.RouteInfo;
-import com.github.dropguard.summer.core.bean.SharedConditionEvaluator;
 import com.github.dropguard.summer.core.bean.SharedDependencyResolver;
 import com.github.dropguard.summer.core.config.ConfigBinder;
+import com.github.dropguard.summer.core.spi.RouteRegistrarLoader;
 import com.github.dropguard.summer.core.validation.Validator;
+import com.github.dropguard.summer.engine.BeanDeployment;
+import com.github.dropguard.summer.engine.ContainerEngine;
+import com.github.dropguard.summer.engine.Discovery;
+import com.github.dropguard.summer.engine.SharedConditionEvaluator;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,31 +34,17 @@ public final class RuntimeContainer implements ContainerEngine {
         return Engine.RUNTIME;
     }
 
-    // ── production entry (reflective, via DiEngine) ───────────────────
-
-    public static BeanContainer build(Object... externalBeans) {
-        JandexIndexLoader.LoadedIndex prod = JandexIndexLoader.productionIndex();
-        BeanDeployment deployment =
-                BeanDeployment.forProduction(
-                        prod.index(), prod.classToArchive(), prod.archiveIndexes());
-        return init(deployment, List.of(), Map.of(), externalBeans);
-    }
-
     // ── SPI entry (ContainerEngines.forEngine()) ──────────────────────
 
     @Override
     public BeanContainer build(
-            BeanDeployment deployment,
-            MockedBean[] mocks,
-            Map<String, Object> overrides,
-            String cacheKey,
-            String className) {
+            BeanDeployment deployment, MockedBean[] mocks, Map<String, Object> overrides) {
         return init(deployment, List.of(mocks), overrides);
     }
 
     // ── shared pipeline ───────────────────────────────────────────────
 
-    private static BeanContainer init(
+    static BeanContainer init(
             BeanDeployment deployment,
             List<MockedBean> mocks,
             Map<String, Object> overrides,
@@ -80,16 +68,33 @@ public final class RuntimeContainer implements ContainerEngine {
                 mocks.stream()
                         .map(MockedBean::targetTypeName)
                         .collect(java.util.stream.Collectors.toSet());
-        new SharedConditionEvaluator().evaluate(candidates, mockedTypeNames, deployment);
+        new SharedConditionEvaluator().evaluate(candidates, mockedTypeNames);
 
         RuntimeConfigBinder binder = new RuntimeConfigBinder();
         ConfigBinder.BindingContext ctx = ConfigBinder.BindingContext.of(overrides);
         bindConfiguration(candidates, builder, binder, ctx);
-        BeanDefinitionFactory.populateInterceptors(candidates);
+
+        // ── SPI route registration ────────────────────────────────────────
+        // Load all RouteRegistrar implementations via ServiceLoader (e.g.
+        // summer-runtime-web's WebRouteScanner; absent classpath = pure-DI mode)
+        // and merge the collected routes / exception handlers into the candidate
+        // definitions.
+        RouteRegistrarLoader.Result spiResult = RouteRegistrarLoader.load(candidates);
+        RouteRegistrarLoader.mergeInto(spiResult, candidates);
+
+        // Collect exception handlers (SPI-contributed + already present) into the
+        // synthetic HandlerMetadata bean consumed by the web exception registry.
         Map<String, List<BeanDefinition.ExceptionHandlerEntry>> handlerMap = new HashMap<>();
         for (BeanDefinition bd : candidates) {
             if (!bd.exceptionHandlerMethods.isEmpty()) {
-                handlerMap.put(bd.qualifiedName, List.copyOf(bd.exceptionHandlerMethods));
+                handlerMap.merge(
+                        bd.qualifiedName,
+                        bd.exceptionHandlerMethods,
+                        (a, b) -> {
+                            List<BeanDefinition.ExceptionHandlerEntry> merged = new ArrayList<>(a);
+                            merged.addAll(b);
+                            return merged;
+                        });
             }
         }
         BeanDefinition handlerMetaDef =

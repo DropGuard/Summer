@@ -1,6 +1,7 @@
 package com.github.dropguard.summer.fixtures.web.dummy;
 
 import com.github.dropguard.summer.web.HttpContext;
+import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.annotation.Get;
 import com.github.dropguard.summer.web.annotation.RestController;
 
@@ -8,7 +9,7 @@ import com.github.dropguard.summer.web.annotation.RestController;
 public class ClassLevelMiddlewareController {
 
     @Get("/test")
-    public String test(HttpContext ctx) {
-        return "test";
+    public void test(HttpContext ctx) {
+        ctx.text(HttpStatus.OK, "test");
     }
 }

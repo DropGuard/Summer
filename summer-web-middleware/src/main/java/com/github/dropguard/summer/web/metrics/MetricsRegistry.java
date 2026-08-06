@@ -1,6 +1,5 @@
 package com.github.dropguard.summer.web.metrics;
 
-import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.core.Internal;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -8,8 +7,12 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * A central registry for application-level metrics. Provides a simple Prometheus-compatible scrape
  * output.
+ *
+ * <p>Annotation-free by design, like the other {@code summer-web-middleware} components: the
+ * application constructs and registers it explicitly (alongside {@link MetricsMiddleware}) rather
+ * than relying on discovery. Applications that want it as an injected bean may declare it in their
+ * own {@code @Configuration}.
  */
-@Component
 @Internal
 public class MetricsRegistry {
     private final AtomicInteger activeRequests = new AtomicInteger(0);

@@ -301,6 +301,7 @@ public final class SharedDependencyResolver {
 
     private List<BeanDefinition> topologicalSort(List<BeanDefinition> beans) {
         Map<BeanDefinition, Set<BeanDefinition>> incoming = buildIncomingEdges(beans);
+        Map<BeanDefinition, Set<BeanDefinition>> dependents = buildDependentEdges(incoming);
 
         List<BeanDefinition> sorted = new ArrayList<>();
         Deque<BeanDefinition> queue = new ArrayDeque<>();
@@ -311,10 +312,13 @@ public final class SharedDependencyResolver {
         while (!queue.isEmpty()) {
             BeanDefinition current = queue.poll();
             sorted.add(current);
-            for (var entry : incoming.entrySet()) {
-                if (entry.getValue().remove(current)
-                        && entry.getValue().isEmpty()
-                        && !sorted.contains(entry.getKey())) queue.add(entry.getKey());
+            // Only the completed node's dependents can become schedulable — O(out-degree)
+            // instead of a full scan per node. A dependent is queued exactly once: its
+            // incoming set empties exactly when its last dependency completes.
+            for (BeanDefinition dependent : dependents.getOrDefault(current, Set.of())) {
+                Set<BeanDefinition> deps = incoming.get(dependent);
+                deps.remove(current);
+                if (deps.isEmpty()) queue.add(dependent);
             }
         }
 
@@ -348,5 +352,19 @@ public final class SharedDependencyResolver {
             }
         }
         return incoming;
+    }
+
+    /** Reverse of {@link #buildIncomingEdges}: node → set of nodes that depend on it. */
+    private Map<BeanDefinition, Set<BeanDefinition>> buildDependentEdges(
+            Map<BeanDefinition, Set<BeanDefinition>> incoming) {
+        Map<BeanDefinition, Set<BeanDefinition>> dependents = new HashMap<>();
+        for (BeanDefinition b : incoming.keySet()) dependents.put(b, new LinkedHashSet<>());
+
+        for (var entry : incoming.entrySet()) {
+            for (BeanDefinition dep : entry.getValue()) {
+                dependents.get(dep).add(entry.getKey());
+            }
+        }
+        return dependents;
     }
 }

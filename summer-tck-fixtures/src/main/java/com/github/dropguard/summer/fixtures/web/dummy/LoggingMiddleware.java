@@ -13,7 +13,7 @@ public class LoggingMiddleware implements Middleware {
             next.handle(ctx);
             byte[] body = ctx.body();
             String content = body != null ? new String(body, StandardCharsets.UTF_8) : "";
-            ctx.text(ctx.statusCode(), "[class-logged] " + content);
+            ctx.text(ctx.status(), "[class-logged] " + content);
         };
     }
 }

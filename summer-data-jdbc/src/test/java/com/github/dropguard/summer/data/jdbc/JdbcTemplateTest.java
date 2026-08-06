@@ -211,6 +211,44 @@ class JdbcTemplateTest {
         }
     }
 
+    // ---- Explicit RowMapper ----
+
+    @Nested
+    @DisplayName("query with explicit RowMapper")
+    class ExplicitRowMapperTests {
+
+        @Test
+        @DisplayName("custom mapper maps rows without registration")
+        void customMapperMapsRows() throws SQLException {
+            when(resultSet.next()).thenReturn(true, true, false);
+            when(resultSet.getInt("id")).thenReturn(1, 2);
+            when(resultSet.getString("name")).thenReturn("Ada", "Linus");
+            when(preparedStatement.executeQuery()).thenReturn(resultSet);
+
+            RowMapper<String> projection =
+                    (rs, rowNum) -> rs.getInt("id") + ":" + rs.getString("name");
+
+            // No registerMapper needed — the mapper travels with the call.
+            java.util.List<String> rows = jdbcTemplate.queryForList("SELECT * FROM t", projection);
+            assertEquals(java.util.List.of("1:Ada", "2:Linus"), rows);
+        }
+
+        @Test
+        @DisplayName("queryForObject with custom mapper returns single row")
+        void customMapperSingleRow() throws SQLException {
+            when(resultSet.next()).thenReturn(true, false);
+            when(resultSet.getInt("id")).thenReturn(7);
+            when(resultSet.getString("name")).thenReturn("Grace");
+            when(preparedStatement.executeQuery()).thenReturn(resultSet);
+
+            RowMapper<TestRow> mapper =
+                    (rs, rowNum) -> new TestRow(rs.getInt("id"), rs.getString("name"));
+            assertEquals(
+                    new TestRow(7, "Grace"),
+                    jdbcTemplate.queryForObject("SELECT * FROM t", mapper));
+        }
+    }
+
     // ---- Helper types ----
 
     record TestRow(int id, String name) {}

@@ -1,9 +1,9 @@
 package com.github.dropguard.summer.boot;
 
 import com.github.dropguard.summer.core.BeanContainer;
-import com.github.dropguard.summer.core.DiEngine;
 import com.github.dropguard.summer.core.config.ConfigBinder;
 import com.github.dropguard.summer.core.config.FrameworkConfig;
+import com.github.dropguard.summer.engine.DiEngine;
 import com.github.dropguard.summer.runtime.RuntimeConfigBinder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,18 +22,13 @@ public final class SummerApplication {
 
     private static final Logger log = LoggerFactory.getLogger(SummerApplication.class);
 
-    static {
-        SLF4JBridgeHandler.removeHandlersForRootLogger();
-        SLF4JBridgeHandler.install();
-    }
-
     private java.util.List<Class<? extends com.github.dropguard.summer.web.Middleware>>
             middlewareEntries = new java.util.ArrayList<>();
 
     public SummerApplication() {}
 
     /** Main entry point. */
-    public static BeanContainer run(String[] args) throws Exception {
+    public static BeanContainer run(String[] args) {
         return new SummerApplication().start(args);
     }
 
@@ -43,7 +38,24 @@ public final class SummerApplication {
         return this;
     }
 
-    public BeanContainer start(String[] args) throws Exception {
+    public BeanContainer start(String[] args) {
+        // Install the java.util.logging → SLF4J bridge explicitly at startup (not in a
+        // static initializer): class-load side effects are implicit, this is explicit.
+        SLF4JBridgeHandler.removeHandlersForRootLogger();
+        SLF4JBridgeHandler.install();
+        try {
+            return doStart(args);
+        } catch (Exception e) {
+            throw new RuntimeException("Application start failed", e);
+        }
+    }
+
+    /**
+     * Boots the application. {@code args} is deliberately unused: Summer is configuration-driven
+     * (application.yml + {@code ${VAR}} / {@code -D} overrides) — command-line arguments are not a
+     * configuration channel. The parameter exists only to match the {@code main} convention.
+     */
+    private BeanContainer doStart(String[] args) throws Exception {
         // Resolve engine from FrameworkConfig (with @WithDefault("runtime")).
         FrameworkConfig fw =
                 new RuntimeConfigBinder()

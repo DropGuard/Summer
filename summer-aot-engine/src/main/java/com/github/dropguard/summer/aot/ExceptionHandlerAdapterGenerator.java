@@ -100,7 +100,7 @@ final class ExceptionHandlerAdapterGenerator {
                 continue;
             }
 
-            ClassName handlerClass = safeClassName(bean.qualifiedName);
+            ClassName handlerClass = AotTypeNames.safeClassName(bean.qualifiedName);
             String handlerVar = bean.variableName;
 
             for (MethodInfo method : ci.methods()) {
@@ -110,7 +110,7 @@ final class ExceptionHandlerAdapterGenerator {
                 }
 
                 String exceptionClassName = ann.value().asClass().name().toString();
-                ClassName exceptionType = safeClassName(exceptionClassName);
+                ClassName exceptionType = AotTypeNames.safeClassName(exceptionClassName);
 
                 // Build args: inspect parameter types from Jandex
                 StringBuilder args = new StringBuilder();
@@ -142,9 +142,5 @@ final class ExceptionHandlerAdapterGenerator {
             }
         }
         return code.build();
-    }
-
-    private static ClassName safeClassName(String qualifiedName) {
-        return ClassName.bestGuess(qualifiedName.replace('$', '.'));
     }
 }

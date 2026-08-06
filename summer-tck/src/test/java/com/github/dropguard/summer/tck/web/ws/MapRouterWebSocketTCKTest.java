@@ -1,7 +1,7 @@
 package com.github.dropguard.summer.tck.web.ws;
 
 import com.github.dropguard.summer.web.WsRouter;
-import com.github.dropguard.summer.web.websocket.MapWsRouter;
+import com.github.dropguard.summer.web.websocket.router.MapWsRouter;
 
 /** TCK tests for MapWsRouter implementation. */
 public class MapRouterWebSocketTCKTest extends AbstractWebSocketTCK {

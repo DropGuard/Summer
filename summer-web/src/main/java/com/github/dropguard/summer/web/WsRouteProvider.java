@@ -5,7 +5,7 @@ package com.github.dropguard.summer.web;
  *
  * <p>The framework collects all {@code WsRouteProvider} beans and invokes their {@link
  * #provide(WsRouter.Builder)} method before building the final {@link WsRouter}. This is the
- * WebSocket counterpart of {@link RouteProvider}.
+ * WebSocket counterpart of {@link RouteRegistrar}.
  */
 public interface WsRouteProvider {
 

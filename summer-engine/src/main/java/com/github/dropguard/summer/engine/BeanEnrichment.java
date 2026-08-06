@@ -1,0 +1,237 @@
+package com.github.dropguard.summer.engine;
+
+import com.github.dropguard.summer.core.Internal;
+import com.github.dropguard.summer.core.bean.BeanDefinition;
+import com.github.dropguard.summer.core.bean.ConfigPropertiesBean;
+import com.github.dropguard.summer.core.exception.BeanCreationException;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.jboss.jandex.AnnotationInstance;
+import org.jboss.jandex.ClassInfo;
+import org.jboss.jandex.DotName;
+import org.jboss.jandex.IndexView;
+import org.jboss.jandex.MethodInfo;
+
+/**
+ * Enriches discovered bean definitions with constructor params, interface names, condition
+ * metadata, and AOP binding information.
+ *
+ * <p>Route scanning is intentionally absent: web routes are contributed by {@code
+ * com.github.dropguard.summer.core.spi.RouteRegistrar} implementations (e.g. {@code summer-web}),
+ * keeping this class free of any web-annotation strings.
+ *
+ * <p>This is the enrichment phase of discovery — runs after the candidate set is enumerated (from a
+ * {@link BeanDeployment}) but before condition evaluation ({@code @ConditionalOnBean}/{@Replaces})
+ * and dependency resolution. It only reads Jandex metadata into {@link BeanDefinition} fields; it
+ * never removes or reorders beans, so it is safe to run on the shared discovery output that both
+ * the Runtime and AOT engines consume.
+ *
+ * <p>Lives in the engine module (not summer-core) so the foundation layer stays free of Jandex —
+ * Jandex metadata reading is engine machinery, not contract.
+ */
+@Internal
+public final class BeanEnrichment {
+
+    private static final DotName INTERCEPTOR_BINDING_DOT =
+            DotName.createSimple("com.github.dropguard.summer.aop.InterceptorBinding");
+    private static final DotName INTERCEPTOR_DOT =
+            DotName.createSimple("com.github.dropguard.summer.aop.Interceptor");
+
+    private static final DotName CONDITIONAL_ON_BEAN_DOT =
+            DotName.createSimple("com.github.dropguard.summer.core.annotation.ConditionalOnBean");
+
+    private final IndexView index;
+
+    public BeanEnrichment(IndexView index) {
+        this.index = index;
+    }
+
+    /**
+     * Enriches beans with constructor params, interface names, condition metadata, and AOP
+     * bindings.
+     */
+    public void enrich(List<BeanDefinition> beans) {
+        for (BeanDefinition bean : beans) {
+            if (bean instanceof ConfigPropertiesBean) continue;
+            ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
+            if (ci != null) {
+                if (!bean.isFactoryMethod()) {
+                    collectConstructorParams(bean, ci);
+                }
+                collectConditions(bean, ci);
+            }
+        }
+        detectAopBindings(beans);
+    }
+
+    // ── Constructor Params ────────────────────────────────────────────
+
+    private void collectConstructorParams(BeanDefinition bean, ClassInfo ci) {
+        List<MethodInfo> publicCtors =
+                ci.methods().stream()
+                        .filter(m -> m.name().equals("<init>") && (m.flags() & 0x0001) != 0)
+                        .toList();
+        if (publicCtors.isEmpty()) {
+            throw new BeanCreationException(
+                    "Component "
+                            + bean.qualifiedName
+                            + " must have exactly ONE public constructor. Found: 0");
+        }
+        if (publicCtors.size() > 1) {
+            throw new BeanCreationException(
+                    "Component "
+                            + bean.qualifiedName
+                            + " must have exactly ONE public constructor. Found: "
+                            + publicCtors.size());
+        }
+        MethodInfo ctor = publicCtors.get(0);
+        for (int i = 0; i < ctor.parametersCount(); i++) {
+            bean.addParameter(JandexTypes.paramTypeName(ctor.parameterType(i), bean.qualifiedName));
+        }
+    }
+
+    // ── AOP Bindings ──────────────────────────────────────────────────
+
+    private void detectAopBindings(List<BeanDefinition> beans) {
+        // Step 1: Collect all binding annotations (@InterceptorBinding-annotated)
+        Set<DotName> bindingAnnotations = new HashSet<>();
+        for (ClassInfo ci : index.getKnownClasses()) {
+            if (ci.isAnnotation() && ci.hasAnnotation(INTERCEPTOR_BINDING_DOT)) {
+                bindingAnnotations.add(ci.name());
+            }
+        }
+
+        // Step 2: Identify interceptor beans and their binding annotations
+        Map<BeanDefinition, Set<DotName>> interceptorBindings = new HashMap<>();
+        for (BeanDefinition bean : beans) {
+            if (bean instanceof ConfigPropertiesBean) continue;
+            ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
+            if (ci == null) continue;
+            if (ci.annotation(INTERCEPTOR_DOT) == null) continue;
+            Set<DotName> bindings = new HashSet<>();
+            for (AnnotationInstance ann : ci.declaredAnnotations()) {
+                if (bindingAnnotations.contains(ann.name())) {
+                    bindings.add(ann.name());
+                }
+            }
+            if (!bindings.isEmpty()) {
+                interceptorBindings.put(bean, bindings);
+            }
+        }
+
+        // Step 3: Populate interceptorBindingAnnotations and match interceptors
+        for (BeanDefinition bean : beans) {
+            if (bean instanceof ConfigPropertiesBean) continue;
+
+            ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
+            if (ci == null) continue;
+
+            if (ci.annotation(INTERCEPTOR_DOT) != null) continue;
+
+            Set<String> bindings = new HashSet<>();
+            Set<DotName> targetBindings = new HashSet<>();
+            for (AnnotationInstance ann : ci.declaredAnnotations()) {
+                if (bindingAnnotations.contains(ann.name())) {
+                    String name = ann.name().toString();
+                    bindings.add(name);
+                    targetBindings.add(ann.name());
+                }
+            }
+
+            Map<String, Set<String>> methodBindings = new java.util.HashMap<>();
+            if (targetBindings.isEmpty()) {
+                for (MethodInfo method : ci.methods()) {
+                    Set<String> methodAnnNames = new HashSet<>();
+                    for (AnnotationInstance ann : method.annotations()) {
+                        if (bindingAnnotations.contains(ann.name())) {
+                            String name = ann.name().toString();
+                            methodAnnNames.add(name);
+                            bindings.add(name);
+                        }
+                    }
+                    if (!methodAnnNames.isEmpty()) {
+                        methodBindings.put(method.name(), methodAnnNames);
+                    }
+                }
+            }
+
+            // Binding annotations can also be declared on the bean's implemented
+            // interfaces — both type-level and method-level. A proxied service usually
+            // implements an interface (e.g. IssueService) that carries the binding
+            // annotation on its methods; the implementing class inherits it but Jandex
+            // ClassInfo.methods()/declaredAnnotations() do not include inherited
+            // interface members. Without this walk the interceptor is never applied.
+            for (String ifaceName : bean.interfaceNames) {
+                ClassInfo ifaceCi = index.getClassByName(DotName.createSimple(ifaceName));
+                if (ifaceCi == null) {
+                    continue;
+                }
+                for (AnnotationInstance ann : ifaceCi.declaredAnnotations()) {
+                    if (bindingAnnotations.contains(ann.name())) {
+                        String name = ann.name().toString();
+                        bindings.add(name);
+                        targetBindings.add(ann.name());
+                    }
+                }
+                for (MethodInfo method : ifaceCi.methods()) {
+                    for (AnnotationInstance ann : method.annotations()) {
+                        if (bindingAnnotations.contains(ann.name())) {
+                            String name = ann.name().toString();
+                            bindings.add(name);
+                            methodBindings
+                                    .computeIfAbsent(method.name(), k -> new HashSet<>())
+                                    .add(name);
+                        }
+                    }
+                }
+            }
+
+            bean.interceptorBindingAnnotations =
+                    bindings.isEmpty() ? Set.of() : Set.copyOf(bindings);
+
+            // A class-level binding (@Logged on the bean class) intercepts every
+            // method. AotProxyGenerator keys that as "" (empty method name), so we
+            // must record it there — BeanEnrichment otherwise only populates
+            // methodBindingAnnotations with method-level entries (keyed by method
+            // name). RUNTIME's ProxyFactory derives class-level coverage directly
+            // from the implementation class annotations, so this key is the AOT
+            // engine's signal that the whole bean is bound.
+            Map<String, Set<String>> finalMethodBindings = new java.util.HashMap<>(methodBindings);
+            if (!targetBindings.isEmpty()) {
+                Set<String> classLevel =
+                        targetBindings.stream()
+                                .map(DotName::toString)
+                                .collect(java.util.stream.Collectors.toCollection(HashSet::new));
+                finalMethodBindings.put("", classLevel);
+            }
+            if (!finalMethodBindings.isEmpty()) {
+                bean.methodBindingAnnotations = finalMethodBindings;
+            }
+
+            if (!bindings.isEmpty()) {
+                for (var entry : interceptorBindings.entrySet()) {
+                    for (DotName binding : entry.getValue()) {
+                        if (targetBindings.contains(binding)
+                                || methodBindings.values().stream()
+                                        .anyMatch(ms -> ms.contains(binding.toString()))) {
+                            bean.interceptors.add(entry.getKey());
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ── @ConditionalOnBean collection ──────────────────────────────────
+
+    private void collectConditions(BeanDefinition bean, ClassInfo ci) {
+        AnnotationInstance ann = ci.annotation(CONDITIONAL_ON_BEAN_DOT);
+        if (ann != null) {
+            bean.conditionalOnBeanType = ann.value().asClass().name().toString();
+        }
+    }
+}

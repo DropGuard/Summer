@@ -11,7 +11,7 @@ summer.web
 ├── annotation/       # @RestController, @Get, @Post, @Put, @Delete, @PathParam, @QueryParam, @ExceptionHandler
 ├── exception/        # SummerWebException (base, carries HttpStatus), RouteConflictException, BodyParseException, ValidationException, ArchitectureViolationException
 ├── health/           # HealthRouteRegistrar — /health/ready, /health/live
-└── websocket/        # WsRouter WsRouter.Builder, WebSocketHandler, WebSocketContext, WebSocketBroadcaster, WsInterceptor, WsFilterChain
+└── websocket/        # WsRouter WsRouter.Builder, WebSocketHandler, WebSocketContext, WebSocketBroadcaster, WebSocketInterceptor, WebSocketInterceptorChain
 ```
 
 ## WHERE TO LOOK
@@ -45,7 +45,7 @@ summer.web
 | `WebSocketHandler` | `@FunctionalInterface void handle(WebSocketContext ctx)` |
 | `WebSocketContext` | Interface: `send()`, `onMessage()`, `sendJson()`, `close()`, `pathParam()`, `header()`. |
 | `WebSocketBroadcaster` | Room-based pub/sub: `join(room, ctx)`, `leave(...)`, `broadcast(room, msg)`, `broadcastAll(msg)`. |
-| `WsInterceptor` + `WsFilterChain` | WebSocket message interceptor chain (analogous to HTTP Middleware). |
+| `WebSocketInterceptor` + `WebSocketInterceptorChain` | WebSocket text-message interceptor chain (analogous to HTTP Middleware; binary frames are out of scope by design). |
 | `HealthRouteRegistrar` | Registers `/health/ready` (503 during shutdown) and `/health/live` (always 200). |
 | `SummerWebException` | Base exception carrying `HttpStatus` for automatic response mapping. Subtypes: `RouteConflictException`, `BodyParseException`, `ValidationException`, `ArchitectureViolationException`. |
 

@@ -1,33 +1,25 @@
 package com.github.dropguard.summer.web;
 
 import com.github.dropguard.summer.core.Internal;
-import com.github.dropguard.summer.core.bean.RouteInfo.ParamBinding;
+import java.lang.annotation.Annotation;
 
-/**
- * Reflection-free {@link HandlerParam} built from AOT-discovered route metadata.
- *
- * <p>The AOT code generator constructs one of these per {@code @Pageable} (or other
- * resolver-driven) parameter and resolves it through the shared {@link HttpParameterResolverChain}
- * — the same chain the runtime engine uses — so {@code @Replaces} custom resolvers behave
- * identically on both engines.
- *
- * <p>Only resolver-backed bindings (e.g. {@code PAGEABLE}) go through the chain; {@code
- * PATH}/{@code QUERY}/{@code BODY} are emitted inline by the generator because they have no
- * swappable resolver.
- */
+/** Reflection-free {@link HandlerParam} built from AOT-discovered route metadata. */
 @Internal
 public final class RouteInfoHandlerParam implements HandlerParam {
 
     private final Class<?> type;
     private final String bindingName;
-    private final ParamBinding binding;
+    private final Class<? extends Annotation> annotationType;
     private final boolean validated;
 
     public RouteInfoHandlerParam(
-            Class<?> type, String bindingName, ParamBinding binding, boolean validated) {
+            Class<?> type,
+            String bindingName,
+            Class<? extends Annotation> annotationType,
+            boolean validated) {
         this.type = type;
         this.bindingName = bindingName;
-        this.binding = binding;
+        this.annotationType = annotationType;
         this.validated = validated;
     }
 
@@ -42,8 +34,8 @@ public final class RouteInfoHandlerParam implements HandlerParam {
     }
 
     @Override
-    public ParamBinding binding() {
-        return binding;
+    public boolean hasAnnotation(Class<? extends Annotation> a) {
+        return annotationType != null && annotationType.equals(a);
     }
 
     @Override

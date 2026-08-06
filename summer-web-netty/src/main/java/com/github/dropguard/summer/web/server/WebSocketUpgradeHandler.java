@@ -6,7 +6,7 @@ import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.ServerConfig;
 import com.github.dropguard.summer.web.ServerOriginChecker;
 import com.github.dropguard.summer.web.WsRouter;
-import com.github.dropguard.summer.web.websocket.WsInterceptor;
+import com.github.dropguard.summer.web.websocket.WebSocketInterceptor;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpHeaderNames;
@@ -22,14 +22,14 @@ class WebSocketUpgradeHandler {
     private final WsRouter wsRouter;
     private final ServerConfig config;
     private final ServerOriginChecker serverOriginChecker;
-    private final List<WsInterceptor> wsInterceptors;
+    private final List<WebSocketInterceptor> wsInterceptors;
     private final BodyConverter jsonConverter;
 
     public WebSocketUpgradeHandler(
             WsRouter wsRouter,
             ServerConfig config,
             ServerOriginChecker serverOriginChecker,
-            List<WsInterceptor> wsInterceptors,
+            List<WebSocketInterceptor> wsInterceptors,
             BodyConverter jsonConverter) {
         this.wsRouter = wsRouter;
         this.config = config;

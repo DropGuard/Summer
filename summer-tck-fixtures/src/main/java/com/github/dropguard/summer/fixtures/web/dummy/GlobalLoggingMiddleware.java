@@ -15,7 +15,7 @@ public class GlobalLoggingMiddleware implements Middleware {
             next.handle(ctx);
             byte[] body = ctx.body();
             String content = body != null ? new String(body, StandardCharsets.UTF_8) : "";
-            ctx.text(ctx.statusCode(), "[global-logged] " + content);
+            ctx.text(ctx.status(), "[global-logged] " + content);
         };
     }
 }

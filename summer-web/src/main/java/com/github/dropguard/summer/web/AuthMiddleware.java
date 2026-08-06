@@ -49,8 +49,13 @@ public interface AuthMiddleware extends Middleware {
      * Applies authentication: calls {@link #authenticate(HttpContext)} and stores the result as a
      * request attribute named "userId".
      *
-     * <p>If authentication fails (returns null), the attribute is not set. The handler is
-     * responsible for checking and returning 401 if needed.
+     * <p>On success it also publishes the authenticated context via {@code RequestContextHolder}
+     * (static {@code ThreadLocal}) so services and AOP interceptors can read the current user
+     * without threading it through parameters. This side effect is intentional — it is how the
+     * framework exposes the authenticated user outside the handler signature.
+     *
+     * <p>If authentication fails (returns null), neither the attribute nor the holder is set. The
+     * handler is responsible for checking and returning 401 if needed.
      */
     @Override
     default Handler apply(Handler handler) {

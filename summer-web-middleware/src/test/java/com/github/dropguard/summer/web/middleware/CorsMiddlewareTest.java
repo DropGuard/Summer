@@ -73,7 +73,7 @@ class CorsMiddlewareTest {
         handler.handle(ctx);
 
         assertFalse(called.get(), "Next handler should NOT be called for preflight");
-        assertEquals(HttpStatus.NO_CONTENT, ctx.statusCode());
+        assertEquals(HttpStatus.NO_CONTENT, ctx.status());
         assertEquals("*", ctx.headers().get("Access-Control-Allow-Origin"));
     }
 

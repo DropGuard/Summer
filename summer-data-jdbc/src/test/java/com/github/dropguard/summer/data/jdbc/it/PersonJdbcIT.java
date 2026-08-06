@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.github.dropguard.summer.core.BeanContainer;
-import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 
 /**
@@ -19,7 +18,6 @@ public class PersonJdbcIT extends AbstractFrameworkIT {
         super(context);
     }
 
-    @DualEngine
     void jdbcAndQueryTemplateRoundTrip() {
         PersonRepository repo = context.getBean(PersonRepository.class);
 
@@ -39,7 +37,6 @@ public class PersonJdbcIT extends AbstractFrameworkIT {
         assertEquals(1, repo.count());
     }
 
-    @DualEngine
     void universeContainsFrameworkBeans() {
         assertTrue(context.getBeans(PersonRepository.class).iterator().hasNext());
     }
