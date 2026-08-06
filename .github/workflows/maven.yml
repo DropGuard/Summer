@@ -22,7 +22,11 @@ jobs:
         cache: maven
 
     - name: Check formatting
-      run: mvn spotless:check --batch-mode
+      # summer-dependencies is a standalone BOM (no parent, no spotless plugin in its
+      # build) — Maven's prefix resolution fails on it. It has no Java sources, so it is
+      # excluded here rather than given a plugin of its own (which would leak to
+      # downstream consumers importing the BOM).
+      run: mvn spotless:check --batch-mode -pl '!summer-dependencies'
         
     - name: Build with Maven
       # The env.CI=true is automatically set by GitHub Actions,
