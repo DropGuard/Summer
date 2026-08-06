@@ -1,6 +1,7 @@
 package com.github.dropguard.summer.data.jdbc;
 
 import com.github.dropguard.summer.data.jdbc.query.QueryBuilder;
+import java.util.List;
 import org.jboss.jandex.IndexView;
 
 /**
@@ -21,11 +22,38 @@ public final class EntityMetadataRegistrar {
 
     private final EntityMetadataRegistry entityMetadataRegistry;
 
+    /**
+     * Runtime engine path: scans the deployment's discovery {@link IndexView} at container build
+     * time (the runtime view is test-aware, and reading metadata from the index at runtime mirrors
+     * what Spring does with its metadata readers). The AOT engine instead uses {@link
+     * #fromMetas(List, EntityMetadataRegistry)} with metadata computed at code-generation time from
+     * the same discovery view, so both engines see identical {@code @RowModel} sets — including
+     * test-classes entities in test universes.
+     */
     public EntityMetadataRegistrar(
             IndexView discoveryIndex, EntityMetadataRegistry entityMetadataRegistry) {
-        this.entityMetadataRegistry = entityMetadataRegistry;
+        this(entityMetadataRegistry);
         for (RowModelMeta meta : RowMapperFactory.scanJandex(discoveryIndex)) {
             entityMetadataRegistry.register(meta);
         }
+    }
+
+    /**
+     * AOT engine path: registers pre-computed {@code @RowModel} metadata (generated from the
+     * deployment's discovery index at codegen time — test-aware). A static factory rather than a
+     * second public constructor, so container discovery's single-public-constructor contract holds
+     * for the {@code @Bean} product.
+     */
+    public static EntityMetadataRegistrar fromMetas(
+            List<RowModelMeta> metas, EntityMetadataRegistry entityMetadataRegistry) {
+        EntityMetadataRegistrar registrar = new EntityMetadataRegistrar(entityMetadataRegistry);
+        for (RowModelMeta meta : metas) {
+            entityMetadataRegistry.register(meta);
+        }
+        return registrar;
+    }
+
+    private EntityMetadataRegistrar(EntityMetadataRegistry entityMetadataRegistry) {
+        this.entityMetadataRegistry = entityMetadataRegistry;
     }
 }

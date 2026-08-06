@@ -78,6 +78,13 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- @SummerTest/@DualEngine test infrastructure (brings the runtime engine for the RUNTIME leg) -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-test</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
         <!-- Data JDBC (REAL type dependency: WireMethodGenerator / TypeReads call
              RowMapperFactory.scanJandex/camelToSnake/resolveFieldType and RowModelMeta by
              fully-qualified name — the AOT generator needs the JDBC type-mapping contract.

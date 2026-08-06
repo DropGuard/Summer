@@ -171,9 +171,33 @@ public final class WireMethodGenerator {
         return CodeBlock.of("$N", parameter.resolved().get(0).variableName);
     }
 
+    private static final String ENTITY_METADATA_REGISTRAR =
+            "com.github.dropguard.summer.data.jdbc.EntityMetadataRegistrar";
+
     private void emitFactoryProductInstantiation(
             MethodSpec.Builder wire, BeanDefinition bean, String varName) {
         ClassName producedClass = AotTypeNames.safeClassName(bean.qualifiedName);
+
+        if (bean.qualifiedName.equals(ENTITY_METADATA_REGISTRAR)) {
+            // Quarkus-faithful (audit 13.5 / E1): the @RowModel metadata is computed at BUILD time
+            // from the deployment's discovery index (test-aware — includes test-classes entities
+            // in test universes) and baked into the generated container. Reconstructing the
+            // IndexView at runtime would be production-only and silently miss test entities,
+            // diverging from the Runtime engine which scans its full discovery view. The runtime
+            // path keeps its index scan (Spring reads metadata at runtime too).
+            java.util.List<com.github.dropguard.summer.data.jdbc.RowModelMeta> metas =
+                    com.github.dropguard.summer.data.jdbc.RowMapperFactory.scanJandex(index);
+            CodeBlock registryArg = parameterArgument(bean.parameters.get(1));
+            wire.addStatement(
+                    "$T $N = $T.fromMetas($L, $L)",
+                    producedClass,
+                    varName,
+                    producedClass,
+                    rowModelMetasLiteral(metas),
+                    registryArg);
+            return;
+        }
+
         String configVar = bean.configBeanDefinition.variableName;
         String methodName = bean.producerMethodName;
         CodeBlock args = buildConstructorArgs(bean);
@@ -187,9 +211,40 @@ public final class WireMethodGenerator {
     }
 
     /**
-     * Generated config-impl TypeSpecs (one per @ConfigMapping interface), written as separate
-     * source files by AotContextGenerator after the main container.
+     * Source literal for a pre-computed {@code @RowModel} metadata list, e.g. {@code
+     * java.util.List.of(new RowModelMeta("pkg.M", "pkg", "M", "t", java.util.List.of(new
+     * FieldMeta("id", "java.lang.Long"))))}. All strings are emitted via {@code $S}, so no escaping
+     * issues; the generated container compiles against data-jdbc on the classpath.
      */
+    private static CodeBlock rowModelMetasLiteral(
+            java.util.List<com.github.dropguard.summer.data.jdbc.RowModelMeta> metas) {
+        CodeBlock.Builder cb = CodeBlock.builder();
+        cb.add("java.util.List.of(");
+        for (int i = 0; i < metas.size(); i++) {
+            if (i > 0) cb.add(", ");
+            com.github.dropguard.summer.data.jdbc.RowModelMeta meta = metas.get(i);
+            cb.add(
+                    "new $T($S, $S, $S, $S, java.util.List.of(",
+                    ClassName.get(com.github.dropguard.summer.data.jdbc.RowModelMeta.class),
+                    meta.modelClassName(),
+                    meta.packageName(),
+                    meta.simpleName(),
+                    meta.tableName());
+            for (int j = 0; j < meta.fields().size(); j++) {
+                if (j > 0) cb.add(", ");
+                com.github.dropguard.summer.data.jdbc.FieldMeta field = meta.fields().get(j);
+                cb.add(
+                        "new $T($S, $S)",
+                        ClassName.get(com.github.dropguard.summer.data.jdbc.FieldMeta.class),
+                        field.name(),
+                        field.typeName());
+            }
+            cb.add("))");
+        }
+        cb.add(")");
+        return cb.build();
+    }
+
     List<TypeSpec> configImpls() {
         return configGen.configImpls();
     }

@@ -40,6 +40,9 @@ public final class ConfigImplGenerator {
     private final IndexView index;
     private final List<TypeSpec> configImpls = new ArrayList<>();
 
+    /** Generated impl class name -> owning @ConfigMapping interface (collision detection). */
+    private final Map<String, String> generatedImplOwners = new java.util.HashMap<>();
+
     public ConfigImplGenerator(IndexView index) {
         this.index = index;
     }
@@ -49,6 +52,7 @@ public final class ConfigImplGenerator {
      */
     public void reset() {
         configImpls.clear();
+        generatedImplOwners.clear();
     }
 
     /**
@@ -157,6 +161,24 @@ public final class ConfigImplGenerator {
     private TypeSpec generateConfigImpl(ClassName iface, ClassInfo classInfo) {
         String implName = iface.simpleName() + "$$ConfigImpl";
         String qualifiedName = classInfo.name().toString();
+        // Fail fast on cross-package simple-name collisions: two @ConfigMapping interfaces with
+        // the same simple name (e.g. foo.Config and bar.Config) both map to
+        // generated.Config$$ConfigImpl, and the second JavaFile.writeTo would silently overwrite
+        // the first — leaving the wire registering an instance of the wrong interface (runtime
+        // ClassCastException, or wrong config prefix when the methods happen to match).
+        String existing = generatedImplOwners.putIfAbsent(implName, qualifiedName);
+        if (existing != null && !existing.equals(qualifiedName)) {
+            throw new IllegalStateException(
+                    "Config-impl name collision: "
+                            + existing
+                            + " and "
+                            + qualifiedName
+                            + " both map to "
+                            + AotContextGenerator.PACKAGE
+                            + "."
+                            + implName
+                            + ". Rename one of the @ConfigMapping interfaces.");
+        }
         TypeSpec.Builder impl =
                 TypeSpec.classBuilder(implName)
                         .addModifiers(
