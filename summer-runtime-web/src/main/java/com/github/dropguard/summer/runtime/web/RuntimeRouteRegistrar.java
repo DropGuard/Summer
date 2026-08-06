@@ -69,12 +69,23 @@ public class RuntimeRouteRegistrar implements RouteRegistrar {
      */
     private static java.lang.reflect.Method resolveHandler(
             RouteInfo route, Class<?> controllerClass) {
+        // Match by name AND parameter count (the scanner enforces first-param-HttpContext, so a
+        // handler has exactly route.params.size() + 1 parameters): name-only matching binds the
+        // wrong method when a controller overloads a handler name.
+        int expectedParamCount = route.params.size() + 1;
         for (java.lang.reflect.Method m : controllerClass.getMethods()) {
-            if (m.getName().equals(route.methodName)) {
+            if (m.getName().equals(route.methodName)
+                    && m.getParameterCount() == expectedParamCount) {
                 return m;
             }
         }
         throw new IllegalStateException(
-                "Handler method not found: " + route.controllerClass + "." + route.methodName);
+                "Handler method not found: "
+                        + route.controllerClass
+                        + "."
+                        + route.methodName
+                        + "("
+                        + expectedParamCount
+                        + " params)");
     }
 }

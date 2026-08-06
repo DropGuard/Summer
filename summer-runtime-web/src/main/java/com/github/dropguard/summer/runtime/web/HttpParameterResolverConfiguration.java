@@ -63,33 +63,31 @@ public class HttpParameterResolverConfiguration {
         return new CursorPageResolver(pageableProperties);
     }
 
+    // Explicit, reviewable built-in priority — the sequence is the contract. Narrow claimants
+    // first among themselves, the @Valid wrapper ahead of the body resolver it wraps. User
+    // resolvers sort after the built-ins (MAX_VALUE), so they never silently override a built-in
+    // — and a @Replaces'd built-in is ABSENT from the injected list, so the replacing resolver
+    // claims its slot. No name sniffing, no fresh instances.
+    private static final java.util.Map<Class<?>, Integer> BUILTIN_PRIORITY =
+            java.util.Map.of(
+                    ValidatingParameterResolver.class, 0,
+                    DefaultPageResolver.class, 1,
+                    CursorPageResolver.class, 2,
+                    TypeParameterResolver.class, 3,
+                    PathParamResolver.class, 4,
+                    QueryParamResolver.class, 5,
+                    ThrowableResolver.class, 6);
+
     @Bean
-    public HttpParameterResolverChain resolverChain(
-            List<HttpParameterResolver> resolvers, PageableProperties pageableProperties) {
-        // Explicit, reviewable resolver order. The built-in resolvers are listed
-        // here in priority order (narrow claimants first among themselves, the
-        // @Valid wrapper ahead of the body resolver it wraps). User-supplied
-        // resolvers are appended after the built-ins, so they never silently
-        // override a built-in unless declared with @Replaces (which Spring applies
-        // at bean registration, before this list is built). No name sniffing, no
-        // magic-number ordering — the sequence is the contract.
-        java.util.List<HttpParameterResolver> builtIns =
-                java.util.List.of(
-                        validatingResolver(),
-                        defaultPageResolver(pageableProperties),
-                        cursorPageResolver(pageableProperties),
-                        typeResolver(),
-                        pathParamResolver(),
-                        queryParamResolver(),
-                        throwableResolver());
-        java.util.Set<Class<?>> builtInTypes =
-                builtIns.stream()
-                        .map(HttpParameterResolver::getClass)
-                        .collect(java.util.stream.Collectors.toSet());
-        java.util.List<HttpParameterResolver> userResolvers =
-                resolvers.stream().filter(r -> !builtInTypes.contains(r.getClass())).toList();
-        java.util.List<HttpParameterResolver> ordered = new java.util.ArrayList<>(builtIns);
-        ordered.addAll(userResolvers);
+    public HttpParameterResolverChain resolverChain(List<HttpParameterResolver> resolvers) {
+        java.util.List<HttpParameterResolver> ordered =
+                resolvers.stream()
+                        .sorted(
+                                java.util.Comparator.comparingInt(
+                                        r ->
+                                                BUILTIN_PRIORITY.getOrDefault(
+                                                        r.getClass(), Integer.MAX_VALUE)))
+                        .toList();
         return new HttpParameterResolverChain(ordered);
     }
 }

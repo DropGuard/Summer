@@ -149,7 +149,22 @@ class NettyHttpServer {
                     .childOption(ChannelOption.SO_KEEPALIVE, true);
 
             int targetPort = getActualTargetPort();
-            serverChannelFuture = b.bind(targetPort).sync();
+            try {
+                serverChannelFuture = b.bind(targetPort).sync();
+            } catch (io.netty.channel.ChannelException e) {
+                // Port already in use (e.g. a @DualEngine test whose RUNTIME and AOT legs each
+                // start a server, or a second server test in the same module) surfaces as a raw
+                // Netty ChannelException. Give the actual cause + the fix instead of a bare
+                // "Address already in use".
+                throw new IllegalStateException(
+                        "Failed to bind server port "
+                                + targetPort
+                                + ": address already in use. Tests that start more than one"
+                                + " server (e.g. @DualEngine, or several server tests in one"
+                                + " module) must set server.port=0 so each server binds its own"
+                                + " ephemeral port.",
+                        e);
+            }
 
             if (System.getenv("SUMMER_DEV_PORT") != null) {
                 log.info(

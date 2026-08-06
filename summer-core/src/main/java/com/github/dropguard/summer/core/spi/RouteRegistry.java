@@ -59,8 +59,6 @@ public interface RouteRegistry {
         public final String bindingName; // e.g., value from @PathParam/@QueryParam
         public final ParamBinding binding;
         public final Class<?> type;
-        public final boolean required;
-        public final String defaultValue;
         public final boolean validated;
 
         public ParamInfo(
@@ -68,25 +66,11 @@ public interface RouteRegistry {
                 String bindingName,
                 ParamBinding binding,
                 Class<?> type,
-                boolean required,
-                String defaultValue) {
-            this(name, bindingName, binding, type, required, defaultValue, false);
-        }
-
-        public ParamInfo(
-                String name,
-                String bindingName,
-                ParamBinding binding,
-                Class<?> type,
-                boolean required,
-                String defaultValue,
                 boolean validated) {
             this.name = name;
             this.bindingName = bindingName;
             this.binding = binding;
             this.type = type;
-            this.required = required;
-            this.defaultValue = defaultValue;
             this.validated = validated;
         }
     }

@@ -32,12 +32,26 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
     private final ServerConfig config;
     private final WebServerDependencies deps;
 
+    /** The fully middleware-wrapped dispatch chain, built once at construction. */
+    private final Handler handlerChain;
+
     public NettyHttpServerHandler(
             NettyHttpServer server, ServerConfig config, WebServerDependencies deps) {
         this.server = server;
         this.config = config;
         this.deps = deps;
+        this.handlerChain = buildHandlerChain();
     }
+
+    /**
+     * Per-request slot for the raw Netty artifacts, read by the cached {@link #handlerChain}. Each
+     * request runs on a fresh virtual thread (no pooling) and the chain is synchronous, so the
+     * ThreadLocal is safe; set in {@link #processRequest} and cleared in the same finally that
+     * tears down {@code RequestContextHolder}.
+     */
+    private static final ThreadLocal<RequestSlot> REQUEST_SLOT = new ThreadLocal<>();
+
+    private record RequestSlot(ChannelHandlerContext ctx, FullHttpRequest nettyReq) {}
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest nettyReq) {
@@ -85,12 +99,13 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
                 return;
             }
 
-            Handler handler = createHandlerChain(ctx, nettyReq);
+            REQUEST_SLOT.set(new RequestSlot(ctx, nettyReq));
             try {
-                handler.handle(webCtx);
+                handlerChain.handle(webCtx);
             } finally {
                 // Tear down the request-scoped context. Runs on a fresh virtual thread
                 // per request (no pooling), so this fully releases the binding.
+                REQUEST_SLOT.remove();
                 com.github.dropguard.summer.web.RequestContextHolder.clear();
             }
 
@@ -110,59 +125,60 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
         }
     }
 
-    private Handler createHandlerChain(ChannelHandlerContext nettyCtx, FullHttpRequest nettyReq) {
-        Handler dispatchHandler =
-                (c) -> {
-                    try {
-                        if (deps.wsUpgradeHandler().isWebSocketUpgrade(nettyReq)) {
-                            deps.wsUpgradeHandler().handleUpgrade(nettyCtx, nettyReq, c);
-                            return;
-                        }
-
-                        deps.httpRouter().route(c);
-                    } catch (Exception e) {
-                        if (deps.exceptionRegistry() != null) {
-                            Handler customHandler = deps.exceptionRegistry().getHandler(e);
-                            if (customHandler != null) {
-                                try {
-                                    c.request()
-                                            .setAttribute(
-                                                    com.github.dropguard.summer.web
-                                                            .RequestAttributes.LAST_EXCEPTION,
-                                                    e);
-                                    customHandler.handle(c);
-                                    return;
-                                } catch (Exception handlerException) {
-                                    log.warn(
-                                            "Exception handler failed for: {}",
-                                            e.getClass().getName(),
-                                            handlerException);
-                                }
-                            }
-                        }
-
-                        if (e
-                                instanceof
-                                com.github.dropguard.summer.web.exception.SummerWebException
-                                        webEx) {
-                            c.status(webEx.statusCode());
-                            if (webEx.getMessage() != null) {
-                                c.text(webEx.statusCode(), webEx.getMessage());
-                            }
-                            return;
-                        }
-
-                        c.error(e);
-                        log.error("Request failed: {}", c.request().getPath(), e);
-                    }
-                };
-
-        Handler handler = dispatchHandler;
+    /**
+     * Composes the middleware chain around {@link #dispatch} once. The dispatch reads per-request
+     * Netty state from {@link #REQUEST_SLOT}, so this single chain serves every request with zero
+     * per-request allocation (the previous code re-wrapped all N middlewares per request).
+     */
+    private Handler buildHandlerChain() {
+        Handler handler = this::dispatch;
         for (Middleware middleware : deps.middlewares()) {
             handler = middleware.apply(handler);
         }
-
         return handler;
+    }
+
+    private void dispatch(HttpContext c) {
+        RequestSlot slot = REQUEST_SLOT.get();
+        try {
+            if (deps.wsUpgradeHandler().isWebSocketUpgrade(slot.nettyReq)) {
+                deps.wsUpgradeHandler().handleUpgrade(slot.ctx, slot.nettyReq, c);
+                return;
+            }
+
+            deps.httpRouter().route(c);
+        } catch (Exception e) {
+            if (deps.exceptionRegistry() != null) {
+                Handler customHandler = deps.exceptionRegistry().getHandler(e);
+                if (customHandler != null) {
+                    try {
+                        c.request()
+                                .setAttribute(
+                                        com.github.dropguard.summer.web.RequestAttributes
+                                                .LAST_EXCEPTION,
+                                        e);
+                        customHandler.handle(c);
+                        return;
+                    } catch (Exception handlerException) {
+                        log.warn(
+                                "Exception handler failed for: {}",
+                                e.getClass().getName(),
+                                handlerException);
+                    }
+                }
+            }
+
+            if (e instanceof com.github.dropguard.summer.web.exception.SummerWebException webEx) {
+                c.status(webEx.statusCode());
+                if (webEx.getMessage() != null) {
+                    c.text(webEx.statusCode(), webEx.getMessage());
+                }
+                return;
+            }
+
+            c.error(e);
+            log.error("Request failed: {}", c.request().getPath(), e);
+        }
     }
 
     private void sendResponse(ChannelHandlerContext ctx, HttpContext webCtx, boolean keepAlive) {

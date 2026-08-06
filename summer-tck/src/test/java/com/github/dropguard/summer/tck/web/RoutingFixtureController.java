@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.tck.web;
 
+import com.github.dropguard.summer.web.DefaultPageRequest;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.annotation.Delete;
@@ -43,6 +44,11 @@ public class RoutingFixtureController {
     @Delete("/users/{id}")
     public void deleteUser(HttpContext ctx, @PathParam("id") String id) {
         ctx.text(HttpStatus.OK, "deleted:" + id);
+    }
+
+    @Get("/items")
+    public void listItems(HttpContext ctx, DefaultPageRequest page) {
+        ctx.text(HttpStatus.OK, "page:" + page.page() + ":size:" + page.size());
     }
 
     @Get("/secured")

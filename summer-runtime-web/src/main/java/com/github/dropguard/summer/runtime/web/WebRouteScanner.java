@@ -13,6 +13,7 @@ import com.github.dropguard.summer.web.annotation.QueryParam;
 import com.github.dropguard.summer.web.annotation.RestController;
 import jakarta.validation.Valid;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
 import java.util.List;
 import org.slf4j.Logger;
@@ -69,6 +70,19 @@ public class WebRouteScanner implements RouteRegistrar {
             String httpMethod = resolveHttpMethod(method);
             if (httpMethod == null) {
                 continue;
+            }
+
+            // Route handlers must be public: the runtime resolves them via getMethods() (public
+            // only) and the AOT-generated adapter invokes them from another class — a non-public
+            // handler would register a route that neither engine can actually call. Fail fast at
+            // scan time, like the void/HttpContext contract below.
+            if (!Modifier.isPublic(method.getModifiers())) {
+                throw new IllegalStateException(
+                        clazz.getName()
+                                + "."
+                                + method.getName()
+                                + "() is annotated as a route but is not public. Route handlers"
+                                + " must be public.");
             }
 
             String methodPath = extractMethodPath(method);
@@ -167,8 +181,6 @@ public class WebRouteScanner implements RouteRegistrar {
                                 bindingName,
                                 RouteRegistry.ParamBinding.PATH,
                                 paramType,
-                                true, // PathParam is always required by default
-                                null,
                                 validated));
             } else if (param.isAnnotationPresent(QueryParam.class)) {
                 QueryParam queryParam = param.getAnnotation(QueryParam.class);
@@ -179,9 +191,6 @@ public class WebRouteScanner implements RouteRegistrar {
                                 bindingName,
                                 RouteRegistry.ParamBinding.QUERY,
                                 paramType,
-                                true, // default required, but can be overridden? We'll keep it
-                                // simple
-                                null,
                                 validated));
             } else if (com.github.dropguard.summer.web.ScrollRequest.class.isAssignableFrom(
                     paramType)) {
@@ -191,8 +200,7 @@ public class WebRouteScanner implements RouteRegistrar {
                                 "",
                                 RouteRegistry.ParamBinding.PAGEABLE,
                                 paramType,
-                                false,
-                                null));
+                                false));
             } else {
                 // Default: body
                 params.add(
@@ -201,8 +209,6 @@ public class WebRouteScanner implements RouteRegistrar {
                                 "",
                                 RouteRegistry.ParamBinding.BODY,
                                 paramType,
-                                false,
-                                null,
                                 validated));
             }
         }
