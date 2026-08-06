@@ -22,18 +22,20 @@ mvn install -DskipTests                  # Install all jars locally, skip tests
 ## Module Topology
 
 ```
-summer-framework (reactor POM) — 23 framework modules + 3 demos + benchmarks
+summer-framework (reactor POM) — 29 modules (framework + demos + benchmark + BOM/parents)
 
-Framework layers (ArchitectureTest-enforced):
-  Core              summer-core                    DI, annotations, config binding, exceptions
-  Infrastructure    summer-runtime, summer-aot     Runtime/AOT DI engines
-  Web               summer-web, summer-boot        HTTP abstractions, startup
-  Data              summer-data-jdbc, -redis       JDBC template, Redis client
-  CrossCutting      summer-aop, summer-tx          Interceptors, transactions
-  Server            summer-web-netty, summer-grpc  Netty HTTP, gRPC server/client
+Framework layers (ArchitectureTest-enforced, defined by package — see ArchitectureTest.java):
+  Core              summer-core                     DI, annotations, config binding, exceptions
+  Infrastructure    summer-runtime, summer-engine,  DI engines, shared discovery/SPI, AOT codegen,
+                    summer-runtime-web,              web route scanning, maven plugin
+                    summer-aot-engine, summer-maven-plugin
+  Web               summer-web (+ http/middleware/websocket), summer-boot
+  Data              summer-data-jdbc, summer-data-redis
+  CrossCutting      summer-aop, summer-tx
+  Server            summer-web-netty, summer-grpc
   Test              summer-test, summer-tck, summer-archunit
 
-Layer access rules: Core may not access any other layer. Infrastructure may be accessed by Web/Data/CrossCutting/Server/Test. Each layer's `package..` patterns are defined in ArchitectureTest.java.
+Layer access rules: Core may not access any other layer. Infrastructure may be accessed by Web/Data/CrossCutting/Server/Test.
 
 Banned dependencies (ArchUnit enforced): ClassGraph, CGLIB, ByteBuddy, Spring Framework, circular packages.
 ```
@@ -57,7 +59,7 @@ Key SPI interfaces (public, no @Internal): `ApplicationRunner`, `Provider<T>`, `
 
 Three tiers, from highest to lowest level:
 
-1. **`@SummerTest`** — declarative JUnit 5 extension. Builds a whole-universe DI container, injects via constructor. Supports `@TestProfile`, `@TestResource`, `@DualEngine`, `@Mock`. **31 test classes** already use this.
+1. **`@SummerTest`** — declarative JUnit 5 extension. Builds a whole-universe DI container, injects via constructor. Supports `@TestProfile`, `@TestResource`, `@DualEngine`, `@Mock`. **48 test classes** already use this.
 
 2. **`TestContainer.builder()`** — programmatic builder for narrow-seed or engine-forced containers. Used internally by `SummerTestLifecycle` and by a few TCK tests that need explicit control (AOT narrow builds, negative fixture isolation). `TestContainer` is `@Internal`.
 
@@ -75,11 +77,11 @@ Three tiers, from highest to lowest level:
 
 ## Current Work / Pending
 
-- **CODE-AUDIT.md** in repo root: NOT git-tracked, comprehensive audit doc. Delete when refactoring is complete.
+- **CODE-AUDIT.md** in repo root: git-tracked, comprehensive audit doc. §10 = items resolved by the 2026-08 SPI refactor; §11 = re-verification table of every remaining item (verdicts: resolved / fixed / reduced / live). Delete when §11 has no live items left.
 - **Do NOT commit without explicit user permission.**
-- Pending: RealWorld 10 defects (R1-R10), Twitter 11 defects (T1-T11), 5 architecture violations (V1-V5). See CODE-AUDIT.md for details.
-- Plan file at `.claude/plans/quirky-sauteeing-mccarthy.md`: `@TestResource` migration for demo ITs.
-- Dead code eliminated: 15 items across all modules (see CODE-AUDIT.md §5).
+- Pending (see CODE-AUDIT.md §11): engine-level dedup (6.4 `@WithDefault`×3, 6.7 `@Mock`×2, 6.10 `List<T>`×4), design decisions (8.5 `MetricsRegistry` annotation style, 8.8 `BeanEnrichment` visibility), god-class split (9.4 `WireMethodGenerator`).
+- Pending: `PostgresTestResource` for demo ITs (only `RedisTestResource` exists today).
+- Dead code eliminated: §5 items verified in CODE-AUDIT.md §11 — most auto-resolved by the refactor (5.1/5.2/5.3/5.6/5.7), 5.8 dead overloads removed, 5.9-5.11 fixed.
 
 ## Conventions
 

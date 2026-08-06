@@ -8,18 +8,20 @@
 
 ```
 summer-framework/
-├── summer-core/           # DI container, annotations, config binding
+├── summer-core/           # DI container, annotations, config binding, exceptions
+├── summer-engine/         # Shared discovery pipeline + ContainerEngine SPI (Jandex types)
 ├── summer-web/            # Router, Middleware, Handler, WS abstractions
 │   ├── summer-web-http/   #   HTTP types (thin)
 │   ├── summer-web-netty/  #   Netty server impl
 │   ├── summer-web-middleware/  # CORS, Logging, Metrics
 │   └── summer-web-websocket/   # Radix/Map WS routers
-├── summer-runtime/        # Runtime DI engine (Jandex + reflection)
+├── summer-runtime/        # Runtime DI engine (reflection; pure DI, zero web refs)
+├── summer-runtime-web/    # Web bridge: route scanning SPI impl, handler factory
 ├── summer-aot-engine/     # AOT code-gen DI engine
 ├── summer-boot/           # SummerApplication entry point
 ├── summer-aop/            # JDK proxy interceptor chain
 ├── summer-tx/             # Transaction mgmt (REQUIRED only)
-├── summer-data-jdbc/      # JDBC template + RowModel
+├── summer-data-jdbc/      # JDBC template + RowModel + JDBC tx context
 ├── summer-data-redis/     # Redis client
 ├── summer-grpc/           # gRPC client + server
 ├── summer-maven-plugin/   # AOT codegen + Jandex indexing
@@ -27,8 +29,8 @@ summer-framework/
 ├── summer-tck/            # Behavioral tests (Runtime + AOT engines)
 ├── summer-tck-fixtures/   # Shared test fixtures
 ├── summer-archunit/       # Architecture constraint tests
-├── summer-exceptions/     # Shared exception types
 ├── summer-realworld/      # RealWorld clone (hurl e2e)
+├── summer-issue-tracker/  # Issue tracker demo (PG)
 ├── summer-twitter/        # Twitter clone (PG + Redis)
 └── summer-benchmark/      # k6 load tests (Summer vs Spring Boot)
 ```
@@ -38,31 +40,34 @@ summer-framework/
 | Task | Location |
 |------|----------|
 | App entry point | `summer-boot/.../boot/SummerApplication.java` |
-| DI engine selection | `summer-core/.../core/DiEngine.java` |
-| Runtime DI (reflection) | `summer-runtime/.../runtime/RuntimeBeanContainerBuilder.java` |
+| DI engine selection | `summer-engine/.../engine/DiEngine.java` |
+| ContainerEngine SPI impls | `summer-runtime/.../runtime/RuntimeContainer.java`, `summer-aot-engine/.../aot/AotContainer.java` (via `META-INF/services`) |
+| Runtime DI (reflection) | `summer-runtime/.../runtime/RuntimeContainer.java` + `BeanInstantiator` + `JandexIndexLoader` |
 | AOT DI (code-gen) | `summer-aot-engine/.../aot/AotEngine.java` |
+| Shared discovery pipeline | `summer-engine/.../engine/Discovery.java` + `BeanEnrichment` + `SharedConditionEvaluator` |
 | HTTP server (Netty) | `summer-web-netty/.../server/NettyServerRunner.java` |
 | Router builder | `summer-web/.../web/HttpRouter.java` + Builder |
+| Web route scanning (shared SPI) | `summer-runtime-web/.../runtime/web/WebRouteScanner.java` |
 | AOP processor | `summer-runtime/.../runtime/RuntimeAopProcessor.java` |
-| Test container builder | `summer-test/.../test/Testing.java` |
-| Dual-engine TCK tests | `summer-tck/src/test/java/summer/tck/` |
-| Architecture rules | `summer-archunit/src/test/java/summer/arch/` |
-| Showcase app | `summer-twitter/src/main/java/summer/twitter/` |
-| RealWorld app | `summer-realworld/src/main/java/summer/realworld/` |
+| Test container builder | `summer-test/.../test/TestContainer.java` |
+| Dual-engine TCK tests | `summer-tck/src/test/java/com/github/dropguard/summer/tck/` |
+| Architecture rules | `summer-archunit/src/test/java/com/github/dropguard/summer/arch/` |
+| Showcase app | `summer-twitter/src/main/java/com/github/dropguard/summer/twitter/` |
+| RealWorld app | `summer-realworld/src/main/java/com/github/dropguard/summer/realworld/` |
 
 ## CONVENTIONS
 
 - **Constructor injection only** — no field/setter injection. Fail-fast on ambiguity.
 - **Interface-based AOP** — JDK dynamic proxy only. No CGLIB. Internal `this.method()` calls bypass proxy.
-- **Records for config/data** — `@ConfigurationProperties` and `@RowModel` must be Java Records.
-- **Dual DI engine** — RUNTIME (Jandex+reflection, dev) or AOT (compile-time wire(), prod). Switched via `-Dsummer.engine`.
-- **Virtual threads** — HTTP dispatch on `Thread.startVirtualThread`. `WebContext`/`Request` not thread-safe.
+- **Records for config/data** — `@ConfigMapping` interfaces and `@RowModel` records for typed config/data.
+- **Dual DI engine** — RUNTIME (reflection, dev) or AOT (compile-time wire(), prod). Switched via `-Dsummer.engine`. Both engines share the `Discovery`/`BeanEnrichment`/`SharedConditionEvaluator` pipeline in `summer-engine`.
+- **Virtual threads** — HTTP dispatch on `Thread.startVirtualThread`. `HttpContext`/`Request` not thread-safe.
 - **Singletons only** — no prototype scope. Use `Provider<T>` for manual creation.
 - **Explicit middleware** — global middleware registered via `SummerApplication.apply()`. Route-level via `Router.Builder.mount()`.
 - **REQUIRED-only transactions** — no distributed/XA.
-- **YAML config** — `application.yml` bound to `@ConfigurationProperties` records. Nested under server/data/ keys. Supports `${VAR}` and `${VAR:-default}` placeholders (resolved from env var, then system property, then default) for externalized config.
+- **YAML config** — `application.yml` bound to `@ConfigMapping` interfaces. Nested under server/data/ keys. Supports `${VAR}` and `${VAR:-default}` placeholders (resolved from env var, then system property, then default) for externalized config.
 - **Logging via SLF4J** — diagnostics go through the logging facade (SLF4J), never straight to the console. The deployer owns the logging backend/aggregation (Logback/Log4j/Loki/cloud) — same boundary as health probes and graceful shutdown. Framework bootstrap/DI/AOT stages log with the `[Summer]` prefix.
-- **Tests** — JUnit 5 + Mockito. `@SummerTest(modules = "...")` derives the bean scope from the test's own module (plus declared modules/packages); Runtime engine in dev. `@Mock` injects Mockito mocks. `*IT.java` for integration (Failsafe).
+- **Tests** — JUnit 5 + Mockito. `@SummerTest` builds a whole-universe container (narrow seeding via `TestContainer.buildForTest(Class)`); `@DualEngine` runs both engines, `@TestProfile`/`@TestResource`/`@Mock` adjust the universe. `@Mock` injects Mockito mocks. `*IT.java` for integration (Failsafe).
 
 ## ANTI-PATTERNS
 
@@ -74,7 +79,7 @@ summer-framework/
 - ~~Catch `Throwable`~~ — catch specific types. Broad `catch (Exception e)` is tolerated but discouraged.
 - ~~Empty catch blocks~~ — at minimum log the exception.
 - ~~`System.out`/`System.err`/`Throwable.printStackTrace()` in framework code~~ (ArchUnit enforced, `LoggingConventionTest`) — route through SLF4J. Sole exception: `SummerApplication`'s startup banner (class-scoped carve-out). Demos/fixtures are out of scope and may print.
-- ~~`@SuppressWarnings("unchecked")`~~ — 17 occurrences, justify in comment.
+- ~~`@SuppressWarnings("unchecked")`~~ — justify in comment (23 occurrences as of 2026-08-06).
 - ~~Returning null from methods~~ — prefer `Optional` or throw.
 - ~~`Thread.sleep()` for synchronization~~ — use proper coordination.
 
@@ -96,9 +101,8 @@ mvn compile exec:java -pl summer-twitter -am  # Run showcase app
 - JDK 25 baseline (`--sun-misc-unsafe-memory-access=allow` for Netty/AOT).
 - No Maven wrapper — CI uses `setup-java` which auto-installs Maven.
 - No `module-info.java` yet — all runs on classpath.
-- `summer-exceptions` module uses `summer.core.exception` package (cross-module package sharing with core).
+- Shared exceptions live in `summer-core/.../core/exception/` (no separate exceptions module).
 - `summer-tck` is test-only (no `src/main`). `summer-tck-fixtures` is main-only (no `src/test`).
-- Proto files at `src/main/proto/` (non-standard) not `src/main/proto/`.
 
 ## CONTAINERIZATION
 
