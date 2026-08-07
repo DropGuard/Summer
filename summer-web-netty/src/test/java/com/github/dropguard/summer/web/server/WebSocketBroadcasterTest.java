@@ -2,6 +2,7 @@ package com.github.dropguard.summer.web.server;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -10,7 +11,6 @@ import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
-import org.junit.jupiter.api.Test;
 
 @SummerTest
 class WebSocketBroadcasterTest {
@@ -21,7 +21,7 @@ class WebSocketBroadcasterTest {
         this.port = server.getPort();
     }
 
-    @Test
+    @DualEngine
     void testBroadcastRoundTrip() throws Exception {
         var received = new CompletableFuture<String>();
         HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();

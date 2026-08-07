@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.github.dropguard.summer.aot.AotContextGenerator;
 import com.github.dropguard.summer.aot.AotProxyGenerator;
+import com.github.dropguard.summer.aot.AotSourceCompiler;
 import com.github.dropguard.summer.aot.JavaSourceFiles;
 import com.github.dropguard.summer.aot.RouteAdapterGenerator;
 import com.github.dropguard.summer.aot.WireMethodGenerator;
@@ -184,10 +185,6 @@ public class SummerMojo extends AbstractMojo {
 
         log.debug("[Summer] Compiling " + sourceFiles.size() + " generated source(s)");
 
-        var compiler = javax.tools.ToolProvider.getSystemJavaCompiler();
-        if (compiler == null)
-            throw new MojoExecutionException("[Summer] No Java compiler available.");
-
         List<String> cp = new ArrayList<>();
         cp.add(outputDirectory.getAbsolutePath());
         for (Object obj : project.getArtifacts()) {
@@ -200,31 +197,26 @@ public class SummerMojo extends AbstractMojo {
         File out = new File(outputDirectory.getAbsolutePath());
         out.mkdirs();
 
-        var fm = compiler.getStandardFileManager(null, null, null);
-        var units =
-                fm.getJavaFileObjectsFromStrings(
-                        sourceFiles.stream().map(File::getAbsolutePath).toList());
-        var diags = new javax.tools.DiagnosticCollector<javax.tools.JavaFileObject>();
-        var task =
-                compiler.getTask(
-                        null,
-                        fm,
-                        diags,
+        List<javax.tools.Diagnostic<? extends javax.tools.JavaFileObject>> diags =
+                AotSourceCompiler.compile(
+                        sourceFiles,
                         List.of(
                                 "-cp",
                                 String.join(System.getProperty("path.separator"), cp),
                                 "-d",
-                                out.getAbsolutePath()),
-                        null,
-                        units);
+                                out.getAbsolutePath()));
 
-        if (!task.call()) {
-            for (var diag : diags.getDiagnostics()) {
+        if (!diags.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            for (var diag : diags) {
                 log.error("[Summer] " + diag);
+                sb.append(System.lineSeparator()).append(diag);
             }
-            throw new MojoExecutionException("[Summer] Compilation of generated sources failed");
+            // The javac diagnostics travel IN the exception: a failed AOT build must be
+            // debuggable from the failure message alone, not from scattered build-log lines.
+            throw new MojoExecutionException(
+                    "[Summer] Compilation of generated sources failed:" + sb);
         }
-        fm.close();
     }
 
     /** Ensures the packaged {@code application.yml} selects the AOT engine. */

@@ -121,10 +121,9 @@ public final class AotEngine {
     }
 
     /**
-     * Generates, compiles, loads, and caches a BeanContainer from pre-sorted bean definitions.
-     * Internal compilation stage of {@link #buildAndCompile} — the cache check lives in {@code
-     * buildAndCompile}, not here, so the early-return optimization (skip discovery + compilation on
-     * a hit) is not duplicated.
+     * Generates, compiles, and loads a BeanContainer from pre-sorted bean definitions. Internal
+     * compilation stage of {@link #buildAndCompile} — there is no in-memory container cache; every
+     * {@code buildAndCompile} call runs discovery + generation + compilation in full.
      *
      * @param moduleIndex the module index (its merged view is used for annotation resolution during
      *     code generation)
@@ -212,46 +211,28 @@ public final class AotEngine {
             return;
         }
 
-        var compiler = javax.tools.ToolProvider.getSystemJavaCompiler();
-        if (compiler == null) {
-            throw new IllegalStateException(
-                    "No system Java compiler available. "
-                            + "Ensure the project runs on a JDK, not a JRE.");
-        }
-
         String classpath = resolveClasspath();
         File out = new File(dir, "classes");
         out.mkdirs();
 
-        var fm = compiler.getStandardFileManager(null, null, null);
-        var units =
-                fm.getJavaFileObjectsFromStrings(
-                        sourceFiles.stream().map(File::getAbsolutePath).toList());
-        var diags = new javax.tools.DiagnosticCollector<javax.tools.JavaFileObject>();
-
-        var task =
-                compiler.getTask(
-                        null,
-                        fm,
-                        diags,
+        List<javax.tools.Diagnostic<? extends javax.tools.JavaFileObject>> diags =
+                AotSourceCompiler.compile(
+                        sourceFiles,
                         List.of(
                                 "-cp",
                                 classpath,
                                 "-d",
                                 out.getAbsolutePath(),
                                 "--release",
-                                String.valueOf(Runtime.version().feature())),
-                        null,
-                        units);
+                                String.valueOf(Runtime.version().feature())));
 
-        if (!task.call()) {
+        if (!diags.isEmpty()) {
             StringBuilder sb = new StringBuilder("[Summer] AOT compilation failed:\n");
-            for (var diag : diags.getDiagnostics()) {
+            for (var diag : diags) {
                 sb.append("  ").append(diag).append("\n");
             }
             throw new RuntimeException(sb.toString());
         }
-        fm.close();
     }
 
     private static void collectJavaFiles(File dir, List<File> result) {
