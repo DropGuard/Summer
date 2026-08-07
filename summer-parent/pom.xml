@@ -179,4 +179,14 @@
             </plugin>
         </plugins>
     </build>
+    <distributionManagement>
+        <!-- summer-parent is top-level (no parent of its own) and does not inherit the
+             framework root's distributionManagement; without this its deploy fails. Same
+             registry as the root. -->
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/DropGuard/Summer</url>
+        </repository>
+    </distributionManagement>
 </project>
