@@ -77,6 +77,21 @@
             </dependency>
             <dependency>
                 <groupId>com.github.dropguard</groupId>
+                <artifactId>summer-runtime-web</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.dropguard</groupId>
+                <artifactId>summer-engine</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.dropguard</groupId>
+                <artifactId>summer-aot-engine</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-grpc</artifactId>
                 <version>${project.version}</version>
             </dependency>

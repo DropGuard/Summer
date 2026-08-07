@@ -87,6 +87,54 @@ summer:
 SummerApplication.run(args);
 ```
 
+### Enabling AOT in your project
+
+Artifacts (framework + plugin) are published to **GitHub Packages** under
+`com.github.dropguard`. Add the registry to your `pom.xml` (credentials: a
+GitHub token with `read:packages`, in `settings.xml`):
+
+```xml
+<repositories>
+    <repository>
+        <id>github</id>
+        <url>https://maven.pkg.github.com/DropGuard/Summer</url>
+    </repository>
+</repositories>
+<pluginRepositories>
+    <pluginRepository>
+        <id>github</id>
+        <url>https://maven.pkg.github.com/DropGuard/Summer</url>
+    </pluginRepository>
+</pluginRepositories>
+```
+
+**Inherit `summer-build-parent`** (the Quarkus-style convention). It supplies the
+whole AOT toolchain: the Jandex index is bound automatically, and the parent's
+`pluginManagement` provides the plugin version + `generate-aot` execution — so
+enabling AOT is a single declaration, with no goals or phases to write:
+
+```xml
+<parent>
+    <groupId>com.github.dropguard</groupId>
+    <artifactId>summer-build-parent</artifactId>
+    <version>0.1.0</version>
+</parent>
+...
+<build>
+    <plugins>
+        <plugin>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-maven-plugin</artifactId>
+        </plugin>
+    </plugins>
+</build>
+```
+
+The goal runs at `process-classes`: it generates the AOT context, compiles it into
+`target/classes`, and rewrites `application.yml` to `summer.engine: aot`. See
+`summer-realworld` for a complete example. (Maven Central publishing is deferred;
+the registry above is the current distribution channel.)
+
 * * *
 ## 🎯 The Hypothesis (What Summer Tries to Prove)
 

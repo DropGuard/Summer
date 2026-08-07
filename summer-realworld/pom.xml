@@ -40,10 +40,12 @@
 
         <!-- runtime: supplies the @ConfigMapping interface binder used by tests that bind
              config interfaces via ConfigBinder (interface binding lives only in runtime). -->
+        <!-- summer-runtime must NOT be declared test-scoped here: the direct test dep would
+             override the compile-scoped transitive dep (starter → boot → runtime), stripping
+             the DI engine from the production classpath and breaking the shaded jar. -->
         <dependency>
             <groupId>com.github.dropguard</groupId>
             <artifactId>summer-runtime</artifactId>
-            <scope>test</scope>
         </dependency>
 
         <!-- H2 Database (realworld uses an in-memory DB) -->
@@ -95,9 +97,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <configuration>
                     <mainClass>com.github.dropguard.summer.realworld.Application</mainClass>
-                    <arguments>
-                        <argument>--aot</argument>
-                    </arguments>
+
                 </configuration>
             </plugin>
             <plugin>
@@ -121,9 +121,12 @@
                     </execution>
                 </executions>
             </plugin>
-                    <plugin>
-                <groupId>io.smallrye</groupId>
-                <artifactId>jandex-maven-plugin</artifactId>
+
+            <!-- AOT production build (summer-build-parent supplies version + execution):
+                 generates the AOT context, compiles it, and flips application.yml to aot. -->
+            <plugin>
+                <groupId>com.github.dropguard</groupId>
+                <artifactId>summer-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>

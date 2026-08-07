@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.github.dropguard</groupId>
+        <artifactId>summer-build-parent</artifactId>
+        <version>0.1.0</version>
+    </parent>
+    <groupId>com.example</groupId>
+    <artifactId>aot-app</artifactId>
+    <version>1.0</version>
+    <packaging>jar</packaging>
+
+    <!-- This IT is deliberately a COPY of the README's recommended user story: inherit the
+         build-parent (versions from its BOM, Jandex bound automatically, plugin execution from
+         its pluginManagement) and declare the plugin bare — the most convenient, copyable form.
+         The plugin's standalone contract (defaultPhase when bound without a phase) is exercised
+         by the in-process SummerMojoTest; a build-parent regression fails this IT. -->
+    <dependencies>
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-boot</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-runtime</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-aot-engine</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- The plugin under test, declared bare — execution + version come from the
+                 build-parent's pluginManagement. -->
+            <plugin>
+                <groupId>com.github.dropguard</groupId>
+                <artifactId>summer-maven-plugin</artifactId>
+            </plugin>
+            <!-- Run the app at verify: the app itself asserts the AOT engine and the wired
+                 bean, so the nested build's exit code is the plugin's end-to-end verdict. -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <id>run-aot-app</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>com.example.App</mainClass>
+                            <fork>true</fork>
+                            <jvmArgs>
+                                <jvmArg>--sun-misc-unsafe-memory-access=allow</jvmArg>
+                            </jvmArgs>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

@@ -124,15 +124,14 @@
     </build>
 
     <distributionManagement>
+        <!-- GitHub Packages registry (maven.pkg.github.com keeps one repository for releases
+             and snapshots alike). Deploy needs a GITHUB_TOKEN with packages:write on
+             DropGuard/Summer, wired into settings.xml under the 'github' server id. Maven
+             Central is intentionally deferred: the framework is not published there yet. -->
         <repository>
-            <id>maven-releases</id>
-            <name>Maven Releases</name>
-            <url>https://your-repository/releases</url>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/DropGuard/Summer</url>
         </repository>
-        <snapshotRepository>
-            <id>maven-snapshots</id>
-            <name>Maven Snapshots</name>
-            <url>https://your-repository/snapshots</url>
-        </snapshotRepository>
     </distributionManagement>
 </project>

@@ -46,6 +46,16 @@
     </dependencyManagement>
 
     <build>
+        <plugins>
+            <!-- Bound, not pluginManagement: the Jandex index is a pure build prerequisite for
+                 both engines (Runtime scans it at startup; the AOT plugin consumes it), so every
+                 Summer app gets it with zero declaration. Version + execution come from
+                 summer-parent's pluginManagement. -->
+            <plugin>
+                <groupId>io.smallrye</groupId>
+                <artifactId>jandex-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
         <pluginManagement>
             <plugins>
                 <plugin>

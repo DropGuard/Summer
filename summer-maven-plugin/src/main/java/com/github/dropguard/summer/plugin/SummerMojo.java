@@ -47,8 +47,13 @@ import org.slf4j.LoggerFactory;
 @Mojo(
         name = "generate-aot",
         defaultPhase = LifecyclePhase.PROCESS_CLASSES,
-        requiresDependencyResolution = ResolutionScope.TEST,
-        requiresProject = true)
+        // COMPILE_PLUS_RUNTIME, not TEST (the Quarkus BuildMojo scope): the plugin builds
+        // the PRODUCTION AOT graph — test-scoped dependencies must not enter the index
+        // (their jandex.idx would leak test-only beans into the generated container) nor
+        // the generated-code compile classpath.
+        requiresDependencyResolution = ResolutionScope.COMPILE_PLUS_RUNTIME,
+        requiresProject = true,
+        threadSafe = true)
 public class SummerMojo extends AbstractMojo {
 
     private static final Logger log = LoggerFactory.getLogger(SummerMojo.class);
@@ -65,8 +70,17 @@ public class SummerMojo extends AbstractMojo {
     @Parameter(defaultValue = "${project.build.outputDirectory}", readonly = true)
     private File outputDirectory;
 
+    /** Skips AOT generation (e.g. for fast local builds); set {@code -Dsummer.aot.skip=true}. */
+    @Parameter(defaultValue = "false", property = "summer.aot.skip")
+    private boolean skip;
+
     @Override
     public void execute() throws MojoExecutionException, MojoFailureException {
+        if (skip) {
+            log.info("[Summer] AOT generation skipped (-Dsummer.aot.skip=true)");
+            return;
+        }
+
         // A POM-packaging module (aggregator / BOM) has no classes to AOT-compile.
         if ("pom".equals(project.getPackaging())) {
             log.info("[Summer] Skipping AOT generation for POM-packaging module");
