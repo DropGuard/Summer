@@ -14,7 +14,10 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up JDK 26
+    - name: Set up JDK 25
+      # Skipped under act: the act container image (maven:3.9-eclipse-temurin-25) already
+      # provides Java 25 + Maven, and setup-java is a Node action the image lacks.
+      if: env.ACT != 'true'
       uses: actions/setup-java@v5
       with:
         java-version: '25'  # project baseline (CLAUDE.md); keep in sync
