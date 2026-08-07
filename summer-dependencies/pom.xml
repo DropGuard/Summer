@@ -340,4 +340,15 @@
             </dependency>
         </dependencies>
     </dependencyManagement>
+
+    <distributionManagement>
+        <!-- Standalone BOM (no parent): it does not inherit the root's distributionManagement,
+             and without one its deploy fails ("repository element was not specified"). Same
+             registry as the framework root. -->
+        <repository>
+            <id>github</id>
+            <name>GitHub Packages</name>
+            <url>https://maven.pkg.github.com/DropGuard/Summer</url>
+        </repository>
+    </distributionManagement>
 </project>
