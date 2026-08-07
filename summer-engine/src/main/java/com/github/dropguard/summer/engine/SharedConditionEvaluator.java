@@ -158,15 +158,22 @@ public final class SharedConditionEvaluator {
             Set<BeanDefinition> visited,
             Set<BeanDefinition> inStack,
             List<BeanDefinition> order) {
+        if (inStack.contains(bean)) {
+            // A conditional cycle (A @ConditionalOnBean B, B @ConditionalOnBean A) can never
+            // satisfy either side — it would silently drop both beans. Fail fast like the regular
+            // circular-dependency check instead of leaving the cycle undetected.
+            throw new com.github.dropguard.summer.core.exception.BeanCreationException(
+                    "Conditional dependency cycle detected: "
+                            + bean.qualifiedName
+                            + " participates in a @ConditionalOnBean cycle");
+        }
         if (visited.contains(bean)) return;
         visited.add(bean);
         inStack.add(bean);
 
         Set<BeanDefinition> beanDeps = deps.getOrDefault(bean, Set.of());
         for (BeanDefinition dep : beanDeps) {
-            if (!visited.contains(dep)) {
-                dfs(dep, deps, visited, inStack, order);
-            }
+            dfs(dep, deps, visited, inStack, order);
         }
 
         inStack.remove(bean);

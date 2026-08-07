@@ -1,6 +1,5 @@
 package com.github.dropguard.summer.core.spi;
 
-import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
 
 /**
@@ -14,7 +13,6 @@ import com.github.dropguard.summer.core.bean.BeanDefinition;
  * operates on {@link BeanDefinition} and primitive metadata (path, method, handler method name,
  * etc.).
  */
-@Internal
 public interface RouteRegistry {
 
     /**
@@ -53,7 +51,6 @@ public interface RouteRegistry {
      * <p>This is a pure data carrier that moves through the SPI; it does not reference any
      * web-specific annotation types.
      */
-    @Internal
     final class ParamInfo {
         public final String name;
         public final String bindingName; // e.g., value from @PathParam/@QueryParam
@@ -76,7 +73,6 @@ public interface RouteRegistry {
     }
 
     /** Types of parameter binding supported by the framework. */
-    @Internal
     enum ParamBinding {
         PATH,
         QUERY,

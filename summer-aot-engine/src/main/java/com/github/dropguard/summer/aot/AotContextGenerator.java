@@ -4,7 +4,6 @@ import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
 import com.github.dropguard.summer.core.bean.MockedBean;
 import com.palantir.javapoet.ClassName;
-import com.palantir.javapoet.FieldSpec;
 import com.palantir.javapoet.JavaFile;
 import com.palantir.javapoet.MethodSpec;
 import com.palantir.javapoet.TypeSpec;
@@ -109,18 +108,6 @@ public final class AotContextGenerator {
                         .addModifiers(
                                 javax.lang.model.element.Modifier.PUBLIC,
                                 javax.lang.model.element.Modifier.FINAL);
-
-        // Legacy fields for backward compatibility, no longer checked by DiEngine but
-        // kept to avoid breaking old compiled binaries that might read them.
-        type.addField(
-                FieldSpec.builder(
-                                String.class,
-                                "BEAN_FINGERPRINT",
-                                javax.lang.model.element.Modifier.PUBLIC,
-                                javax.lang.model.element.Modifier.STATIC,
-                                javax.lang.model.element.Modifier.FINAL)
-                        .initializer("$S", "dev-mode-fallback")
-                        .build());
 
         // Single build entry point: the boot path (SummerApplication passes the ordered
         // middleware list from apply(...) as external beans) and the test path (mocks travel

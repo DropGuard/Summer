@@ -114,13 +114,13 @@ public final class TestContainer {
                             : testUniverse(testClass, productionIndex, testIndexCache);
             String cacheKey =
                     beans.length > 0
-                            ? narrowCacheKey(beans, mocks)
+                            ? narrowCacheKey(beans, mocks, overrides)
                             : (testClass != null
                                     ? AotKey.forTest(testClass, overrides).cacheKey()
                                     : AotKey.forUniverse().cacheKey());
             String className =
                     beans.length > 0
-                            ? AotKey.forNarrow(narrowCacheKey(beans, mocks)).className()
+                            ? AotKey.forNarrow(narrowCacheKey(beans, mocks, overrides)).className()
                             : (testClass != null
                                     ? AotKey.forTest(testClass, overrides).className()
                                     : AotKey.forUniverse().className());
@@ -143,7 +143,8 @@ public final class TestContainer {
 
     // ── internal pipeline ────────────────────────────────────────────
 
-    private static String narrowCacheKey(Class<?>[] seeds, List<MockedBean> mocks) {
+    private static String narrowCacheKey(
+            Class<?>[] seeds, List<MockedBean> mocks, Map<String, Object> overrides) {
         String seedSig =
                 Arrays.stream(seeds).map(Class::getName).sorted().collect(Collectors.joining(","));
         String mockSig =
@@ -151,7 +152,14 @@ public final class TestContainer {
                         .map(MockedBean::targetTypeName)
                         .sorted()
                         .collect(Collectors.joining(","));
-        return seedSig + "|mocks=" + mockSig;
+        String overrideSig =
+                overrides.entrySet().stream()
+                        .sorted(Map.Entry.comparingByKey())
+                        .map(e -> e.getKey() + "=" + e.getValue())
+                        .collect(Collectors.joining(","));
+        // Overrides (@TestProfile content) change the baked config-impl literals, so they must
+        // distinguish the generated graph — same contract as AotKey.forTest.
+        return seedSig + "|mocks=" + mockSig + "|overrides=" + overrideSig;
     }
 
     private static BeanDeployment testUniverse(

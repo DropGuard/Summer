@@ -1,7 +1,5 @@
 package com.github.dropguard.summer.core.spi;
 
-import com.github.dropguard.summer.core.Internal;
-
 /**
  * SPI for registering routes discovered by extensions (e.g., summer-web).
  *
@@ -12,8 +10,12 @@ import com.github.dropguard.summer.core.Internal;
  * <p>This is the core mechanism that decouples the DI container from any specific web framework.
  * The container knows only about {@link RouteRegistry}; extensions provide the scanning and binding
  * logic for their own annotation contracts.
+ *
+ * <p>Not to be confused with {@link com.github.dropguard.summer.web.RouteRegistrar} — the
+ * user-facing registrar that {@code registerControllers(...)} into an {@code HttpRouter.Builder}.
+ * This one is the engine-level ServiceLoader SPI; the web one is the controller-registration
+ * contract. Both share the simple name by design (each is the "registrar" of its layer).
  */
-@Internal
 public interface RouteRegistrar {
 
     /**

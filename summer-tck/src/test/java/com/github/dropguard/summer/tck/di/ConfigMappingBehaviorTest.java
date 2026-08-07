@@ -3,6 +3,7 @@ package com.github.dropguard.summer.tck.di;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.dropguard.summer.core.BeanContainer;
+import com.github.dropguard.summer.core.exception.MissingFieldException;
 import com.github.dropguard.summer.fixtures.di.configprops.*;
 import com.github.dropguard.summer.fixtures.di.root.RootService;
 import com.github.dropguard.summer.test.annotation.DualEngine;
@@ -47,8 +48,13 @@ public class ConfigMappingBehaviorTest {
     }
 
     @DualEngine
-    void testMissingFieldIsNull() {
-        assertNotNull(context);
+    void testMissingFieldThrows() {
+        MissingFieldConfig cfg = context.getBean(MissingFieldConfig.class);
+        assertThrows(
+                MissingFieldException.class,
+                () -> cfg.notPresent(),
+                "a @ConfigMapping field absent from YAML with no @WithDefault must throw on"
+                        + " access, on both engines");
     }
 
     @DualEngine

@@ -46,7 +46,7 @@ Banned dependencies (ArchUnit enforced): ClassGraph, CGLIB, ByteBuddy, Spring Fr
 
 **`@Internal` annotation** (SOURCE retention): ~55 framework-internal classes are marked `@Internal`. This is the **single mechanism** for marking non-public API — there is no `internal/` package anymore. SPI interfaces and user-facing classes do NOT carry `@Internal`.
 
-Key SPI interfaces (public, no @Internal): `ApplicationRunner`, `Provider<T>`, `Handler`, `Middleware`, `AuthMiddleware`, `BodyConverter`, `HttpParameterResolver`, `MethodInterceptor`, `TransactionManager`, `RowMapper<T>`, `ContainerEngine`, `TestResource`.
+Key SPI interfaces (public, no @Internal): `ApplicationRunner`, `Handler`, `Middleware`, `AuthMiddleware`, `BodyConverter`, `HttpParameterResolver`, `MethodInterceptor`, `TransactionManager`, `RowMapper<T>`, `ContainerEngine`, `TestResource`, `RouteRegistrar` (core.spi), `RouteRegistry`.
 
 ## DI: Dual Engine (Runtime / AOT)
 
