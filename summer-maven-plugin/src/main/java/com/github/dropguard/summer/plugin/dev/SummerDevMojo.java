@@ -1,4 +1,4 @@
-package com.github.dropguard.summer.plugin;
+package com.github.dropguard.summer.plugin.dev;
 
 import java.io.File;
 import java.util.List;
@@ -9,10 +9,16 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProject;
 
+// TEST resolution is DELIBERATE here (unlike generate-aot's COMPILE_PLUS_RUNTIME): dev mode
+// runs the app against the TEST classpath so test-scoped dependencies are available while
+// developing — same choice as Quarkus dev mode. Keep in sync with getTestClasspathElements().
 @Mojo(name = "dev", requiresDependencyResolution = ResolutionScope.TEST)
 @org.apache.maven.plugins.annotations.Execute(
         phase = org.apache.maven.plugins.annotations.LifecyclePhase.COMPILE)
 public class SummerDevMojo extends AbstractMojo {
+
+    private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(SummerDevMojo.class);
 
     @Parameter(defaultValue = "${project}", readonly = true, required = true)
     private MavenProject project;
@@ -25,7 +31,7 @@ public class SummerDevMojo extends AbstractMojo {
 
     @Override
     public void execute() throws MojoExecutionException {
-        getLog().info("[Summer] Starting Summer in Dev Mode...");
+        log.info("[Summer] Starting Summer in Dev Mode...");
 
         try {
             // 1. Setup classpath and directories
@@ -40,22 +46,22 @@ public class SummerDevMojo extends AbstractMojo {
                                     + " <com.github.dropguard.summer.mainClass> in pom.xml"
                                     + " properties.");
                 }
-                getLog().info("[Summer] Auto-detected Main Class: " + mainClass);
+                log.info("[Summer] Auto-detected Main Class: " + mainClass);
             }
 
             // 2. Init Compiler & Indexer
-            HotCompiler compiler = new HotCompiler(getLog(), classpath, outputDir);
-            JandexFastIndexer indexer = new JandexFastIndexer(getLog());
+            HotCompiler compiler = new HotCompiler(classpath, outputDir);
+            JandexFastIndexer indexer = new JandexFastIndexer();
 
             // 3. Init Process Manager
-            AppProcessManager appManager = new AppProcessManager(getLog());
+            AppProcessManager appManager = new AppProcessManager();
 
             // 4. Init TCP Proxy (The core loop)
-            TcpProxy proxy = new TcpProxy(getLog(), port, compiler, indexer, appManager, mainClass);
+            TcpProxy proxy = new TcpProxy(port, compiler, indexer, appManager, mainClass);
 
             // 5. Init File Watcher (Triggers eager kill & dirty flag)
             DirectoryWatcher watcher =
-                    new DirectoryWatcher(getLog(), new File(project.getBasedir(), "src/main/java"));
+                    new DirectoryWatcher(new File(project.getBasedir(), "src/main/java"));
             watcher.start(
                     changedFile -> {
                         appManager.kill(); // EAGER KILL: break the pipe
@@ -97,7 +103,7 @@ public class SummerDevMojo extends AbstractMojo {
                 }
             }
         } catch (Exception e) {
-            getLog().warn("Failed to read Jandex index for main class detection", e);
+            log.warn("Failed to read Jandex index for main class detection", e);
         }
         return null;
     }

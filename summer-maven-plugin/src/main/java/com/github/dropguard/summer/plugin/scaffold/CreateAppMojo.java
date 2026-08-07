@@ -1,4 +1,4 @@
-package com.github.dropguard.summer.plugin;
+package com.github.dropguard.summer.plugin.scaffold;
 
 import java.io.File;
 import java.io.IOException;

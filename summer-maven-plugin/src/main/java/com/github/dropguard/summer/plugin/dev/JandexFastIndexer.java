@@ -1,10 +1,9 @@
-package com.github.dropguard.summer.plugin;
+package com.github.dropguard.summer.plugin.dev;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import org.apache.maven.plugin.logging.Log;
 import org.jboss.jandex.Index;
 import org.jboss.jandex.IndexWriter;
 import org.jboss.jandex.Indexer;
@@ -12,11 +11,10 @@ import org.jboss.jandex.Indexer;
 /** Rapidly rebuilds the jandex.idx file directly from the output directory. */
 public class JandexFastIndexer {
 
-    private final Log log;
+    private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(JandexFastIndexer.class);
 
-    public JandexFastIndexer(Log log) {
-        this.log = log;
-    }
+    public JandexFastIndexer() {}
 
     public void reindex(File outputDir) {
         try {

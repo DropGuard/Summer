@@ -1,4 +1,4 @@
-package com.github.dropguard.summer.plugin;
+package com.github.dropguard.summer.plugin.dev;
 
 import java.io.File;
 import java.io.InputStream;
@@ -8,11 +8,10 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import org.apache.maven.plugin.logging.Log;
 
 /** Layer 4 TCP Proxy. Implements "Eager Kill, Lazy Compile" holding pattern. */
 public class TcpProxy {
-    private final Log log;
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TcpProxy.class);
     private final int publicPort;
     private final HotCompiler compiler;
     private final JandexFastIndexer indexer;
@@ -28,14 +27,16 @@ public class TcpProxy {
     // The dynamic port assigned to the child JVM
     private volatile int currentBackendPort = 0;
 
+    // The port the public ServerSocket actually bound (differs from publicPort when 0 was
+    // requested, i.e. ephemeral — exposed for tests).
+    private volatile int actualPort = 0;
+
     public TcpProxy(
-            Log log,
             int publicPort,
             HotCompiler compiler,
             JandexFastIndexer indexer,
             AppProcessManager appManager,
             String mainClass) {
-        this.log = log;
         this.publicPort = publicPort;
         this.compiler = compiler;
         this.indexer = indexer;
@@ -45,6 +46,7 @@ public class TcpProxy {
 
     public void start() throws Exception {
         ServerSocket server = new ServerSocket(publicPort);
+        actualPort = server.getLocalPort();
         log.info(
                 "[Summer] TCP Proxy listening on :"
                         + publicPort
@@ -65,6 +67,11 @@ public class TcpProxy {
                 .start();
     }
 
+    /** The actual bound port of the public socket (useful when {@code publicPort} was 0). */
+    int publicPort() {
+        return actualPort;
+    }
+
     private void handleClient(Socket clientSocket) {
         new Thread(
                         () -> {
@@ -72,11 +79,27 @@ public class TcpProxy {
                                 // 1. LAZY RELOAD BARRIER
                                 synchronized (reloadLock) {
                                     if (isDirty) {
-                                        log.info(
-                                                "[Summer] Request received while dirty. Holding"
-                                                    + " connection, initiating boot sequence...");
+                                        long reloadStart = System.nanoTime();
                                         List<File> filesToCompile = new ArrayList<>(changedFiles);
                                         changedFiles.clear();
+                                        log.info(
+                                                "[Summer] Code changed — reloading"
+                                                        + (filesToCompile.isEmpty()
+                                                                ? " (initial boot)"
+                                                                : " ("
+                                                                        + filesToCompile.size()
+                                                                        + " file(s): "
+                                                                        + filesToCompile.stream()
+                                                                                .map(File::getName)
+                                                                                .sorted()
+                                                                                .collect(
+                                                                                        java.util
+                                                                                                .stream
+                                                                                                .Collectors
+                                                                                                .joining(
+                                                                                                        ", "))
+                                                                        + ")")
+                                                        + "...");
 
                                         if (!filesToCompile.isEmpty()) {
                                             compiler.compile(filesToCompile);
@@ -95,8 +118,12 @@ public class TcpProxy {
                                         Thread.sleep(500);
                                         isDirty = false;
                                         log.info(
-                                                "[Summer] Boot sequence complete. Releasing held"
-                                                        + " connections.");
+                                                "[Summer] Backend ready on :"
+                                                        + currentBackendPort
+                                                        + " after "
+                                                        + ((System.nanoTime() - reloadStart)
+                                                                / 1_000_000)
+                                                        + "ms. Releasing held connections.");
                                     }
                                 }
 

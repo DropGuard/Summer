@@ -1,20 +1,19 @@
-package com.github.dropguard.summer.plugin;
+package com.github.dropguard.summer.plugin.dev;
 
 import static java.nio.file.StandardWatchEventKinds.*;
 
 import java.io.File;
 import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
-import org.apache.maven.plugin.logging.Log;
 
 /** Recursive NIO file watcher with event debouncing. */
 public class DirectoryWatcher {
-    private final Log log;
+    private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(DirectoryWatcher.class);
     private final Path sourceDir;
     private final WatchService watcher;
 
-    public DirectoryWatcher(Log log, File sourceDir) throws Exception {
-        this.log = log;
+    public DirectoryWatcher(File sourceDir) throws Exception {
         this.sourceDir = sourceDir.toPath();
         this.watcher = FileSystems.getDefault().newWatchService();
         registerAll(this.sourceDir);

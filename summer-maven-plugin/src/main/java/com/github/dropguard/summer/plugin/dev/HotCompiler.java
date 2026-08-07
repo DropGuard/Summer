@@ -1,4 +1,4 @@
-package com.github.dropguard.summer.plugin;
+package com.github.dropguard.summer.plugin.dev;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -6,16 +6,15 @@ import java.util.Arrays;
 import java.util.List;
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
-import org.apache.maven.plugin.logging.Log;
 
 /** Executes incremental fast-compilation via the standard JavaCompiler API. */
 public class HotCompiler {
-    private final Log log;
+    private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(HotCompiler.class);
     final String classpath;
     final File outputDir;
 
-    public HotCompiler(Log log, String classpath, File outputDir) {
-        this.log = log;
+    public HotCompiler(String classpath, File outputDir) {
         this.classpath = classpath;
         this.outputDir = outputDir;
     }
