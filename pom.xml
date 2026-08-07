@@ -36,6 +36,11 @@
     </dependencyManagement>
 
     <modules>
+        <!-- Parents as modules: the archetype IT's generated project resolves summer-build-parent
+             from the local repository, so `mvn clean install` must install it (and its parent
+             summer-parent, which nothing else installs). -->
+        <module>summer-parent</module>
+        <module>summer-build-parent</module>
         <module>summer-core</module>
         <module>summer-web</module>
         <module>summer-web-http</module>
