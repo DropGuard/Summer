@@ -15,9 +15,9 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Set up JDK 26
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@v5
       with:
-        java-version: '26'
+        java-version: '25'  # project baseline (CLAUDE.md); keep in sync
         distribution: 'temurin'
         cache: maven
 

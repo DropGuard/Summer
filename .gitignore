@@ -50,7 +50,8 @@ bin/
 *.log
 
 ### Protobuf generated code ###
-**/src/**/summer/grpc/test/echo/
+# NOTE: the tck's summer/grpc/test/echo/ fixtures ARE committed (minimal hand-written stubs —
+# protoc is not available in CI, see the file headers). Do not re-ignore this path.
 
 ### Documentation ###
 .doc/
