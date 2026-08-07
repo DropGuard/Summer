@@ -203,7 +203,7 @@ Summer is an experiment in reduction — not expansion. If a feature is not list
 *   Field injection (`@Inject`, `@Autowired`, `@Value`) & Setter injection (use constructor injection exclusively)
 *   Circular dependency resolution
 *   Class-based proxying (CGLIB)
-*   Prototype scope (Singleton only; use `Provider<T>` for manual instance creation)
+*   Prototype scope (Singleton only)
 *   Multi-threaded application startup (context initialization is single-threaded by design)
 *   Distributed/XA transactions
 *   Classpath-based guessing (e.g., "if DataSource is on classpath, auto-configure JdbcTemplate"). Explicit engine selection with `@ConditionalOnBean` is supported — components may follow the active engine via marker beans.

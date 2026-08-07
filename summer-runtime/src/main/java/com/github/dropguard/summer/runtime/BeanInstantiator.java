@@ -2,7 +2,6 @@ package com.github.dropguard.summer.runtime;
 
 import com.github.dropguard.summer.aop.MethodInterceptor;
 import com.github.dropguard.summer.core.BeanContainer;
-import com.github.dropguard.summer.core.Provider;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
 import com.github.dropguard.summer.core.bean.ConfigPropertiesBean;
 import com.github.dropguard.summer.core.bean.InjectionParameter;
@@ -11,8 +10,6 @@ import com.github.dropguard.summer.core.exception.NoSuchBeanException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -29,7 +26,6 @@ import java.util.Set;
  * <ul>
  *   <li>Constructor injection
  *   <li>{@code @Bean} method invocation
- *   <li>{@link Provider} resolution
  *   <li>Interface registration
  *   <li>AOP proxy wrapping
  * </ul>
@@ -175,19 +171,7 @@ final class BeanInstantiator {
     }
 
     private void registerBean(BeanDefinition bean, Object instance) {
-        if (instance instanceof Provider<?> provider) {
-            registerProvider(bean, provider);
-        } else {
-            registerRegularBean(bean, instance);
-        }
-    }
-
-    private void registerProvider(BeanDefinition bean, Provider<?> provider) {
-        Object providedInstance = provider.provide();
-        Class<?> providedType = getProvidedType(bean.qualifiedName);
-        Class<?> providerClass = loadClassForInstantiation(bean.qualifiedName);
-        builder.register(providedType, providedInstance);
-        builder.register(providerClass, provider);
+        registerRegularBean(bean, instance);
     }
 
     private void registerRegularBean(BeanDefinition bean, Object instance) {
@@ -224,17 +208,6 @@ final class BeanInstantiator {
             }
         }
         return result;
-    }
-
-    private static Class<?> getProvidedType(String providerClassName) {
-        Class<?> providerClass = loadClassForInstantiation(providerClassName);
-        for (Type iface : providerClass.getGenericInterfaces()) {
-            if (iface instanceof ParameterizedType pt && pt.getRawType() == Provider.class) {
-                return (Class<?>) pt.getActualTypeArguments()[0];
-            }
-        }
-        throw new BeanCreationException(
-                "Could not determine provided type for: " + providerClass.getName());
     }
 
     private static Class<?> loadClassForInstantiation(String className) {

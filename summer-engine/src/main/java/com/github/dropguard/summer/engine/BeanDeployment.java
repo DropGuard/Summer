@@ -104,16 +104,20 @@ public final class BeanDeployment {
 
     /**
      * Declares engine-provided (synthetic) beans shared by every engine. The discovery {@link
-     * IndexView} is one — both Runtime and AOT need it (data-jdbc's EntityMetadataRegistrar depends
-     * on it). Registering it here, on the blueprint, means neither engine hand-registers it;
-     * Discovery folds it into the beansView. Engine-specific synthetic beans (e.g. RuntimeDiMarker)
-     * are added by the respective engine, not here.
+     * IndexView} is one — it stays on the blueprint so BOTH engines' resolvers can satisfy
+     * {@code @Bean} method parameters that take an {@code IndexView} (e.g. data-jdbc's registrar
+     * methods).
+     *
+     * <p>The AOT expression is deliberately {@code null}: the AOT wire skips null-expression
+     * synthetics, so the generated container never materializes the index at boot. That was the
+     * only place the engine-neutral layer named a summer-runtime class, and the AOT-path consumer
+     * (data-jdbc's {@code EntityMetadataRegistrar}) receives its {@code @RowModel} metadata baked
+     * at codegen time (E1) instead — a reconstructed index at boot was production-only and diverged
+     * from Runtime's test-aware discovery view. The Runtime engine materializes it from {@link
+     * #discoveryIndex()} via the synthetic instance.
      */
     private void registerEngineSyntheticBeans() {
-        addSyntheticBean(
-                IndexView.class,
-                discoveryIndex(),
-                "com.github.dropguard.summer.runtime.JandexIndexLoader.productionIndex().index()");
+        addSyntheticBean(IndexView.class, discoveryIndex(), null);
     }
 
     /**

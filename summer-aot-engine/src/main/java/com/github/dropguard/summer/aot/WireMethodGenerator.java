@@ -271,6 +271,14 @@ public final class WireMethodGenerator {
             // aotInstanceExpression, so this generator emits it verbatim without
             // knowing each synthetic type's construction.
             if (bean.syntheticInstance != null) {
+                if (bean.aotInstanceExpression == null) {
+                    // Runtime-only synthetic (the discovery IndexView): kept on the blueprint so
+                    // the resolver satisfies @Bean params, but the generated container never
+                    // materializes it — no AOT-path consumer exists since E1 baked the @RowModel
+                    // metadata at codegen, and reconstructing the index at boot would require
+                    // summer-runtime on the classpath and a boot-time scan.
+                    continue;
+                }
                 com.palantir.javapoet.CodeBlock instanceExpr = syntheticInstanceExpression(bean);
                 wire.addStatement("$T $N = $L", beanClass, varName, instanceExpr);
                 wire.addStatement("builder.register($T.class, $N)", beanClass, varName);

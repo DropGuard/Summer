@@ -55,8 +55,11 @@ class TypeConverterTest {
 
     @Test
     void shouldThrowForUnsupportedType() {
+        // Float is supported since the param-conversion unification; use a type the converter
+        // genuinely cannot coerce to.
         assertThrows(
-                ConfigurationException.class, () -> TypeConverter.convert("value", Float.class));
+                ConfigurationException.class,
+                () -> TypeConverter.convert("value", java.util.UUID.class));
     }
 
     @Test

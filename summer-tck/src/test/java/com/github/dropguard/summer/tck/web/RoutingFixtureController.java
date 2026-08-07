@@ -9,6 +9,7 @@ import com.github.dropguard.summer.web.annotation.Get;
 import com.github.dropguard.summer.web.annotation.PathParam;
 import com.github.dropguard.summer.web.annotation.Post;
 import com.github.dropguard.summer.web.annotation.Put;
+import com.github.dropguard.summer.web.annotation.QueryParam;
 import com.github.dropguard.summer.web.annotation.RestController;
 
 /**
@@ -49,6 +50,24 @@ public class RoutingFixtureController {
     @Get("/items")
     public void listItems(HttpContext ctx, DefaultPageRequest page) {
         ctx.text(HttpStatus.OK, "page:" + page.page() + ":size:" + page.size());
+    }
+
+    @Get("/color/{name}")
+    public void color(HttpContext ctx, @PathParam("name") FixtureColor color) {
+        ctx.text(HttpStatus.OK, "color:" + color.name());
+    }
+
+    @Get("/typed")
+    public void typed(
+            HttpContext ctx,
+            @QueryParam("ratio") float ratio,
+            @QueryParam("size") short size,
+            @QueryParam("flag") boolean flag,
+            @QueryParam("letter") char letter,
+            @QueryParam("hue") FixtureColor hue) {
+        ctx.text(
+                HttpStatus.OK,
+                "typed:" + ratio + ":" + size + ":" + flag + ":" + letter + ":" + hue.name());
     }
 
     @Get("/secured")

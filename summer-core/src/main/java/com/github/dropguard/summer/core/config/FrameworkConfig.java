@@ -16,6 +16,14 @@ import com.github.dropguard.summer.core.Engine;
 @ConfigMapping(prefix = "summer")
 public interface FrameworkConfig {
 
+    /**
+     * The {@code @WithDefault("runtime")} value as an {@link Engine} — the single source for the
+     * boot layer's pre-container engine resolution ({@code SummerApplication} is reflection-free,
+     * so it cannot read the annotation itself). The annotation is a compile-time literal and cannot
+     * reference this constant, so keep the two in lock-step here in one file.
+     */
+    Engine FALLBACK_ENGINE = Engine.RUNTIME;
+
     /** DI engine used to build the container. Defaults to RUNTIME; production builds set AOT. */
     @WithDefault("runtime")
     Engine engine();

@@ -51,11 +51,28 @@ class TypeReadsTest {
     @Test
     void httpParseWrapsNumericTypes() {
         CodeBlock intRead = TypeReads.httpParse("int", "ctx.request().pathParam", "id");
+        // Primitives go through TypeConverter too, cast to the boxed type (auto-unboxed into the
+        // declared variable) — one conversion authority, shared with the runtime resolvers.
         assertEquals(
-                "java.lang.Integer.parseInt(ctx.request().pathParam(\"id\"))", intRead.toString());
+                "(java.lang.Integer) com.github.dropguard.summer.core.config.TypeConverter.convert("
+                        + "ctx.request().pathParam(\"id\"), int.class)",
+                intRead.toString());
 
         CodeBlock strRead =
                 TypeReads.httpParse("java.lang.String", "ctx.request().queryParam", "q");
-        assertEquals("ctx.request().queryParam(\"q\")", strRead.toString());
+        assertEquals(
+                "(java.lang.String) com.github.dropguard.summer.core.config.TypeConverter.convert("
+                        + "ctx.request().queryParam(\"q\"), java.lang.String.class)",
+                strRead.toString());
+
+        // Enums route through the shared TypeConverter (case-insensitive coercion), never a raw
+        // String passthrough that would not compile.
+        CodeBlock enumRead =
+                TypeReads.httpParse("com.example.Status", "ctx.request().pathParam", "s");
+        assertEquals(
+                "(com.example.Status)"
+                    + " com.github.dropguard.summer.core.config.TypeConverter.convert(ctx.request().pathParam(\"s\"),"
+                    + " com.example.Status.class)",
+                enumRead.toString());
     }
 }

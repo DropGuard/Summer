@@ -48,26 +48,25 @@ public final class TypeReads {
 
     /**
      * Builds an expression that reads a request parameter named {@code paramName} via {@code
-     * reader} (e.g. {@code ctx.request().pathParam}) and converts it from String to the target type
-     * for primitive/boxed numeric and boolean types. Reference types (String, records, ...) are
-     * passed through unchanged.
+     * reader} (e.g. {@code ctx.request().pathParam}) and converts it from String to the target
+     * type. Every conversion goes through {@link TypeConverter} — the single conversion truth
+     * shared with the runtime resolvers and config binding — so both engines convert request
+     * parameters identically and the rules live in exactly one place (a duplicated parse switch is
+     * how the char arm previously shipped uncompilable, {@code Character.valueOf(String)}).
+     * Primitives cast to their boxed type and auto-unbox into the declared variable.
      */
     public static CodeBlock httpParse(String typeName, String reader, String paramName) {
         CodeBlock raw = CodeBlock.of("$L($S)", reader, paramName);
-        return switch (typeName) {
-            case "int", "java.lang.Integer" -> CodeBlock.of("java.lang.Integer.parseInt($L)", raw);
-            case "long", "java.lang.Long" -> CodeBlock.of("java.lang.Long.parseLong($L)", raw);
-            case "double", "java.lang.Double" ->
-                    CodeBlock.of("java.lang.Double.parseDouble($L)", raw);
-            case "float", "java.lang.Float" -> CodeBlock.of("java.lang.Float.parseFloat($L)", raw);
-            case "short", "java.lang.Short" -> CodeBlock.of("java.lang.Short.parseShort($L)", raw);
-            case "byte", "java.lang.Byte" -> CodeBlock.of("java.lang.Byte.parseByte($L)", raw);
-            case "boolean", "java.lang.Boolean" ->
-                    CodeBlock.of("java.lang.Boolean.parseBoolean($L)", raw);
-            case "char", "java.lang.Character" ->
-                    CodeBlock.of("$T.valueOf($L)", Character.class, raw);
-            default -> raw;
-        };
+        // The shared typeName() helper resolves primitives via PrimitiveTypes (bestGuess cannot).
+        TypeName declared = typeName(typeName);
+        TypeName castType = declared.isPrimitive() ? declared.box() : declared;
+        return CodeBlock.of(
+                "($T) $T.convert($L, $T.class)",
+                castType,
+                com.palantir.javapoet.ClassName.get(
+                        com.github.dropguard.summer.core.config.TypeConverter.class),
+                raw,
+                declared);
     }
 
     /**

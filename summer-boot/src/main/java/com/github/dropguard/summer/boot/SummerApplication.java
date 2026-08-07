@@ -1,10 +1,13 @@
 package com.github.dropguard.summer.boot;
 
 import com.github.dropguard.summer.core.BeanContainer;
+import com.github.dropguard.summer.core.Engine;
+import com.github.dropguard.summer.core.ErrorCode;
 import com.github.dropguard.summer.core.config.ConfigBinder;
 import com.github.dropguard.summer.core.config.FrameworkConfig;
+import com.github.dropguard.summer.core.exception.ConfigurationException;
 import com.github.dropguard.summer.engine.DiEngine;
-import com.github.dropguard.summer.runtime.RuntimeConfigBinder;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.bridge.SLF4JBridgeHandler;
@@ -55,16 +58,40 @@ public final class SummerApplication {
      * (application.yml + {@code ${VAR}} / {@code -D} overrides) — command-line arguments are not a
      * configuration channel. The parameter exists only to match the {@code main} convention.
      */
+    /**
+     * Resolves the DI engine from {@code summer.engine} without any engine-specific binder. The
+     * boot layer must stay engine-neutral: {@code ConfigBinder.bindSection} reads the YAML section
+     * (resolving {@code ${VAR}} placeholders for env/{@code -D} overrides), and the fallback
+     * mirrors {@code FrameworkConfig.engine()}'s {@code @WithDefault("runtime")}. Production builds
+     * flip the YAML to {@code aot} via the Maven plugin.
+     */
+    private static Engine resolveBootstrapEngine() {
+        Map<String, Object> section =
+                new ConfigBinder().bindSection(ConfigBinder.BindingContext.of(), "summer");
+        Object value = section.get("engine");
+        // Fallback mirrors FrameworkConfig.engine()'s @WithDefault via its FALLBACK_ENGINE
+        // constant (the boot layer is reflection-free, so the annotation itself is unreadable
+        // here) — the default lives in FrameworkConfig, never duplicated as a string.
+        String raw =
+                value != null
+                        ? value.toString()
+                        : FrameworkConfig.FALLBACK_ENGINE.name().toLowerCase();
+        try {
+            return Engine.valueOf(raw.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new ConfigurationException(
+                    ErrorCode.CONFIG_PARSE_ERROR,
+                    "Invalid summer.engine value: '" + raw + "' (expected runtime or aot)",
+                    e);
+        }
+    }
+
     private BeanContainer doStart(String[] args) throws Exception {
-        // Resolve engine from FrameworkConfig (with @WithDefault("runtime")).
-        FrameworkConfig fw =
-                new RuntimeConfigBinder()
-                        .bind(ConfigBinder.BindingContext.of(), "summer", FrameworkConfig.class);
         // The ordered list of middleware classes declared via apply(...) is passed
         // as a boot-time external bean (keyed by the plain List type) so the web
         // server runner can apply them in declaration order. Middleware beans
         // annotated with @GlobalMiddleware are collected automatically without this.
-        BeanContainer context = DiEngine.create(fw.engine(), this.middlewareEntries);
+        BeanContainer context = DiEngine.create(resolveBootstrapEngine(), this.middlewareEntries);
 
         System.out.println(Banner.format(context.engine().name()));
 
