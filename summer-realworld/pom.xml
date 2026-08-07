@@ -97,7 +97,6 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <configuration>
                     <mainClass>com.github.dropguard.summer.realworld.Application</mainClass>
-
                 </configuration>
             </plugin>
             <plugin>

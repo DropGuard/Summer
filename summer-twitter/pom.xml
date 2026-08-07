@@ -127,9 +127,6 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <configuration>
                     <mainClass>com.github.dropguard.summer.twitter.Application</mainClass>
-                    <arguments>
-                        <argument>--aot</argument>
-                    </arguments>
                 </configuration>
             </plugin>
             <plugin>
@@ -155,6 +152,11 @@
             </plugin>
             <plugin>
                 <artifactId>maven-failsafe-plugin</artifactId>
+            </plugin>
+            <!-- AOT production build (summer-build-parent supplies version + execution). -->
+            <plugin>
+                <groupId>com.github.dropguard</groupId>
+                <artifactId>summer-maven-plugin</artifactId>
             </plugin>
         
         </plugins>

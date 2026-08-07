@@ -36,7 +36,10 @@ jobs:
       # installs each module before the plugin module's verify phase runs its ITs.
       run: mvn clean install --batch-mode
 
-    - name: Build AOT demo (summer-realworld)
-      # The demo binds summer-maven-plugin: this proves the plugin generates + compiles the
-      # AOT context for a full-stack app (web + jdbc) and flips its application.yml to aot.
-      run: mvn -f summer-realworld/pom.xml package -DskipTests --batch-mode
+    - name: Build AOT demos (summer-realworld, summer-twitter)
+      # Both demos bind summer-maven-plugin: this proves the plugin generates + compiles the
+      # AOT context for a full-stack app (realworld: web + jdbc; twitter: + redis + grpc +
+      # websocket) and flips application.yml to aot.
+      run: |
+        mvn -f summer-realworld/pom.xml package -DskipTests --batch-mode
+        mvn -f summer-twitter/pom.xml package -DskipTests --batch-mode
