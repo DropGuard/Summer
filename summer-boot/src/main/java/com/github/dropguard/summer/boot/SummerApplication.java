@@ -64,18 +64,31 @@ public final class SummerApplication {
      * (resolving {@code ${VAR}} placeholders for env/{@code -D} overrides), and the fallback
      * mirrors {@code FrameworkConfig.engine()}'s {@code @WithDefault("runtime")}. Production builds
      * flip the YAML to {@code aot} via the Maven plugin.
+     *
+     * <p>Precedence follows the Spring/Quarkus convention: {@code -Dsummer.engine} system property,
+     * then the {@code SUMMER_ENGINE} environment variable, then the YAML value, then the default.
      */
     private static Engine resolveBootstrapEngine() {
+        // 1. Explicit system property (-Dsummer.engine) — the highest-precedence override.
+        String override = System.getProperty("summer.engine");
+        if (override == null || override.isBlank()) {
+            // 2. Environment variable (SUMMER_ENGINE) — crosses process boundaries (dev mode's
+            // child JVM cannot see the parent's -D properties, only its environment).
+            override = System.getenv("SUMMER_ENGINE");
+        }
+
         Map<String, Object> section =
                 new ConfigBinder().bindSection(ConfigBinder.BindingContext.of(), "summer");
         Object value = section.get("engine");
-        // Fallback mirrors FrameworkConfig.engine()'s @WithDefault via its FALLBACK_ENGINE
+        // Fallback mirrors FrameworkConfig.engine()'s @WithDefault via its DEV_ENGINE
         // constant (the boot layer is reflection-free, so the annotation itself is unreadable
         // here) — the default lives in FrameworkConfig, never duplicated as a string.
         String raw =
-                value != null
-                        ? value.toString()
-                        : FrameworkConfig.FALLBACK_ENGINE.name().toLowerCase();
+                override != null
+                        ? override
+                        : value != null
+                                ? value.toString()
+                                : FrameworkConfig.DEV_ENGINE.name().toLowerCase();
         try {
             return Engine.valueOf(raw.trim().toUpperCase(java.util.Locale.ROOT));
         } catch (IllegalArgumentException e) {

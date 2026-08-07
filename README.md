@@ -76,6 +76,8 @@ for debugging: pin either engine explicitly with `-Dsummer.engine`.
 
 Both engines share the same annotation contract (`@Component`, `@Configuration`, `@Bean`, `@ConditionalOnBean`, `@ConfigMapping`). Switching requires no code changes: `application.yml` defaults to `runtime` for development, and the Maven plugin rewrites it to `aot` at build time — so production builds run AOT.
 
+**Engine classpath constraint** (Quarkus-aligned): the AOT engine is wired at build time and needs no index at runtime — it is the fat-jar engine. The Runtime engine scans `META-INF/jandex.idx` at startup, so it belongs on the exploded classpath (dev mode, tests) where every jar carries its own index; a shaded fat jar collapses the index files and is AOT-only. Pin the engine with `-Dsummer.engine` / `SUMMER_ENGINE` (precedence: system property > environment variable > `application.yml` > default).
+
 ```yaml
 # application.yml — development default; the Maven plugin flips it to aot at build time
 summer:

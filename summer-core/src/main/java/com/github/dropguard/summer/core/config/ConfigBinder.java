@@ -325,10 +325,11 @@ public final class ConfigBinder {
     }
 
     private static String lookup(String name) {
-        String value = System.getenv(name);
+        // Spring/Quarkus convention: system properties (-D) outrank environment variables.
+        String value = System.getProperty(name);
         if (value != null) {
             return value;
         }
-        return System.getProperty(name);
+        return System.getenv(name);
     }
 }

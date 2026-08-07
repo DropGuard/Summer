@@ -48,6 +48,21 @@ Banned dependencies (ArchUnit enforced): ClassGraph, CGLIB, ByteBuddy, Spring Fr
 
 Key SPI interfaces (public, no @Internal): `ApplicationRunner`, `Handler`, `Middleware`, `AuthMiddleware`, `BodyConverter`, `HttpParameterResolver`, `MethodInterceptor`, `TransactionManager`, `RowMapper<T>`, `ContainerEngine`, `TestResource`, `RouteRegistrar` (core.spi), `RouteRegistry`.
 
+## Engine classpath constraint (2026-08-08 decision)
+
+- **AOT engine = fat-jar engine**: wiring is compiled at build time, no index needed at runtime.
+- **Runtime engine = exploded-classpath engine**: scans `META-INF/jandex.idx` at startup, so it
+  belongs in dev/tests where every jar carries its own index. A shaded fat jar collapses the
+  index files (same-named entries overwrite) and is **AOT-only** — the Runtime engine there
+  finds only the app's own beans (loud `NoSuchBeanException`).
+- Do NOT "fix" this with a shade ResourceTransformer: Jandex deliberately offers no writable
+  merge API (`CompositeIndex` is an in-memory view; idx files are build-time inputs). Quarkus
+  drops jandex.idx from its uber-jar for the same reason. The API's absence is the library's
+  stated position.
+- Engine override precedence (Spring/Quarkus convention): `-Dsummer.engine` > `SUMMER_ENGINE`
+  env > `application.yml` > `DEV_ENGINE` (the dev/test default). ConfigBinder `${VAR}` placeholders
+  resolve system properties before env vars (flipped 2026-08-08 to match).
+
 ## DI: Dual Engine (Runtime / AOT)
 
 - **Runtime** (`Engine.RUNTIME`): reflection-based, Jandex index scanning at startup, ~200ms. Dev mode.
