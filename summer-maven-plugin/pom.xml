@@ -66,6 +66,14 @@
             <artifactId>summer-core</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!-- Template source for the create-app goal: read from the summer-archetype artifact so
+             the scaffold stays a single source of truth (the archetype IT builds the same
+             templates end-to-end). -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-archetype</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>com.github.dropguard</groupId>
             <artifactId>summer-engine</artifactId>

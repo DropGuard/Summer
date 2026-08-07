@@ -63,6 +63,7 @@
         <module>summer-tck</module>
         <module>summer-tck-fixtures</module>
         <module>summer-tck-negative-fixtures</module>
+        <module>summer-archetype</module>
         <module>summer-maven-plugin</module>
         <module>summer-archunit</module>
         <module>summer-coverage-report</module>

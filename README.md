@@ -87,6 +87,38 @@ summer:
 SummerApplication.run(args);
 ```
 
+### Scaffold a project (recommended)
+
+One-time setup in `~/.m2/settings.xml` — register the plugin group (so `summer:`
+resolves to the plugin) and the GitHub Packages credentials:
+
+```xml
+<settings>
+  <pluginGroups>
+    <pluginGroup>com.github.dropguard</pluginGroup>
+  </pluginGroups>
+  <servers>
+    <server>
+      <id>github</id>
+      <username>YOUR_GITHUB_USERNAME</username>
+      <password>YOUR_GITHUB_TOKEN</password>
+    </server>
+  </servers>
+</settings>
+```
+
+Then scaffold with a short command (the generated project inherits
+`summer-build-parent`, declares the AOT plugin, and resolves artifacts from
+GitHub Packages — nothing to hand-write):
+
+```bash
+mvn summer:create-app -DartifactId=myapp -DgroupId=com.example
+```
+
+(The same templates are available through the standard
+`mvn archetype:generate -DarchetypeGroupId=com.github.dropguard
+-DarchetypeArtifactId=summer-archetype` flow.)
+
 ### Enabling AOT in your project
 
 Artifacts (framework + plugin) are published to **GitHub Packages** under

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.github.dropguard</groupId>
+        <artifactId>summer-build-parent</artifactId>
+        <version>${frameworkVersion}</version>
+    </parent>
+
+    <groupId>${groupId}</groupId>
+    <artifactId>${artifactId}</artifactId>
+    <version>${version}</version>
+    <packaging>jar</packaging>
+
+    <repositories>
+        <repository>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/DropGuard/Summer</url>
+        </repository>
+    </repositories>
+    <pluginRepositories>
+        <pluginRepository>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/DropGuard/Summer</url>
+        </pluginRepository>
+    </pluginRepositories>
+
+    <dependencies>
+        <!-- type=pom is required: the BOM manages the starter under that type (matching the
+             realworld demo's declaration). -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-boot-starter-web</artifactId>
+            <type>pom</type>
+        </dependency>
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-aot-engine</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- One-line AOT activation: version + generate-aot execution come from the
+                 build-parent's pluginManagement; the Jandex index is bound by the parent. -->
+            <plugin>
+                <groupId>com.github.dropguard</groupId>
+                <artifactId>summer-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>
