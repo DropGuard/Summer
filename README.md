@@ -89,6 +89,30 @@ summer:
 SummerApplication.run(args);
 ```
 
+### Dev Mode (`summer:dev`)
+
+Hot-reload development loop: a TCP proxy listens on port `8080` and forwards
+traffic to your app running in a child JVM. On a source change it kills the child
+("eager kill"), recompiles the changed files, and lazily reboots — the next request
+is held until the fresh backend is ready ("lazy compile"):
+
+```bash
+mvn summer:dev
+```
+
+- **Classpath**: the app runs on the **test classpath** (same choice as Quarkus dev
+  mode), so test-scoped dependencies are available while developing.
+- **Engine**: defaults to the Runtime engine (the dev engine) per `application.yml`;
+  pin either engine with `mvn summer:dev -Dsummer.engine=aot` — the override is
+  forwarded to the child JVM as the `SUMMER_ENGINE` environment variable.
+- **Reload**: edit a file under `src/main/java` — the watcher kills the child
+  immediately, breaking any in-flight keep-alive pipe; the next request triggers a
+  recompile and reboot (the log shows the changed files, the new backend port, and
+  the reload time).
+- **Main class**: auto-detected from the Jandex index, or set
+  `<com.github.dropguard.summer.mainClass>` in your `pom.xml`.
+- **Port**: `<com.github.dropguard.summer.dev.port>` (default `8080`).
+
 ### Scaffold a project (recommended)
 
 One-time setup in `~/.m2/settings.xml` — register the plugin group (so `summer:`
