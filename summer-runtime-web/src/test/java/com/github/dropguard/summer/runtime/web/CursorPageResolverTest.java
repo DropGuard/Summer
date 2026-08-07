@@ -103,6 +103,13 @@ class CursorPageResolverTest {
     }
 
     @Test
+    void shouldTreatUnparsableLimitAsDefault() throws Exception {
+        HttpContext ctx = ctx("limit=abc");
+        CursorPageable pageable = (CursorPageable) resolver.resolve(ctx, cursorParam());
+        assertEquals(20, pageable.limit());
+    }
+
+    @Test
     void shouldSupportCursorParameter() throws Exception {
         assertTrue(resolver.supports(cursorParam()));
     }

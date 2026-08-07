@@ -16,10 +16,9 @@ import java.util.List;
  *
  * <p>Here a parameter owns its complete information: its type, and the dependencies the resolver
  * resolved for it. The type name keeps its generic arguments ({@code
- * java.util.List<com.github.dropguard.summer.aot.testfixtures.Foo>}, not just {@code
- * java.util.List}) — the modelling phase never suffers type erasure, so no parallel collection or
- * post-hoc element-type map is needed. Position is the index in {@link BeanDefinition#parameters};
- * consumers read parameters directly.
+ * java.util.List<com.example.Foo>}, not just {@code java.util.List}) — the modelling phase never
+ * suffers type erasure, so no parallel collection or post-hoc element-type map is needed. Position
+ * is the index in {@link BeanDefinition#parameters}; consumers read parameters directly.
  *
  * <p>Whether a parameter is a {@code List} and what its element type is are <em>derived</em> from
  * {@link #typeName()} — not stored as a separate flag or sub-type. {@link #elementType()} is a
@@ -30,13 +29,11 @@ import java.util.List;
 public record InjectionParameter(String typeName, List<BeanDefinition> resolved) {
 
     /**
-     * The element type of a {@code List<T>} parameter, e.g. {@code
-     * com.github.dropguard.summer.aot.testfixtures.Foo} from {@code
-     * java.util.List<com.github.dropguard.summer.aot.testfixtures.Foo>}. Empty for non-list
-     * parameters. Derived from {@link #typeName()} — no separate storage, the modelling phase keeps
-     * the generic argument so this is just string extraction. Consumers detect a {@code List}
-     * parameter via {@code typeName().startsWith( "java.util.List<")} directly; no {@code isList()}
-     * flag is stored.
+     * The element type of a {@code List<T>} parameter, e.g. {@code com.example.Foo} from {@code
+     * java.util.List<com.example.Foo>}. Empty for non-list parameters. Derived from {@link
+     * #typeName()} — no separate storage, the modelling phase keeps the generic argument so this is
+     * just string extraction. Consumers detect a {@code List} parameter via {@code
+     * typeName().startsWith( "java.util.List<")} directly; no {@code isList()} flag is stored.
      */
     public String elementType() {
         if (!typeName.startsWith("java.util.List<") || !typeName.endsWith(">")) return "";

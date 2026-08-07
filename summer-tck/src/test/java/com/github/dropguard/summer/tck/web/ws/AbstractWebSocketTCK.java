@@ -5,7 +5,10 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.github.dropguard.summer.tck.AbstractComponentTCK;
 import com.github.dropguard.summer.web.WsRouter;
 import com.github.dropguard.summer.web.websocket.WebSocketContext;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.Test;
@@ -136,6 +139,77 @@ public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
         // Simulate handler invocation
         match.handler().handle(createMockContext(Map.of()));
         assertEquals("wildcard", received.get());
+    }
+
+    @Test
+    void testBindWiresLifecycleCallbacks() {
+        List<String> receivedMessages = new ArrayList<>();
+        AtomicReference<String> connectMessage = new AtomicReference<>();
+        AtomicBoolean closed = new AtomicBoolean(false);
+
+        WsRouter router =
+                createBuilder()
+                        .bind(
+                                "/ws/chat",
+                                ws -> {
+                                    ws.onConnect(ctx -> ctx.send("connected"));
+                                    ws.onMessage(receivedMessages::add);
+                                    ws.onClose(() -> closed.set(true));
+                                })
+                        .build();
+
+        WsRouter.WsMatch match = router.routeWs("/ws/chat");
+        assertNotNull(match, "bound path must match");
+
+        // Context that captures the callbacks the lifecycle builder wires in.
+        AtomicReference<Consumer<String>> messageConsumer = new AtomicReference<>();
+        AtomicReference<Runnable> closeHandler = new AtomicReference<>();
+        WebSocketContext ctx =
+                new WebSocketContext() {
+                    @Override
+                    public String pathParam(String name) {
+                        return null;
+                    }
+
+                    @Override
+                    public void close() {}
+
+                    @Override
+                    public String header(String name) {
+                        return null;
+                    }
+
+                    @Override
+                    public void send(String text) {
+                        connectMessage.set(text);
+                    }
+
+                    @Override
+                    public void onMessage(Consumer<String> consumer) {
+                        messageConsumer.set(consumer);
+                    }
+
+                    @Override
+                    public void onClose(Runnable onClose) {
+                        closeHandler.set(onClose);
+                    }
+
+                    @Override
+                    public <T> void onMessageAs(Class<T> type, Consumer<T> consumer) {}
+
+                    @Override
+                    public void sendJson(Object payload) {}
+                };
+
+        match.handler().handle(ctx);
+        assertEquals("connected", connectMessage.get(), "onConnect must fire on handle");
+
+        // The message handler registered via onMessage must process real messages.
+        messageConsumer.get().accept("hello");
+        assertEquals(List.of("hello"), receivedMessages);
+
+        closeHandler.get().run();
+        assertTrue(closed.get(), "onClose must fire");
     }
 
     /** Creates a mock WebSocketContext for testing. */

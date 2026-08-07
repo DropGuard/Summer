@@ -138,8 +138,8 @@ public sealed class BeanDefinition permits ConfigPropertiesBean {
      * Discovery/enrichment-phase helper: append one injection parameter with no resolved
      * dependencies yet (the resolver fills {@code resolved} later). For a {@code List<T>}
      * parameter, {@code typeName} carries its generic argument (e.g. {@code
-     * "java.util.List<com.github.dropguard.summer.aot.testfixtures.Foo>"}) so the element type
-     * stays derivable — no separate field or flag.
+     * "java.util.List<com.example.Foo>"}) so the element type stays derivable — no separate field
+     * or flag.
      */
     public void addParameter(String typeName) {
         parameters.add(new InjectionParameter(typeName, new ArrayList<>()));

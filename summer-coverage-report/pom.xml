@@ -25,6 +25,8 @@
         <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-aop</artifactId></dependency>
         <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-tx</artifactId></dependency>
         <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-runtime</artifactId></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-engine</artifactId></dependency>
+        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-runtime-web</artifactId></dependency>
         <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-grpc</artifactId></dependency>
         <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-data-redis</artifactId></dependency>
         <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-data-jdbc</artifactId></dependency>

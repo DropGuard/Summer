@@ -337,10 +337,8 @@ public final class WireMethodGenerator {
         // The construction expression is supplied at the definition site
         // (BeanDeployment/RuntimeContainer via addSyntheticBean), so this
         // generator stays ignorant of each synthetic type. Emit it verbatim.
-        if (bean.aotInstanceExpression == null) {
-            throw new IllegalStateException(
-                    "Synthetic bean has no AOT instance expression: " + bean.qualifiedName);
-        }
+        // Null expressions never reach here — the emission loop skips them
+        // (runtime-only synthetics such as the discovery IndexView).
         return com.palantir.javapoet.CodeBlock.of(bean.aotInstanceExpression);
     }
 }
