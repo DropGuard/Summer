@@ -194,6 +194,25 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
             </plugin>
+            <!-- The *IT tests were silently skipped: the failsafe's goals are NOT part of the
+                 default lifecycle bindings — a bare plugin declaration (no executions) never runs
+                 them. Explicit bindings run the integration tests at verify (the CI's stale
+                 "integration-tests profile" comment never existed). Modules without ITs pass via
+                 failIfNoTests=false. -->
+            <plugin>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <failIfNoTests>false</failIfNoTests>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
     <distributionManagement>

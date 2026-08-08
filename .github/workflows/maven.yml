@@ -32,17 +32,40 @@ jobs:
       run: mvn spotless:check --batch-mode -pl '!summer-dependencies'
         
     - name: Build with Maven
-      # The env.CI=true is automatically set by GitHub Actions,
-      # which activates our 'integration-tests' maven profile!
+      # The env.CI=true is automatically set by GitHub Actions.
       # install (not verify): the summer-maven-plugin's invoker IT runs a real nested build of
       # src/it/aot-app, which resolves the framework from the local repository — the reactor
-      # installs each module before the plugin module's verify phase runs its ITs.
+      # installs each module before the plugin module's verify phase runs its ITs. The *IT
+      # integration tests run at the verify phase (failsafe bound in summer-parent's active
+      # plugins; the old "integration-tests maven profile" never existed — a bare failsafe
+      # declaration silently skipped every IT).
       run: mvn clean install --batch-mode
 
-    - name: Build AOT demos (summer-realworld, summer-twitter)
+    - name: Verify integration tests actually ran
+      # Guards the silent-skip failure mode that hid every IT for a long time: the IT-bearing
+      # modules must produce non-zero failsafe reports, or the build goes red. (The failsafe is
+      # bound in summer-parent's active plugins; this checks the execution, not just the binding.)
+      run: |
+        failures=0
+        for module in summer-data-jdbc summer-data-redis summer-aot-engine; do
+          reports=$(find "$module/target/failsafe-reports" -name '*.txt' 2>/dev/null)
+          total=$(grep -h "Tests run" $reports 2>/dev/null | awk -F'[:,]' '{s+=$2} END {print s+0}')
+          if [ -z "$total" ] || [ "$total" -eq 0 ]; then
+            echo "::error::$module ran 0 integration tests (failsafe reports missing or empty)"
+            failures=1
+          else
+            echo "OK: $module ran $total integration tests"
+          fi
+        done
+        exit $failures
+
+    - name: Build and integration-test AOT demos (summer-realworld, summer-twitter)
       # Both demos bind summer-maven-plugin: this proves the plugin generates + compiles the
       # AOT context for a full-stack app (realworld: web + jdbc; twitter: + redis + grpc +
-      # websocket) and flips application.yml to aot.
+      # websocket) and flips application.yml to aot. verify (not package -DskipTests): the demos
+      # are NOT in the root reactor, so their failsafe ITs only run here — the old -DskipTests
+      # silently skipped every demo IT (the app-level E2E never executed).
       run: |
-        mvn -f summer-realworld/pom.xml package -DskipTests --batch-mode
-        mvn -f summer-twitter/pom.xml package -DskipTests --batch-mode
+        mvn -f summer-realworld/pom.xml verify --batch-mode
+        mvn -f summer-twitter/pom.xml verify --batch-mode
+        mvn -f summer-issue-tracker/pom.xml verify --batch-mode

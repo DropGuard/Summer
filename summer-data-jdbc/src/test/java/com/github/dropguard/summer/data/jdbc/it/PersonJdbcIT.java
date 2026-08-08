@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.test.annotation.SummerTest;
+import org.junit.jupiter.api.Test;
 
 /**
  * Framework integration contract: both DI engines assemble over a real Postgres and the {@link
@@ -18,6 +19,7 @@ public class PersonJdbcIT extends AbstractFrameworkIT {
         super(context);
     }
 
+    @Test
     void jdbcAndQueryTemplateRoundTrip() {
         PersonRepository repo = context.getBean(PersonRepository.class);
 
@@ -37,6 +39,7 @@ public class PersonJdbcIT extends AbstractFrameworkIT {
         assertEquals(1, repo.count());
     }
 
+    @Test
     void universeContainsFrameworkBeans() {
         assertTrue(context.getBeans(PersonRepository.class).iterator().hasNext());
     }
