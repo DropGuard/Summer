@@ -15,9 +15,11 @@ public class RedisTestResource implements TestResource {
                 new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
                         .withExposedPorts(6379);
         redis.start();
-        return Map.of(
-                "COM_GITHUB_DROPGUARD_SUMMER_REDIS_URI",
-                "redis://" + redis.getHost() + ":" + redis.getFirstMappedPort());
+        // Overrides are keyed by the dotted YAML path (ConfigBinder.BindingContext contract), not
+        // the env-style name — the env-style key never matched the binding and the URI silently
+        // fell back to the @WithDefault (localhost:6379). The ${COM_GITHUB_...} placeholder in the
+        // YAML is the production 12-factor form; the test override binds redis.uri directly.
+        return Map.of("redis.uri", "redis://" + redis.getHost() + ":" + redis.getFirstMappedPort());
     }
 
     @Override

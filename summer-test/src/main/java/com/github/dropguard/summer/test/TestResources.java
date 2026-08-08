@@ -1,21 +1,25 @@
 package com.github.dropguard.summer.test;
 
 import com.github.dropguard.summer.core.Internal;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Global cache of started {@link TestResource} instances.
  *
- * <p>Each unique resource class is instantiated once and started at most once. Properties from
- * {@code start()} flow into the container build as highest-priority config overrides.
+ * <p>Each unique (resource class, initArgs) pair is instantiated once and started at most once,
+ * sorted by {@link TestResource#order()} (later resources win on key overlap). Properties from
+ * {@code start()} flow into the container build as highest-priority config overrides; started
+ * instances also serve {@link TestResource#inject(TestInjector)} after a test instance is created.
  */
 @Internal
 public final class TestResources {
 
-    private static final Map<Class<? extends TestResource>, Entry> CACHE =
-            new ConcurrentHashMap<>();
+    private static final Map<ResourceKey, Entry> CACHE = new ConcurrentHashMap<>();
 
     private TestResources() {}
 
@@ -25,25 +29,59 @@ public final class TestResources {
         if (annotations.length == 0) {
             return Map.of();
         }
-        Map<String, Object> merged = new LinkedHashMap<>();
+        List<Entry> started = new ArrayList<>();
         for (com.github.dropguard.summer.test.annotation.TestResource ann : annotations) {
-            merged.putAll(forClass(ann.value()));
+            started.add(forKey(new ResourceKey(ann.value(), parseInitArgs(ann.initArgs()))));
         }
+        // Deterministic merge: later order() wins on key overlap (matches the start sequence).
+        Map<String, Object> merged = new LinkedHashMap<>();
+        started.stream()
+                .sorted(Comparator.comparingInt(e -> e.instance.order()))
+                .forEach(e -> merged.putAll(e.properties));
         return Map.copyOf(merged);
     }
 
-    private static Map<String, String> forClass(Class<? extends TestResource> clazz) {
-        return CACHE.computeIfAbsent(clazz, TestResources::startNew).properties;
+    /** Runs {@link TestResource#inject(TestInjector)} for every started resource on the class. */
+    static void injectInto(Class<?> testClass, Object testInstance) {
+        com.github.dropguard.summer.test.annotation.TestResource[] annotations =
+                collectAnnotations(testClass);
+        if (annotations.length == 0) {
+            return;
+        }
+        TestInjectorImpl injector = new TestInjectorImpl(testInstance);
+        for (com.github.dropguard.summer.test.annotation.TestResource ann : annotations) {
+            Entry entry = forKey(new ResourceKey(ann.value(), parseInitArgs(ann.initArgs())));
+            entry.instance.inject(injector);
+        }
     }
 
-    private static Entry startNew(Class<? extends TestResource> clazz) {
+    private static Entry forKey(ResourceKey key) {
+        return CACHE.computeIfAbsent(key, TestResources::startNew);
+    }
+
+    private static Entry startNew(ResourceKey key) {
         try {
-            TestResource instance = clazz.getDeclaredConstructor().newInstance();
+            TestResource instance = key.clazz.getDeclaredConstructor().newInstance();
+            instance.init(key.initArgs);
             Map<String, String> props = instance.start();
             return new Entry(instance, Map.copyOf(props));
         } catch (Exception e) {
-            throw new RuntimeException("Failed to start TestResource " + clazz.getSimpleName(), e);
+            throw new RuntimeException(
+                    "Failed to start TestResource " + key.clazz.getSimpleName(), e);
         }
+    }
+
+    private static Map<String, String> parseInitArgs(String[] initArgs) {
+        Map<String, String> parsed = new LinkedHashMap<>();
+        for (String arg : initArgs) {
+            int idx = arg.indexOf('=');
+            if (idx < 0) {
+                throw new IllegalArgumentException(
+                        "TestResource initArg must be key=value: " + arg);
+            }
+            parsed.put(arg.substring(0, idx).trim(), arg.substring(idx + 1).trim());
+        }
+        return Map.copyOf(parsed);
     }
 
     private static com.github.dropguard.summer.test.annotation.TestResource[] collectAnnotations(
@@ -72,5 +110,30 @@ public final class TestResources {
         CACHE.clear();
     }
 
+    private record ResourceKey(Class<? extends TestResource> clazz, Map<String, String> initArgs) {}
+
     private record Entry(TestResource instance, Map<String, String> properties) {}
+
+    private static final class TestInjectorImpl implements TestResource.TestInjector {
+        private final Object testInstance;
+
+        TestInjectorImpl(Object testInstance) {
+            this.testInstance = testInstance;
+        }
+
+        @Override
+        public void injectIntoFields(Object value, Class<?> fieldType) {
+            java.lang.reflect.Field[] fields = testInstance.getClass().getDeclaredFields();
+            for (java.lang.reflect.Field field : fields) {
+                if (fieldType.isAssignableFrom(field.getType())) {
+                    try {
+                        field.setAccessible(true);
+                        field.set(testInstance, value);
+                    } catch (IllegalAccessException e) {
+                        throw new RuntimeException("Failed to inject field " + field.getName(), e);
+                    }
+                }
+            }
+        }
+    }
 }

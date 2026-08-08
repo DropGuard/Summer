@@ -243,7 +243,12 @@ public final class ConfigBinder {
     }
 
     private static String[] splitDotted(String key) {
-        return key.split("\\.");
+        // Each segment is normalized to camelCase (the javadoc claimed this but it was never
+        // done): an override like "tls.cert-chain" silently failed to match the camelCase field —
+        // the same class of bug as an env-style key never reaching the binding.
+        return java.util.Arrays.stream(key.split("\\."))
+                .map(ConfigBinder::toCamelCase)
+                .toArray(String[]::new);
     }
 
     /**

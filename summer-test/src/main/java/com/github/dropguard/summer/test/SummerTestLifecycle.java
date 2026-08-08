@@ -130,7 +130,12 @@ public final class SummerTestLifecycle {
                 }
             }
         }
-        return new BuildOutcome(instantiate(testClass, container), container);
+        Object instance = instantiate(testClass, container);
+        // Resource field injection runs after the constructor injection (Quarkus' ordering):
+        // the container's constructor args resolve first, then @TestResource values (mapped
+        // ports, URLs, clients) land in the test's fields.
+        TestResources.injectInto(testClass, instance);
+        return new BuildOutcome(instance, container);
     }
 
     /** The result of {@link #createUniverse}. */
