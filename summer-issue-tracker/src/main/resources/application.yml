@@ -14,5 +14,5 @@ cors:
   max-age: 3600
 
 jwt:
-  secret: ${SUMMER_JWT_SECRET:-change-me-in-production}
+  secret: ${SUMMER_JWT_SECRET:-change-me-in-production-use-a-strong-secret-at-least-32-bytes}
   expiration-ms: 86400000

@@ -1,7 +1,5 @@
 package com.github.dropguard.summer.issuetracker.tag;
 
-import java.util.List;
-
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.issuetracker.common.BusinessException;
 import com.github.dropguard.summer.issuetracker.common.IdGenerator;
@@ -21,9 +19,13 @@ import com.github.dropguard.summer.web.annotation.Get;
 import com.github.dropguard.summer.web.annotation.PathParam;
 import com.github.dropguard.summer.web.annotation.Post;
 import com.github.dropguard.summer.web.annotation.RestController;
+import io.avaje.validation.ImportValidPojo;
 
 @RestController
 @Component
+// The validatedBody(...) call needs the avaje-generated validation adapter (@ImportValidPojo
+// triggers it — the missing adapter surfaced as 500s once the demo ITs actually ran).
+@ImportValidPojo(TagController.CreateTagRequest.class)
 public class TagController {
 
     private final TagRepository tagRepository;
@@ -34,9 +36,14 @@ public class TagController {
     private final UserRepository userRepository;
     private final ProjectAuthorization authz;
 
-    public TagController(TagRepository tagRepository, IdGenerator idGenerator, IssueService issueService,
-            IssueRepository issueRepository, ProjectRepository projectRepository,
-            UserRepository userRepository, ProjectAuthorization authz) {
+    public TagController(
+            TagRepository tagRepository,
+            IdGenerator idGenerator,
+            IssueService issueService,
+            IssueRepository issueRepository,
+            ProjectRepository projectRepository,
+            UserRepository userRepository,
+            ProjectAuthorization authz) {
         this.tagRepository = tagRepository;
         this.idGenerator = idGenerator;
         this.issueService = issueService;
@@ -86,11 +93,13 @@ public class TagController {
         // actor's organization, and the actor must be able to access the project.
         // This endpoint hits the repository directly, so the check is explicit.
         User actor = currentActor();
-        Issue issue = issueRepository.findById(id).orElseThrow(() -> BusinessException.notFound("Issue"));
+        Issue issue =
+                issueRepository.findById(id).orElseThrow(() -> BusinessException.notFound("Issue"));
         Project project = projectRepository.findById(issue.projectId()).orElseThrow();
         authz.assertSameOrg(actor, project);
         authz.assertCanAccess(actor, project);
-        Tag tag = tagRepository.findById(tagId).orElseThrow(() -> BusinessException.notFound("Tag"));
+        Tag tag =
+                tagRepository.findById(tagId).orElseThrow(() -> BusinessException.notFound("Tag"));
         if (!tag.orgId().equals(actor.orgId())) {
             throw BusinessException.forbidden("Tag does not belong to your organization");
         }
@@ -101,11 +110,13 @@ public class TagController {
     @Delete("/api/issues/:id/tags/:tagId")
     public void detach(HttpContext ctx, @PathParam("id") Long id, @PathParam("tagId") Long tagId) {
         User actor = currentActor();
-        Issue issue = issueRepository.findById(id).orElseThrow(() -> BusinessException.notFound("Issue"));
+        Issue issue =
+                issueRepository.findById(id).orElseThrow(() -> BusinessException.notFound("Issue"));
         Project project = projectRepository.findById(issue.projectId()).orElseThrow();
         authz.assertSameOrg(actor, project);
         authz.assertCanAccess(actor, project);
-        Tag tag = tagRepository.findById(tagId).orElseThrow(() -> BusinessException.notFound("Tag"));
+        Tag tag =
+                tagRepository.findById(tagId).orElseThrow(() -> BusinessException.notFound("Tag"));
         if (!tag.orgId().equals(actor.orgId())) {
             throw BusinessException.forbidden("Tag does not belong to your organization");
         }
@@ -115,7 +126,8 @@ public class TagController {
 
     private User currentActor() {
         long actorId = SecurityContext.currentUserId();
-        return userRepository.findById(actorId)
+        return userRepository
+                .findById(actorId)
                 .orElseThrow(() -> BusinessException.unauthorized("Unknown actor"));
     }
 }

@@ -7,15 +7,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-
 import org.junit.jupiter.api.Test;
 
 /**
- * Integration coverage for the timeline read path against the <b>real Redis</b>
- * dev-service — the part the pure unit tests mock away. Verifies fan-out landing
- * in a follower's timeline (zset write + read), the merge-and-ordering path, and
- * the cursor-stale fallback. This is the integration-layer blind spot that only
- * a real Redis exercises.
+ * Integration coverage for the timeline read path against the <b>real Redis</b> dev-service — the
+ * part the pure unit tests mock away. Verifies fan-out landing in a follower's timeline (zset write
+ * + read), the merge-and-ordering path, and the cursor-stale fallback. This is the
+ * integration-layer blind spot that only a real Redis exercises.
  */
 class TimelineIT extends AbstractTwitterIT {
 
@@ -23,14 +21,16 @@ class TimelineIT extends AbstractTwitterIT {
     void fanOutLandsInFollowersTimeline() throws Exception {
         // follower F follows author B; when B tweets, the virtual-thread fan-out
         // must land B's tweet in F's real-Redis timeline.
-        TokenAndUser follower = registerAndGetToken("tl_follower_" + System.nanoTime(), "password123");
+        TokenAndUser follower =
+                registerAndGetToken("tl_follower_" + System.nanoTime(), "password123");
         TokenAndUser author = registerAndGetToken("tl_author_" + System.nanoTime(), "password123");
         post("/api/users/" + author.username() + "/follow", "", follower.token());
 
         long tweetId = createTweet(author.token(), "timeline integration tweet");
 
         List<Map<?, ?>> timeline = pollTimeline(follower.token());
-        assertTrue(timeline.stream().anyMatch(t -> ((Number) t.get("id")).longValue() == tweetId),
+        assertTrue(
+                timeline.stream().anyMatch(t -> ((Number) t.get("id")).longValue() == tweetId),
                 "Follower's timeline should contain the tweet fanned out by the author");
     }
 
@@ -48,9 +48,17 @@ class TimelineIT extends AbstractTwitterIT {
         createTweet(b2.token(), "second");
         createTweet(b1.token(), "third");
 
-        var res = authGet("/api/timeline", follower.token());
-        assertEquals(200, res.statusCode());
-        List<Map<?, ?>> timeline = mapper.readValue(res.body(), List.class);
+        // The fanout runs on a virtual thread; poll (like the sibling tests) instead of a
+        // single immediate GET — a direct read here raced the async fanout and saw 0 tweets.
+        // pollTimeline returns the first non-empty page; this test needs ALL THREE tweets, so
+        // keep polling until the full fanned-out set lands (bounded, then assert the exact size).
+        List<Map<?, ?>> timeline = List.of();
+        for (int i = 0; i < 50 && timeline.size() < 3; i++) {
+            timeline = pollTimeline(follower.token());
+            if (timeline.size() < 3) {
+                java.util.concurrent.TimeUnit.MILLISECONDS.sleep(100);
+            }
+        }
         assertEquals(3, timeline.size(), "All three fanned-out tweets must appear");
 
         for (int i = 1; i < timeline.size(); i++) {
@@ -64,23 +72,31 @@ class TimelineIT extends AbstractTwitterIT {
     void cursorStaleFallsBackToHead() throws Exception {
         // A cursor id absent from the merged set must fall back to the feed head
         // rather than an empty page (deleted-tweet tolerance).
-        TokenAndUser follower = registerAndGetToken("tl_cursor_" + System.nanoTime(), "password123");
-        TokenAndUser author = registerAndGetToken("tl_cur_author_" + System.nanoTime(), "password123");
+        TokenAndUser follower =
+                registerAndGetToken("tl_cursor_" + System.nanoTime(), "password123");
+        TokenAndUser author =
+                registerAndGetToken("tl_cur_author_" + System.nanoTime(), "password123");
         post("/api/users/" + author.username() + "/follow", "", follower.token());
         createTweet(author.token(), "cursor fallback tweet");
 
         var res = authGet("/api/timeline?cursor=999999999", follower.token());
         assertEquals(200, res.statusCode());
         List<Map<?, ?>> timeline = mapper.readValue(res.body(), List.class);
-        assertFalse(timeline.isEmpty(), "Stale cursor must fall back to feed head, not an empty page");
+        assertFalse(
+                timeline.isEmpty(), "Stale cursor must fall back to feed head, not an empty page");
     }
 
     // ── helpers ──────────────────────────────────────────────────────────
 
     private long createTweet(String token, String content) throws Exception {
-        var res = post("/api/tweets", """
-                {"content":"%s"}
-                """.formatted(content), token);
+        var res =
+                post(
+                        "/api/tweets",
+                        """
+                        {"content":"%s"}
+                        """
+                                .formatted(content),
+                        token);
         assertEquals(201, res.statusCode());
         String body = res.body().strip();
         return body.startsWith("{")
