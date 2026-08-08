@@ -15,7 +15,7 @@
     <parent>
         <groupId>com.github.dropguard</groupId>
         <artifactId>summer-build-parent</artifactId>
-        <version>0.1.0</version>
+        <version>0.1.1-SNAPSHOT</version>
         <relativePath/>
     </parent>
 
@@ -33,7 +33,7 @@
 
     <groupId>com.github.dropguard.summer.issuetracker</groupId>
     <artifactId>summer-issue-tracker</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1-SNAPSHOT</version>
     <packaging>jar</packaging>
     <name>Summer Issue Tracker</name>
     <description>External demo for the Summer framework: a lightweight issue/defect tracker (mini Jira).</description>

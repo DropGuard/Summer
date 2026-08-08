@@ -2,7 +2,7 @@
 <archetype-descriptor name="summer-archetype">
     <requiredProperties>
         <requiredProperty key="frameworkVersion">
-            <defaultValue>0.1.0</defaultValue>
+            <defaultValue>0.1.1-SNAPSHOT</defaultValue>
         </requiredProperty>
     </requiredProperties>
     <fileSets>

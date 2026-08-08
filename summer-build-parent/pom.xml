@@ -14,7 +14,7 @@
         - summer-dependencies BOM import (dependency version catalog)
         - summer-maven-plugin (AOT generation, mandatory for every project)
 
-      summer.framework.version defaults to 0.1.0 here — demos always build against
+      summer.framework.version defaults to 0.1.1-SNAPSHOT here — demos always build against
       a published release. Within the reactor, summer-framework overrides it to
       ${project.version}.
     -->
@@ -22,14 +22,14 @@
     <parent>
         <groupId>com.github.dropguard</groupId>
         <artifactId>summer-parent</artifactId>
-        <version>0.1.0</version>
+        <version>0.1.1-SNAPSHOT</version>
         <!-- summer-parent is a reactor sibling (since 2026-08-08): resolve it by path, not from
              the repository, so the parent chain works in a fresh build before any install. -->
         <relativePath>../summer-parent/pom.xml</relativePath>
     </parent>
 
     <artifactId>summer-build-parent</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>Summer Build Parent</name>
