@@ -1,7 +1,7 @@
 # Summer Framework
 
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-[![Version](https://img.shields.io/badge/version-0.1.1-SNAPSHOT-blue.svg)]()
+[![Version](https://img.shields.io/badge/version-999-SNAPSHOT-blue.svg)]()
 [![Java](https://img.shields.io/badge/Java-25+-blue.svg)]()
 [![License](https://img.shields.io/badge/License-MIT-green.svg)]()
 
@@ -177,7 +177,7 @@ enabling AOT is a single declaration, with no goals or phases to write:
 <parent>
     <groupId>com.github.dropguard</groupId>
     <artifactId>summer-build-parent</artifactId>
-    <version>0.1.1-SNAPSHOT</version>
+    <version>999-SNAPSHOT</version>
 </parent>
 ...
 <build>

@@ -7,7 +7,7 @@
     <parent>
         <groupId>com.github.dropguard</groupId>
         <artifactId>summer-benchmark</artifactId>
-        <version>0.1.1-SNAPSHOT</version>
+        <version>999-SNAPSHOT</version>
     </parent>
 
     <artifactId>benchmark-summer</artifactId>
@@ -29,7 +29,7 @@
             <plugin>
                 <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-maven-plugin</artifactId>
-                <version>${com.github.dropguard.summer.framework.version}</version>
+                <version>${summer.framework.version}</version>
                 <executions>
                     <execution>
                         <id>generate-aot</id>

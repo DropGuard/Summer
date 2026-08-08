@@ -34,6 +34,11 @@ Canonical command list lives in **AGENTS.md → COMMANDS** (one source of truth)
 
 ## Publish runbook (GitHub Packages)
 
+- **Milestone release (Quarkus-style, no manual version edits)**: `mvn release:prepare` sweeps the
+  constant SNAPSHOT version to the release version across all submodules (`autoVersionSubmodules`),
+  tags `v<version>`, and pushes — the tag push fires `.github/workflows/publish.yml` →
+  `mvn -B deploy -DskipTests` (all modules). Development keeps the SNAPSHOT constant; no
+  per-change version bumps, no manual sweep.
 - Tag `v*` fires `.github/workflows/publish.yml` → `mvn -B deploy -DskipTests` (all modules).
 - gh token needs `read:packages` + `delete:packages` to list/clean partial deploys.
 - **Known failure mode**: deploy is module-by-module; a mid-reactor deploy failure leaves a partial

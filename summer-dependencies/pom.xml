@@ -6,7 +6,7 @@
 
     <groupId>com.github.dropguard</groupId>
     <artifactId>summer-dependencies</artifactId>
-    <version>0.1.1-SNAPSHOT</version>
+    <version>999-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <!-- This is a BOM (packaging=pom) with no Java sources, so the spotless

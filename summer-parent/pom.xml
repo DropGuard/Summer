@@ -24,7 +24,7 @@
 
     <groupId>com.github.dropguard</groupId>
     <artifactId>summer-parent</artifactId>
-    <version>0.1.1-SNAPSHOT</version>
+    <version>999-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>Summer Parent</name>
@@ -42,7 +42,7 @@
           <version>. Demo projects and the reactor both set this; when the reactor
           advances this property the demos follow without touching their own <version>.
         -->
-        <summer.framework.version>0.1.1-SNAPSHOT</summer.framework.version>
+        <summer.framework.version>999-SNAPSHOT</summer.framework.version>
     </properties>
 
     <build>
@@ -121,6 +121,23 @@
                     <version>3.5.5</version>
                     <configuration>
                         <argLine>@{argLine} --sun-misc-unsafe-memory-access=allow</argLine>
+                    </configuration>
+                </plugin>
+
+                <!-- ============================================================
+                     Release (Quarkus-style): the version is a constant SNAPSHOT
+                     during development; `mvn release:prepare` automates the
+                     milestone sweep (SNAPSHOT -> release, all submodules, tag
+                     v<version>, bump to the next SNAPSHOT) and the tag push fires
+                     the publish workflow. No manual version edits.
+                     ============================================================ -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-release-plugin</artifactId>
+                    <version>3.1.1</version>
+                    <configuration>
+                        <tagNameFormat>v@{project.version}</tagNameFormat>
+                        <autoVersionSubmodules>true</autoVersionSubmodules>
                     </configuration>
                 </plugin>
 
