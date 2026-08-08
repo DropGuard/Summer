@@ -3,9 +3,9 @@ package com.github.dropguard.summer.data.redis.config;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.dropguard.summer.data.redis.SummerRedisTemplate;
+import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 import io.lettuce.core.RedisClient;
-import org.junit.jupiter.api.Test;
 
 @SummerTest
 public class RedisAutoConfigurationTest {
@@ -21,7 +21,7 @@ public class RedisAutoConfigurationTest {
         this.template = template;
     }
 
-    @Test
+    @DualEngine
     void contextLoadsAndCreatesRedisBeans() {
         assertNotNull(props);
         assertEquals("redis://localhost:6379", props.uri());
@@ -29,7 +29,7 @@ public class RedisAutoConfigurationTest {
         assertNotNull(template);
     }
 
-    @Test
+    @DualEngine
     void bindingIgnoresRawSystemProperty() {
         assertEquals(
                 "redis://localhost:6379",

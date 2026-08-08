@@ -2,8 +2,8 @@ package com.github.dropguard.summer.grpc.server;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
-import org.junit.jupiter.api.Test;
 
 @SummerTest
 class GrpcServerLifecycleTest {
@@ -14,7 +14,7 @@ class GrpcServerLifecycleTest {
         this.runner = runner;
     }
 
-    @Test
+    @DualEngine
     void serverBindsAndReportsPort() {
         assertTrue(runner.getPort() > 0, "gRPC server must bind to a port");
     }

@@ -2,8 +2,8 @@ package com.github.dropguard.summer.grpc.config;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
-import org.junit.jupiter.api.Test;
 
 /**
  * Verifies that gRPC config binding pulls defaults correctly from {@code application.yml} (none
@@ -20,13 +20,13 @@ class GrpcConfigTest {
         this.tlsConfig = tlsConfig;
     }
 
-    @Test
+    @DualEngine
     void serverConfigBindsPort() {
         // Port 0 = random ephemeral port in test config; any valid port is fine.
         assertTrue(serverConfig.port() >= 0);
     }
 
-    @Test
+    @DualEngine
     void tlsConfigDefaultsToDisabled() {
         assertFalse(tlsConfig.enabled(), "TLS should default to disabled");
     }

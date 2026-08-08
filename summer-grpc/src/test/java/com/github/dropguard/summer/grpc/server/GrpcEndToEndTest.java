@@ -3,6 +3,7 @@ package com.github.dropguard.summer.grpc.server;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.dropguard.summer.fixtures.GrpcTestConfig;
+import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -10,7 +11,6 @@ import io.grpc.stub.StreamObserver;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
 
 /**
  * Canonical end-to-end test: a real gRPC client calls a service running on the Summer-managed
@@ -34,7 +34,7 @@ class GrpcEndToEndTest {
         }
     }
 
-    @Test
+    @DualEngine
     void unaryCallReturnsInterceptedResponse() throws Exception {
         channel =
                 ManagedChannelBuilder.forAddress("localhost", runner.getPort())

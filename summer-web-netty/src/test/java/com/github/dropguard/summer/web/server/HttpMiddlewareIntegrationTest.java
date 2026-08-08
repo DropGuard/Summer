@@ -2,6 +2,7 @@ package com.github.dropguard.summer.web.server;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -9,7 +10,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.List;
-import org.junit.jupiter.api.Test;
 
 @SummerTest
 class HttpMiddlewareIntegrationTest {
@@ -23,7 +23,7 @@ class HttpMiddlewareIntegrationTest {
         this.baseUrl = "http://localhost:" + server.getPort();
     }
 
-    @Test
+    @DualEngine
     void testMiddlewareInterceptsAndModifiesResponse() throws Exception {
         HttpResponse<String> response =
                 client.send(

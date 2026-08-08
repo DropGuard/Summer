@@ -3,10 +3,10 @@ package com.github.dropguard.summer.data.redis.config;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.dropguard.summer.data.redis.SummerRedisTemplate;
+import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 import com.github.dropguard.summer.test.annotation.TestResource;
 import java.time.LocalDateTime;
-import org.junit.jupiter.api.Test;
 
 @SummerTest
 @TestResource(RedisTestResource.class)
@@ -20,7 +20,7 @@ public class RedisIntegrationIT {
 
     record TestUserRecord(String name, int age, LocalDateTime registeredAt) {}
 
-    @Test
+    @DualEngine
     void realRedisOperations() {
         assertNotNull(template);
 
