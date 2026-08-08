@@ -86,7 +86,7 @@ Test              summer-test, summer-tck, summer-archunit
 - **REQUIRED-only transactions** — no distributed/XA.
 - **YAML config** — `application.yml` bound to `@ConfigMapping` interfaces. Nested under server/data/ keys. Supports `${VAR}` and `${VAR:-default}` placeholders (resolved from system property, then env var, then default — the Spring/Quarkus convention, flipped 2026-08-08) for externalized config.
 - **Logging via SLF4J** — diagnostics go through the logging facade (SLF4J), never straight to the console. The deployer owns the logging backend/aggregation (Logback/Log4j/Loki/cloud) — same boundary as health probes and graceful shutdown. Framework bootstrap/DI/AOT stages log with the `[Summer]` prefix.
-- **Tests** — JUnit 5 + Mockito. `@SummerTest` builds a whole-universe container (narrow seeding via `TestContainer.buildForTest(Class)`); `@DualEngine` runs both engines, `@TestProfile`/`@TestResource`/`@Mock` adjust the universe. `@Mock` injects Mockito mocks. `*IT.java` for integration (Failsafe).
+- **Tests** — JUnit 5 + Mockito. `@SummerTest` builds a whole-universe container (narrow seeding via `TestContainer.buildForTest(Class)`); `@DualEngine` runs both engines, `@TestProfile`/`@TestResource`/`@Mock` adjust the universe. `@Mock` injects Mockito mocks. `@TestResource` is the Quarkus lifecycle (initArgs via `init`, field injection via `inject`, `order()`); its overrides are dotted-YAML-path keys (env-style keys silently fall back to `@WithDefault` — a pinned contract in `TestResourceContractTest`). `*IT.java` runs under the Failsafe, bound in summer-parent's active plugins — the CI fails if the IT-bearing modules run 0 tests (the old bare declaration silently skipped every IT). Narrow-only fixtures live in the aot-engine's `aot.narrow` package, excluded from its jandex.idx, so the tck's whole-universe index never sees them.
 
 ## ANTI-PATTERNS
 
@@ -180,7 +180,9 @@ Three tiers, from highest to lowest level:
 2. **`TestContainer.builder()`** — programmatic builder for narrow-seed or engine-forced containers. Used internally by `SummerTestLifecycle` and by a few TCK tests needing explicit control (AOT narrow builds, negative fixture isolation). `TestContainer` is `@Internal`.
 3. **`SummerTestExtension` (via `@RegisterExtension`)** — for negative tests that assert container build **failure** (circular deps, missing deps, self-injection). `SummerTestExtension` is `@Internal`.
 
-`@TestResource` manages external resources (Postgres, Redis containers). Currently only `RedisTestResource` exists; a `PostgresTestResource` is planned for demo ITs.
+`@TestResource` manages external resources (Postgres, Redis containers): `RedisTestResource`
+(summer-data-redis) + `PostgresTestResource` (summer-data-jdbc, test scope — returns the
+`datasource.*` overrides a `@ConfigMapping(prefix = "datasource")` binds).
 
 ## JAKARTA BEAN VALIDATION
 

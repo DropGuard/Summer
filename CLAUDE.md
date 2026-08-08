@@ -53,4 +53,14 @@ Canonical command list lives in **AGENTS.md → COMMANDS** (one source of truth)
 
 - **Audit complete (2026-08-07)** — the SPI refactor + two audit rounds (§11-§14, previously tracked in the deleted `CODE-AUDIT.md`) are fully resolved; durable decisions live in code comments/javadoc.
 - **Do NOT commit without explicit user permission.**
-- Pending: `PostgresTestResource` for demo ITs (only `RedisTestResource` exists today).
+- Done (2026-08-08, verification-granularity round): the `*IT` tests were silently skipped for a
+  long time (a bare failsafe declaration never binds its goals) — failsafe is now bound in
+  summer-parent's active plugins + a CI step fails if the IT-bearing modules run 0 tests.
+  `@TestResource` gained the Quarkus lifecycle (init/inject/order + initArgs); the dotted-key
+  override contract is enforced by `TestResourceContractTest` (the RedisTestResource's env-style
+  key never matched — a latent bug the silent-skip hid). Narrow-only fixtures live in the
+  aot-engine's `aot.narrow` package, excluded from its jandex.idx (index-level isolation — the
+  tck's shared test-classes cannot host narrow configs). Dual-engine real-stack coverage:
+  `RealPostgresAotIntegrationIT` (aot-engine, real PG × both engines) + `RedisIntegrationIT`
+  (@DualEngine). Moved to the tck by semantics: `RedisPropertiesDualEngineTest`,
+  `WebSocketBroadcasterTest`, `WebSocketInterceptorIntegrationTest`, `RowModelMetadataNarrowDualEngineTest`.
