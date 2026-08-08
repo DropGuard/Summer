@@ -116,8 +116,36 @@ public final class AotEngine {
         new SharedConditionEvaluator().evaluate(beans, mockedTypeNames);
         List<BeanDefinition> sorted =
                 new SharedDependencyResolver().resolve(beans, java.util.Arrays.asList(mocks));
+        rejectNonPublicProducts(moduleIndex, sorted);
 
         return compile(moduleIndex, sorted, cacheKey, className, mocks, overrides);
+    }
+
+    /**
+     * The generated wiring references every active {@code @Bean} product by class name from another
+     * package — a package-private (or otherwise non-public) return type is not accessible
+     * cross-package and breaks the generated code. Checked after condition evaluation + resolution,
+     * so products that are conditioned out on this path (e.g. a Runtime-only registrar) are
+     * legitimately skipped and never rejected.
+     */
+    private static void rejectNonPublicProducts(
+            BeanDeployment moduleIndex, List<BeanDefinition> sorted) {
+        IndexView index = moduleIndex.discoveryIndex();
+        for (BeanDefinition bean : sorted) {
+            if (!bean.isFactoryMethod()) continue;
+            org.jboss.jandex.ClassInfo product =
+                    index.getClassByName(org.jboss.jandex.DotName.createSimple(bean.qualifiedName));
+            // JVMS 4.6 access flags — java.lang.reflect.Modifier is banned outside the runtime
+            // layer (the AOT path is reflection-free by design, see ReflectionConfinementTest).
+            final short ACC_PUBLIC = 0x0001;
+            if (product != null && (product.flags() & ACC_PUBLIC) == 0) {
+                throw new com.github.dropguard.summer.core.exception.BeanCreationException(
+                        "@Bean return type must be public: "
+                                + bean.qualifiedName
+                                + " — the AOT engine generates a cross-package reference to the"
+                                + " product class and a non-public type is not accessible there.");
+            }
+        }
     }
 
     /**
