@@ -46,6 +46,21 @@
             <artifactId>mockito-junit-jupiter</artifactId>
             <scope>compile</scope>
         </dependency>
+        <!-- Shared external-resource test support: Testcontainers + the PostgresTestResource.
+             The resource lives WITH its SPI (the TestResource javadoc uses it as the example), so
+             the tck's dual-engine real-DB tests and the data-jdbc module's ITs share one copy
+             without a dependency cycle (summer-test is below the runtime/fixtures layer). -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <!-- Override the BOM's test scope: the resource ships in summer-test's MAIN. -->
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
         <build>
         <plugins>
