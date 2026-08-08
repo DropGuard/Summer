@@ -1,13 +1,8 @@
 package com.github.dropguard.summer.realworld.user;
 
-import java.util.Optional;
-
-import com.github.dropguard.summer.realworld.user.UserDtos;
-import com.github.dropguard.summer.realworld.user.User;
-import com.github.dropguard.summer.realworld.user.UserService;
 import com.github.dropguard.summer.realworld.auth.AuthUtils;
-import com.github.dropguard.summer.realworld.common.Errors;
 import com.github.dropguard.summer.realworld.auth.JwtUtil;
+import com.github.dropguard.summer.realworld.common.Errors;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.annotation.Delete;
@@ -15,62 +10,65 @@ import com.github.dropguard.summer.web.annotation.Get;
 import com.github.dropguard.summer.web.annotation.PathParam;
 import com.github.dropguard.summer.web.annotation.Post;
 import com.github.dropguard.summer.web.annotation.RestController;
+import java.util.Optional;
 
 @RestController("/api")
 public class ProfileController {
-	private final UserService userService;
-	private final FollowService followService;
-	private final JwtUtil jwtUtil;
+    private final UserService userService;
+    private final FollowService followService;
+    private final JwtUtil jwtUtil;
 
-	public ProfileController(UserService userService, FollowService followService, JwtUtil jwtUtil) {
-		this.userService = userService;
-		this.followService = followService;
-		this.jwtUtil = jwtUtil;
-	}
+    public ProfileController(
+            UserService userService, FollowService followService, JwtUtil jwtUtil) {
+        this.userService = userService;
+        this.followService = followService;
+        this.jwtUtil = jwtUtil;
+    }
 
-	@Get("/profiles/{username}")
-	public void getProfile(HttpContext ctx, @PathParam("username") String username) {
-		Optional<User> userOpt = userService.findByUsername(username);
-		if (userOpt.isEmpty()) {
-			ctx.json(HttpStatus.NOT_FOUND, Errors.profileNotFound());
-			return;
-		}
+    @Get("/profiles/{username}")
+    public void getProfile(HttpContext ctx, @PathParam("username") String username) {
+        Optional<User> userOpt = userService.findByUsername(username);
+        if (userOpt.isEmpty()) {
+            ctx.json(HttpStatus.NOT_FOUND, Errors.profileNotFound());
+            return;
+        }
 
-		Long currentUserId = AuthUtils.tryGetCurrentUserId(ctx, jwtUtil);
-		ctx.json(HttpStatus.OK, createProfileResponse(userOpt.get(), currentUserId));
-	}
+        Long currentUserId = AuthUtils.tryGetCurrentUserId(ctx, jwtUtil);
+        ctx.json(HttpStatus.OK, createProfileResponse(userOpt.get(), currentUserId));
+    }
 
-	@Post("/profiles/{username}/follow")
-	public void followUser(HttpContext ctx, @PathParam("username") String username) {
-		Long currentUserId = AuthUtils.getCurrentUserId(ctx, jwtUtil);
+    @Post("/profiles/{username}/follow")
+    public void followUser(HttpContext ctx, @PathParam("username") String username) {
+        Long currentUserId = AuthUtils.getCurrentUserId(ctx, jwtUtil);
 
-		Optional<User> userOpt = userService.findByUsername(username);
-		if (userOpt.isEmpty()) {
-			ctx.json(HttpStatus.NOT_FOUND, Errors.profileNotFound());
-			return;
-		}
+        Optional<User> userOpt = userService.findByUsername(username);
+        if (userOpt.isEmpty()) {
+            ctx.json(HttpStatus.NOT_FOUND, Errors.profileNotFound());
+            return;
+        }
 
-		followService.follow(currentUserId, userOpt.get().getId());
-		ctx.json(HttpStatus.OK, createProfileResponse(userOpt.get(), currentUserId));
-	}
+        followService.follow(currentUserId, userOpt.get().getId());
+        ctx.json(HttpStatus.OK, createProfileResponse(userOpt.get(), currentUserId));
+    }
 
-	@Delete("/profiles/{username}/follow")
-	public void unfollowUser(HttpContext ctx, @PathParam("username") String username) {
-		Long currentUserId = AuthUtils.getCurrentUserId(ctx, jwtUtil);
+    @Delete("/profiles/{username}/follow")
+    public void unfollowUser(HttpContext ctx, @PathParam("username") String username) {
+        Long currentUserId = AuthUtils.getCurrentUserId(ctx, jwtUtil);
 
-		Optional<User> userOpt = userService.findByUsername(username);
-		if (userOpt.isEmpty()) {
-			ctx.json(HttpStatus.NOT_FOUND, Errors.profileNotFound());
-			return;
-		}
+        Optional<User> userOpt = userService.findByUsername(username);
+        if (userOpt.isEmpty()) {
+            ctx.json(HttpStatus.NOT_FOUND, Errors.profileNotFound());
+            return;
+        }
 
-		followService.unfollow(currentUserId, userOpt.get().getId());
-		ctx.json(HttpStatus.OK, createProfileResponse(userOpt.get(), currentUserId));
-	}
+        followService.unfollow(currentUserId, userOpt.get().getId());
+        ctx.json(HttpStatus.OK, createProfileResponse(userOpt.get(), currentUserId));
+    }
 
-	private UserDtos.ProfileResponse createProfileResponse(User user, Long currentUserId) {
-		boolean following = followService.isFollowing(currentUserId, user.getId());
-		return new UserDtos.ProfileResponse(
-				new UserDtos.ProfileResponse.Profile(user.getUsername(), user.getBio(), user.getImage(), following));
-	}
+    private UserDtos.ProfileResponse createProfileResponse(User user, Long currentUserId) {
+        boolean following = followService.isFollowing(currentUserId, user.getId());
+        return new UserDtos.ProfileResponse(
+                new UserDtos.ProfileResponse.Profile(
+                        user.getUsername(), user.getBio(), user.getImage(), following));
+    }
 }

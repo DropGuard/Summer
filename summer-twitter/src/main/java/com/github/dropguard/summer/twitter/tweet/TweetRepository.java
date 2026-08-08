@@ -2,7 +2,6 @@ package com.github.dropguard.summer.twitter.tweet;
 
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
-
 import java.util.List;
 
 @Component
@@ -15,12 +14,26 @@ public class TweetRepository {
     }
 
     public void insert(Tweet tweet) {
-        String sql = "INSERT INTO tweets (id, author_id, content, type, parent_id, like_count, reply_count, retweet_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        jdbcTemplate.update(sql, tweet.id(), tweet.authorId(), tweet.content(), tweet.type(), tweet.parentId(), tweet.likeCount(), tweet.replyCount(), tweet.retweetCount(), tweet.createdAt());
+        String sql =
+                "INSERT INTO tweets (id, author_id, content, type, parent_id, like_count,"
+                    + " reply_count, retweet_count, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        jdbcTemplate.update(
+                sql,
+                tweet.id(),
+                tweet.authorId(),
+                tweet.content(),
+                tweet.type(),
+                tweet.parentId(),
+                tweet.likeCount(),
+                tweet.replyCount(),
+                tweet.retweetCount(),
+                tweet.createdAt());
     }
 
     public Tweet findById(Long id) {
-        String sql = "SELECT id, author_id, content, type, parent_id, like_count, reply_count, retweet_count, created_at FROM tweets WHERE id = ?";
+        String sql =
+                "SELECT id, author_id, content, type, parent_id, like_count, reply_count,"
+                        + " retweet_count, created_at FROM tweets WHERE id = ?";
         return jdbcTemplate.queryForObject(sql, Tweet.class, id);
     }
 
@@ -31,10 +44,16 @@ public class TweetRepository {
 
     public List<Tweet> getReplies(Long parentId, Long cursor, int limit) {
         if (cursor == null) {
-            String sql = "SELECT id, author_id, content, type, parent_id, like_count, reply_count, retweet_count, created_at FROM tweets WHERE parent_id = ? ORDER BY id DESC LIMIT ?";
+            String sql =
+                    "SELECT id, author_id, content, type, parent_id, like_count, reply_count,"
+                        + " retweet_count, created_at FROM tweets WHERE parent_id = ? ORDER BY id"
+                        + " DESC LIMIT ?";
             return jdbcTemplate.queryForList(sql, Tweet.class, parentId, limit);
         } else {
-            String sql = "SELECT id, author_id, content, type, parent_id, like_count, reply_count, retweet_count, created_at FROM tweets WHERE parent_id = ? AND id < ? ORDER BY id DESC LIMIT ?";
+            String sql =
+                    "SELECT id, author_id, content, type, parent_id, like_count, reply_count,"
+                        + " retweet_count, created_at FROM tweets WHERE parent_id = ? AND id < ?"
+                        + " ORDER BY id DESC LIMIT ?";
             return jdbcTemplate.queryForList(sql, Tweet.class, parentId, cursor, limit);
         }
     }
@@ -59,13 +78,19 @@ public class TweetRepository {
             return List.of();
         }
         String placeholders = String.join(",", java.util.Collections.nCopies(ids.size(), "?"));
-        String sql = "SELECT id, author_id, content, type, parent_id, like_count, reply_count, retweet_count, created_at FROM tweets WHERE id IN (" + placeholders + ")";
+        String sql =
+                "SELECT id, author_id, content, type, parent_id, like_count, reply_count,"
+                        + " retweet_count, created_at FROM tweets WHERE id IN ("
+                        + placeholders
+                        + ")";
         return jdbcTemplate.queryForList(sql, Tweet.class, ids.toArray());
     }
 
     /** Find all replies/retweets/quotes that reference the given parent tweet. */
     public List<Tweet> findByParentId(Long parentId) {
-        String sql = "SELECT id, author_id, content, type, parent_id, like_count, reply_count, retweet_count, created_at FROM tweets WHERE parent_id = ?";
+        String sql =
+                "SELECT id, author_id, content, type, parent_id, like_count, reply_count,"
+                        + " retweet_count, created_at FROM tweets WHERE parent_id = ?";
         return jdbcTemplate.queryForList(sql, Tweet.class, parentId);
     }
 }

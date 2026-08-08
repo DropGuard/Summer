@@ -3,22 +3,19 @@ package com.github.dropguard.summer.issuetracker.security;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
+import com.github.dropguard.summer.issuetracker.AbstractIssueTrackerIT;
 import java.util.List;
 import java.util.Map;
-
 import org.junit.jupiter.api.Test;
 
-import com.github.dropguard.summer.issuetracker.AbstractIssueTrackerIT;
-
 /**
- * Verifies the demo's RBAC rules end-to-end through the HTTP API:
- *  - a project lead / manager can delete issues
- *  - a plain member can only mutate issues assigned to or reported by them
- *  - non-members cannot create or mutate
- *  - a viewer (project member with VIEWER role) can read but not write
+ * Verifies the demo's RBAC rules end-to-end through the HTTP API: - a project lead / manager can
+ * delete issues - a plain member can only mutate issues assigned to or reported by them -
+ * non-members cannot create or mutate - a viewer (project member with VIEWER role) can read but not
+ * write
  *
- * These are the demo's own business rules; the test asserts them as black-box
- * HTTP behavior, never inspecting Summer internals.
+ * <p>These are the demo's own business rules; the test asserts them as black-box HTTP behavior,
+ * never inspecting Summer internals.
  */
 class RbacIT extends AbstractIssueTrackerIT {
 
@@ -34,20 +31,32 @@ class RbacIT extends AbstractIssueTrackerIT {
 
     private long createProject(TokenAndUser owner) throws Exception {
         String key = "RBC" + System.nanoTime() % 100000;
-        var res = post("/api/projects", """
-                {"projectKey":"%s","name":"RBAC Project"}
-                """.formatted(key), owner.token());
+        var res =
+                post(
+                        "/api/projects",
+                        """
+                        {"projectKey":"%s","name":"RBAC Project"}
+                        """
+                                .formatted(key),
+                        owner.token());
         if (res.statusCode() != 201) {
-            throw new IllegalStateException("createProject failed: " + res.statusCode() + " " + res.body());
+            throw new IllegalStateException(
+                    "createProject failed: " + res.statusCode() + " " + res.body());
         }
         return ((Number) mapper.readValue(res.body(), Map.class).get("id")).longValue();
     }
 
-    private long createIssue(TokenAndUser owner, long projectId, String assigneeId) throws Exception {
+    private long createIssue(TokenAndUser owner, long projectId, String assigneeId)
+            throws Exception {
         String assigneeJson = "null".equals(assigneeId) ? "null" : assigneeId;
-        var res = post("/api/projects/" + projectId + "/issues", """
-                {"title":"Task","description":"","status":"OPEN","priority":"MEDIUM","assigneeId":%s}
-                """.formatted(assigneeJson), owner.token());
+        var res =
+                post(
+                        "/api/projects/" + projectId + "/issues",
+                        """
+                        {"title":"Task","description":"","status":"OPEN","priority":"MEDIUM","assigneeId":%s}
+                        """
+                                .formatted(assigneeJson),
+                        owner.token());
         return ((Number) mapper.readValue(res.body(), Map.class).get("id")).longValue();
     }
 
@@ -57,9 +66,13 @@ class RbacIT extends AbstractIssueTrackerIT {
         long projectId = createProject(admin);
         var outsider = registerAndLogin("rbac_outsider", "other_org");
 
-        var res = post("/api/projects/" + projectId + "/issues", """
-                {"title":"x","description":"","status":"OPEN","priority":"LOW","assigneeId":null}
-                """, outsider.token());
+        var res =
+                post(
+                        "/api/projects/" + projectId + "/issues",
+                        """
+                        {"title":"x","description":"","status":"OPEN","priority":"LOW","assigneeId":null}
+                        """,
+                        outsider.token());
         assertEquals(403, res.statusCode(), "Non-member must be forbidden to create");
     }
 
@@ -70,18 +83,26 @@ class RbacIT extends AbstractIssueTrackerIT {
         var m = member();
 
         // Enroll member into the project.
-        post("/api/projects/" + projectId + "/members", """
+        post(
+                "/api/projects/" + projectId + "/members",
+                """
                 {"userId":%d,"role":"MEMBER"}
-                """.formatted(m.userId()), admin.token());
+                """
+                        .formatted(m.userId()),
+                admin.token());
 
         // Member reports an issue themselves. In this demo reporting is implicit:
         // admin creates, then assigns to member so member "owns" it.
         long issueId = createIssue(admin, projectId, String.valueOf(m.userId()));
 
         // Member may change its status (owns it via assignment).
-        var ok = put("/api/issues/" + issueId + "/status", """
-                {"status":"IN_PROGRESS"}
-                """, m.token());
+        var ok =
+                put(
+                        "/api/issues/" + issueId + "/status",
+                        """
+                        {"status":"IN_PROGRESS"}
+                        """,
+                        m.token());
         assertEquals(200, ok.statusCode(), ok.body());
 
         // Member may NOT delete (only manager/lead can).
@@ -140,10 +161,12 @@ class RbacIT extends AbstractIssueTrackerIT {
         assertEquals(200, list.statusCode());
         Map<String, Object> page = mapper.readValue(list.body(), Map.class);
         List<Map<String, Object>> content = (List<Map<String, Object>>) page.get("content");
-        String key = content.stream()
-                .filter(i -> ((Number) i.get("id")).longValue() == issueId)
-                .map(i -> (String) i.get("issueKey"))
-                .findFirst().orElseThrow();
+        String key =
+                content.stream()
+                        .filter(i -> ((Number) i.get("id")).longValue() == issueId)
+                        .map(i -> (String) i.get("issueKey"))
+                        .findFirst()
+                        .orElseThrow();
         assertNotEquals("", key, "issue key should be populated");
         return key;
     }
@@ -156,14 +179,24 @@ class RbacIT extends AbstractIssueTrackerIT {
         var admin = admin();
         long projectId = createProject(admin);
         var m = member();
-        post("/api/projects/" + projectId + "/members", """
+        post(
+                "/api/projects/" + projectId + "/members",
+                """
                 {"userId":%d,"role":"MEMBER"}
-                """.formatted(m.userId()), admin.token());
+                """
+                        .formatted(m.userId()),
+                admin.token());
 
-        var escalate = post("/api/projects/" + projectId + "/members", """
-                {"userId":%d,"role":"ADMIN"}
-                """.formatted(m.userId()), admin.token());
-        assertEquals(400, escalate.statusCode(), "Assigning ADMIN as a project role must be rejected");
+        var escalate =
+                post(
+                        "/api/projects/" + projectId + "/members",
+                        """
+                        {"userId":%d,"role":"ADMIN"}
+                        """
+                                .formatted(m.userId()),
+                        admin.token());
+        assertEquals(
+                400, escalate.statusCode(), "Assigning ADMIN as a project role must be rejected");
     }
 
     @Test
@@ -209,9 +242,14 @@ class RbacIT extends AbstractIssueTrackerIT {
     }
 
     private long createTag(TokenAndUser owner, long orgId, String name) throws Exception {
-        var res = post("/api/orgs/" + orgId + "/tags", """
-                {"name":"%s","color":"#abcdef"}
-                """.formatted(name), owner.token());
+        var res =
+                post(
+                        "/api/orgs/" + orgId + "/tags",
+                        """
+                        {"name":"%s","color":"#abcdef"}
+                        """
+                                .formatted(name),
+                        owner.token());
         assertEquals(201, res.statusCode(), res.body());
         return ((Number) mapper.readValue(res.body(), Map.class).get("id")).longValue();
     }
@@ -222,14 +260,24 @@ class RbacIT extends AbstractIssueTrackerIT {
         long projectId = createProject(admin);
         var m = member();
         // First add succeeds.
-        var first = post("/api/projects/" + projectId + "/members", """
-                {"userId":%d,"role":"MEMBER"}
-                """.formatted(m.userId()), admin.token());
+        var first =
+                post(
+                        "/api/projects/" + projectId + "/members",
+                        """
+                        {"userId":%d,"role":"MEMBER"}
+                        """
+                                .formatted(m.userId()),
+                        admin.token());
         assertEquals(204, first.statusCode(), "First add must succeed");
         // Second add of the same user must surface a conflict, not silently no-op.
-        var second = post("/api/projects/" + projectId + "/members", """
-                {"userId":%d,"role":"MEMBER"}
-                """.formatted(m.userId()), admin.token());
+        var second =
+                post(
+                        "/api/projects/" + projectId + "/members",
+                        """
+                        {"userId":%d,"role":"MEMBER"}
+                        """
+                                .formatted(m.userId()),
+                        admin.token());
         assertEquals(409, second.statusCode(), "Duplicate member add must conflict");
     }
 }

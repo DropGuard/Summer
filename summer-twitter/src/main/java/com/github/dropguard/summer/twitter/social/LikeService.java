@@ -1,9 +1,8 @@
 package com.github.dropguard.summer.twitter.social;
 
 import com.github.dropguard.summer.core.Component;
-import com.github.dropguard.summer.twitter.tweet.TweetRepository;
 import com.github.dropguard.summer.twitter.infra.SnowflakeIdGenerator;
-
+import com.github.dropguard.summer.twitter.tweet.TweetRepository;
 import java.time.OffsetDateTime;
 
 @Component
@@ -13,7 +12,10 @@ public class LikeService {
     private final TweetRepository tweetRepository;
     private final SnowflakeIdGenerator idGenerator;
 
-    public LikeService(LikeRepository likeRepository, TweetRepository tweetRepository, SnowflakeIdGenerator idGenerator) {
+    public LikeService(
+            LikeRepository likeRepository,
+            TweetRepository tweetRepository,
+            SnowflakeIdGenerator idGenerator) {
         this.likeRepository = likeRepository;
         this.tweetRepository = tweetRepository;
         this.idGenerator = idGenerator;

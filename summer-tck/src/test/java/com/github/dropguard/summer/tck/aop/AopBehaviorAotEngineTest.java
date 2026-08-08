@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.github.dropguard.summer.core.BeanContainer;
+import org.junit.jupiter.api.Test;
 import com.github.dropguard.summer.core.Engine;
 import com.github.dropguard.summer.fixtures.aop.ClassLevelGreeter;
 import com.github.dropguard.summer.fixtures.aop.Greeter;
@@ -29,7 +30,7 @@ import java.util.List;
 @SummerTest
 public class AopBehaviorAotEngineTest {
 
-    @org.junit.jupiter.api.Test
+    @Test
     void aotEngineHonoursImplementationClassAndMethodBindings() {
         BeanContainer context =
                 TestContainer.builder().testClass(getClass()).engine(Engine.AOT).build();

@@ -3,6 +3,7 @@ package com.github.dropguard.summer.issuetracker.issue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.github.dropguard.summer.issuetracker.AbstractIssueTrackerIT;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -13,17 +14,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-
 import org.junit.jupiter.api.Test;
 
-import com.github.dropguard.summer.issuetracker.AbstractIssueTrackerIT;
-
 /**
- * Regression guard for the issue_key generation fix: keys come from an atomic
- * per-project counter (project_counters via UPDATE ... RETURNING), not
- * count(*)+1. Under concurrent creates the old approach collided on the UNIQUE
- * constraint and surfaced as a 500. This asserts every concurrent create succeeds
- * and yields a distinct key.
+ * Regression guard for the issue_key generation fix: keys come from an atomic per-project counter
+ * (project_counters via UPDATE ... RETURNING), not count(*)+1. Under concurrent creates the old
+ * approach collided on the UNIQUE constraint and surfaced as a 500. This asserts every concurrent
+ * create succeeds and yields a distinct key.
  */
 class IssueKeyConcurrencyIT extends AbstractIssueTrackerIT {
 
@@ -31,11 +28,17 @@ class IssueKeyConcurrencyIT extends AbstractIssueTrackerIT {
     void concurrentCreatesYieldDistinctKeys() throws Exception {
         var owner = registerAndLogin("conc_owner", "conc_org");
         String key = "CNC" + System.nanoTime() % 100000;
-        var projectRes = post("/api/projects", """
-                {"projectKey":"%s","name":"Conc"}
-                """.formatted(key), owner.token());
+        var projectRes =
+                post(
+                        "/api/projects",
+                        """
+                        {"projectKey":"%s","name":"Conc"}
+                        """
+                                .formatted(key),
+                        owner.token());
         assertEquals(201, projectRes.statusCode(), projectRes.body());
-        long projectId = ((Number) mapper.readValue(projectRes.body(), Map.class).get("id")).longValue();
+        long projectId =
+                ((Number) mapper.readValue(projectRes.body(), Map.class).get("id")).longValue();
 
         int threads = 16;
         ExecutorService pool = Executors.newFixedThreadPool(threads);
@@ -44,13 +47,19 @@ class IssueKeyConcurrencyIT extends AbstractIssueTrackerIT {
         List<String> keys = new ArrayList<>();
 
         for (int i = 0; i < threads; i++) {
-            futures.add(pool.submit(() -> {
-                start.await();
-                var res = post("/api/projects/" + projectId + "/issues", """
-                        {"title":"T","description":"","status":"OPEN","priority":"LOW","assigneeId":null}
-                        """, owner.token());
-                return res.statusCode();
-            }));
+            futures.add(
+                    pool.submit(
+                            () -> {
+                                start.await();
+                                var res =
+                                        post(
+                                                "/api/projects/" + projectId + "/issues",
+                                                """
+                                                {"title":"T","description":"","status":"OPEN","priority":"LOW","assigneeId":null}
+                                                """,
+                                                owner.token());
+                                return res.statusCode();
+                            }));
         }
 
         start.countDown();
@@ -69,7 +78,9 @@ class IssueKeyConcurrencyIT extends AbstractIssueTrackerIT {
             distinct.add((String) it.get("issueKey"));
         }
         assertEquals(threads, distinct.size(), "No duplicate issue keys under concurrency");
-        assertTrue(distinct.stream().allMatch(k -> k.startsWith(key + "-")), "Keys keep the project prefix");
+        assertTrue(
+                distinct.stream().allMatch(k -> k.startsWith(key + "-")),
+                "Keys keep the project prefix");
     }
 
     @SuppressWarnings("unchecked")

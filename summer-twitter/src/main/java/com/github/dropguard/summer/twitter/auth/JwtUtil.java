@@ -1,16 +1,15 @@
 package com.github.dropguard.summer.twitter.auth;
 
+import com.github.dropguard.summer.core.Component;
+import com.github.dropguard.summer.twitter.common.BusinessException;
+import com.github.dropguard.summer.web.HttpStatus;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
-import com.github.dropguard.summer.core.Component;
-import com.github.dropguard.summer.twitter.common.BusinessException;
-import com.github.dropguard.summer.web.HttpStatus;
-
-import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import javax.crypto.SecretKey;
 
 @Component
 public class JwtUtil {
@@ -53,31 +52,32 @@ public class JwtUtil {
     }
 
     public Claims extractClaims(String token) {
-        return Jwts.parser()
-                .verifyWith(key)
-                .build()
-                .parseSignedClaims(token)
-                .getPayload();
+        return Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
     }
 
     /** Validates an access token and returns the user ID. */
     public Long validateAccessToken(String token) {
         if (token == null || token.isBlank()) {
-            throw new BusinessException(HttpStatus.UNAUTHORIZED, "TOKEN_MISSING", "Token is missing");
+            throw new BusinessException(
+                    HttpStatus.UNAUTHORIZED, "TOKEN_MISSING", "Token is missing");
         }
         Claims claims;
         try {
             claims = extractClaims(token);
         } catch (ExpiredJwtException e) {
-            throw new BusinessException(HttpStatus.UNAUTHORIZED, "TOKEN_EXPIRED", "Token is expired");
+            throw new BusinessException(
+                    HttpStatus.UNAUTHORIZED, "TOKEN_EXPIRED", "Token is expired");
         } catch (Exception e) {
-            throw new BusinessException(HttpStatus.UNAUTHORIZED, "TOKEN_INVALID", "Token is invalid");
+            throw new BusinessException(
+                    HttpStatus.UNAUTHORIZED, "TOKEN_INVALID", "Token is invalid");
         }
         if (!"access".equals(claims.get("type", String.class))) {
-            throw new BusinessException(HttpStatus.UNAUTHORIZED, "TOKEN_INVALID", "Token is invalid");
+            throw new BusinessException(
+                    HttpStatus.UNAUTHORIZED, "TOKEN_INVALID", "Token is invalid");
         }
         if (claims.getExpiration().before(new Date())) {
-            throw new BusinessException(HttpStatus.UNAUTHORIZED, "TOKEN_EXPIRED", "Token is expired");
+            throw new BusinessException(
+                    HttpStatus.UNAUTHORIZED, "TOKEN_EXPIRED", "Token is expired");
         }
         return Long.valueOf(claims.getSubject());
     }
@@ -85,21 +85,26 @@ public class JwtUtil {
     /** Validates a refresh token and returns the user ID. */
     public Long validateRefreshToken(String token) {
         if (token == null || token.isBlank()) {
-            throw new BusinessException(HttpStatus.UNAUTHORIZED, "TOKEN_MISSING", "Token is missing");
+            throw new BusinessException(
+                    HttpStatus.UNAUTHORIZED, "TOKEN_MISSING", "Token is missing");
         }
         Claims claims;
         try {
             claims = extractClaims(token);
         } catch (ExpiredJwtException e) {
-            throw new BusinessException(HttpStatus.UNAUTHORIZED, "TOKEN_EXPIRED", "Token is expired");
+            throw new BusinessException(
+                    HttpStatus.UNAUTHORIZED, "TOKEN_EXPIRED", "Token is expired");
         } catch (Exception e) {
-            throw new BusinessException(HttpStatus.UNAUTHORIZED, "TOKEN_INVALID", "Token is invalid");
+            throw new BusinessException(
+                    HttpStatus.UNAUTHORIZED, "TOKEN_INVALID", "Token is invalid");
         }
         if (!"refresh".equals(claims.get("type", String.class))) {
-            throw new BusinessException(HttpStatus.UNAUTHORIZED, "TOKEN_INVALID", "Token is invalid");
+            throw new BusinessException(
+                    HttpStatus.UNAUTHORIZED, "TOKEN_INVALID", "Token is invalid");
         }
         if (claims.getExpiration().before(new Date())) {
-            throw new BusinessException(HttpStatus.UNAUTHORIZED, "TOKEN_EXPIRED", "Token is expired");
+            throw new BusinessException(
+                    HttpStatus.UNAUTHORIZED, "TOKEN_EXPIRED", "Token is expired");
         }
         return Long.valueOf(claims.getSubject());
     }

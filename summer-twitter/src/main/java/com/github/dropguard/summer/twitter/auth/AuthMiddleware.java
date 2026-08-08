@@ -3,9 +3,9 @@ package com.github.dropguard.summer.twitter.auth;
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.web.Handler;
 import com.github.dropguard.summer.web.HttpContext;
+import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.Middleware;
 import com.github.dropguard.summer.web.RequestAttributes;
-import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.annotation.GlobalMiddleware;
 
 @Component
@@ -44,18 +44,19 @@ public class AuthMiddleware implements Middleware {
     }
 
     /**
-     * Routes that must be reachable without authentication:
-     * - Bootstrap auth (register, login)
-     * - Health probes (liveness, readiness)
-     * - WebSocket upgrades (handlers authenticate via subprotocol)
+     * Routes that must be reachable without authentication: - Bootstrap auth (register, login) -
+     * Health probes (liveness, readiness) - WebSocket upgrades (handlers authenticate via
+     * subprotocol)
      */
     private static boolean isPublicRequest(HttpContext ctx) {
         String method = ctx.method().name();
         String path = ctx.path();
 
         // Bootstrap auth
-        if ("POST".equals(method) && ("/api/auth/register".equals(path)
-                || "/api/auth/login".equals(path) || "/api/auth/refresh".equals(path))) {
+        if ("POST".equals(method)
+                && ("/api/auth/register".equals(path)
+                        || "/api/auth/login".equals(path)
+                        || "/api/auth/refresh".equals(path))) {
             return true;
         }
 

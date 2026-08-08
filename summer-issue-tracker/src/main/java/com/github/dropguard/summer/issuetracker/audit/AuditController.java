@@ -1,7 +1,5 @@
 package com.github.dropguard.summer.issuetracker.audit;
 
-import java.util.List;
-
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.issuetracker.common.BusinessException;
 import com.github.dropguard.summer.issuetracker.security.SecurityContext;
@@ -11,12 +9,12 @@ import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.annotation.Get;
 import com.github.dropguard.summer.web.annotation.PathParam;
 import com.github.dropguard.summer.web.annotation.RestController;
+import java.util.List;
 
 /**
- * Read access to the Jira-style system audit log. Org-scoped: a caller may only
- * read their own organization's audit events. The events are independent of the
- * live business rows they describe, so they remain queryable after the described
- * issue, project, or member is deleted.
+ * Read access to the Jira-style system audit log. Org-scoped: a caller may only read their own
+ * organization's audit events. The events are independent of the live business rows they describe,
+ * so they remain queryable after the described issue, project, or member is deleted.
  */
 @RestController
 @Component
@@ -32,10 +30,13 @@ public class AuditController {
 
     @Get("/api/orgs/:orgId/audit")
     public void listByOrg(HttpContext ctx, @PathParam("orgId") Long orgId) {
-        User actor = userRepository.findById(SecurityContext.currentUserId())
-                .orElseThrow(() -> BusinessException.unauthorized("Unknown actor"));
+        User actor =
+                userRepository
+                        .findById(SecurityContext.currentUserId())
+                        .orElseThrow(() -> BusinessException.unauthorized("Unknown actor"));
         if (!actor.orgId().equals(orgId)) {
-            throw BusinessException.forbidden("You can only view your own organization's audit log");
+            throw BusinessException.forbidden(
+                    "You can only view your own organization's audit log");
         }
         List<SystemAudit> events = auditRepository.findByOrg(orgId);
         ctx.ok(events);

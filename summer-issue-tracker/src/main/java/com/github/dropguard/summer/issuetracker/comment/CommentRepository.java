@@ -1,10 +1,8 @@
 package com.github.dropguard.summer.issuetracker.comment;
 
-import java.util.List;
-import java.util.Optional;
-
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
+import java.util.List;
 
 @Component
 public class CommentRepository {
@@ -16,12 +14,22 @@ public class CommentRepository {
     }
 
     public void insert(Comment comment) {
-        String sql = "INSERT INTO comments (id, issue_id, author_id, body, created_at) VALUES (?, ?, ?, ?, ?)";
-        jdbcTemplate.update(sql, comment.id(), comment.issueId(), comment.authorId(), comment.body(), comment.createdAt());
+        String sql =
+                "INSERT INTO comments (id, issue_id, author_id, body, created_at) VALUES (?, ?, ?,"
+                        + " ?, ?)";
+        jdbcTemplate.update(
+                sql,
+                comment.id(),
+                comment.issueId(),
+                comment.authorId(),
+                comment.body(),
+                comment.createdAt());
     }
 
     public List<Comment> findByIssue(Long issueId) {
-        String sql = "SELECT id, issue_id, author_id, body, created_at FROM comments WHERE issue_id = ? ORDER BY created_at ASC";
+        String sql =
+                "SELECT id, issue_id, author_id, body, created_at FROM comments WHERE issue_id = ?"
+                        + " ORDER BY created_at ASC";
         return jdbcTemplate.queryForList(sql, Comment.class, issueId);
     }
 

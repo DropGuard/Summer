@@ -4,9 +4,4 @@ import com.github.dropguard.summer.data.jdbc.annotation.RowModel;
 import java.time.OffsetDateTime;
 
 @RowModel(table = "likes")
-public record Like(
-    Long id,
-    Long userId,
-    Long tweetId,
-    OffsetDateTime createdAt
-) {}
+public record Like(Long id, Long userId, Long tweetId, OffsetDateTime createdAt) {}

@@ -1,11 +1,10 @@
 package com.github.dropguard.summer.twitter.ws;
 
-import io.jsonwebtoken.Claims;
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.twitter.auth.JwtUtil;
 import com.github.dropguard.summer.web.websocket.WebSocketContext;
 import com.github.dropguard.summer.web.websocket.WebSocketHandler;
-
+import io.jsonwebtoken.Claims;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 

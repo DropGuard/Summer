@@ -1,7 +1,6 @@
 package com.github.dropguard.summer.twitter.infra;
 
 import com.github.dropguard.summer.core.Component;
-
 import java.net.NetworkInterface;
 import java.security.SecureRandom;
 import java.util.Enumeration;
@@ -28,7 +27,10 @@ public class SnowflakeIdGenerator {
         long timestamp = timeGen();
 
         if (timestamp < lastTimestamp) {
-            throw new RuntimeException("Clock moved backwards. Refusing to generate id for " + (lastTimestamp - timestamp) + " milliseconds");
+            throw new RuntimeException(
+                    "Clock moved backwards. Refusing to generate id for "
+                            + (lastTimestamp - timestamp)
+                            + " milliseconds");
         }
 
         if (lastTimestamp == timestamp) {
@@ -42,7 +44,9 @@ public class SnowflakeIdGenerator {
 
         lastTimestamp = timestamp;
 
-        return ((timestamp - EPOCH) << TIMESTAMP_LEFT_SHIFT) | (workerId << WORKER_ID_SHIFT) | sequence;
+        return ((timestamp - EPOCH) << TIMESTAMP_LEFT_SHIFT)
+                | (workerId << WORKER_ID_SHIFT)
+                | sequence;
     }
 
     private long tilNextMillis(long lastTimestamp) {
@@ -60,13 +64,15 @@ public class SnowflakeIdGenerator {
     private long createWorkerId() {
         try {
             long macAddressHash = 0;
-            Enumeration<NetworkInterface> networkInterfaces = NetworkInterface.getNetworkInterfaces();
+            Enumeration<NetworkInterface> networkInterfaces =
+                    NetworkInterface.getNetworkInterfaces();
             while (networkInterfaces.hasMoreElements()) {
                 NetworkInterface networkInterface = networkInterfaces.nextElement();
                 byte[] mac = networkInterface.getHardwareAddress();
                 if (mac != null) {
                     for (byte b : mac) {
-                        macAddressHash = ((macAddressHash << 8) | (b & 0xFF)) ^ (macAddressHash >>> 24);
+                        macAddressHash =
+                                ((macAddressHash << 8) | (b & 0xFF)) ^ (macAddressHash >>> 24);
                     }
                     break;
                 }

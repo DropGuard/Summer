@@ -3,8 +3,8 @@ package com.github.dropguard.summer.issuetracker.common;
 import com.github.dropguard.summer.web.HttpStatus;
 
 /**
- * Base for all demo-domain errors. Carries an HTTP status so the global error
- * handler can translate it to a response without leaking exception types.
+ * Base for all demo-domain errors. Carries an HTTP status so the global error handler can translate
+ * it to a response without leaking exception types.
  */
 public class BusinessException extends RuntimeException {
 

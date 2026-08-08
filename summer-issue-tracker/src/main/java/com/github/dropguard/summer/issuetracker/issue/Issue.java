@@ -1,14 +1,13 @@
 package com.github.dropguard.summer.issuetracker.issue;
 
 import com.github.dropguard.summer.data.jdbc.annotation.RowModel;
-
 import java.time.OffsetDateTime;
 
 /**
- * Core issue/defect entity. All columns are JDBC-native scalars — the framework's
- * {@code @RowModel} rejects nested records or collection fields, so the many-to-many
- * tag relationship and the nested comment stream are modelled as separate tables
- * and assembled in the service layer, not as fields here.
+ * Core issue/defect entity. All columns are JDBC-native scalars — the framework's {@code @RowModel}
+ * rejects nested records or collection fields, so the many-to-many tag relationship and the nested
+ * comment stream are modelled as separate tables and assembled in the service layer, not as fields
+ * here.
  */
 @RowModel(table = "issues")
 public record Issue(
@@ -22,5 +21,4 @@ public record Issue(
         Long assigneeId,
         Long reporterId,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt
-) {}
+        OffsetDateTime updatedAt) {}

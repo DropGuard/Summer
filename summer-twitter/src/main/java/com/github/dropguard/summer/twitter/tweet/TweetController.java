@@ -1,6 +1,7 @@
 package com.github.dropguard.summer.twitter.tweet;
 
 import com.github.dropguard.summer.core.Component;
+import com.github.dropguard.summer.web.CursorPageable;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.RequestAttributes;
@@ -8,10 +9,7 @@ import com.github.dropguard.summer.web.annotation.Delete;
 import com.github.dropguard.summer.web.annotation.Get;
 import com.github.dropguard.summer.web.annotation.PathParam;
 import com.github.dropguard.summer.web.annotation.Post;
-import com.github.dropguard.summer.web.annotation.QueryParam;
 import com.github.dropguard.summer.web.annotation.RestController;
-
-import com.github.dropguard.summer.web.CursorPageable;
 import jakarta.validation.Valid;
 import java.util.List;
 
@@ -27,8 +25,7 @@ public class TweetController {
 
     @Valid
     public record CreateTweetRequest(
-            @jakarta.validation.constraints.NotBlank String content,
-            Long parentId) {}
+            @jakarta.validation.constraints.NotBlank String content, Long parentId) {}
 
     @Post("/api/tweets")
     public void createTweet(HttpContext ctx) {
@@ -82,8 +79,7 @@ public class TweetController {
     }
 
     @Valid
-    public record QuoteTweetRequest(
-            @jakarta.validation.constraints.NotBlank String content) {}
+    public record QuoteTweetRequest(@jakarta.validation.constraints.NotBlank String content) {}
 
     @Post("/api/tweets/:id/quote")
     public void quoteTweet(HttpContext ctx, @PathParam("id") Long id) {

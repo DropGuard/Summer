@@ -5,10 +5,9 @@ import java.time.OffsetDateTime;
 
 @RowModel(table = "direct_messages")
 public record DirectMessage(
-    Long id,
-    Long senderId,
-    Long receiverId,
-    String text,
-    OffsetDateTime readAt,
-    OffsetDateTime createdAt
-) {}
+        Long id,
+        Long senderId,
+        Long receiverId,
+        String text,
+        OffsetDateTime readAt,
+        OffsetDateTime createdAt) {}

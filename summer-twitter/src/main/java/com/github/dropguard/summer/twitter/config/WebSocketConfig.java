@@ -8,7 +8,7 @@ import com.github.dropguard.summer.web.WsRouter;
 
 @Component
 public class WebSocketConfig implements WsRouteProvider {
-    
+
     private final EventsHandler eventsHandler;
     private final DmHandler dmHandler;
 

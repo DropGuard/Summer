@@ -1,17 +1,15 @@
 package com.github.dropguard.summer.twitter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
-
 import org.junit.jupiter.api.Test;
 
 /**
- * Integration coverage for the tweet write/read surface — the path that
- * previously 500'd because the timeline fan-out touches Redis. These tests run
- * against the real Postgres + real Redis dev-services, so they exercise the
- * full create → fan-out → persist chain that the pure unit tests mock away.
+ * Integration coverage for the tweet write/read surface — the path that previously 500'd because
+ * the timeline fan-out touches Redis. These tests run against the real Postgres + real Redis
+ * dev-services, so they exercise the full create → fan-out → persist chain that the pure unit tests
+ * mock away.
  */
 class TweetIT extends AbstractTwitterIT {
 
@@ -19,15 +17,20 @@ class TweetIT extends AbstractTwitterIT {
     void tweetCreateAndRead() throws Exception {
         String token = registerAndGetToken("tweet_" + System.nanoTime(), "password123").token();
 
-        var createRes = post("/api/tweets", """
-                {"content":"Hello from integration test"}
-                """, token);
+        var createRes =
+                post(
+                        "/api/tweets",
+                        """
+                        {"content":"Hello from integration test"}
+                        """,
+                        token);
         assertEquals(201, createRes.statusCode(), "Tweet creation should succeed");
 
         String body = createRes.body().strip();
-        long tweetId = body.startsWith("{")
-                ? ((Number) mapper.readValue(body, Map.class).get("id")).longValue()
-                : Long.parseLong(body);
+        long tweetId =
+                body.startsWith("{")
+                        ? ((Number) mapper.readValue(body, Map.class).get("id")).longValue()
+                        : Long.parseLong(body);
 
         var getRes = authGet("/api/tweets/" + tweetId, token);
         assertEquals(200, getRes.statusCode(), "Should retrieve the created tweet");
@@ -40,22 +43,35 @@ class TweetIT extends AbstractTwitterIT {
     void tweetReplyFlow() throws Exception {
         String token = registerAndGetToken("reply_" + System.nanoTime(), "password123").token();
 
-        var createRes = post("/api/tweets", """
-                {"content":"Parent tweet"}
-                """, token);
+        var createRes =
+                post(
+                        "/api/tweets",
+                        """
+                        {"content":"Parent tweet"}
+                        """,
+                        token);
         assertEquals(201, createRes.statusCode());
         String createBody = createRes.body().strip();
-        long tweetId = createBody.startsWith("{")
-                ? ((Number) mapper.readValue(createBody, Map.class).get("id")).longValue()
-                : Long.parseLong(createBody);
+        long tweetId =
+                createBody.startsWith("{")
+                        ? ((Number) mapper.readValue(createBody, Map.class).get("id")).longValue()
+                        : Long.parseLong(createBody);
 
-        var replyRes = post("/api/tweets", """
-                {"content":"Reply!","parentId":%d}
-                """.formatted(tweetId), token);
+        var replyRes =
+                post(
+                        "/api/tweets",
+                        """
+                        {"content":"Reply!","parentId":%d}
+                        """
+                                .formatted(tweetId),
+                        token);
         assertEquals(201, replyRes.statusCode(), "Reply should succeed");
 
         Map<?, ?> reply = mapper.readValue(replyRes.body(), Map.class);
-        assertEquals(tweetId, ((Number) reply.get("parentId")).longValue(), "Reply must point at its parent");
+        assertEquals(
+                tweetId,
+                ((Number) reply.get("parentId")).longValue(),
+                "Reply must point at its parent");
     }
 
     @Test
@@ -76,23 +92,32 @@ class TweetIT extends AbstractTwitterIT {
 
     @Test
     void createRequiresAuth() throws Exception {
-        var res = post("/api/tweets", """
-                {"content":"no auth"}
-                """);
+        var res =
+                post(
+                        "/api/tweets",
+                        """
+                        {"content":"no auth"}
+                        """);
         assertEquals(401, res.statusCode(), "Creating a tweet requires authentication");
     }
 
     @Test
     void retweetMissingOriginalReturns404() throws Exception {
-        String token = registerAndGetToken("retweet_missing_" + System.nanoTime(), "password123").token();
+        String token =
+                registerAndGetToken("retweet_missing_" + System.nanoTime(), "password123").token();
         var res = post("/api/tweets/99999999/retweet", "", token);
         assertEquals(404, res.statusCode(), "Retweeting a missing tweet should 404");
     }
 
     private long createTweet(String token, String content) throws Exception {
-        var res = post("/api/tweets", """
-                {"content":"%s"}
-                """.formatted(content), token);
+        var res =
+                post(
+                        "/api/tweets",
+                        """
+                        {"content":"%s"}
+                        """
+                                .formatted(content),
+                        token);
         assertEquals(201, res.statusCode());
         String body = res.body().strip();
         return body.startsWith("{")

@@ -1,19 +1,16 @@
 package com.github.dropguard.summer.twitter.auth;
 
+import com.github.dropguard.summer.core.Component;
 import java.time.Instant;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.github.dropguard.summer.core.Component;
-
 /**
- * Simple in-memory login rate limiter — prevents brute-force attacks on
- * {@code POST /api/auth/login}.
+ * Simple in-memory login rate limiter — prevents brute-force attacks on {@code POST
+ * /api/auth/login}.
  *
- * <p>
- * Policy: 5 failed attempts per username within a 15-minute sliding window.
- * After the threshold is reached, further attempts are rejected with HTTP 429
- * until the window resets. A successful login clears the counter.
- * </p>
+ * <p>Policy: 5 failed attempts per username within a 15-minute sliding window. After the threshold
+ * is reached, further attempts are rejected with HTTP 429 until the window resets. A successful
+ * login clears the counter.
  */
 @Component
 public class LoginRateLimiter {
@@ -42,12 +39,14 @@ public class LoginRateLimiter {
         if (attempts.size() > MAX_ENTRIES) {
             attempts.entrySet().removeIf(e -> isExpired(e.getValue()));
         }
-        attempts.compute(username, (k, existing) -> {
-            if (existing == null || isExpired(existing)) {
-                return new FailureRecord(1, now());
-            }
-            return new FailureRecord(existing.count() + 1, existing.windowStart());
-        });
+        attempts.compute(
+                username,
+                (k, existing) -> {
+                    if (existing == null || isExpired(existing)) {
+                        return new FailureRecord(1, now());
+                    }
+                    return new FailureRecord(existing.count() + 1, existing.windowStart());
+                });
     }
 
     /** Reset the counter after a successful login. */

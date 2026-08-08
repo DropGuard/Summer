@@ -5,13 +5,12 @@ import java.time.OffsetDateTime;
 
 @RowModel(table = "users")
 public record User(
-    Long id,
-    String username,
-    String displayName,
-    String email,
-    String passwordHash,
-    String bio,
-    Integer followerCount,
-    Integer followingCount,
-    OffsetDateTime createdAt
-) {}
+        Long id,
+        String username,
+        String displayName,
+        String email,
+        String passwordHash,
+        String bio,
+        Integer followerCount,
+        Integer followingCount,
+        OffsetDateTime createdAt) {}

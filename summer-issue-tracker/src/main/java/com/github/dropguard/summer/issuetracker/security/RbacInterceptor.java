@@ -1,8 +1,5 @@
 package com.github.dropguard.summer.issuetracker.security;
 
-import java.lang.reflect.Method;
-import java.time.OffsetDateTime;
-
 import com.github.dropguard.summer.aop.Interceptor;
 import com.github.dropguard.summer.aop.InterceptorChain;
 import com.github.dropguard.summer.aop.MethodInterceptor;
@@ -14,37 +11,30 @@ import com.github.dropguard.summer.issuetracker.common.IdGenerator;
 import com.github.dropguard.summer.issuetracker.issue.Issue;
 import com.github.dropguard.summer.issuetracker.issue.IssueRepository;
 import com.github.dropguard.summer.web.RequestContextHolder;
+import java.lang.reflect.Method;
+import java.time.OffsetDateTime;
 
 /**
- * Method-level RBAC for {@code IssueService}, bound via {@link RequireRole}
- * (declared at the interface level, so every method is intercepted).
+ * Method-level RBAC for {@code IssueService}, bound via {@link RequireRole} (declared at the
+ * interface level, so every method is intercepted).
  *
- * <p>
- * This is the demo's proof that Summer's AOP can enforce request-aware
- * authorization: the current user is read from {@link RequestContextHolder}
- * (populated by the framework's auth middleware), and the resource's owning
- * project is resolved from the {@link ResourceScope} annotation on the
- * intercepted method — so the service signatures stay clean and carry no
- * {@code actorId}, and the interceptor no longer depends on method names or
- * argument positions (the previous version switched on {@code method.name()}).
- * </p>
+ * <p>This is the demo's proof that Summer's AOP can enforce request-aware authorization: the
+ * current user is read from {@link RequestContextHolder} (populated by the framework's auth
+ * middleware), and the resource's owning project is resolved from the {@link ResourceScope}
+ * annotation on the intercepted method — so the service signatures stay clean and carry no {@code
+ * actorId}, and the interceptor no longer depends on method names or argument positions (the
+ * previous version switched on {@code method.name()}).
  *
- * <p>
- * The interceptor enforces the <em>coarse-grained</em> gate: tenant isolation
- * plus project membership / manager-or-lead. The <em>fine-grained</em> rule ("a
- * plain member may only mutate issues they reported or are assigned to") lives
- * in the service, which also reads the current user from the holder. All
- * membership / manager / lead rules are delegated to {@link ProjectAuthorization}
- * so they are defined in exactly one place.
- * </p>
+ * <p>The interceptor enforces the <em>coarse-grained</em> gate: tenant isolation plus project
+ * membership / manager-or-lead. The <em>fine-grained</em> rule ("a plain member may only mutate
+ * issues they reported or are assigned to") lives in the service, which also reads the current user
+ * from the holder. All membership / manager / lead rules are delegated to {@link
+ * ProjectAuthorization} so they are defined in exactly one place.
  *
- * <p>
- * After the guarded call proceeds, the interceptor also writes a Jira-style
- * <em>system</em> audit event (independent of the issue's change history) for
- * every mutating method. Because {@link SystemAudit} is self-contained — the
- * target identity is frozen into the row at write time and has no foreign key to
- * the live entity — these events survive deletion of the issue they describe.
- * </p>
+ * <p>After the guarded call proceeds, the interceptor also writes a Jira-style <em>system</em>
+ * audit event (independent of the issue's change history) for every mutating method. Because {@link
+ * SystemAudit} is self-contained — the target identity is frozen into the row at write time and has
+ * no foreign key to the live entity — these events survive deletion of the issue they describe.
  */
 @Interceptor
 @RequireRole
@@ -56,8 +46,11 @@ public class RbacInterceptor implements MethodInterceptor {
     private final SystemAuditRepository auditRepository;
     private final IdGenerator idGenerator;
 
-    public RbacInterceptor(ProjectAuthorization authz, IssueRepository issueRepository,
-            SystemAuditRepository auditRepository, IdGenerator idGenerator) {
+    public RbacInterceptor(
+            ProjectAuthorization authz,
+            IssueRepository issueRepository,
+            SystemAuditRepository auditRepository,
+            IdGenerator idGenerator) {
         this.authz = authz;
         this.issueRepository = issueRepository;
         this.auditRepository = auditRepository;
@@ -67,8 +60,14 @@ public class RbacInterceptor implements MethodInterceptor {
     /** Mutating IssueService methods that should emit a system audit event. */
     private static boolean isAuditable(String methodName) {
         return switch (methodName) {
-            case "createIssue", "updateStatus", "assign", "changePriority",
-                 "updateIssue", "deleteIssue", "addComment" -> true;
+            case "createIssue",
+                    "updateStatus",
+                    "assign",
+                    "changePriority",
+                    "updateIssue",
+                    "deleteIssue",
+                    "addComment" ->
+                    true;
             default -> false;
         };
     }
@@ -115,18 +114,24 @@ public class RbacInterceptor implements MethodInterceptor {
                 targetId = created.id();
                 targetKey = created.issueKey();
             }
-            auditRepository.insert(new SystemAudit(
-                    idGenerator.nextId(), actor.orgId(), actor.id(),
-                    chain.method().name().toUpperCase(), targetType, targetId, targetKey,
-                    OffsetDateTime.now()));
+            auditRepository.insert(
+                    new SystemAudit(
+                            idGenerator.nextId(),
+                            actor.orgId(),
+                            actor.id(),
+                            chain.method().name().toUpperCase(),
+                            targetType,
+                            targetId,
+                            targetKey,
+                            OffsetDateTime.now()));
         }
         return result;
     }
 
     /**
-     * Reads {@link ResourceScope} from the intercepted interface method. Reading
-     * annotation members is a business-module concern; the framework documents
-     * that the target method may be reflected on directly for this purpose.
+     * Reads {@link ResourceScope} from the intercepted interface method. Reading annotation members
+     * is a business-module concern; the framework documents that the target method may be reflected
+     * on directly for this purpose.
      */
     private ResourceScope.Kind resourceKind(InterceptorChain chain) {
         String name = chain.method().name();

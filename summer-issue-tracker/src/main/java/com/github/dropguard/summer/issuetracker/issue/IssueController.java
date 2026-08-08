@@ -1,8 +1,6 @@
 package com.github.dropguard.summer.issuetracker.issue;
 
 import com.github.dropguard.summer.core.Component;
-import com.github.dropguard.summer.issuetracker.issue.IssueService;
-import com.github.dropguard.summer.issuetracker.issue.PageRequest;
 import com.github.dropguard.summer.issuetracker.project.ProjectRepository;
 import com.github.dropguard.summer.issuetracker.security.SecurityContext;
 import com.github.dropguard.summer.issuetracker.user.User;
@@ -25,7 +23,10 @@ public class IssueController {
     private final ProjectRepository projectRepository;
     private final UserRepository userRepository;
 
-    public IssueController(IssueService issueService, ProjectRepository projectRepository, UserRepository userRepository) {
+    public IssueController(
+            IssueService issueService,
+            ProjectRepository projectRepository,
+            UserRepository userRepository) {
         this.issueService = issueService;
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
@@ -38,27 +39,35 @@ public class IssueController {
             @jakarta.validation.constraints.NotBlank String priority,
             Long assigneeId) {}
 
-    public record UpdateStatusRequest(
-            @jakarta.validation.constraints.NotBlank String status) {}
+    public record UpdateStatusRequest(@jakarta.validation.constraints.NotBlank String status) {}
+
     public record UpdateIssueRequest(
-            @jakarta.validation.constraints.NotBlank String title,
-            String description) {}
+            @jakarta.validation.constraints.NotBlank String title, String description) {}
+
     public record AssignRequest(Long assigneeId) {}
-    public record PriorityRequest(
-            @jakarta.validation.constraints.NotBlank String priority) {}
-    public record CommentRequest(
-            @jakarta.validation.constraints.NotBlank String body) {}
+
+    public record PriorityRequest(@jakarta.validation.constraints.NotBlank String priority) {}
+
+    public record CommentRequest(@jakarta.validation.constraints.NotBlank String body) {}
 
     @Post("/api/projects/:id/issues")
     public void create(HttpContext ctx, @PathParam("id") Long projectId) {
         CreateIssueRequest req = ctx.body(CreateIssueRequest.class);
-        var issue = issueService.createIssue(projectId, req.title(), req.description(),
-                req.status(), req.priority(), req.assigneeId());
+        var issue =
+                issueService.createIssue(
+                        projectId,
+                        req.title(),
+                        req.description(),
+                        req.status(),
+                        req.priority(),
+                        req.assigneeId());
         ctx.json(HttpStatus.CREATED, issue);
     }
 
     @Get("/api/projects/:id/issues")
-    public void list(HttpContext ctx, @PathParam("id") Long projectId,
+    public void list(
+            HttpContext ctx,
+            @PathParam("id") Long projectId,
             @QueryParam("assigneeId") Long assigneeId,
             @QueryParam("status") String status,
             @QueryParam("priority") String priority,
@@ -67,11 +76,18 @@ public class IssueController {
             @QueryParam("tagId") Long tagId,
             @QueryParam("page") Integer page,
             @QueryParam("size") Integer size) {
-        IssueFilter filter = new IssueFilter.Builder()
-                .assigneeId(assigneeId).status(status).priority(priority)
-                .reporterId(reporterId).titleContains(title).tagId(tagId)
-                .build();
-        PageRequest req = new PageRequest(page == null ? 0 : page, size == null ? PageRequest.DEFAULT_SIZE : size);
+        IssueFilter filter =
+                new IssueFilter.Builder()
+                        .assigneeId(assigneeId)
+                        .status(status)
+                        .priority(priority)
+                        .reporterId(reporterId)
+                        .titleContains(title)
+                        .tagId(tagId)
+                        .build();
+        PageRequest req =
+                new PageRequest(
+                        page == null ? 0 : page, size == null ? PageRequest.DEFAULT_SIZE : size);
         ctx.ok(issueService.searchPage(projectId, filter, req));
     }
 
@@ -87,14 +103,25 @@ public class IssueController {
         // notFound here — never leaks that the project exists.
         int dash = key.lastIndexOf('-');
         if (dash <= 0) {
-            throw com.github.dropguard.summer.issuetracker.common.BusinessException.badRequest("Invalid issue key");
+            throw com.github.dropguard.summer.issuetracker.common.BusinessException.badRequest(
+                    "Invalid issue key");
         }
         String projectKey = key.substring(0, dash);
         long actorId = SecurityContext.currentUserId();
-        User actor = userRepository.findById(actorId)
-                .orElseThrow(() -> com.github.dropguard.summer.issuetracker.common.BusinessException.unauthorized("Unknown actor"));
-        var project = projectRepository.findByKey(actor.orgId(), projectKey)
-                .orElseThrow(() -> com.github.dropguard.summer.issuetracker.common.BusinessException.notFound("Project"));
+        User actor =
+                userRepository
+                        .findById(actorId)
+                        .orElseThrow(
+                                () ->
+                                        com.github.dropguard.summer.issuetracker.common
+                                                .BusinessException.unauthorized("Unknown actor"));
+        var project =
+                projectRepository
+                        .findByKey(actor.orgId(), projectKey)
+                        .orElseThrow(
+                                () ->
+                                        com.github.dropguard.summer.issuetracker.common
+                                                .BusinessException.notFound("Project"));
         var issue = issueService.getIssueDetailByKey(project.id(), key);
         ctx.ok(issue);
     }

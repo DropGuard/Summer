@@ -1,13 +1,11 @@
 package com.github.dropguard.summer.twitter.dm;
 
-import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.twitter.user.User;
 import com.github.dropguard.summer.twitter.user.UserRepository;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.RequestAttributes;
 import com.github.dropguard.summer.web.annotation.Get;
 import com.github.dropguard.summer.web.annotation.RestController;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -15,9 +13,9 @@ import java.util.Optional;
 /**
  * REST endpoints for DM history.
  *
- * <p>Real-time messaging is handled by {@link DmHandler} via WebSocket; these
- * endpoints let clients load conversation lists and scroll back through message
- * history — the two read paths that are impossible over a pure push channel.
+ * <p>Real-time messaging is handled by {@link DmHandler} via WebSocket; these endpoints let clients
+ * load conversation lists and scroll back through message history — the two read paths that are
+ * impossible over a pure push channel.
  */
 @RestController
 public class DmController {
@@ -31,8 +29,12 @@ public class DmController {
     }
 
     /** Lightweight conversation summary sent to the client. */
-    public record ConversationResponse(Long withUserId, String withUsername, String withDisplayName,
-                                       Long conversationId, String lastMessageAt) {}
+    public record ConversationResponse(
+            Long withUserId,
+            String withUsername,
+            String withDisplayName,
+            Long conversationId,
+            String lastMessageAt) {}
 
     @Get("/api/dm/conversations")
     public void listConversations(HttpContext ctx) {
@@ -45,9 +47,13 @@ public class DmController {
             Optional<User> otherUser = userRepository.findById(otherId);
             if (otherUser.isEmpty()) continue;
             User u = otherUser.get();
-            result.add(new ConversationResponse(
-                    u.id(), u.username(), u.displayName(),
-                    c.id(), c.lastMessageAt().toString()));
+            result.add(
+                    new ConversationResponse(
+                            u.id(),
+                            u.username(),
+                            u.displayName(),
+                            c.id(),
+                            c.lastMessageAt().toString()));
         }
         ctx.ok(result);
     }
@@ -76,7 +82,8 @@ public class DmController {
         int limit = limitStr != null ? Integer.parseInt(limitStr) : 50;
         if (limit > 100) limit = 100;
 
-        List<DirectMessage> messages = dmRepository.findMessages(currentUserId, withUserId, cursor, limit);
+        List<DirectMessage> messages =
+                dmRepository.findMessages(currentUserId, withUserId, cursor, limit);
         ctx.ok(messages);
     }
 }

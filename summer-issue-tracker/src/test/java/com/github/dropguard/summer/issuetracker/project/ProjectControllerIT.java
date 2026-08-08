@@ -2,18 +2,16 @@ package com.github.dropguard.summer.issuetracker.project;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.github.dropguard.summer.issuetracker.AbstractIssueTrackerIT;
 import java.util.List;
 import java.util.Map;
-
 import org.junit.jupiter.api.Test;
 
-import com.github.dropguard.summer.issuetracker.AbstractIssueTrackerIT;
-
 /**
- * Project management endpoints: authz (tenant isolation + membership) and the
- * non-obvious rules (auto manager on create, role whitelist, duplicate-member 409).
- * {@code members} previously had no guard — any authenticated user could enumerate
- * another project's roster — so it is asserted here as 403 for outsiders.
+ * Project management endpoints: authz (tenant isolation + membership) and the non-obvious rules
+ * (auto manager on create, role whitelist, duplicate-member 409). {@code members} previously had no
+ * guard — any authenticated user could enumerate another project's roster — so it is asserted here
+ * as 403 for outsiders.
  */
 class ProjectControllerIT extends AbstractIssueTrackerIT {
 
@@ -32,9 +30,14 @@ class ProjectControllerIT extends AbstractIssueTrackerIT {
 
     private long createProject(TokenAndUser u) throws Exception {
         String key = "PJ" + System.nanoTime() % 100000;
-        var res = post("/api/projects", """
-                {"projectKey":"%s","name":"Proj"}
-                """.formatted(key), u.token());
+        var res =
+                post(
+                        "/api/projects",
+                        """
+                        {"projectKey":"%s","name":"Proj"}
+                        """
+                                .formatted(key),
+                        u.token());
         assertEquals(201, res.statusCode(), res.body());
         return ((Number) mapper.readValue(res.body(), Map.class).get("id")).longValue();
     }
@@ -90,10 +93,16 @@ class ProjectControllerIT extends AbstractIssueTrackerIT {
         long projectId = createProject(o);
         var mate = mate();
 
-        var res = post("/api/projects/" + projectId + "/members", """
-                {"userId":%d,"role":"ADMIN"}
-                """.formatted(mate.userId()), o.token());
-        assertEquals(400, res.statusCode(), "ADMIN (org role) must not be writable as a project role");
+        var res =
+                post(
+                        "/api/projects/" + projectId + "/members",
+                        """
+                        {"userId":%d,"role":"ADMIN"}
+                        """
+                                .formatted(mate.userId()),
+                        o.token());
+        assertEquals(
+                400, res.statusCode(), "ADMIN (org role) must not be writable as a project role");
     }
 
     @Test
@@ -102,14 +111,24 @@ class ProjectControllerIT extends AbstractIssueTrackerIT {
         long projectId = createProject(o);
         var mate = mate();
 
-        var first = post("/api/projects/" + projectId + "/members", """
-                {"userId":%d,"role":"MEMBER"}
-                """.formatted(mate.userId()), o.token());
+        var first =
+                post(
+                        "/api/projects/" + projectId + "/members",
+                        """
+                        {"userId":%d,"role":"MEMBER"}
+                        """
+                                .formatted(mate.userId()),
+                        o.token());
         assertEquals(204, first.statusCode(), first.body());
 
-        var second = post("/api/projects/" + projectId + "/members", """
-                {"userId":%d,"role":"MEMBER"}
-                """.formatted(mate.userId()), o.token());
+        var second =
+                post(
+                        "/api/projects/" + projectId + "/members",
+                        """
+                        {"userId":%d,"role":"MEMBER"}
+                        """
+                                .formatted(mate.userId()),
+                        o.token());
         assertEquals(409, second.statusCode(), "Re-adding an existing member must conflict");
     }
 
@@ -119,9 +138,14 @@ class ProjectControllerIT extends AbstractIssueTrackerIT {
         long projectId = createProject(o);
         var out = outsider();
 
-        var res = post("/api/projects/" + projectId + "/members", """
-                {"userId":%d,"role":"MEMBER"}
-                """.formatted(out.userId()), out.token());
+        var res =
+                post(
+                        "/api/projects/" + projectId + "/members",
+                        """
+                        {"userId":%d,"role":"MEMBER"}
+                        """
+                                .formatted(out.userId()),
+                        out.token());
         assertEquals(403, res.statusCode(), "Outsider cannot add members to a foreign project");
     }
 }

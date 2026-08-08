@@ -20,27 +20,43 @@ public class AuthController {
         this.jwtUtil = jwtUtil;
     }
 
-    public record RegisterRequest(String username, String displayName,
+    public record RegisterRequest(
+            String username,
+            String displayName,
             @jakarta.validation.constraints.Email String email,
-            @jakarta.validation.constraints.Size(min = 8) String password, String orgName, String orgSlug) {}
+            @jakarta.validation.constraints.Size(min = 8) String password,
+            String orgName,
+            String orgSlug) {}
 
     public record LoginRequest(String username, String password) {}
-    public record RefreshRequest(
-            @jakarta.validation.constraints.NotBlank String refreshToken) {}
+
+    public record RefreshRequest(@jakarta.validation.constraints.NotBlank String refreshToken) {}
 
     @Post("/api/auth/register")
     public void register(HttpContext ctx) {
         RegisterRequest req = ctx.body(RegisterRequest.class);
-        AuthService.AuthResult result = authService.register(
-                req.username(), req.displayName(), req.email(), req.password(), req.orgName(), req.orgSlug());
-        ctx.json(HttpStatus.CREATED, new Token(result.userId(), result.username(), result.token(), result.refreshToken()));
+        AuthService.AuthResult result =
+                authService.register(
+                        req.username(),
+                        req.displayName(),
+                        req.email(),
+                        req.password(),
+                        req.orgName(),
+                        req.orgSlug());
+        ctx.json(
+                HttpStatus.CREATED,
+                new Token(
+                        result.userId(), result.username(), result.token(), result.refreshToken()));
     }
 
     @Post("/api/auth/login")
     public void login(HttpContext ctx) {
         LoginRequest req = ctx.body(LoginRequest.class);
         AuthService.AuthResult result = authService.login(req.username(), req.password());
-        ctx.json(HttpStatus.OK, new Token(result.userId(), result.username(), result.token(), result.refreshToken()));
+        ctx.json(
+                HttpStatus.OK,
+                new Token(
+                        result.userId(), result.username(), result.token(), result.refreshToken()));
     }
 
     @Post("/api/auth/refresh")
@@ -67,5 +83,6 @@ public class AuthController {
     }
 
     public record Token(Long userId, String username, String token, String refreshToken) {}
+
     public record MeResponse(Long userId) {}
 }

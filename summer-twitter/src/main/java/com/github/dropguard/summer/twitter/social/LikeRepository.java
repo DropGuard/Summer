@@ -14,8 +14,12 @@ public class LikeRepository {
 
     /** Atomically insert if absent; returns true when a row was actually created. */
     public boolean insertIfAbsent(Like like) {
-        String sql = "INSERT INTO likes (id, user_id, tweet_id, created_at) VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING";
-        int rows = jdbcTemplate.update(sql, like.id(), like.userId(), like.tweetId(), like.createdAt());
+        String sql =
+                "INSERT INTO likes (id, user_id, tweet_id, created_at) VALUES (?, ?, ?, ?) ON"
+                        + " CONFLICT DO NOTHING";
+        int rows =
+                jdbcTemplate.update(
+                        sql, like.id(), like.userId(), like.tweetId(), like.createdAt());
         return rows > 0;
     }
 

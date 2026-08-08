@@ -1,17 +1,15 @@
 package com.github.dropguard.summer.twitter.auth;
 
-import jakarta.validation.Valid;
-import org.mindrot.jbcrypt.BCrypt;
-import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.twitter.user.User;
 import com.github.dropguard.summer.twitter.user.UserRepository;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.annotation.Post;
 import com.github.dropguard.summer.web.annotation.RestController;
-
+import jakarta.validation.Valid;
 import java.time.OffsetDateTime;
 import java.util.Optional;
+import org.mindrot.jbcrypt.BCrypt;
 
 @RestController
 public class AuthController {
@@ -20,7 +18,8 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final LoginRateLimiter rateLimiter;
 
-    public AuthController(UserRepository userRepository, JwtUtil jwtUtil, LoginRateLimiter rateLimiter) {
+    public AuthController(
+            UserRepository userRepository, JwtUtil jwtUtil, LoginRateLimiter rateLimiter) {
         this.userRepository = userRepository;
         this.jwtUtil = jwtUtil;
         this.rateLimiter = rateLimiter;
@@ -31,14 +30,17 @@ public class AuthController {
             @jakarta.validation.constraints.NotBlank String username,
             @jakarta.validation.constraints.NotBlank String displayName,
             @jakarta.validation.constraints.Email String email,
-            @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(min = 8) String password) {}
+            @jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(min = 8)
+                    String password) {}
+
     @Valid
     public record LoginRequest(
             @jakarta.validation.constraints.NotBlank String username,
             @jakarta.validation.constraints.NotBlank String password) {}
+
     @Valid
-    public record RefreshRequest(
-            @jakarta.validation.constraints.NotBlank String refreshToken) {}
+    public record RefreshRequest(@jakarta.validation.constraints.NotBlank String refreshToken) {}
+
     public record TokenResponse(String token, String refreshToken) {}
 
     @Post("/api/auth/register")
@@ -59,17 +61,17 @@ public class AuthController {
 
         String passwordHash = BCrypt.hashpw(req.password(), BCrypt.gensalt());
 
-        User user = new User(
-            null,
-            req.username(),
-            req.displayName(),
-            req.email(),
-            passwordHash,
-            "",
-            0,
-            0,
-            OffsetDateTime.now()
-        );
+        User user =
+                new User(
+                        null,
+                        req.username(),
+                        req.displayName(),
+                        req.email(),
+                        passwordHash,
+                        "",
+                        0,
+                        0,
+                        OffsetDateTime.now());
         userRepository.insert(user);
 
         String accessToken = jwtUtil.generateAccessToken(user.id(), user.username());
@@ -82,7 +84,8 @@ public class AuthController {
         LoginRequest req = ctx.validatedBody(LoginRequest.class);
 
         if (rateLimiter.isBlocked(req.username())) {
-            ctx.json(HttpStatus.TOO_MANY_REQUESTS,
+            ctx.json(
+                    HttpStatus.TOO_MANY_REQUESTS,
                     new com.github.dropguard.summer.twitter.common.ErrorResponse(
                             "RATE_LIMITED", "Too many login attempts, try again later"));
             return;

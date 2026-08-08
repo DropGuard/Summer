@@ -6,11 +6,10 @@ import com.github.dropguard.summer.twitter.common.ResourceNotFoundException;
 import com.github.dropguard.summer.twitter.common.UserNotFoundException;
 import com.github.dropguard.summer.twitter.infra.SnowflakeIdGenerator;
 import com.github.dropguard.summer.twitter.social.LikeRepository;
+import com.github.dropguard.summer.twitter.timeline.TimelineService;
 import com.github.dropguard.summer.twitter.user.User;
 import com.github.dropguard.summer.twitter.user.UserRepository;
 import com.github.dropguard.summer.web.HttpStatus;
-
-import com.github.dropguard.summer.twitter.timeline.TimelineService;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +28,12 @@ public class TweetService {
 
     private static final Pattern MENTION_PATTERN = Pattern.compile("@(\\w+)");
 
-    public TweetService(TweetRepository tweetRepository, UserRepository userRepository, LikeRepository likeRepository, SnowflakeIdGenerator idGenerator, TimelineService timelineService) {
+    public TweetService(
+            TweetRepository tweetRepository,
+            UserRepository userRepository,
+            LikeRepository likeRepository,
+            SnowflakeIdGenerator idGenerator,
+            TimelineService timelineService) {
         this.tweetRepository = tweetRepository;
         this.userRepository = userRepository;
         this.likeRepository = likeRepository;
@@ -39,17 +43,17 @@ public class TweetService {
 
     public Tweet createTweet(Long authorId, String content, Long parentId) {
         Long tweetId = idGenerator.nextId();
-        Tweet tweet = new Tweet(
-            tweetId,
-            authorId,
-            content,
-            "POST",
-            parentId,
-            0,
-            0,
-            0,
-            OffsetDateTime.now()
-        );
+        Tweet tweet =
+                new Tweet(
+                        tweetId,
+                        authorId,
+                        content,
+                        "POST",
+                        parentId,
+                        0,
+                        0,
+                        0,
+                        OffsetDateTime.now());
 
         tweetRepository.insert(tweet);
 
@@ -70,7 +74,10 @@ public class TweetService {
         // whether the follower fan-out runs inline or on a virtual thread (the
         // threshold lives inside TimelineService.fanOut). The author's own tweet
         // list is always written synchronously within fanOut.
-        User author = userRepository.findById(authorId).orElseThrow(() -> new UserNotFoundException("Author not found"));
+        User author =
+                userRepository
+                        .findById(authorId)
+                        .orElseThrow(() -> new UserNotFoundException("Author not found"));
         timelineService.fanOut(tweet, author.followerCount() != null ? author.followerCount() : 0);
 
         return tweet;
@@ -83,22 +90,17 @@ public class TweetService {
         }
 
         Long tweetId = idGenerator.nextId();
-        Tweet tweet = new Tweet(
-            tweetId,
-            userId,
-            "",
-            "RETWEET",
-            originalId,
-            0,
-            0,
-            0,
-            OffsetDateTime.now()
-        );
-        
+        Tweet tweet =
+                new Tweet(
+                        tweetId, userId, "", "RETWEET", originalId, 0, 0, 0, OffsetDateTime.now());
+
         tweetRepository.insert(tweet);
         tweetRepository.incrementRetweetCount(originalId);
-        
-        User author = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found"));
+
+        User author =
+                userRepository
+                        .findById(userId)
+                        .orElseThrow(() -> new UserNotFoundException("User not found"));
         timelineService.fanOut(tweet, author.followerCount() != null ? author.followerCount() : 0);
 
         return tweet;
@@ -111,22 +113,25 @@ public class TweetService {
         }
 
         Long tweetId = idGenerator.nextId();
-        Tweet tweet = new Tweet(
-            tweetId,
-            userId,
-            content,
-            "QUOTE",
-            originalId,
-            0,
-            0,
-            0,
-            OffsetDateTime.now()
-        );
-        
+        Tweet tweet =
+                new Tweet(
+                        tweetId,
+                        userId,
+                        content,
+                        "QUOTE",
+                        originalId,
+                        0,
+                        0,
+                        0,
+                        OffsetDateTime.now());
+
         tweetRepository.insert(tweet);
         tweetRepository.incrementRetweetCount(originalId);
-        
-        User author = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException("User not found"));
+
+        User author =
+                userRepository
+                        .findById(userId)
+                        .orElseThrow(() -> new UserNotFoundException("User not found"));
         timelineService.fanOut(tweet, author.followerCount() != null ? author.followerCount() : 0);
 
         return tweet;
@@ -142,8 +147,8 @@ public class TweetService {
             throw new ResourceNotFoundException("Tweet not found");
         }
         if (!tweet.authorId().equals(requesterId)) {
-            throw new BusinessException(HttpStatus.FORBIDDEN, "forbidden",
-                    "You can only delete your own tweets");
+            throw new BusinessException(
+                    HttpStatus.FORBIDDEN, "forbidden", "You can only delete your own tweets");
         }
 
         // Clean up likes before the tweet goes away (ON DELETE CASCADE handles

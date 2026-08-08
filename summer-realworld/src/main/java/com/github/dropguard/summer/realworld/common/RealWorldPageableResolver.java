@@ -23,10 +23,12 @@ public class RealWorldPageableResolver implements HttpParameterResolver {
         int offset = 0;
         try {
             if (limitStr != null) limit = Integer.parseInt(limitStr);
-        } catch (NumberFormatException ignored) {}
+        } catch (NumberFormatException ignored) {
+        }
         try {
             if (offsetStr != null) offset = Integer.parseInt(offsetStr);
-        } catch (NumberFormatException ignored) {}
+        } catch (NumberFormatException ignored) {
+        }
 
         return new LimitOffsetPageable(limit, offset);
     }

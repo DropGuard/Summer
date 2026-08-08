@@ -2,10 +2,9 @@ package com.github.dropguard.summer.realworld.auth;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.github.dropguard.summer.core.config.ConfigBinder;
-import com.github.dropguard.summer.runtime.RuntimeConfigBinder;
 import com.github.dropguard.summer.core.config.ConfigBinder.BindingContext;
 import com.github.dropguard.summer.realworld.common.BusinessException;
+import com.github.dropguard.summer.runtime.RuntimeConfigBinder;
 import com.github.dropguard.summer.web.HttpContext;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeAll;
@@ -16,16 +15,21 @@ import org.mockito.Mockito;
 class AuthUtilsTest {
 
     @BeforeAll
-    static void installInterfaceBinder() {
-    }
+    static void installInterfaceBinder() {}
 
     private JwtUtil jwtUtil;
 
     @BeforeEach
     void setUp() {
-        JwtProperties properties = new RuntimeConfigBinder().bind(
-                BindingContext.of(Map.of("jwt.secret", "test-secret-key-for-unit-tests-32bytes!")),
-                "jwt", JwtProperties.class);
+        JwtProperties properties =
+                new RuntimeConfigBinder()
+                        .bind(
+                                BindingContext.of(
+                                        Map.of(
+                                                "jwt.secret",
+                                                "test-secret-key-for-unit-tests-32bytes!")),
+                                "jwt",
+                                JwtProperties.class);
         jwtUtil = new JwtUtil(properties);
     }
 
@@ -78,16 +82,14 @@ class AuthUtilsTest {
         // Use a deliberately mangled token that won't parse
         HttpContext ctx = ctxWithHeader("Token garbage");
 
-        assertThrows(BusinessException.class,
-                () -> AuthUtils.tryGetCurrentUserId(ctx, jwtUtil));
+        assertThrows(BusinessException.class, () -> AuthUtils.tryGetCurrentUserId(ctx, jwtUtil));
     }
 
     @Test
     void getCurrentUserIdThrowsWhenNoHeader() {
         HttpContext ctx = ctxWithHeader(null);
 
-        assertThrows(BusinessException.class,
-                () -> AuthUtils.getCurrentUserId(ctx, jwtUtil));
+        assertThrows(BusinessException.class, () -> AuthUtils.getCurrentUserId(ctx, jwtUtil));
     }
 
     @Test

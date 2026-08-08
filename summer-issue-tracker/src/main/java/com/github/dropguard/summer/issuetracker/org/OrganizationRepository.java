@@ -1,10 +1,9 @@
 package com.github.dropguard.summer.issuetracker.org;
 
-import java.util.List;
-import java.util.Optional;
-
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
+import java.util.List;
+import java.util.Optional;
 
 @Component
 public class OrganizationRepository {
@@ -18,14 +17,21 @@ public class OrganizationRepository {
     public void insert(Organization org) {
         jdbcTemplate.update(
                 "INSERT INTO organizations (id, name, slug, created_at) VALUES (?, ?, ?, ?)",
-                org.id(), org.name(), org.slug(), org.createdAt());
+                org.id(),
+                org.name(),
+                org.slug(),
+                org.createdAt());
     }
 
     /** Insert-or-skip: if the slug already exists the row is not created (idempotent). */
     public void insertOrIgnore(Organization org) {
         jdbcTemplate.update(
-                "INSERT INTO organizations (id, name, slug, created_at) VALUES (?, ?, ?, ?) ON CONFLICT (slug) DO NOTHING",
-                org.id(), org.name(), org.slug(), org.createdAt());
+                "INSERT INTO organizations (id, name, slug, created_at) VALUES (?, ?, ?, ?) ON"
+                        + " CONFLICT (slug) DO NOTHING",
+                org.id(),
+                org.name(),
+                org.slug(),
+                org.createdAt());
     }
 
     public Optional<Organization> findById(Long id) {

@@ -1,13 +1,11 @@
 package com.github.dropguard.summer.twitter.user;
 
-import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.RequestAttributes;
 import com.github.dropguard.summer.web.annotation.Get;
 import com.github.dropguard.summer.web.annotation.Put;
 import com.github.dropguard.summer.web.annotation.RestController;
-
 import jakarta.validation.Valid;
 import java.time.OffsetDateTime;
 import java.util.Optional;
@@ -22,29 +20,28 @@ public class UserController {
     }
 
     public record UserResponse(
-        Long id,
-        String username,
-        String displayName,
-        String bio,
-        Integer followerCount,
-        Integer followingCount,
-        OffsetDateTime createdAt
-    ) {
+            Long id,
+            String username,
+            String displayName,
+            String bio,
+            Integer followerCount,
+            Integer followingCount,
+            OffsetDateTime createdAt) {
         public static UserResponse fromUser(User user) {
             return new UserResponse(
-                user.id(),
-                user.username(),
-                user.displayName(),
-                user.bio(),
-                user.followerCount(),
-                user.followingCount(),
-                user.createdAt()
-            );
+                    user.id(),
+                    user.username(),
+                    user.displayName(),
+                    user.bio(),
+                    user.followerCount(),
+                    user.followingCount(),
+                    user.createdAt());
         }
     }
 
     @Valid
-    public record UpdateProfileRequest(@jakarta.validation.constraints.NotBlank String displayName, String bio) {}
+    public record UpdateProfileRequest(
+            @jakarta.validation.constraints.NotBlank String displayName, String bio) {}
 
     @Get("/api/users/:username")
     public void getUserProfile(HttpContext ctx) {

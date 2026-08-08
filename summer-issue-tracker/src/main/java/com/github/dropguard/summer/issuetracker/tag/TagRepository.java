@@ -1,10 +1,9 @@
 package com.github.dropguard.summer.issuetracker.tag;
 
-import java.util.List;
-import java.util.Optional;
-
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
+import java.util.List;
+import java.util.Optional;
 
 @Component
 public class TagRepository {
@@ -36,7 +35,8 @@ public class TagRepository {
     }
 
     public void attach(Long issueId, Long tagId) {
-        String sql = "INSERT INTO issue_tags (issue_id, tag_id) VALUES (?, ?) ON CONFLICT DO NOTHING";
+        String sql =
+                "INSERT INTO issue_tags (issue_id, tag_id) VALUES (?, ?) ON CONFLICT DO NOTHING";
         jdbcTemplate.update(sql, issueId, tagId);
     }
 

@@ -1,10 +1,8 @@
 package com.github.dropguard.summer.issuetracker.user;
 
-import java.util.List;
-import java.util.Optional;
-
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
+import java.util.Optional;
 
 @Component
 public class UserRepository {
@@ -16,16 +14,26 @@ public class UserRepository {
     }
 
     public void insert(User user) {
-        String sql = """
+        String sql =
+                """
                 INSERT INTO users (id, org_id, username, display_name, email, password_hash, role, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """;
-        jdbcTemplate.update(sql, user.id(), user.orgId(), user.username(), user.displayName(),
-                user.email(), user.passwordHash(), user.role(), user.createdAt());
+        jdbcTemplate.update(
+                sql,
+                user.id(),
+                user.orgId(),
+                user.username(),
+                user.displayName(),
+                user.email(),
+                user.passwordHash(),
+                user.role(),
+                user.createdAt());
     }
 
     public Optional<User> findById(Long id) {
-        String sql = """
+        String sql =
+                """
                 SELECT id, org_id, username, display_name, email, password_hash, role, created_at
                 FROM users WHERE id = ?
                 """;
@@ -33,7 +41,8 @@ public class UserRepository {
     }
 
     public Optional<User> findByUsername(String username) {
-        String sql = """
+        String sql =
+                """
                 SELECT id, org_id, username, display_name, email, password_hash, role, created_at
                 FROM users WHERE username = ?
                 """;

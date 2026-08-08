@@ -3,16 +3,13 @@ package com.github.dropguard.summer.issuetracker.user;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import com.github.dropguard.summer.issuetracker.AbstractIssueTrackerIT;
 import java.util.Map;
-
 import org.junit.jupiter.api.Test;
 
-import com.github.dropguard.summer.issuetracker.AbstractIssueTrackerIT;
-
 /**
- * The only user-facing endpoint is {@code /api/me}, which returns the caller's
- * own profile. It must (a) resolve to the authenticated caller and (b) never
- * leak the stored {@code passwordHash}.
+ * The only user-facing endpoint is {@code /api/me}, which returns the caller's own profile. It must
+ * (a) resolve to the authenticated caller and (b) never leak the stored {@code passwordHash}.
  */
 class UserControllerIT extends AbstractIssueTrackerIT {
 

@@ -1,15 +1,14 @@
 package com.github.dropguard.summer.issuetracker.common;
 
 import com.github.dropguard.summer.core.Component;
-
 import java.net.NetworkInterface;
 import java.security.SecureRandom;
 import java.util.Enumeration;
 
 /**
- * Snowflake-style distributed id generator (ported from the summer-twitter
- * showcase). Produces time-ordered, collision-free 64-bit ids without a DB
- * sequence — convenient for the demo's hand-written INSERTs.
+ * Snowflake-style distributed id generator (ported from the summer-twitter showcase). Produces
+ * time-ordered, collision-free 64-bit ids without a DB sequence — convenient for the demo's
+ * hand-written INSERTs.
  */
 @Component
 public class IdGenerator {
@@ -34,7 +33,9 @@ public class IdGenerator {
         long timestamp = timeGen();
         if (timestamp < lastTimestamp) {
             throw new IllegalStateException(
-                    "Clock moved backwards. Refusing to generate id for " + (lastTimestamp - timestamp) + " ms");
+                    "Clock moved backwards. Refusing to generate id for "
+                            + (lastTimestamp - timestamp)
+                            + " ms");
         }
         if (lastTimestamp == timestamp) {
             sequence = (sequence + 1) & SEQUENCE_MASK;
@@ -45,7 +46,9 @@ public class IdGenerator {
             sequence = 0L;
         }
         lastTimestamp = timestamp;
-        return ((timestamp - EPOCH) << TIMESTAMP_LEFT_SHIFT) | (workerId << WORKER_ID_SHIFT) | sequence;
+        return ((timestamp - EPOCH) << TIMESTAMP_LEFT_SHIFT)
+                | (workerId << WORKER_ID_SHIFT)
+                | sequence;
     }
 
     private long tilNextMillis(long lastTimestamp) {

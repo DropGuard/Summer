@@ -1,22 +1,20 @@
 package com.github.dropguard.summer.issuetracker.security;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
-import java.util.HexFormat;
-import java.util.Optional;
-
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.issuetracker.common.BusinessException;
 import com.github.dropguard.summer.issuetracker.org.Organization;
 import com.github.dropguard.summer.issuetracker.org.OrganizationRepository;
 import com.github.dropguard.summer.issuetracker.user.User;
 import com.github.dropguard.summer.issuetracker.user.UserService;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
+import java.util.HexFormat;
 
 /**
- * Bootstrap auth: register a user (auto-provisioning its organization on first
- * signup) and login issuing a JWT. Passwords are hashed with SHA-256 + per-user
- * random salt, stored as {@code salt:hash} in the password column.
+ * Bootstrap auth: register a user (auto-provisioning its organization on first signup) and login
+ * issuing a JWT. Passwords are hashed with SHA-256 + per-user random salt, stored as {@code
+ * salt:hash} in the password column.
  */
 @Component
 public class AuthService {
@@ -25,7 +23,10 @@ public class AuthService {
     private final OrganizationRepository organizationRepository;
     private final JwtUtil jwtUtil;
 
-    public AuthService(UserService userService, OrganizationRepository organizationRepository, JwtUtil jwtUtil) {
+    public AuthService(
+            UserService userService,
+            OrganizationRepository organizationRepository,
+            JwtUtil jwtUtil) {
         this.userService = userService;
         this.organizationRepository = organizationRepository;
         this.jwtUtil = jwtUtil;
@@ -33,7 +34,13 @@ public class AuthService {
 
     public record AuthResult(Long userId, String username, String token, String refreshToken) {}
 
-    public AuthResult register(String username, String displayName, String email, String password, String orgName, String orgSlug) {
+    public AuthResult register(
+            String username,
+            String displayName,
+            String email,
+            String password,
+            String orgName,
+            String orgSlug) {
         if (userService.findByUsername(username).isPresent()) {
             throw BusinessException.badRequest("Username already taken");
         }
@@ -50,22 +57,29 @@ public class AuthService {
         // Try-insert the organization; if another concurrent registration already
         // created the same slug, the DB UNIQUE constraint prevents duplicates and
         // the insertOrIgnore falls through cleanly.
-        organizationRepository.insertOrIgnore(new Organization(orgId, orgName, orgSlug,
-                java.time.OffsetDateTime.now()));
-        User user = userService.registerUser(orgId, username, displayName, email,
-                hashPassword(password), Role.MEMBER);
-        return new AuthResult(user.id(), user.username(),
+        organizationRepository.insertOrIgnore(
+                new Organization(orgId, orgName, orgSlug, java.time.OffsetDateTime.now()));
+        User user =
+                userService.registerUser(
+                        orgId, username, displayName, email, hashPassword(password), Role.MEMBER);
+        return new AuthResult(
+                user.id(),
+                user.username(),
                 jwtUtil.generateAccessToken(user.id(), user.username()),
                 jwtUtil.generateRefreshToken(user.id()));
     }
 
     public AuthResult login(String username, String password) {
-        User user = userService.findByUsername(username)
-                .orElseThrow(() -> BusinessException.unauthorized("Invalid credentials"));
+        User user =
+                userService
+                        .findByUsername(username)
+                        .orElseThrow(() -> BusinessException.unauthorized("Invalid credentials"));
         if (!verifyPassword(user.passwordHash(), password)) {
             throw BusinessException.unauthorized("Invalid credentials");
         }
-        return new AuthResult(user.id(), user.username(),
+        return new AuthResult(
+                user.id(),
+                user.username(),
                 jwtUtil.generateAccessToken(user.id(), user.username()),
                 jwtUtil.generateRefreshToken(user.id()));
     }
@@ -80,8 +94,7 @@ public class AuthService {
     private static String hashPassword(String password) {
         byte[] salt = new byte[16];
         RNG.nextBytes(salt);
-        return HexFormat.of().formatHex(salt) + ":"
-                + sha256(salt, password);
+        return HexFormat.of().formatHex(salt) + ":" + sha256(salt, password);
     }
 
     private static boolean verifyPassword(String stored, String password) {

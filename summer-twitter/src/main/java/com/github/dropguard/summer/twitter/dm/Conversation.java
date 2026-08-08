@@ -5,9 +5,8 @@ import java.time.OffsetDateTime;
 
 @RowModel(table = "conversations")
 public record Conversation(
-    Long id,
-    Long userOneId,
-    Long userTwoId,
-    OffsetDateTime lastMessageAt,
-    OffsetDateTime createdAt
-) {}
+        Long id,
+        Long userOneId,
+        Long userTwoId,
+        OffsetDateTime lastMessageAt,
+        OffsetDateTime createdAt) {}

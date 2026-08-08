@@ -1,9 +1,5 @@
 package com.github.dropguard.summer.issuetracker.issue;
 
-import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.Optional;
-
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.issuetracker.audit.IssueHistory;
 import com.github.dropguard.summer.issuetracker.audit.IssueHistoryRepository;
@@ -12,38 +8,35 @@ import com.github.dropguard.summer.issuetracker.comment.CommentRepository;
 import com.github.dropguard.summer.issuetracker.common.BusinessException;
 import com.github.dropguard.summer.issuetracker.common.IdGenerator;
 import com.github.dropguard.summer.issuetracker.project.Project;
-import com.github.dropguard.summer.issuetracker.tag.Tag;
 import com.github.dropguard.summer.issuetracker.project.ProjectRepository;
-import com.github.dropguard.summer.issuetracker.issue.Page;
-import com.github.dropguard.summer.issuetracker.issue.PageRequest;
 import com.github.dropguard.summer.issuetracker.security.ProjectAuthorization;
+import com.github.dropguard.summer.issuetracker.tag.Tag;
 import com.github.dropguard.summer.issuetracker.user.User;
 import com.github.dropguard.summer.issuetracker.user.UserRepository;
 import com.github.dropguard.summer.tx.Transactional;
 import com.github.dropguard.summer.web.RequestContextHolder;
+import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Optional;
 
 /**
- * Concrete issue service. Implements {@link IssueService} so Summer's JDK-dynamic-
- * proxy AOP can wrap it — required for {@code @Transactional} and
- * {@code @RequireRole} to apply.
+ * Concrete issue service. Implements {@link IssueService} so Summer's JDK-dynamic- proxy AOP can
+ * wrap it — required for {@code @Transactional} and {@code @RequireRole} to apply.
  *
- * <p>
- * RBAC is split:
+ * <p>RBAC is split:
+ *
  * <ul>
- *   <li><b>Coarse-grained</b> (tenant isolation, project membership, manager/lead)
- *       is enforced by {@code RbacInterceptor} before any method runs — it reads
- *       the current user from {@link RequestContextHolder}, no parameter needed.</li>
- *   <li><b>Fine-grained</b> (a plain member may only mutate issues they reported
- *       or are assigned to) is enforced here, also reading the current user from
- *       the holder. This keeps the method signatures clean.</li>
+ *   <li><b>Coarse-grained</b> (tenant isolation, project membership, manager/lead) is enforced by
+ *       {@code RbacInterceptor} before any method runs — it reads the current user from {@link
+ *       RequestContextHolder}, no parameter needed.
+ *   <li><b>Fine-grained</b> (a plain member may only mutate issues they reported or are assigned
+ *       to) is enforced here, also reading the current user from the holder. This keeps the method
+ *       signatures clean.
  * </ul>
- * </p>
  *
- * <p>
- * Every mutating method writes the issue row AND the matching {@link IssueHistory}
- * inside one {@code @Transactional} boundary — proving the AOP proxy shares a
- * single connection between the two writes.
- * </p>
+ * <p>Every mutating method writes the issue row AND the matching {@link IssueHistory} inside one
+ * {@code @Transactional} boundary — proving the AOP proxy shares a single connection between the
+ * two writes.
  */
 @Component
 public class IssueServiceImpl implements IssueService {
@@ -56,9 +49,13 @@ public class IssueServiceImpl implements IssueService {
     private final IdGenerator idGenerator;
     private final ProjectAuthorization authz;
 
-    public IssueServiceImpl(IssueRepository issueRepository, ProjectRepository projectRepository,
-            UserRepository userRepository, IssueHistoryRepository issueHistoryRepository,
-            CommentRepository commentRepository, IdGenerator idGenerator,
+    public IssueServiceImpl(
+            IssueRepository issueRepository,
+            ProjectRepository projectRepository,
+            UserRepository userRepository,
+            IssueHistoryRepository issueHistoryRepository,
+            CommentRepository commentRepository,
+            IdGenerator idGenerator,
             ProjectAuthorization authz) {
         this.issueRepository = issueRepository;
         this.projectRepository = projectRepository;
@@ -79,8 +76,13 @@ public class IssueServiceImpl implements IssueService {
 
     @Override
     @Transactional
-    public Issue createIssue(long projectId, String title, String description,
-            String status, String priority, Long assigneeId) {
+    public Issue createIssue(
+            long projectId,
+            String title,
+            String description,
+            String status,
+            String priority,
+            Long assigneeId) {
         if (title == null || title.isBlank()) {
             throw BusinessException.badRequest("Title must not be empty");
         }
@@ -88,17 +90,30 @@ public class IssueServiceImpl implements IssueService {
             throw BusinessException.badRequest("Status and priority are required");
         }
         long actorId = currentUserId();
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> BusinessException.notFound("Project"));
+        Project project =
+                projectRepository
+                        .findById(projectId)
+                        .orElseThrow(() -> BusinessException.notFound("Project"));
 
         long id = idGenerator.nextId();
         String key = project.projectKey() + "-" + projectRepository.nextIssueSeq(projectId);
         OffsetDateTime now = OffsetDateTime.now();
-        Issue issue = new Issue(id, projectId, key, title, description,
-                normalizeStatus(status), normalizePriority(priority), assigneeId, actorId, now, now);
+        Issue issue =
+                new Issue(
+                        id,
+                        projectId,
+                        key,
+                        title,
+                        description,
+                        normalizeStatus(status),
+                        normalizePriority(priority),
+                        assigneeId,
+                        actorId,
+                        now,
+                        now);
         issueRepository.insert(issue);
-        issueHistoryRepository.insert(new IssueHistory(idGenerator.nextId(), id, actorId, "CREATED",
-                null, null, now));
+        issueHistoryRepository.insert(
+                new IssueHistory(idGenerator.nextId(), id, actorId, "CREATED", null, null, now));
         return issue;
     }
 
@@ -113,12 +128,29 @@ public class IssueServiceImpl implements IssueService {
         if (normalized.equals(issue.status())) {
             return issue;
         }
-        Issue updated = new Issue(issue.id(), issue.projectId(), issue.issueKey(), issue.title(),
-                issue.description(), normalized, issue.priority(), issue.assigneeId(),
-                issue.reporterId(), issue.createdAt(), OffsetDateTime.now());
+        Issue updated =
+                new Issue(
+                        issue.id(),
+                        issue.projectId(),
+                        issue.issueKey(),
+                        issue.title(),
+                        issue.description(),
+                        normalized,
+                        issue.priority(),
+                        issue.assigneeId(),
+                        issue.reporterId(),
+                        issue.createdAt(),
+                        OffsetDateTime.now());
         issueRepository.updateMutable(updated);
-        issueHistoryRepository.insert(new IssueHistory(idGenerator.nextId(), issueId, actorId,
-                "STATUS_CHANGED", issue.status(), normalized, OffsetDateTime.now()));
+        issueHistoryRepository.insert(
+                new IssueHistory(
+                        idGenerator.nextId(),
+                        issueId,
+                        actorId,
+                        "STATUS_CHANGED",
+                        issue.status(),
+                        normalized,
+                        OffsetDateTime.now()));
         return updated;
     }
 
@@ -135,14 +167,31 @@ public class IssueServiceImpl implements IssueService {
         if (newAssigneeId != null && !authz.isMember(newAssigneeId, project.id())) {
             throw BusinessException.badRequest("Assignee is not a member of this project");
         }
-        Issue updated = new Issue(issue.id(), issue.projectId(), issue.issueKey(), issue.title(),
-                issue.description(), issue.status(), issue.priority(), newAssigneeId,
-                issue.reporterId(), issue.createdAt(), OffsetDateTime.now());
+        Issue updated =
+                new Issue(
+                        issue.id(),
+                        issue.projectId(),
+                        issue.issueKey(),
+                        issue.title(),
+                        issue.description(),
+                        issue.status(),
+                        issue.priority(),
+                        newAssigneeId,
+                        issue.reporterId(),
+                        issue.createdAt(),
+                        OffsetDateTime.now());
         issueRepository.updateMutable(updated);
         String from = issue.assigneeId() == null ? "none" : String.valueOf(issue.assigneeId());
         String to = newAssigneeId == null ? "none" : String.valueOf(newAssigneeId);
-        issueHistoryRepository.insert(new IssueHistory(idGenerator.nextId(), issueId, actorId,
-                "ASSIGNEE_CHANGED", from, to, OffsetDateTime.now()));
+        issueHistoryRepository.insert(
+                new IssueHistory(
+                        idGenerator.nextId(),
+                        issueId,
+                        actorId,
+                        "ASSIGNEE_CHANGED",
+                        from,
+                        to,
+                        OffsetDateTime.now()));
         return updated;
     }
 
@@ -157,12 +206,29 @@ public class IssueServiceImpl implements IssueService {
         if (normalized.equals(issue.priority())) {
             return issue;
         }
-        Issue updated = new Issue(issue.id(), issue.projectId(), issue.issueKey(), issue.title(),
-                issue.description(), issue.status(), normalized, issue.assigneeId(),
-                issue.reporterId(), issue.createdAt(), OffsetDateTime.now());
+        Issue updated =
+                new Issue(
+                        issue.id(),
+                        issue.projectId(),
+                        issue.issueKey(),
+                        issue.title(),
+                        issue.description(),
+                        issue.status(),
+                        normalized,
+                        issue.assigneeId(),
+                        issue.reporterId(),
+                        issue.createdAt(),
+                        OffsetDateTime.now());
         issueRepository.updateMutable(updated);
-        issueHistoryRepository.insert(new IssueHistory(idGenerator.nextId(), issueId, actorId,
-                "PRIORITY_CHANGED", issue.priority(), normalized, OffsetDateTime.now()));
+        issueHistoryRepository.insert(
+                new IssueHistory(
+                        idGenerator.nextId(),
+                        issueId,
+                        actorId,
+                        "PRIORITY_CHANGED",
+                        issue.priority(),
+                        normalized,
+                        OffsetDateTime.now()));
         return updated;
     }
 
@@ -176,12 +242,29 @@ public class IssueServiceImpl implements IssueService {
         if (title == null || title.isBlank()) {
             throw BusinessException.badRequest("Title must not be empty");
         }
-        Issue updated = new Issue(issue.id(), issue.projectId(), issue.issueKey(), title,
-                description, issue.status(), issue.priority(), issue.assigneeId(),
-                issue.reporterId(), issue.createdAt(), OffsetDateTime.now());
+        Issue updated =
+                new Issue(
+                        issue.id(),
+                        issue.projectId(),
+                        issue.issueKey(),
+                        title,
+                        description,
+                        issue.status(),
+                        issue.priority(),
+                        issue.assigneeId(),
+                        issue.reporterId(),
+                        issue.createdAt(),
+                        OffsetDateTime.now());
         issueRepository.updateMutable(updated);
-        issueHistoryRepository.insert(new IssueHistory(idGenerator.nextId(), issueId, actorId,
-                "EDITED", null, null, OffsetDateTime.now()));
+        issueHistoryRepository.insert(
+                new IssueHistory(
+                        idGenerator.nextId(),
+                        issueId,
+                        actorId,
+                        "EDITED",
+                        null,
+                        null,
+                        OffsetDateTime.now()));
         return updated;
     }
 
@@ -196,8 +279,15 @@ public class IssueServiceImpl implements IssueService {
         commentRepository.deleteByIssue(issueId);
         // Record the deletion while the row still exists (FK satisfied), then
         // remove — issue_history is cascade-deleted with it.
-        issueHistoryRepository.insert(new IssueHistory(idGenerator.nextId(), issueId, actorId,
-                "DELETED", issue.issueKey(), null, OffsetDateTime.now()));
+        issueHistoryRepository.insert(
+                new IssueHistory(
+                        idGenerator.nextId(),
+                        issueId,
+                        actorId,
+                        "DELETED",
+                        issue.issueKey(),
+                        null,
+                        OffsetDateTime.now()));
         issueRepository.delete(issueId);
     }
 
@@ -212,14 +302,22 @@ public class IssueServiceImpl implements IssueService {
         List<Tag> tags = issueRepository.findTags(issueId);
         List<Comment> comments = issueRepository.findComments(issueId);
         List<IssueHistory> history = issueHistoryRepository.findByIssue(issueId);
-        return new IssueDetail(issue, tags, comments, history, comments.size(),
-                nameOf(issue.assigneeId()), nameOf(issue.reporterId()));
+        return new IssueDetail(
+                issue,
+                tags,
+                comments,
+                history,
+                comments.size(),
+                nameOf(issue.assigneeId()),
+                nameOf(issue.reporterId()));
     }
 
     @Override
     public IssueDetail getIssueDetailByKey(long projectId, String issueKey) {
-        Issue issue = issueRepository.findByKey(projectId, issueKey)
-                .orElseThrow(() -> BusinessException.notFound("Issue"));
+        Issue issue =
+                issueRepository
+                        .findByKey(projectId, issueKey)
+                        .orElseThrow(() -> BusinessException.notFound("Issue"));
         return getIssueDetail(issue.id());
     }
 
@@ -251,7 +349,8 @@ public class IssueServiceImpl implements IssueService {
         }
         long actorId = currentUserId();
         Issue issue = load(issueId);
-        Comment comment = new Comment(idGenerator.nextId(), issueId, actorId, body, OffsetDateTime.now());
+        Comment comment =
+                new Comment(idGenerator.nextId(), issueId, actorId, body, OffsetDateTime.now());
         commentRepository.insert(comment);
         return comment;
     }
@@ -264,17 +363,17 @@ public class IssueServiceImpl implements IssueService {
     // ── Fine-grained RBAC (coarse-grained lives in RbacInterceptor) ──────
 
     /**
-     * A plain member may only mutate issues they reported or are assigned to;
-     * managers and the lead are unrestricted (the interceptor already confirmed
-     * membership / lead status for everyone). Delegated to {@link ProjectAuthorization}
-     * so the rule is defined in one place.
+     * A plain member may only mutate issues they reported or are assigned to; managers and the lead
+     * are unrestricted (the interceptor already confirmed membership / lead status for everyone).
+     * Delegated to {@link ProjectAuthorization} so the rule is defined in one place.
      */
     private void assertOwns(long actorId, Issue issue, Project project, String action) {
         authz.assertOwns(actorId, issue, project, action);
     }
 
     private Issue load(long issueId) {
-        return issueRepository.findById(issueId)
+        return issueRepository
+                .findById(issueId)
                 .orElseThrow(() -> BusinessException.notFound("Issue"));
     }
 
