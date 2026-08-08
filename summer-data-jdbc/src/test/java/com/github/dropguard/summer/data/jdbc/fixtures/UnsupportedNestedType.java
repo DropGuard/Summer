@@ -1,4 +1,4 @@
-package com.github.dropguard.summer.tck.negative.fixtures.data;
+package com.github.dropguard.summer.data.jdbc.fixtures;
 
 /**
  * Negative fixture: a type name that {@code RowMapperFactory.resolveFieldType} must reject as an

@@ -1,9 +1,10 @@
-package com.github.dropguard.summer.data.redis.config;
+package com.github.dropguard.summer.tck.data.redis;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.github.dropguard.summer.core.BeanContainer;
+import com.github.dropguard.summer.data.redis.config.RedisProperties;
 import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 

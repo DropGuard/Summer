@@ -1,4 +1,4 @@
-package com.github.dropguard.summer.fixtures;
+package com.github.dropguard.summer.tck.web.fixtures;
 
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.web.WsRouteProvider;

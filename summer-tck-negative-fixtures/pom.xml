@@ -13,11 +13,13 @@
     <artifactId>summer-tck-negative-fixtures</artifactId>
     <name>Summer TCK Negative Fixtures</name>
     <description>
-        Intentionally-broken beans for sad-path TCK tests (circular dependency,
-        missing dependency, ambiguous resolution, self-injection). These are reached
-        ONLY by the narrow @SummerTest(classes=...) path, which indexes their
-        .class bytes directly via NarrowIndexBuilder (Quarkus ArcTestContainer
-        beanClasses(...) model).
+        Whole-universe-invisible fixtures for the narrow @SummerTest(classes=...) path, which
+        indexes their .class bytes directly via NarrowIndexBuilder (Quarkus ArcTestContainer
+        beanClasses(...) model). Two kinds live here: the intentionally-broken beans for sad-path
+        TCK tests (circular dependency, missing dependency, ambiguous resolution, self-injection)
+        and the narrow-only positive fixtures that the whole universe must never see (e.g. the
+        row-model metadata regression's config, whose stub DataSource would collide with the tck's
+        JdbcTestConfig).
 
         This module deliberately does NOT declare the jandex-maven-plugin, so it
         produces no jandex.idx. The compiled .class files still ship in the jar
@@ -53,6 +55,15 @@
         <dependency>
             <groupId>com.github.dropguard</groupId>
             <artifactId>summer-aop</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- Narrow row-model fixtures (the dual-engine metadata regression) need the data-jdbc
+             types. Same no-jandex boundary as the negative beans: the jar ships the .class files
+             (the narrow @SummerTest seeds them by name) but no jandex.idx, so the whole-universe
+             index never sees them. -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-data-jdbc</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

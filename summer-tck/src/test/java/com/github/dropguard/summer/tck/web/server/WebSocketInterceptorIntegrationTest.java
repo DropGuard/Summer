@@ -1,9 +1,10 @@
-package com.github.dropguard.summer.web.server;
+package com.github.dropguard.summer.tck.web.server;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
+import com.github.dropguard.summer.web.server.NettyServerRunner;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
@@ -13,23 +14,23 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.TimeUnit;
 
 @SummerTest
-class WebSocketBroadcasterTest {
+class WebSocketInterceptorIntegrationTest {
 
     private final int port;
 
-    WebSocketBroadcasterTest(NettyServerRunner server) {
+    WebSocketInterceptorIntegrationTest(NettyServerRunner server) {
         this.port = server.getPort();
     }
 
     @DualEngine
-    void testBroadcastRoundTrip() throws Exception {
+    void testInterceptorModifiesMessage() throws Exception {
         var received = new CompletableFuture<String>();
         HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
         WebSocket ws =
                 client.newWebSocketBuilder()
                         .buildAsync(
-                                URI.create("ws://localhost:" + port + "/chat/test"),
+                                URI.create("ws://localhost:" + port + "/ws-test"),
                                 new WebSocket.Listener() {
                                     public CompletionStage<?> onText(
                                             WebSocket w, CharSequence data, boolean last) {
@@ -39,10 +40,10 @@ class WebSocketBroadcasterTest {
                                 })
                         .get(5, TimeUnit.SECONDS);
 
-        ws.sendText("BROADCAST:hello", true);
+        ws.sendText("ping", true);
         assertEquals(
-                "hello",
+                "[INTERCEPTED] ping",
                 received.get(5, TimeUnit.SECONDS),
-                "broadcaster should strip BROADCAST: prefix");
+                "message should be prefixed by the WebSocket interceptor");
     }
 }

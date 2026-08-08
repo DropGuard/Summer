@@ -1,4 +1,4 @@
-package com.github.dropguard.summer.aot.testfixtures;
+package com.github.dropguard.summer.tck.negative.fixtures.narrow.rowmodel;
 
 import com.github.dropguard.summer.data.jdbc.annotation.RowModel;
 

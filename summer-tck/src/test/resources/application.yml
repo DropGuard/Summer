@@ -3,7 +3,18 @@ app:
   port: 8080
   verbose: true
 
+# The tck's whole-universe tests start the Netty server; an ephemeral port keeps parallel
+# containers from fighting over the default 8080, and the server settings mirror the web-netty
+# module's test yml (the moved WebSocket tests depend on them — allowedOrigins is REQUIRED, with
+# no @WithDefault, so an empty list silently rejects every WS upgrade).
 server:
+  port: 0
+  maxBodySize: 10485760
+  idleTimeout: 60000
+  readTimeout: 10000
+  maxWebSocketFrameSize: 65536
+  allowedOrigins:
+    - "*"
   tls:
     enabled: true
     cert-chain: /path/to/cert.pem

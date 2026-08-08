@@ -2,7 +2,6 @@ package com.github.dropguard.summer.aot;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.github.dropguard.summer.tck.negative.fixtures.data.UnsupportedNestedType;
 import com.palantir.javapoet.CodeBlock;
 import org.junit.jupiter.api.Test;
 
@@ -36,7 +35,7 @@ class TypeReadsTest {
         IllegalStateException ex =
                 org.junit.jupiter.api.Assertions.assertThrows(
                         IllegalStateException.class,
-                        () -> TypeReads.jdbcRead("nested", UnsupportedNestedType.class.getName()));
+                        () -> TypeReads.jdbcRead("nested", UnsupportedFieldType.class.getName()));
         org.junit.jupiter.api.Assertions.assertTrue(
                 ex.getMessage().contains("Unsupported @RowModel field type"));
     }
