@@ -13,10 +13,6 @@ import java.util.Set;
 public class TcpProxy {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TcpProxy.class);
     private final int publicPort;
-    private final HotCompiler compiler;
-    private final JandexFastIndexer indexer;
-    private final AppProcessManager appManager;
-    private final String mainClass;
 
     // Concurrency control for lazy reload
     private final Object reloadLock = new Object();
@@ -24,24 +20,16 @@ public class TcpProxy {
     public final Set<File> changedFiles =
             java.util.Collections.synchronizedSet(new java.util.HashSet<>());
 
-    // The dynamic port assigned to the child JVM
-    private volatile int currentBackendPort = 0;
-
     // The port the public ServerSocket actually bound (differs from publicPort when 0 was
     // requested, i.e. ephemeral — exposed for tests).
     private volatile int actualPort = 0;
 
-    public TcpProxy(
-            int publicPort,
-            HotCompiler compiler,
-            JandexFastIndexer indexer,
-            AppProcessManager appManager,
-            String mainClass) {
+    // The dev app's rebuild + lifecycle (compile/copy, child restart, backend port).
+    private final DevEnvironment env;
+
+    public TcpProxy(int publicPort, DevEnvironment env) {
         this.publicPort = publicPort;
-        this.compiler = compiler;
-        this.indexer = indexer;
-        this.appManager = appManager;
-        this.mainClass = mainClass;
+        this.env = env;
     }
 
     public void start() throws Exception {
@@ -101,25 +89,11 @@ public class TcpProxy {
                                                                         + ")")
                                                         + "...");
 
-                                        if (!filesToCompile.isEmpty()) {
-                                            compiler.compile(filesToCompile);
-                                            indexer.reindex(compiler.outputDir);
-                                        }
-
-                                        // Find a random free port for the backend
-                                        try (ServerSocket s = new ServerSocket(0)) {
-                                            currentBackendPort = s.getLocalPort();
-                                        }
-
-                                        appManager.start(
-                                                currentBackendPort, mainClass, compiler.classpath);
-
-                                        // Wait a tiny bit for Netty to bind in the child JVM
-                                        Thread.sleep(500);
+                                        env.rebuild(filesToCompile);
                                         isDirty = false;
                                         log.info(
                                                 "[Summer] Backend ready on :"
-                                                        + currentBackendPort
+                                                        + env.backendPort()
                                                         + " after "
                                                         + ((System.nanoTime() - reloadStart)
                                                                 / 1_000_000)
@@ -129,7 +103,7 @@ public class TcpProxy {
 
                                 // 2. CONNECT TO BACKEND
                                 Socket backendSocket =
-                                        connectWithRetry("127.0.0.1", currentBackendPort, 10);
+                                        connectWithRetry("127.0.0.1", env.backendPort(), 10);
                                 if (backendSocket == null) {
                                     log.error("Failed to connect to backend child process.");
                                     clientSocket.close();

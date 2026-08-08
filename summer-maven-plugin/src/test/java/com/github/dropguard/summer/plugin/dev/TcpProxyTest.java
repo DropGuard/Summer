@@ -68,8 +68,12 @@ class TcpProxyTest {
                     }
                 };
 
-        HotCompiler noopCompiler = new HotCompiler("", null);
-        TcpProxy proxy = new TcpProxy(0, noopCompiler, null, fakeManager, "fake.Main");
+        java.nio.file.Path outDir = java.nio.file.Files.createTempDirectory("aot-out");
+        HotCompiler compiler = new HotCompiler("", outDir.toFile());
+        DevEnvironment env =
+                new DevEnvironment(
+                        compiler, new JandexFastIndexer(), fakeManager, "fake.Main", null);
+        TcpProxy proxy = new TcpProxy(0, env);
 
         proxy.start();
         int publicPort = proxy.publicPort();
@@ -91,6 +95,60 @@ class TcpProxyTest {
         String second = get(client, publicPort);
         assertEquals("v2", second, "request after a change must reach the fresh backend");
 
+        fakeManager.kill();
+    }
+
+    @Test
+    void resourceChangeIsCopiedIntoOutputDirNotCompiled() throws Exception {
+        java.nio.file.Path outDir = java.nio.file.Files.createTempDirectory("aot-out");
+        java.nio.file.Path resDir = java.nio.file.Files.createTempDirectory("res");
+        java.nio.file.Path yml =
+                java.nio.file.Files.writeString(
+                        resDir.resolve("application.yml"), "summer:\n  engine: aot\n");
+
+        VersionedApp app = new VersionedApp();
+        AtomicReference<HttpServer> currentServer = new AtomicReference<>();
+        AppProcessManager fakeManager =
+                new AppProcessManager() {
+                    @Override
+                    public void start(int port, String mainClass, String classpath) {
+                        try {
+                            currentServer.set(app.start(port));
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+
+                    @Override
+                    public void kill() {
+                        HttpServer server = currentServer.getAndSet(null);
+                        if (server != null) server.stop(0);
+                    }
+                };
+        HotCompiler compiler = new HotCompiler("", outDir.toFile());
+        DevEnvironment env =
+                new DevEnvironment(
+                        compiler,
+                        new JandexFastIndexer(),
+                        fakeManager,
+                        "fake.Main",
+                        resDir.toFile());
+        TcpProxy proxy = new TcpProxy(0, env);
+        proxy.start();
+        HttpClient client = HttpClient.newHttpClient();
+
+        // Boot v1 via the first request.
+        assertEquals("v1", get(client, proxy.publicPort()));
+
+        // A resource change: eager kill + dirty, then the next request copies the yml into the
+        // output dir (no compile — the changed file is not a source) and reboots the backend.
+        fakeManager.kill();
+        proxy.changedFiles.add(yml.toFile());
+        proxy.isDirty = true;
+
+        assertEquals("v2", get(client, proxy.publicPort()));
+        String copied = java.nio.file.Files.readString(outDir.resolve("application.yml"));
+        org.junit.jupiter.api.Assertions.assertTrue(copied.contains("engine: aot"));
         fakeManager.kill();
     }
 

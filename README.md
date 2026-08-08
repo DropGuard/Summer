@@ -107,8 +107,10 @@ mvn summer:dev
   forwarded to the child JVM as the `SUMMER_ENGINE` environment variable.
 - **Reload**: edit a file under `src/main/java` — the watcher kills the child
   immediately, breaking any in-flight keep-alive pipe; the next request triggers a
-  recompile and reboot (the log shows the changed files, the new backend port, and
-  the reload time).
+  recompile and reboot. Changes under `src/main/resources` (e.g. `application.yml`)
+  are copied into the output dir and restart the child the same way — no manual
+  restart needed for config tweaks (the log shows the changed files, the new
+  backend port, and the reload time).
 - **Main class**: auto-detected from the Jandex index, or set
   `<com.github.dropguard.summer.mainClass>` in your `pom.xml`.
 - **Port**: `<com.github.dropguard.summer.dev.port>` (default `8080`).

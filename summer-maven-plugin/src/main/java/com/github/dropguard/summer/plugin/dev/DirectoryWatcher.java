@@ -11,10 +11,16 @@ public class DirectoryWatcher {
     private static final org.slf4j.Logger log =
             org.slf4j.LoggerFactory.getLogger(DirectoryWatcher.class);
     private final Path sourceDir;
+    private final String suffix; // files not ending in this suffix are ignored; "" = all files
     private final WatchService watcher;
 
     public DirectoryWatcher(File sourceDir) throws Exception {
+        this(sourceDir, ".java");
+    }
+
+    public DirectoryWatcher(File sourceDir, String suffix) throws Exception {
         this.sourceDir = sourceDir.toPath();
+        this.suffix = suffix;
         this.watcher = FileSystems.getDefault().newWatchService();
         registerAll(this.sourceDir);
     }
@@ -42,7 +48,8 @@ public class DirectoryWatcher {
 
                                     for (WatchEvent<?> event : key.pollEvents()) {
                                         Path context = (Path) event.context();
-                                        if (context.toString().endsWith(".java")) {
+                                        if (suffix.isEmpty()
+                                                || context.toString().endsWith(suffix)) {
                                             Path absolutePath =
                                                     ((Path) key.watchable()).resolve(context);
                                             onFileChanged.accept(absolutePath.toFile());
