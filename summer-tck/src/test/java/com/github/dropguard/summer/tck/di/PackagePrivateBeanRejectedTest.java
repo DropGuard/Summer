@@ -1,6 +1,6 @@
 package com.github.dropguard.summer.tck.di;
 
-import com.github.dropguard.summer.tck.negative.fixtures.di.PackagePrivateBeanConfig;
+import com.github.dropguard.summer.tck.invisible.fixtures.di.PackagePrivateBeanConfig;
 import com.github.dropguard.summer.test.SummerTestExtension;
 import com.github.dropguard.summer.test.annotation.DualEngine;
 import org.junit.jupiter.api.extension.RegisterExtension;

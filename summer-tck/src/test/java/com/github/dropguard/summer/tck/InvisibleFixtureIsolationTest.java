@@ -18,16 +18,16 @@ import org.junit.jupiter.api.Test;
  * graph would poison every healthy test.
  *
  * <p>The boundary is structural, not a path glob or an exclude list: the negative fixtures live in
- * the dedicated summer-tck-negative-fixtures module, which ships no jandex.idx and is not on the
+ * the dedicated summer-tck-invisible-fixtures module, which ships no jandex.idx and is not on the
  * path of this module's test-classes directory. This test locks that contract at the level that
  * actually matters -- the beans the whole-universe container registers -- so a regression (e.g.
  * someone Jandexing the negative module, or changing the test index to a bulk classpath sweep)
  * surfaces in CI instead of as silent contamination.
  */
-class NegativeFixtureIsolationTest {
+class InvisibleFixtureIsolationTest {
 
     private static final String ERRORS_PACKAGE =
-            "com.github.dropguard.summer.tck.negative.fixtures.di";
+            "com.github.dropguard.summer.tck.invisible.fixtures.di";
 
     @Test
     void negativeFixturesAreNotInWholeUniverseContainer() {

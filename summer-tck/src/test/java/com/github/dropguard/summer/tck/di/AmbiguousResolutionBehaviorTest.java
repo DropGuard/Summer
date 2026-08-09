@@ -3,9 +3,9 @@ package com.github.dropguard.summer.tck.di;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.github.dropguard.summer.core.BeanContainer;
-import com.github.dropguard.summer.tck.negative.fixtures.di.AmbiguousService;
-import com.github.dropguard.summer.tck.negative.fixtures.di.AmbiguousServiceImplOne;
-import com.github.dropguard.summer.tck.negative.fixtures.di.AmbiguousServiceImplTwo;
+import com.github.dropguard.summer.tck.invisible.fixtures.di.AmbiguousService;
+import com.github.dropguard.summer.tck.invisible.fixtures.di.AmbiguousServiceImplOne;
+import com.github.dropguard.summer.tck.invisible.fixtures.di.AmbiguousServiceImplTwo;
 import com.github.dropguard.summer.test.SummerTestExtension;
 import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;

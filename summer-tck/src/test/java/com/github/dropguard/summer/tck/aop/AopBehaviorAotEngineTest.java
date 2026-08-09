@@ -6,7 +6,6 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.github.dropguard.summer.core.BeanContainer;
-import org.junit.jupiter.api.Test;
 import com.github.dropguard.summer.core.Engine;
 import com.github.dropguard.summer.fixtures.aop.ClassLevelGreeter;
 import com.github.dropguard.summer.fixtures.aop.Greeter;
@@ -15,6 +14,7 @@ import com.github.dropguard.summer.fixtures.aop.RecordingInterceptor;
 import com.github.dropguard.summer.test.TestContainer;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 import java.util.List;
+import org.junit.jupiter.api.Test;
 
 /**
  * AOT-engine-specific pin for AOP interception behaviour.

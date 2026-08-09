@@ -23,7 +23,7 @@
         </dependency>
         <dependency>
             <groupId>com.github.dropguard</groupId>
-            <artifactId>summer-tck-negative-fixtures</artifactId>
+            <artifactId>summer-tck-invisible-fixtures</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-test</artifactId><version>${project.version}</version></dependency>
