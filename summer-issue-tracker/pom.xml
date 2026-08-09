@@ -107,6 +107,10 @@
         <plugins>
             <plugin>
                 <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <!-- IT-bearing: zero executed tests fails the build (the silent-skip guard). -->
+                    <failIfNoTests>true</failIfNoTests>
+                </configuration>
             </plugin>
         
         </plugins>
