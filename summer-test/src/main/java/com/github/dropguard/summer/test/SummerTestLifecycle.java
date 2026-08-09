@@ -17,7 +17,6 @@ import java.util.Map;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicLong;
-import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.TestInstantiationException;
 
 /**
@@ -77,8 +76,7 @@ public final class SummerTestLifecycle {
      * Builds the container, instantiates the test class, and enforces the shouldFail contract.
      * Returns both the instance and the container.
      */
-    public static BuildOutcome createUniverse(
-            Class<?> testClass, Engine engine, ExtensionContext extensionContext) {
+    public static BuildOutcome createUniverse(Class<?> testClass, Engine engine) {
         SummerTestExtension config = SummerTestExtension.resolve(testClass);
         boolean shouldFail = config != null && config.shouldFail();
 
@@ -90,17 +88,22 @@ public final class SummerTestLifecycle {
             var result = INSTANCE.acquireUniverse(testClass, engine, mocks, config);
             container = result.container();
             fresh = result.fresh();
+        } catch (TestResourceStartupException e) {
+            // A broken external resource is infrastructure failure, never the negative test's
+            // intent — it must surface even under shouldFail (the promise is "assembly fails",
+            // not "anything throws").
+            throw e;
         } catch (Exception buildFailure) {
-            if (!shouldFail) {
-                throw new TestInstantiationException(
-                        "@SummerTest container failed to assemble for "
-                                + testClass.getSimpleName()
-                                + " (engine="
-                                + engine
-                                + "). Declare shouldFail=true if this is a negative test.",
-                        buildFailure);
+            if (shouldFail) {
+                return new BuildOutcome(instantiateWithoutContainer(testClass), null);
             }
-            return new BuildOutcome(instantiateWithoutContainer(testClass), null);
+            throw new TestInstantiationException(
+                    "@SummerTest container failed to assemble for "
+                            + testClass.getSimpleName()
+                            + " (engine="
+                            + engine
+                            + "). Declare shouldFail=true if this is a negative test.",
+                    buildFailure);
         }
 
         if (shouldFail) {
@@ -115,7 +118,8 @@ public final class SummerTestLifecycle {
         }
         // Start application runners (HTTP server, gRPC, etc.) — mirrors
         // SummerApplication's post-build hook — but only when the container was freshly built:
-        // the cached-container path (e.g. the RUNTIME leg of a @DualEngine test, which reuses the
+        // the cached-container path (e.g. the RUNTIME invocation of a @DualEngine test, which
+        // reuses the
         // universe SummerExtension already built) must not re-run NettyServerRunner and bind the
         // port a second time.
         if (fresh) {
@@ -264,12 +268,12 @@ public final class SummerTestLifecycle {
 
     /**
      * Suite-end telemetry: the universe reuse (the cache hit count) is a design guarantee — the
-     * RUNTIME leg of a {@code @DualEngine} test reuses the universe SummerExtension built; the AOT
-     * leg reuses across the class's methods. Surfacing the count at the suite end makes a
-     * silently-never-reused cache visible in the build log instead of being a dead counter. Invoked
-     * by the ServiceLoader-registered {@link UniverseCacheTelemetryListener} (a separate class with
-     * a public no-arg constructor — the singleton's private constructor cannot satisfy the
-     * ServiceLoader contract).
+     * RUNTIME invocation of a {@code @DualEngine} test reuses the universe SummerExtension built;
+     * the AOT invocation reuses across the class's methods. Surfacing the count at the suite end
+     * makes a silently-never-reused cache visible in the build log instead of being a dead counter.
+     * Invoked by the ServiceLoader-registered {@link UniverseCacheTelemetryListener} (a separate
+     * class with a public no-arg constructor — the singleton's private constructor cannot satisfy
+     * the ServiceLoader contract).
      */
     public void logCacheTelemetry() {
         log.info(

@@ -86,7 +86,7 @@ public final class DualEngineInvocationProvider implements TestTemplateInvocatio
             @Override
             public void beforeTestExecution(ExtensionContext context) {
                 SummerTestLifecycle.BuildOutcome outcome =
-                        SummerTestLifecycle.createUniverse(testClass, engine, context);
+                        SummerTestLifecycle.createUniverse(testClass, engine);
                 context.getStore(NS).put(KEY, outcome.container());
             }
         }

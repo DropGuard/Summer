@@ -33,7 +33,7 @@ public class SummerExtension implements TestInstanceFactory {
         }
 
         SummerTestLifecycle.BuildOutcome outcome =
-                SummerTestLifecycle.createUniverse(testClass, Engine.RUNTIME, extensionContext);
+                SummerTestLifecycle.createUniverse(testClass, Engine.RUNTIME);
         extensionContext.getStore(NS).put(KEY, outcome.container());
 
         return outcome.instance();
