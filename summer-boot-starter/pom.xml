@@ -42,6 +42,11 @@
         </dependency>
 
         <!-- Logging binding: the application owns logback; the framework only depends on slf4j-api. -->
+        <!-- Logging: the starter ships logback-classic (the binding) plus the framework's default
+             logback.xml (summer-core's main resource). Apps override with their own logback.xml —
+             the standard first-wins classpath rule — or by replacing the binding entirely. The
+             framework modules themselves stay SLF4J-only so a starter-less embedded use keeps the
+             app's binding choice. -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>

@@ -215,6 +215,19 @@
             </plugin>
         </plugins>
     </build>
+    <dependencies>
+        <!-- Test logging backend for every module's tests. The framework's tests were running
+             with SLF4J's NOP provider — all [Summer] diagnostics were silent in the reactor (only
+             the demos, which ship their own logback, ever showed them). Test scope so nothing
+             leaks into the framework jars. The logback.xml lives in summer-core's main resources
+             and is on the test classpath via the main jar. -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.5.18</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
     <distributionManagement>
         <!-- summer-parent is top-level (no parent of its own) and does not inherit the
              framework root's distributionManagement; without this its deploy fails. Same
