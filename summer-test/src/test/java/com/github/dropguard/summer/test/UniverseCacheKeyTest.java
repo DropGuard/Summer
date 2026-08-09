@@ -9,26 +9,26 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
- * The universe cache reuses a universe purely on {@link EnvKey#equals}/{@link EnvKey#hashCode}
- * equality — a bug there silently reuses the wrong universe, which manifests as intermittent,
- * unexplained test failures. This test is the compile-time guard against that class of bug: the map
- * key already guarantees the right container is returned on a hit, so the equality contract must be
- * pinned here rather than trusting a runtime check.
+ * The universe cache reuses a universe purely on {@link UniverseKey#equals}/{@link
+ * UniverseKey#hashCode} equality — a bug there silently reuses the wrong universe, which manifests
+ * as intermittent, unexplained test failures. This test is the compile-time guard against that
+ * class of bug: the map key already guarantees the right container is returned on a hit, so the
+ * equality contract must be pinned here rather than trusting a runtime check.
  */
-class EnvKeyTest {
+class UniverseKeyTest {
 
-    private static final EnvKey A =
-            EnvKey.of("p1", List.of("com.X", "com.Y"), Engine.RUNTIME, "BuilderA");
-    private static final EnvKey B =
-            EnvKey.of("p1", List.of("com.X", "com.Y"), Engine.RUNTIME, "BuilderA");
-    private static final EnvKey DIFF_PROFILE =
-            EnvKey.of("p2", List.of("com.X", "com.Y"), Engine.RUNTIME, "BuilderA");
-    private static final EnvKey DIFF_MOCKS =
-            EnvKey.of("p1", List.of("com.X", "com.Z"), Engine.RUNTIME, "BuilderA");
-    private static final EnvKey DIFF_ENGINE =
-            EnvKey.of("p1", List.of("com.X", "com.Y"), Engine.AOT, "BuilderA");
-    private static final EnvKey DIFFERENT_BUILDER =
-            EnvKey.of("p1", List.of("com.X", "com.Y"), Engine.RUNTIME, "BuilderB");
+    private static final UniverseKey A =
+            UniverseKey.of("p1", List.of("com.X", "com.Y"), Engine.RUNTIME, "BuilderA");
+    private static final UniverseKey B =
+            UniverseKey.of("p1", List.of("com.X", "com.Y"), Engine.RUNTIME, "BuilderA");
+    private static final UniverseKey DIFF_PROFILE =
+            UniverseKey.of("p2", List.of("com.X", "com.Y"), Engine.RUNTIME, "BuilderA");
+    private static final UniverseKey DIFF_MOCKS =
+            UniverseKey.of("p1", List.of("com.X", "com.Z"), Engine.RUNTIME, "BuilderA");
+    private static final UniverseKey DIFF_ENGINE =
+            UniverseKey.of("p1", List.of("com.X", "com.Y"), Engine.AOT, "BuilderA");
+    private static final UniverseKey DIFFERENT_BUILDER =
+            UniverseKey.of("p1", List.of("com.X", "com.Y"), Engine.RUNTIME, "BuilderB");
 
     @Test
     void equalKeysAreEqualAndShareHash() {
@@ -77,7 +77,7 @@ class EnvKeyTest {
     void equalsIsReflexiveAndNullSafe() {
         assertEquals(A, A);
         assertNotEquals(A, null);
-        assertNotEquals(A, "not an EnvKey");
+        assertNotEquals(A, "not an UniverseKey");
     }
 
     @Test
@@ -89,9 +89,10 @@ class EnvKeyTest {
     void mockTypeOrderIsSignificant() {
         // mockedTypes is an ordered List, so element order is part of the key.
         // (Callers that build the key from @Mock parameters normalize the order
-        // via a sorted set before calling EnvKey.of, which is why order only
+        // via a sorted set before calling UniverseKey.of, which is why order only
         // matters here at the key level — this test pins that contract.)
-        EnvKey reordered = EnvKey.of("p1", List.of("com.Y", "com.X"), Engine.RUNTIME, "BuilderA");
+        UniverseKey reordered =
+                UniverseKey.of("p1", List.of("com.Y", "com.X"), Engine.RUNTIME, "BuilderA");
         assertNotEquals(A, reordered);
     }
 }

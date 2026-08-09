@@ -35,7 +35,7 @@ public final class SummerTestLifecycle {
 
     private static final SummerTestLifecycle INSTANCE = new SummerTestLifecycle();
 
-    private final Map<EnvKey, CachedUniverse> universeCache = new HashMap<>();
+    private final Map<UniverseKey, CachedUniverse> universeCache = new HashMap<>();
     private final AtomicLong cacheHits = new AtomicLong();
 
     // Shared index DTOs, owned by this JVM-singleton instance (not static fields on the loader
@@ -151,7 +151,7 @@ public final class SummerTestLifecycle {
         Map<String, Object> overrides = new HashMap<>(profileOverrides(testClass));
         // TestResource properties win over profile overrides
         overrides.putAll(TestResources.resolveProperties(testClass));
-        EnvKey key = envKeyFor(testClass, engine, mocks, overrides);
+        UniverseKey key = universeKeyFor(testClass, engine, mocks, overrides);
         CachedUniverse cached = universeCache.get(key);
         if (cached != null) {
             cacheHits.incrementAndGet();
@@ -262,6 +262,22 @@ public final class SummerTestLifecycle {
 
     // ── lifecycle ─────────────────────────────────────────────────────
 
+    /**
+     * Suite-end telemetry: the universe reuse (the cache hit count) is a design guarantee — the
+     * RUNTIME leg of a {@code @DualEngine} test reuses the universe SummerExtension built; the AOT
+     * leg reuses across the class's methods. Surfacing the count at the suite end makes a
+     * silently-never-reused cache visible in the build log instead of being a dead counter. Invoked
+     * by the ServiceLoader-registered {@link UniverseCacheTelemetryListener} (a separate class with
+     * a public no-arg constructor — the singleton's private constructor cannot satisfy the
+     * ServiceLoader contract).
+     */
+    public void logCacheTelemetry() {
+        log.info(
+                "[Summer] test universe cache: {} hits / {} universes",
+                cacheHits.get(),
+                universeCache.size());
+    }
+
     public synchronized void shutdown() {
         for (CachedUniverse c : universeCache.values()) {
             try {
@@ -277,17 +293,17 @@ public final class SummerTestLifecycle {
 
     // ── helpers ───────────────────────────────────────────────────────
 
-    private EnvKey envKeyFor(
+    private UniverseKey universeKeyFor(
             Class<?> testClass,
             Engine engine,
             List<MockedBean> mocks,
             Map<String, Object> overrides) {
-        String profile = overrides.isEmpty() ? EnvKey.NO_PROFILE : overrides.toString();
+        String profile = overrides.isEmpty() ? UniverseKey.NO_PROFILE : overrides.toString();
         SortedSet<String> mocked = new TreeSet<>();
         for (MockedBean m : mocks) {
             mocked.add(m.targetType().getName());
         }
-        return EnvKey.of(profile, List.copyOf(mocked), engine, testClass.getName());
+        return UniverseKey.of(profile, List.copyOf(mocked), engine, testClass.getName());
     }
 
     private Map<String, Object> profileOverrides(Class<?> testClass) {

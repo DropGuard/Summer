@@ -39,6 +39,14 @@
             <artifactId>junit-jupiter</artifactId>
             <scope>compile</scope>
         </dependency>
+        <!-- The launcher API: SummerTestLifecycle is a ServiceLoader-registered
+             TestExecutionListener, so it can log the universe-cache telemetry at the suite end
+             (while logback is alive) instead of in the JVM shutdown hook. -->
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-launcher</artifactId>
+            <scope>compile</scope>
+        </dependency>
         <!-- Mockito JUnit integration: brings @Mock / MockitoExtension and transitively
              mockito-core, so consumers need not declare any Mockito artifact directly. -->
         <dependency>

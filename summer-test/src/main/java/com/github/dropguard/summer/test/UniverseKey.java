@@ -33,7 +33,7 @@ import java.util.Objects;
  * cached universe, the offending key is logged verbatim rather than as an opaque fingerprint.
  */
 @Internal
-public final class EnvKey {
+public final class UniverseKey {
 
     /** Marker used when a test declares no profile. */
     public static final String NO_PROFILE = "<no-profile>";
@@ -43,7 +43,8 @@ public final class EnvKey {
     private final Engine engine;
     private final String firstBuilder;
 
-    private EnvKey(String profile, List<String> mockedTypes, Engine engine, String firstBuilder) {
+    private UniverseKey(
+            String profile, List<String> mockedTypes, Engine engine, String firstBuilder) {
         this.profile = profile;
         this.mockedTypes = List.copyOf(mockedTypes);
         this.engine = engine;
@@ -60,9 +61,9 @@ public final class EnvKey {
      *     universe)
      * @param firstBuilder the class that first built the cached universe under this key
      */
-    public static EnvKey of(
+    public static UniverseKey of(
             String profile, List<String> mockedTypes, Engine engine, String firstBuilder) {
-        return new EnvKey(profile, mockedTypes, engine, firstBuilder);
+        return new UniverseKey(profile, mockedTypes, engine, firstBuilder);
     }
 
     public String profile() {
@@ -84,7 +85,7 @@ public final class EnvKey {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof EnvKey other)) return false;
+        if (!(o instanceof UniverseKey other)) return false;
         // firstBuilder (the test class) IS a key dimension: Summer's universe is
         // per-test-class (each @SummerTest assembles its own graph, and
         // shouldFail depends on the specific class). Without it, distinct classes
@@ -108,7 +109,7 @@ public final class EnvKey {
      */
     @Override
     public String toString() {
-        return "EnvKey{profile="
+        return "UniverseKey{profile="
                 + profile
                 + ", mocks="
                 + mockedTypes
