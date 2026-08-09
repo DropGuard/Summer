@@ -71,6 +71,8 @@
         <module>summer-data-redis</module>
         <module>summer-data-jdbc</module>
         <module>summer-test</module>
+        <module>summer-test-db</module>
+        <module>summer-test-starter</module>
         <module>summer-tck</module>
         <module>summer-tck-fixtures</module>
         <module>summer-tck-invisible-fixtures</module>

@@ -102,19 +102,12 @@
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>test</scope>
-        </dependency>
+        <!-- The user-facing test entry: one dependency for the @SummerTest infrastructure, the
+             database test resources, and the transitives (testcontainers for the demo's own
+             containers). The demo consumes the framework the way a real user does. -->
         <dependency>
             <groupId>com.github.dropguard</groupId>
-            <artifactId>summer-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-junit-jupiter</artifactId>
+            <artifactId>summer-test-starter</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

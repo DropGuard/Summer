@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.github.dropguard</groupId>
+        <artifactId>summer-framework</artifactId>
+        <version>999-SNAPSHOT</version>
+    </parent>
+    <artifactId>summer-test-db</artifactId>
+    <name>Summer Test DB Resources</name>
+    <description>Optional database test resources (testcontainers-backed). Lives outside summer-test so the core test infrastructure never forces testcontainers on consumers that do not use a DB resource.</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-test</artifactId>
+        </dependency>
+        <!-- Compile scope: the resource ships in this module's MAIN (override the BOM's test
+             scope, which is right for consumers but not for the module that defines the class). -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>compile</scope>
+        </dependency>
+    </dependencies>
+</project>

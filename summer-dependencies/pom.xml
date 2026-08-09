@@ -146,6 +146,16 @@
                 <artifactId>summer-test</artifactId>
                 <version>${project.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.github.dropguard</groupId>
+                <artifactId>summer-test-db</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.dropguard</groupId>
+                <artifactId>summer-test-starter</artifactId>
+                <version>${project.version}</version>
+            </dependency>
 
             <!-- Redis Dependencies -->
             <dependency>
