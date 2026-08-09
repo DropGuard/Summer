@@ -20,6 +20,7 @@ import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.CompositeIndex;
 import org.jboss.jandex.DotName;
 import org.jboss.jandex.Index;
+import org.jboss.jandex.IndexView;
 import org.jboss.jandex.Indexer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -169,7 +170,7 @@ class CrossModuleDiscoveryTest {
                         "com.github.dropguard.summer.web.annotation.Put",
                         "com.github.dropguard.summer.web.annotation.Delete",
                         "com.github.dropguard.summer.web.annotation.PathParam");
-        List<BeanDefinition> beans = Discovery.discover(BeanDeployment.forNarrow(index));
+        List<BeanDefinition> beans = Discovery.discover(narrow(index));
 
         // Route scanning lives in the SPI layer now (2.5): WebRouteScanner fills
         // the routes via RouteRegistrarLoader — the same shared path AotEngine uses.
@@ -234,7 +235,7 @@ class CrossModuleDiscoveryTest {
                         "com.github.dropguard.summer.fixtures.dummy.DummyConfigProperties",
                         "com.github.dropguard.summer.core.config.ConfigMapping");
 
-        List<BeanDefinition> beans = Discovery.discover(BeanDeployment.forNarrow(index));
+        List<BeanDefinition> beans = Discovery.discover(narrow(index));
 
         assertTrue(
                 beans.stream()
@@ -262,7 +263,7 @@ class CrossModuleDiscoveryTest {
                         "com.github.dropguard.summer.core.annotation.Configuration",
                         "com.github.dropguard.summer.core.annotation.Bean");
 
-        List<BeanDefinition> beans = Discovery.discover(BeanDeployment.forNarrow(index));
+        List<BeanDefinition> beans = Discovery.discover(narrow(index));
 
         // With classpath scope, should discover ALL beans regardless of package
         long componentCount =
@@ -292,7 +293,7 @@ class CrossModuleDiscoveryTest {
                         "com.github.dropguard.summer.fixtures.dummy.PlainServiceA",
                         "com.github.dropguard.summer.fixtures.dummy.PlainServiceB");
 
-        List<BeanDefinition> beans = Discovery.discover(BeanDeployment.forNarrow(index));
+        List<BeanDefinition> beans = Discovery.discover(narrow(index));
 
         long factoryCount = beans.stream().filter(b -> b.isFactoryMethod()).count();
         assertEquals(
@@ -322,5 +323,13 @@ class CrossModuleDiscoveryTest {
                                                 && b.qualifiedName.equals(
                                                         "com.github.dropguard.summer.fixtures.dummy.PlainServiceB")),
                 "Should discover PlainServiceB as a factory bean");
+    }
+
+    /**
+     * Narrow deployment without a product-info index (this test's graphs have no @Bean products).
+     */
+    private static BeanDeployment narrow(IndexView index) {
+        return BeanDeployment.forNarrow(
+                index, org.jboss.jandex.CompositeIndex.create(java.util.List.of()));
     }
 }

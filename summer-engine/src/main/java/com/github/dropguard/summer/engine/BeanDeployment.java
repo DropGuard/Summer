@@ -32,8 +32,8 @@ import org.jboss.jandex.IndexView;
  *       TestClassIndexer.indexTestClasses} model). There is no pre-baked {@code jandex-test.idx}
  *       and no bulk scan of every module's test classes. A narrow {@code @SummerTest(classes=...)}
  *       container replaces the test slice with a throwaway index built directly from the seed
- *       {@code .class} bytes ({@link #forNarrow(IndexView)}), exactly like Quarkus' {@code
- *       ArcTestContainer.index(beanClasses)}.
+ *       {@code .class} bytes ({@link #forNarrow(IndexView, IndexView)}), exactly like Quarkus'
+ *       {@code ArcTestContainer.index(beanClasses)}.
  * </ul>
  *
  * <p>The two pipelines are disjoint by construction: the production loader and the test loader come
@@ -58,6 +58,12 @@ public final class BeanDeployment {
     private final Map<String, String> classToArchive;
     private final Set<String> allTypeNames;
     private final Map<String, IndexView> archiveIndexes;
+
+    /**
+     * The merged discovery view: the archives' indexes plus (narrow only) the products' info index
+     * — built once at construction.
+     */
+    private final IndexView discoveryIndex;
 
     /**
      * AOT codegen: unique cache key for the generated container (must encode profile overrides and
@@ -89,16 +95,27 @@ public final class BeanDeployment {
         this.classToArchive = Collections.unmodifiableMap(classToArchive);
         this.allTypeNames = Collections.unmodifiableSet(classToArchive.keySet());
         this.archiveIndexes = Collections.unmodifiableMap(archiveIndexes);
+        this.discoveryIndex = CompositeIndex.create(new ArrayList<>(archiveIndexes.values()));
         registerEngineSyntheticBeans();
     }
 
     /** Narrow deployment: no production slice, discovery sees only the seed closure. */
     private BeanDeployment(
-            Map<String, String> classToArchive, Map<String, IndexView> archiveIndexes) {
+            Map<String, String> classToArchive,
+            Map<String, IndexView> archiveIndexes,
+            IndexView narrowInfo) {
         this.productionIndex = null;
         this.classToArchive = Collections.unmodifiableMap(classToArchive);
         this.allTypeNames = Collections.unmodifiableSet(classToArchive.keySet());
         this.archiveIndexes = Collections.unmodifiableMap(archiveIndexes);
+        // The products' info index (narrow only) is merged here and discarded — it is lookup
+        // material (interfaces, override dedup), never a universe member, so it must not outlive
+        // the deployment as a field.
+        List<IndexView> all = new ArrayList<>(archiveIndexes.values());
+        if (narrowInfo != null) {
+            all.add(narrowInfo);
+        }
+        this.discoveryIndex = CompositeIndex.create(all);
         registerEngineSyntheticBeans();
     }
 
@@ -135,12 +152,13 @@ public final class BeanDeployment {
     }
 
     /**
-     * Builds a narrow (scoped) test deployment: the test slice is a throwaway index built directly
-     * from the seed {@code .class} bytes (Quarkus {@code ArcTestContainer.index(beanClasses)}
-     * shape), and the production slice is empty — discovery only ever sees the listed graph, never
-     * any {@code jandex.idx} and never a negative fixture outside the seed closure.
+     * Builds a narrow (scoped) test deployment: the main index's classes are the universe (iterated
+     * by discovery — the seed {@code .class} bytes, Quarkus {@code
+     * ArcTestContainer.index(beanClasses)} shape); the info index's classes are lookup-only (the
+     * {@code @Bean} products' interfaces and the override dedup) and excluded from the universe
+     * membership.
      */
-    public static BeanDeployment forNarrow(IndexView narrowIndex) {
+    public static BeanDeployment forNarrow(IndexView narrowIndex, IndexView narrowInfo) {
         Map<String, String> classToArchive = new java.util.HashMap<>();
         Map<String, IndexView> archiveIndexes = new java.util.HashMap<>();
         for (String typeName :
@@ -148,7 +166,7 @@ public final class BeanDeployment {
             classToArchive.put(typeName, "narrow");
         }
         archiveIndexes.put("narrow", narrowIndex);
-        return new BeanDeployment(classToArchive, archiveIndexes);
+        return new BeanDeployment(classToArchive, archiveIndexes, narrowInfo);
     }
 
     /**
@@ -164,9 +182,9 @@ public final class BeanDeployment {
 
     /**
      * Builds a production deployment from a single merged index, treating it as one archive named
-     * {@code "production"}. Convenience overload mirroring {@link #forNarrow(IndexView)} so callers
-     * don't have to build the archive maps by hand — the whole index is the universe, as production
-     * expects.
+     * {@code "production"}. Convenience overload mirroring {@link #forNarrow(IndexView, IndexView)}
+     * so callers don't have to build the archive maps by hand — the whole index is the universe, as
+     * production expects.
      */
     public static BeanDeployment forProduction(IndexView productionIndex) {
         Map<String, String> classToArchive = new java.util.HashMap<>();
@@ -192,11 +210,7 @@ public final class BeanDeployment {
      * semantics discovery and bean-enrichment rely on.
      */
     public IndexView discoveryIndex() {
-        List<IndexView> all = new ArrayList<>(archiveIndexes.values());
-        if (all.isEmpty()) {
-            return CompositeIndex.create(List.of());
-        }
-        return CompositeIndex.create(all);
+        return discoveryIndex;
     }
 
     /** All archive names. */

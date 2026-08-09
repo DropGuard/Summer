@@ -45,7 +45,11 @@ class MethodReplacesDiscoveryTest {
                         MethodReplacesConfig.class,
                         MethodReplacesReplacementConfig.class,
                         MethodReplacesBean.class);
-        List<BeanDefinition> beans = Discovery.discover(BeanDeployment.forNarrow(index));
+        List<BeanDefinition> beans =
+                Discovery.discover(
+                        BeanDeployment.forNarrow(
+                                index,
+                                org.jboss.jandex.CompositeIndex.create(java.util.List.of())));
 
         new SharedConditionEvaluator().evaluate(beans);
 

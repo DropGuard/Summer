@@ -14,8 +14,8 @@ import org.junit.jupiter.api.extension.RegisterExtension;
  * Behavioral regression: a {@code @RowModel} class seeded into the universe must be visible to
  * {@link EntityMetadataRegistry} on BOTH engines. The Runtime engine scans its discovery view at
  * build time; the AOT engine bakes the metadata at code-generation time from the same discovery
- * view — never a runtime-reconstructed, production-only index. Before the fix the AOT leg silently
- * missed the seeded entity and this test failed. The seeded config/entity live in {@code
+ * view — never a runtime-reconstructed, production-only index. Before the fix the AOT invocation
+ * silently missed the seeded entity and this test failed. The seeded config/entity live in {@code
  * summer-tck-invisible-fixtures} (a no-jandex module — the jar carries the .class bytes but no
  * jandex.idx) so the tck's whole-universe tests never see them.
  */

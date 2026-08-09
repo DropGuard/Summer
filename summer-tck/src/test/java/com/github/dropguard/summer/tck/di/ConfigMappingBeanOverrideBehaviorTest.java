@@ -28,7 +28,9 @@ public class ConfigMappingBeanOverrideBehaviorTest {
                             .beans(OverrideProps.class, OverrideConfig.class)
                             .build();
             assertEquals(
-                    "from-producer", context.getBean(OverrideProps.class).value(), engine + " leg");
+                    "from-producer",
+                    context.getBean(OverrideProps.class).value(),
+                    engine + " invocation");
         }
     }
 }

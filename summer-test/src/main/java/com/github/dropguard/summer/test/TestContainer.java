@@ -107,10 +107,15 @@ public final class TestContainer {
             return this;
         }
 
+        private BeanDeployment narrowDeployment() {
+            NarrowIndexBuilder.NarrowIndexes idx = NarrowIndexBuilder.build(beans);
+            return BeanDeployment.forNarrow(idx.main(), idx.info());
+        }
+
         public BeanContainer build() {
             var deployment =
                     beans.length > 0
-                            ? BeanDeployment.forNarrow(NarrowIndexBuilder.build(beans))
+                            ? narrowDeployment()
                             : testUniverse(testClass, productionIndex, testIndexCache);
             String cacheKey =
                     beans.length > 0

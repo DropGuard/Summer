@@ -92,7 +92,7 @@ public final class Discovery {
         // config-properties registration landed after the producer's, both survived and the
         // container failed with a confusing ambiguity. Deduplicate deterministically here, after
         // every class is registered, so the override works regardless of index order.
-        removeDuplicateConfigProperties(beans);
+        removeDuplicateConfigProperties(beans, merged);
 
         new BeanEnrichment(merged).enrich(beans);
 
@@ -155,7 +155,8 @@ public final class Discovery {
      * mapping's own registration is dropped). Runs after every class is registered, so the result
      * is independent of index iteration order.
      */
-    private static void removeDuplicateConfigProperties(List<BeanDefinition> beans) {
+    private static void removeDuplicateConfigProperties(
+            List<BeanDefinition> beans, IndexView merged) {
         java.util.Map<String, BeanDefinition> producers = new java.util.HashMap<>();
         for (BeanDefinition b : beans) {
             if (b.isFactoryMethod()) {
@@ -166,7 +167,41 @@ public final class Discovery {
             return;
         }
         beans.removeIf(
-                b -> b instanceof ConfigPropertiesBean && producers.containsKey(b.qualifiedName));
+                b ->
+                        b instanceof ConfigPropertiesBean cp
+                                && (producers.containsKey(cp.qualifiedName)
+                                        // A producer returning a concrete implementation (the
+                                        // natural
+                                        // style) also overrides the synthetic default: the product
+                                        // type
+                                        // implements the mapping interface. Read from the index
+                                        // (not the
+                                        // BeanDefinition's interfaceNames, which the BeanEnrichment
+                                        // fills
+                                        // only later) so the check is order-independent.
+                                        || producers.keySet().stream()
+                                                .anyMatch(
+                                                        name ->
+                                                                implementsInterface(
+                                                                        merged,
+                                                                        name,
+                                                                        cp.qualifiedName))));
+    }
+
+    /**
+     * Whether the type (a producer's {@code @Bean} return type) implements the given interface.
+     * Limited to the DIRECT interface declarations available in the index: an interface inherited
+     * through a superclass, or a transitive interface whose intermediate ClassInfo is not in the
+     * index, is not matched. Both shapes are exotic (a concrete product class typically implements
+     * the mapping interface directly); the caller seeds such classes explicitly if needed.
+     */
+    private static boolean implementsInterface(IndexView index, String typeName, String ifaceName) {
+        ClassInfo ci = index.getClassByName(org.jboss.jandex.DotName.createSimple(typeName));
+        return ci != null
+                && (ci.interfaceNames().contains(org.jboss.jandex.DotName.createSimple(ifaceName))
+                        || ci.interfaceNames().stream()
+                                .anyMatch(
+                                        i -> implementsInterface(index, i.toString(), ifaceName)));
     }
 
     private static boolean isComponentLike(ClassInfo ci, IndexView merged) {

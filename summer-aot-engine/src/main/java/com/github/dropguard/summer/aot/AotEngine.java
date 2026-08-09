@@ -40,52 +40,6 @@ public final class AotEngine {
     private AotEngine() {}
 
     /**
-     * Full AOT pipeline: discover → resolve → compile → load.
-     *
-     * @param index Jandex index
-     * @param cacheKey unique cache key (deterministic). Must encode profile override content +
-     *     mocked types, or two tests that differ only by {@code @Mock} will silently share one
-     *     container.
-     * @param mocks mocked beans ( type + instance) from {@code @Mock} parameters
-     * @return AOT-compiled BeanContainer
-     */
-    public static BeanContainer buildAndCompile(
-            IndexView index, String cacheKey, MockedBean[] mocks) {
-        return buildAndCompile(
-                index, cacheKey, AotContextGenerator.CLASS_NAME, mocks, java.util.Map.of());
-    }
-
-    /**
-     * Full AOT pipeline: discover → resolve → generate → compile → load.
-     *
-     * <p>There is no container cache — every call compiles and loads fresh. The {@code cacheKey}
-     * exists so tests can derive a deterministic, per-universe {@code className}: the JVM loads a
-     * generated class at most once, so distinct test universes must not share a name (identical
-     * keys would collide on the class name, not reuse a container).
-     *
-     * @param index Jandex index
-     * @param cacheKey unique cache key (deterministic, must encode profile override content +
-     *     mocked types)
-     * @param className generated class name (without package). The JVM loads a class name at most
-     *     once per run, so distinct test containers must not share a name — tests pass a
-     *     profile-derived name while the production path keeps the default {@link
-     *     AotContextGenerator#CLASS_NAME}.
-     * @param mocks mocked beans (target type + instance) from {@code @Mock} parameters
-     * @param overrides resolved {@code @TestProfile} content (empty map when none)
-     * @return AOT-compiled BeanContainer
-     */
-    public static BeanContainer buildAndCompile(
-            IndexView index,
-            String cacheKey,
-            String className,
-            MockedBean[] mocks,
-            java.util.Map<String, Object> overrides) {
-        // No per-module split available — treat the whole index as one module.
-        return buildAndCompile(
-                BeanDeployment.forNarrow(index), cacheKey, className, mocks, overrides);
-    }
-
-    /**
      * Full AOT pipeline with an explicit {@link BeanDeployment}. Preferred for seeded (narrow)
      * universes: discovery iterates only the modules the index retains, so a
      * {@code @SummerTest(classes=...)} seed closure is honoured instead of the whole classpath —
