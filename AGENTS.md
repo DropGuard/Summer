@@ -28,6 +28,7 @@ summer-framework/
 ├── summer-test/           # @SummerTest, @Mock test infra
 ├── summer-tck/            # Behavioral tests (Runtime + AOT engines)
 ├── summer-tck-fixtures/   # Shared test fixtures
+├── summer-tck-invisible-fixtures/  # Whole-universe-invisible narrow fixtures (no jandex.idx)
 ├── summer-archunit/       # Architecture constraint tests
 ├── summer-realworld/      # RealWorld clone (hurl e2e)
 ├── summer-issue-tracker/  # Issue tracker demo (PG)
@@ -86,7 +87,7 @@ Test              summer-test, summer-tck, summer-archunit
 - **REQUIRED-only transactions** — no distributed/XA.
 - **YAML config** — `application.yml` bound to `@ConfigMapping` interfaces. Nested under server/data/ keys. Supports `${VAR}` and `${VAR:-default}` placeholders (resolved from system property, then env var, then default — the Spring/Quarkus convention, flipped 2026-08-08) for externalized config.
 - **Logging via SLF4J** — diagnostics go through the logging facade (SLF4J), never straight to the console. The deployer owns the logging backend/aggregation (Logback/Log4j/Loki/cloud) — same boundary as health probes and graceful shutdown. Framework bootstrap/DI/AOT stages log with the `[Summer]` prefix.
-- **Tests** — JUnit 5 + Mockito. `@SummerTest` builds a whole-universe container (narrow seeding via `TestContainer.buildForTest(Class)`); `@DualEngine` runs both engines, `@TestProfile`/`@TestResource`/`@Mock` adjust the universe. `@Mock` injects Mockito mocks. `@TestResource` is the Quarkus lifecycle (initArgs via `init`, field injection via `inject`, `order()`); its overrides are dotted-YAML-path keys (env-style keys silently fall back to `@WithDefault` — a pinned contract in `TestResourceContractTest`). `*IT.java` runs under the Failsafe, bound in summer-parent's active plugins — the CI fails if the IT-bearing modules run 0 tests (the old bare declaration silently skipped every IT). Narrow-only fixtures live in the aot-engine's `aot.narrow` package, excluded from its jandex.idx, so the tck's whole-universe index never sees them.
+- **Tests** — JUnit 5 + Mockito. `@SummerTest` builds a whole-universe container (narrow seeding via `TestContainer.buildForTest(Class)`); `@DualEngine` runs both engines, `@TestProfile`/`@TestResource`/`@Mock` adjust the universe. `@Mock` injects Mockito mocks. `@TestResource` is the Quarkus lifecycle (initArgs via `init`, field injection via `inject`, `order()`); its overrides are dotted-YAML-path keys (env-style keys silently fall back to `@WithDefault` — a pinned contract in `TestResourceContractTest`). `*IT.java` runs under the Failsafe, bound in summer-parent's active plugins — the CI fails if the IT-bearing modules run 0 tests (the old bare declaration silently skipped every IT). Whole-universe-invisible fixtures (the narrow-seeded sad-path beans AND the narrow-only positive configs, e.g. the row-model metadata regression) live in `summer-tck-invisible-fixtures` — no jandex-maven-plugin, so the jar carries the .class bytes (the narrow `@SummerTest` seeds them by name) but no jandex.idx; the boundary is the archive's absence from the indexed path, not an exclude list (the Quarkus Arc model).
 
 ## ANTI-PATTERNS
 
@@ -177,7 +178,7 @@ Key SPI interfaces (public, no @Internal): `ApplicationRunner`, `Handler`, `Midd
 Three tiers, from highest to lowest level:
 
 1. **`@SummerTest`** — declarative JUnit 5 extension. Builds a whole-universe DI container, injects via constructor. Supports `@TestProfile`, `@TestResource`, `@DualEngine`, `@Mock`. 48 test classes use this.
-2. **`TestContainer.builder()`** — programmatic builder for narrow-seed or engine-forced containers. Used internally by `SummerTestLifecycle` and by a few TCK tests needing explicit control (AOT narrow builds, negative fixture isolation). `TestContainer` is `@Internal`.
+2. **`TestContainer.builder()`** — programmatic builder for narrow-seed or engine-forced containers. Used internally by `SummerTestLifecycle` and by a few TCK tests needing explicit control (AOT narrow builds, invisible-fixture isolation). `TestContainer` is `@Internal`.
 3. **`SummerTestExtension` (via `@RegisterExtension`)** — for negative tests that assert container build **failure** (circular deps, missing deps, self-injection). `SummerTestExtension` is `@Internal`.
 
 `@TestResource` manages external resources (Postgres, Redis containers): `RedisTestResource`

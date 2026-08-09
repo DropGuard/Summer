@@ -58,9 +58,11 @@ Canonical command list lives in **AGENTS.md → COMMANDS** (one source of truth)
   summer-parent's active plugins + a CI step fails if the IT-bearing modules run 0 tests.
   `@TestResource` gained the Quarkus lifecycle (init/inject/order + initArgs); the dotted-key
   override contract is enforced by `TestResourceContractTest` (the RedisTestResource's env-style
-  key never matched — a latent bug the silent-skip hid). Narrow-only fixtures live in the
-  aot-engine's `aot.narrow` package, excluded from its jandex.idx (index-level isolation — the
-  tck's shared test-classes cannot host narrow configs). Dual-engine real-stack coverage:
+  key never matched — a latent bug the silent-skip hid). Whole-universe-invisible fixtures (the
+  narrow-seeded sad-path beans + the narrow-only positive configs) live in
+  `summer-tck-invisible-fixtures` — no jandex.idx, so the jar carries the .class bytes but the
+  whole-universe index never sees them (the Quarkus Arc model: the boundary is the archive's
+  absence from the indexed path, not an exclude list). Dual-engine real-stack coverage:
   `RealPostgresAotIntegrationIT` (aot-engine, real PG × both engines) + `RedisIntegrationIT`
   (@DualEngine). Moved to the tck by semantics: `RedisPropertiesDualEngineTest`,
   `WebSocketBroadcasterTest`, `WebSocketInterceptorIntegrationTest`, `RowModelMetadataNarrowDualEngineTest`.
