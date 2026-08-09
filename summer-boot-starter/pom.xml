@@ -41,12 +41,13 @@
             <artifactId>summer-tx</artifactId>
         </dependency>
 
-        <!-- Logging binding: the application owns logback; the framework only depends on slf4j-api. -->
-        <!-- Logging: the starter ships logback-classic (the binding) plus the framework's default
-             logback.xml (summer-core's main resource). Apps override with their own logback.xml —
-             the standard first-wins classpath rule — or by replacing the binding entirely. The
-             framework modules themselves stay SLF4J-only so a starter-less embedded use keeps the
-             app's binding choice. -->
+        <!-- Logging: the starter ships logback-classic (the binding) and the boot applies the
+             framework's programmatic defaults (LoggingConfigurer — the Spring Boot LoggingSystem
+             model) when the app has no logback config: no-config apps get root INFO + the framework
+             pattern instead of logback's DEBUG-level BasicConfigurator noise. Apps with their own
+             logback.xml win (the standard auto-config), or replace the binding via Maven exclusion.
+             The framework's main classpath carries no logback.xml, so it never races a consumer's
+             logging config. The library modules stay SLF4J-only for starter-less embedded use. -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>

@@ -42,6 +42,10 @@ public final class SummerApplication {
     }
 
     public BeanContainer start(String[] args) {
+        // Apply the framework's default logging when the app ships no logback config (the
+        // Spring Boot LoggingSystem model): a no-config app gets root INFO + the framework
+        // pattern instead of logback's DEBUG-level BasicConfigurator noise.
+        LoggingConfigurer.configureDefaults();
         // Install the java.util.logging → SLF4J bridge explicitly at startup (not in a
         // static initializer): class-load side effects are implicit, this is explicit.
         SLF4JBridgeHandler.removeHandlersForRootLogger();

@@ -15,6 +15,14 @@
     <description>Application bootstrap module for Summer framework</description>
 
     <dependencies>
+        <!-- The logging binding + the programmatic default setup (LoggingConfigurer). The boot is
+             the app's entry point (the Spring Boot model): it owns the logging defaults; the
+             library modules stay SLF4J-only. Apps replace the binding via standard Maven
+             exclusion. -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+        </dependency>
         <!-- Summer Web (Middleware class referenced in public API) -->
         <dependency>
             <groupId>com.github.dropguard</groupId>
