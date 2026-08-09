@@ -8,7 +8,6 @@ import com.github.dropguard.summer.grpc.server.GrpcServerRunner;
 import com.github.dropguard.summer.tck.AbstractTCK;
 import com.github.dropguard.summer.test.annotation.DualEngine;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
 
 /**
  * TCK for gRPC component discovery and basic behavior.
@@ -28,6 +27,9 @@ public abstract class AbstractGrpcTCK extends AbstractTCK {
 
     @AfterEach
     void cleanupContext() {
+        // The injected context is the RUNTIME instance's container; the AOT invocation's manager
+        // (from the method-parameter container) is closed when its container shuts down at the
+        // suite end — the channel's lifetime there is bounded by the universe's, which is fine.
         GrpcChannelManager mgr = context.getBean(GrpcChannelManager.class);
         try {
             mgr.close();
@@ -37,9 +39,11 @@ public abstract class AbstractGrpcTCK extends AbstractTCK {
     }
 
     @DualEngine
-    @Test
-    void testChannelManagerCachesPerTarget() {
-        GrpcChannelManager mgr = context.getBean(GrpcChannelManager.class);
+    void testChannelManagerCachesPerTarget(BeanContainer container) {
+        // The invocation's own container: the AOT invocation must exercise the AOT container's
+        // wiring,
+        // not the RUNTIME instance's (the instance is always built from the RUNTIME container).
+        GrpcChannelManager mgr = container.getBean(GrpcChannelManager.class);
         var ch1 = mgr.getChannel("localhost:9999");
         var ch2 = mgr.getChannel("localhost:9999");
         var ch3 = mgr.getChannel("localhost:8888");
@@ -50,9 +54,8 @@ public abstract class AbstractGrpcTCK extends AbstractTCK {
     }
 
     @DualEngine
-    @Test
-    void testServerRunnerDoesNotStartWithoutServices() {
-        GrpcServerRunner runner = context.getBean(GrpcServerRunner.class);
+    void testServerRunnerDoesNotStartWithoutServices(BeanContainer container) {
+        GrpcServerRunner runner = container.getBean(GrpcServerRunner.class);
         assertNotNull(runner);
         assertEquals(
                 -1, runner.getPort(), "Port should be -1 when no gRPC services are registered");

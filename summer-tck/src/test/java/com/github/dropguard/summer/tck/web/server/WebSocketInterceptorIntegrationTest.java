@@ -16,21 +16,20 @@ import java.util.concurrent.TimeUnit;
 @SummerTest
 class WebSocketInterceptorIntegrationTest {
 
-    private final int port;
-
-    WebSocketInterceptorIntegrationTest(NettyServerRunner server) {
-        this.port = server.getPort();
-    }
-
     @DualEngine
-    void testInterceptorModifiesMessage() throws Exception {
+    void testInterceptorModifiesMessage(com.github.dropguard.summer.core.BeanContainer container)
+            throws Exception {
+        // The invocation's own server (see WebSocketBroadcasterTest): the AOT invocation must hit
+        // the
+        // AOT container's Netty server, not the RUNTIME instance's.
+        int enginePort = container.getBean(NettyServerRunner.class).getPort();
         var received = new CompletableFuture<String>();
         HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
         WebSocket ws =
                 client.newWebSocketBuilder()
                         .buildAsync(
-                                URI.create("ws://localhost:" + port + "/ws-test"),
+                                URI.create("ws://localhost:" + enginePort + "/ws-test"),
                                 new WebSocket.Listener() {
                                     public CompletionStage<?> onText(
                                             WebSocket w, CharSequence data, boolean last) {

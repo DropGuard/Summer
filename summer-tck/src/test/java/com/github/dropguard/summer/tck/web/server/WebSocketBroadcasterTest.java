@@ -16,21 +16,22 @@ import java.util.concurrent.TimeUnit;
 @SummerTest
 class WebSocketBroadcasterTest {
 
-    private final int port;
-
-    WebSocketBroadcasterTest(NettyServerRunner server) {
-        this.port = server.getPort();
-    }
-
     @DualEngine
-    void testBroadcastRoundTrip() throws Exception {
+    void testBroadcastRoundTrip(com.github.dropguard.summer.core.BeanContainer container)
+            throws Exception {
+        // The invocation's own server: on the AOT invocation this is the AOT container's Netty
+        // server —
+        // the assertions must hit the engine-under-test, not the RUNTIME instance's server. The
+        // class-level instance is always built from the RUNTIME container (the JUnit extension
+        // model), so the port must come from the method parameter's container.
+        int enginePort = container.getBean(NettyServerRunner.class).getPort();
         var received = new CompletableFuture<String>();
         HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
 
         WebSocket ws =
                 client.newWebSocketBuilder()
                         .buildAsync(
-                                URI.create("ws://localhost:" + port + "/chat/test"),
+                                URI.create("ws://localhost:" + enginePort + "/chat/test"),
                                 new WebSocket.Listener() {
                                     public CompletionStage<?> onText(
                                             WebSocket w, CharSequence data, boolean last) {
