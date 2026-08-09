@@ -26,7 +26,17 @@ public final class BeanContainer implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(BeanContainer.class);
 
-    private final Map<Class<?>, Object> singletons;
+    /**
+     * One bean as the container owns it: the unique instance plus the lifecycle metadata. The CDI
+     * model — the container holds beans (identified instances), not type keys; lookups resolve via
+     * the type index. A {@link BeanEntry} with {@code isProduct} true was created by a
+     * {@code @Bean} producer method and is closed before its producer (the product's close may
+     * access the producer's still-alive state).
+     */
+    record BeanEntry(Object instance, boolean isProduct) {}
+
+    private final Map<Class<?>, Object> typeIndex;
+    private final List<BeanEntry> beans;
     private final Engine engine;
     private final List<RouteInfo> routes;
     private final ShutdownContext shutdownContext = ShutdownContext.create();
@@ -34,10 +44,13 @@ public final class BeanContainer implements AutoCloseable {
     /** Guards {@link #close()} so a duplicate call is a no-op (idempotent teardown). */
     private boolean closed;
 
-    private BeanContainer(Map<Class<?>, Object> singletons, Engine engine, List<RouteInfo> routes) {
-        // MUST preserve insertion order for correct shutdown (reverse order of
-        // creation)
-        this.singletons = Collections.unmodifiableMap(new HashMap<>(singletons));
+    private BeanContainer(
+            Map<Class<?>, Object> typeIndex,
+            List<BeanEntry> beans,
+            Engine engine,
+            List<RouteInfo> routes) {
+        this.typeIndex = Collections.unmodifiableMap(new HashMap<>(typeIndex));
+        this.beans = List.copyOf(beans);
         this.engine = engine;
         this.routes = routes;
     }
@@ -49,7 +62,7 @@ public final class BeanContainer implements AutoCloseable {
 
     /** Returns all type keys registered in the container (interfaces included). */
     public Set<Class<?>> componentTypes() {
-        return singletons.keySet();
+        return typeIndex.keySet();
     }
 
     /** Returns route metadata collected during container construction. */
@@ -64,12 +77,12 @@ public final class BeanContainer implements AutoCloseable {
      * scanning. Throws if zero or multiple matches.
      */
     public <T> T getBean(Class<T> type) {
-        return getBean(singletons, type);
+        return getBean(typeIndex, type);
     }
 
     /** Returns all beans whose type is assignable to the given type, sorted by {@code @Order}. */
     public <T> List<T> getBeans(Class<T> type) {
-        return getBeans(singletons, type);
+        return getBeans(typeIndex, type);
     }
 
     // Shared lookup core for BeanContainer and Builder: the two operate on different maps (the
@@ -130,10 +143,10 @@ public final class BeanContainer implements AutoCloseable {
 
     /** Checks whether a bean of the given type is registered (exact key or assignable). */
     public boolean containsBean(Class<?> type) {
-        if (singletons.containsKey(type)) {
+        if (typeIndex.containsKey(type)) {
             return true;
         }
-        for (Object bean : singletons.values()) {
+        for (Object bean : typeIndex.values()) {
             if (type.isInstance(bean)) {
                 return true;
             }
@@ -156,18 +169,34 @@ public final class BeanContainer implements AutoCloseable {
         // anything underneath is torn down.
         shutdownContext.runAll();
 
-        // Phase 2: reverse-creation-order destruction of the remaining
-        // AutoCloseable beans (data sources, pools, ...) now that no traffic flows.
-        List<Object> reversed = new ArrayList<>(singletons.values());
-        Collections.reverse(reversed);
-        for (Object bean : reversed) {
-            if (bean instanceof AutoCloseable ac) {
-                try {
-                    ac.close();
-                } catch (Exception e) {
-                    log.error("[Summer] Error closing bean {}: {}", bean.getClass().getName(), e);
-                }
+        // Phase 2: @Bean-produced instances close first (their close may access the producer's
+        // still-alive state — the CDI producer-destruction rule), then the remaining beans. Each
+        // group closes in REVERSE creation order: creation is dependency-first (a bean's
+        // constructor parameters are built before it), so reversing it closes dependents before
+        // their dependencies — a repository that flushes on close still finds its connection pool
+        // alive. The container owns each bean ONCE (the CDI model: beans, not type keys), so no
+        // instance is closed more than once regardless of how many type keys it is registered
+        // under. There is no topological teardown guarantee beyond this: the CDI does not provide
+        // one, and order-sensitive teardown goes through ShutdownContext or the bean's own cleanup.
+        for (int i = beans.size() - 1; i >= 0; i--) {
+            BeanEntry entry = beans.get(i);
+            if (entry.isProduct() && entry.instance() instanceof AutoCloseable ac) {
+                closeQuietly(ac);
             }
+        }
+        for (int i = beans.size() - 1; i >= 0; i--) {
+            BeanEntry entry = beans.get(i);
+            if (!entry.isProduct() && entry.instance() instanceof AutoCloseable ac) {
+                closeQuietly(ac);
+            }
+        }
+    }
+
+    private static void closeQuietly(AutoCloseable ac) {
+        try {
+            ac.close();
+        } catch (Exception e) {
+            log.error("[Summer] Error closing bean {}: {}", ac.getClass().getName(), e);
         }
     }
 
@@ -189,12 +218,33 @@ public final class BeanContainer implements AutoCloseable {
      */
     public static final class Builder {
 
-        private final Map<Class<?>, Object> singletons = new HashMap<>();
+        private final Map<Class<?>, Object> typeIndex = new HashMap<>();
+        private final List<BeanEntry> beans = new ArrayList<>();
+        // Identity-based: the same instance registered under its class AND its interfaces must be
+        // owned once by the container (the CDI model — the container holds beans, not type keys).
+        private final Set<Object> seen =
+                Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         private List<RouteInfo> routes = List.of();
 
         /** Registers a bean instance under the given type key. */
         public void register(Class<?> type, Object instance) {
-            singletons.put(type, instance);
+            register(type, instance, false);
+        }
+
+        /**
+         * Registers a {@code @Bean}-produced instance. Its teardown is tied to its producer: the
+         * container closes every product before any non-product, so the product's {@code close()}
+         * can still access the producer's alive state (the CDI producer-destruction rule).
+         */
+        public void registerProduct(Class<?> type, Object instance) {
+            register(type, instance, true);
+        }
+
+        private void register(Class<?> type, Object instance, boolean isProduct) {
+            typeIndex.put(type, instance);
+            if (seen.add(instance)) {
+                beans.add(new BeanEntry(instance, isProduct));
+            }
         }
 
         /** Sets route metadata collected during container construction. */
@@ -207,7 +257,7 @@ public final class BeanContainer implements AutoCloseable {
          * Does not perform assignability matching.
          */
         public Object peek(Class<?> type) {
-            return singletons.get(type);
+            return typeIndex.get(type);
         }
 
         /**
@@ -216,19 +266,19 @@ public final class BeanContainer implements AutoCloseable {
          */
         public <T> T getBean(Class<T> type) {
             // Qualified call: the Builder's own getBean(Class) shadows the shared static.
-            return BeanContainer.getBean(singletons, type);
+            return BeanContainer.getBean(typeIndex, type);
         }
 
         /**
          * Returns all beans whose type is assignable to the given type, sorted by {@code @Order}.
          */
         public <T> List<T> getBeans(Class<T> type) {
-            return BeanContainer.getBeans(singletons, type);
+            return BeanContainer.getBeans(typeIndex, type);
         }
 
-        /** Returns a read-only view of all registered singletons. */
+        /** Returns a read-only view of all registered type keys. */
         public Map<Class<?>, Object> singletons() {
-            return Collections.unmodifiableMap(singletons);
+            return Collections.unmodifiableMap(typeIndex);
         }
 
         /**
@@ -236,15 +286,21 @@ public final class BeanContainer implements AutoCloseable {
          * null.
          */
         public Object remove(Class<?> type) {
-            return singletons.remove(type);
+            Object removed = typeIndex.remove(type);
+            // Identity scan: the DI registry keys bean instances by identity (a value object with
+            // an overridden equals must not read as "still registered" through containsValue).
+            if (removed != null && !typeIndex.values().stream().anyMatch(v -> v == removed)) {
+                beans.removeIf(e -> e.instance() == removed);
+                seen.remove(removed);
+            }
+            return removed;
         }
 
         /** Produces an immutable {@link BeanContainer}. */
         public BeanContainer build(Engine engine) {
-            // The container constructor defensively copies the singleton map
-            // (unmodifiableMap + fresh HashMap), so a builder still referenced after
-            // build() can no longer mutate the built container.
-            return new BeanContainer(singletons, engine, routes);
+            // The container constructor defensively copies both the type index and the bean list,
+            // so a builder still referenced after build() can no longer mutate the built container.
+            return new BeanContainer(typeIndex, beans, engine, routes);
         }
 
         /** Convenience overload — defaults to {@link Engine#RUNTIME}. */

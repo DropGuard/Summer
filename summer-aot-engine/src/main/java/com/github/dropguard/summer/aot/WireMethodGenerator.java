@@ -294,18 +294,20 @@ public final class WireMethodGenerator {
                 emitComponentInstantiation(wire, bean, beanClass, varName);
             }
 
+            String register = bean.isFactoryMethod() ? "registerProduct" : "register";
             if (bean instanceof ConfigPropertiesBean) {
                 wire.addStatement("builder.register($T.class, $N)", beanClass, varName);
             } else {
                 if (bean.needsProxy() && !bean.interfaceNames.isEmpty()) {
                     wire.addStatement(
-                            "builder.register($T.class, $N)", beanClass, varName + "_impl");
+                            "builder.$L($T.class, $N)", register, beanClass, varName + "_impl");
                 } else {
-                    wire.addStatement("builder.register($T.class, $N)", beanClass, varName);
+                    wire.addStatement("builder.$L($T.class, $N)", register, beanClass, varName);
                 }
                 for (String iface : bean.interfaceNames) {
                     wire.addStatement(
-                            "builder.register($T.class, $N)",
+                            "builder.$L($T.class, $N)",
+                            register,
                             AotTypeNames.parseTypeName(iface),
                             varName);
                 }

@@ -181,16 +181,27 @@ final class BeanInstantiator {
         Object proxy =
                 RuntimeAopProcessor.applyProxy(
                         instance, bean, matchingInterceptors, interceptorBindings);
-        // Concrete class key keeps the raw instance
-        builder.register(clazz, instance);
+        // A @Bean-produced instance is owned as a product: the container closes it before its
+        // producer (the CDI producer-destruction rule — the product's close may access the
+        // producer's alive state).
+        boolean isProduct = bean.producerMethodName != null;
+        if (isProduct) {
+            builder.registerProduct(clazz, instance);
+        } else {
+            builder.register(clazz, instance);
+        }
         // Interfaces get the proxy (first-wins)
-        registerAllInterfaces(clazz, proxy);
+        registerAllInterfaces(clazz, proxy, isProduct);
     }
 
-    private void registerAllInterfaces(Class<?> clazz, Object instance) {
+    private void registerAllInterfaces(Class<?> clazz, Object instance, boolean isProduct) {
         for (Class<?> iface : clazz.getInterfaces()) {
-            builder.register(iface, instance);
-            registerAllInterfaces(iface, instance);
+            if (isProduct) {
+                builder.registerProduct(iface, instance);
+            } else {
+                builder.register(iface, instance);
+            }
+            registerAllInterfaces(iface, instance, isProduct);
         }
     }
 
