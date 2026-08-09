@@ -278,7 +278,70 @@ public final class ConfigImplGenerator {
             impl.addMethod(getter.build());
         }
         impl.addMethod(ctor.build());
+        java.util.Set<String> emitted = new java.util.HashSet<>();
+        for (MethodInfo m : classInfo.methods()) {
+            if (isEnumType(m.returnType()) && emitted.add(m.returnType().name().toString())) {
+                impl.addMethod(enumValueHelper(m.returnType()));
+            }
+        }
+        // Two DISTINCT enum types whose GENERATED helper names collide would emit uncompilable
+        // code — group by the actual method name (enumValue + enumHelperSuffix) so detection is
+        // aligned with the output: nested enums keep their outer class in the suffix (no false
+        // positive between a.Outer$Mode and a.Other$Mode), while case-only-distinct enums (Foo
+        // vs foo — the suffix uppercases the first letter to the same name) are caught. The same
+        // enum returned by several methods is NOT a collision (that is the common shape).
+        java.util.Map<String, List<String>> helpersByMethodName = new java.util.HashMap<>();
+        for (MethodInfo m : classInfo.methods()) {
+            if (isEnumType(m.returnType())) {
+                String fq = m.returnType().name().toString();
+                String methodName = "enumValue" + enumHelperSuffix(fq);
+                helpersByMethodName.computeIfAbsent(methodName, k -> new ArrayList<>()).add(fq);
+            }
+        }
+        for (java.util.Map.Entry<String, List<String>> e : helpersByMethodName.entrySet()) {
+            if (e.getValue().stream().distinct().count() > 1) {
+                throw new IllegalStateException(
+                        "Config interface "
+                                + qualifiedName
+                                + " has two distinct enum types generating the same helper '"
+                                + e.getKey()
+                                + "' — rename or nest one of the enums to disambiguate");
+            }
+        }
         return impl.build();
+    }
+
+    private static String enumHelperSuffix(String typeName) {
+        String simple = typeName.substring(typeName.lastIndexOf('.') + 1);
+        return Character.toUpperCase(simple.charAt(0)) + simple.substring(1);
+    }
+
+    /**
+     * The generated {@code enumValue<Type>} helper: a case-insensitive {@code values()} lookup
+     * returning the exact constant, throwing on no match. Type-specific (the return type carries
+     * the enum, so two enum types in one config cannot share a method — Java cannot overload by
+     * return type) and reflection-free. Kept as a method so the conversion stays a single
+     * expression at the field-assignment site.
+     */
+    private MethodSpec enumValueHelper(Type enumType) {
+        String typeName = enumType.name().toString();
+        com.palantir.javapoet.TypeName enumClass = AotTypeNames.parseTypeName(typeName);
+        String constant = "c";
+        return MethodSpec.methodBuilder("enumValue" + enumHelperSuffix(typeName))
+                .addModifiers(
+                        javax.lang.model.element.Modifier.PRIVATE,
+                        javax.lang.model.element.Modifier.STATIC)
+                .addParameter(String.class, "raw")
+                .returns(enumClass)
+                .beginControlFlow("for ($T $N : $T.values())", enumClass, constant, enumClass)
+                .beginControlFlow("if ($N.name().equalsIgnoreCase(raw))", constant)
+                .addStatement("return $N", constant)
+                .endControlFlow()
+                .endControlFlow()
+                .addStatement(
+                        "throw new IllegalArgumentException($S + raw)",
+                        "No enum constant " + typeName + ": ")
+                .build();
     }
 
     private boolean isInterfaceType(Type ret) {
@@ -298,9 +361,14 @@ public final class ConfigImplGenerator {
             return CodeBlock.of("(String) $N.get($S)", sectionVar, key);
         }
         if (isEnumType(ret)) {
+            // Case-insensitive lookup via the generated private helper (the Jackson
+            // ACCEPT_CASE_INSENSITIVE_ENUMS contract the runtime proxy uses — dual-engine
+            // convergence: mixed-case enum constants like `production` bind from lowercase YAML on
+            // both engines). valueOf(toUpperCase()) assumed all-uppercase constants and threw on
+            // mixed-case ones. The helper keeps the statement loop out of this expression position.
             return CodeBlock.of(
-                    "Enum.valueOf($T.class, ((String) $N.get($S)).toUpperCase())",
-                    AotTypeNames.parseTypeName(typeName),
+                    "enumValue$L((String) $N.get($S))",
+                    enumHelperSuffix(typeName),
                     sectionVar,
                     key);
         }
@@ -329,10 +397,29 @@ public final class ConfigImplGenerator {
     private CodeBlock defaultExpr(Type ret, String rawValue, ClassName typeConverter) {
         String typeName = ret.name().toString();
         if (isEnumType(ret)) {
-            return CodeBlock.of(
-                    "Enum.valueOf($T.class, $S.toUpperCase())",
-                    AotTypeNames.parseTypeName(typeName),
-                    rawValue);
+            // Resolved at generation time (the jandex enum constants) so the emitted literal is the
+            // exact constant — the same case-insensitive contract as the runtime value coercion.
+            ClassInfo ci = index.getClassByName(ret.name());
+            String exact = null;
+            if (ci != null) {
+                for (org.jboss.jandex.FieldInfo f : ci.fields()) {
+                    // Only the enum CONSTANTS (ACC_ENUM = 0x4000): a regular field of the enum
+                    // whose name case-insensitively matches the default must not be emitted as a
+                    // static reference (uncompilable — it is an instance field).
+                    if ((f.flags() & 0x4000) != 0 && f.name().equalsIgnoreCase(rawValue)) {
+                        exact = f.name();
+                        break;
+                    }
+                }
+            }
+            if (exact == null) {
+                throw new com.github.dropguard.summer.core.exception.BeanCreationException(
+                        "@WithDefault enum value '"
+                                + rawValue
+                                + "' does not match any constant of "
+                                + typeName);
+            }
+            return CodeBlock.of("$T.$L", AotTypeNames.parseTypeName(typeName), exact);
         }
         if (typeName.equals("java.util.List")) {
             return CodeBlock.of("java.util.List.of()");

@@ -34,3 +34,5 @@ web:
     - https://a.example.com
     - https://b.example.com
   max-conn: 250
+env:
+  mode: production
