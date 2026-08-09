@@ -9,12 +9,13 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Global cache of started {@link TestResource} instances.
+ * Global cache of started {@link TestResourceManager} instances.
  *
  * <p>Each unique (resource class, initArgs) pair is instantiated once and started at most once,
- * sorted by {@link TestResource#order()} (later resources win on key overlap). Properties from
- * {@code start()} flow into the container build as highest-priority config overrides; started
- * instances also serve {@link TestResource#inject(TestInjector)} after a test instance is created.
+ * sorted by {@link TestResourceManager#order()} (later resources win on key overlap). Properties
+ * from {@code start()} flow into the container build as highest-priority config overrides; started
+ * instances also serve {@link TestResourceManager#inject(TestInjector)} after a test instance is
+ * created.
  */
 @Internal
 public final class TestResources {
@@ -41,7 +42,10 @@ public final class TestResources {
         return Map.copyOf(merged);
     }
 
-    /** Runs {@link TestResource#inject(TestInjector)} for every started resource on the class. */
+    /**
+     * Runs {@link TestResourceManager#inject(TestInjector)} for every started resource on the
+     * class.
+     */
     static void injectInto(Class<?> testClass, Object testInstance) {
         com.github.dropguard.summer.test.annotation.TestResource[] annotations =
                 collectAnnotations(testClass);
@@ -49,10 +53,13 @@ public final class TestResources {
             return;
         }
         TestInjectorImpl injector = new TestInjectorImpl(testInstance);
-        for (com.github.dropguard.summer.test.annotation.TestResource ann : annotations) {
-            Entry entry = forKey(new ResourceKey(ann.value(), parseInitArgs(ann.initArgs())));
-            entry.instance.inject(injector);
-        }
+        // Same order() semantics as the property merge below: a later-order resource's field
+        // injection wins on overlap, so the injected values and the container-build overrides
+        // agree instead of splitting (declaration-order injection vs order()-sorted merge).
+        java.util.Arrays.stream(annotations)
+                .map(ann -> forKey(new ResourceKey(ann.value(), parseInitArgs(ann.initArgs()))))
+                .sorted(java.util.Comparator.comparingInt(e -> e.instance.order()))
+                .forEach(e -> e.instance.inject(injector));
     }
 
     private static Entry forKey(ResourceKey key) {
@@ -61,12 +68,12 @@ public final class TestResources {
 
     private static Entry startNew(ResourceKey key) {
         try {
-            TestResource instance = key.clazz.getDeclaredConstructor().newInstance();
+            TestResourceManager instance = key.clazz.getDeclaredConstructor().newInstance();
             instance.init(key.initArgs);
             Map<String, String> props = instance.start();
             return new Entry(instance, Map.copyOf(props));
         } catch (Exception e) {
-            throw new RuntimeException(
+            throw new TestResourceStartupException(
                     "Failed to start TestResource " + key.clazz.getSimpleName(), e);
         }
     }
@@ -110,11 +117,12 @@ public final class TestResources {
         CACHE.clear();
     }
 
-    private record ResourceKey(Class<? extends TestResource> clazz, Map<String, String> initArgs) {}
+    private record ResourceKey(
+            Class<? extends TestResourceManager> clazz, Map<String, String> initArgs) {}
 
-    private record Entry(TestResource instance, Map<String, String> properties) {}
+    private record Entry(TestResourceManager instance, Map<String, String> properties) {}
 
-    private static final class TestInjectorImpl implements TestResource.TestInjector {
+    private static final class TestInjectorImpl implements TestResourceManager.TestInjector {
         private final Object testInstance;
 
         TestInjectorImpl(Object testInstance) {
@@ -126,13 +134,29 @@ public final class TestResources {
             java.lang.reflect.Field[] fields = testInstance.getClass().getDeclaredFields();
             for (java.lang.reflect.Field field : fields) {
                 if (fieldType.isAssignableFrom(field.getType())) {
-                    try {
-                        field.setAccessible(true);
-                        field.set(testInstance, value);
-                    } catch (IllegalAccessException e) {
-                        throw new RuntimeException("Failed to inject field " + field.getName(), e);
-                    }
+                    set(field, value);
                 }
+            }
+        }
+
+        @Override
+        public void injectIntoField(Object value, String fieldName, Class<?> fieldType) {
+            try {
+                java.lang.reflect.Field field = testInstance.getClass().getDeclaredField(fieldName);
+                if (fieldType.isAssignableFrom(field.getType())) {
+                    set(field, value);
+                }
+            } catch (NoSuchFieldException ignored) {
+                // The field is optional ("when declared") — no field, no injection.
+            }
+        }
+
+        private void set(java.lang.reflect.Field field, Object value) {
+            try {
+                field.setAccessible(true);
+                field.set(testInstance, value);
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException("Failed to inject field " + field.getName(), e);
             }
         }
     }

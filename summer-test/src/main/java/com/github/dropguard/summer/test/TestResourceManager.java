@@ -18,7 +18,7 @@ import java.util.Map;
  * {@link #stop()} at JVM exit. Resources with a higher {@link #order()} start later.
  *
  * <pre>{@code
- * public class PostgresTestResource implements TestResource {
+ * public class PostgresTestResource implements TestResourceManager {
  *     private PostgreSQLContainer<?> pg;
  *
  *     public Map<String, String> start() {
@@ -33,7 +33,7 @@ import java.util.Map;
  * }
  * }</pre>
  */
-public interface TestResource {
+public interface TestResourceManager {
 
     /**
      * Starts the external resource and returns config properties injected into the DI container
@@ -72,5 +72,12 @@ public interface TestResource {
     interface TestInjector {
         /** Injects the value into every declared field of the given type on the test instance. */
         void injectIntoFields(Object value, Class<?> fieldType);
+
+        /**
+         * Injects the value into the named field (when declared and of the given type). The
+         * targeted form: a resource that owns one field (e.g. the JDBC URL) must not clobber every
+         * field of a shared type on the test instance.
+         */
+        void injectIntoField(Object value, String fieldName, Class<?> fieldType);
     }
 }

@@ -16,12 +16,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * the enclosing {@code DualEngineInvocationProvider} (registered by this annotation) runs the
  * method once per DI engine (Runtime and AOT), so the test proves both engines behave identically.
  *
- * <p><strong>ApplicationRunner caveat:</strong> each leg builds its own container, and a container
- * that includes an {@link com.github.dropguard.summer.core.ApplicationRunner} (e.g. the HTTP
- * server) starts it — so a {@code @DualEngine} test whose universe contains a server must configure
- * an ephemeral port ({@code server.port: 0}) and read the actual port from the runner bean ({@code
- * context.getBean(NettyServerRunner.class).getPort()}). With a fixed port, the RUNTIME leg binds it
- * and the AOT leg fails with an "address already in use" diagnostic.
+ * <p><strong>ApplicationRunner caveat:</strong> each invocation builds its own container, and a
+ * container that includes an {@link com.github.dropguard.summer.core.ApplicationRunner} (e.g. the
+ * HTTP server) starts it — so a {@code @DualEngine} test whose universe contains a server must
+ * configure an ephemeral port ({@code server.port: 0}) and read the actual port from the runner
+ * bean ({@code context.getBean(NettyServerRunner.class).getPort()}). With a fixed port, the RUNTIME
+ * invocation binds it and the AOT invocation fails with an "address already in use" diagnostic.
  *
  * <pre>{@code
  * &#64;SummerTest

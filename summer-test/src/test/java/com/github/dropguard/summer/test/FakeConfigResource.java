@@ -8,7 +8,7 @@ import java.util.Map;
  * TestResource machinery — initArgs reach the instance, overrides reach the config binding, and
  * inject() fills the test's fields — without a container.
  */
-public class FakeConfigResource implements TestResource {
+public class FakeConfigResource implements TestResourceManager {
 
     static volatile String seenInitArg = "";
     static volatile boolean started = false;

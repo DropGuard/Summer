@@ -1,6 +1,6 @@
 package com.github.dropguard.summer.test.db;
 
-import com.github.dropguard.summer.test.TestResource;
+import com.github.dropguard.summer.test.TestResourceManager;
 import java.util.Map;
 import org.testcontainers.containers.PostgreSQLContainer;
 
@@ -13,7 +13,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * "image=postgres:16-alpine")} (default {@code postgres:16-alpine}); injects the JDBC URL into the
  * test's {@code String jdbcUrl} field when declared.
  */
-public class PostgresTestResource implements TestResource {
+public class PostgresTestResource implements TestResourceManager {
 
     private static final String DEFAULT_IMAGE = "postgres:16-alpine";
 
@@ -42,7 +42,10 @@ public class PostgresTestResource implements TestResource {
 
     @Override
     public void inject(TestInjector injector) {
-        injector.injectIntoFields(jdbcUrl, String.class);
+        // The named field only ("injects the JDBC URL into the test's String jdbcUrl field when
+        // declared"): the by-type form would clobber every String field on the test instance,
+        // including constructor-injected ones.
+        injector.injectIntoField(jdbcUrl, "jdbcUrl", String.class);
     }
 
     @Override

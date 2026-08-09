@@ -11,7 +11,7 @@ public final class FakeOrderedResources {
 
     private FakeOrderedResources() {}
 
-    public static final class Low implements TestResource {
+    public static final class Low implements TestResourceManager {
         static final String KEY = "order.key";
         static volatile boolean lowStarted;
 
@@ -25,7 +25,7 @@ public final class FakeOrderedResources {
         public void stop() {}
     }
 
-    public static final class High implements TestResource {
+    public static final class High implements TestResourceManager {
         static volatile boolean highStarted;
 
         @Override

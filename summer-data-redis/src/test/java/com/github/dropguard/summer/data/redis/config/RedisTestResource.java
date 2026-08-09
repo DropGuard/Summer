@@ -1,11 +1,11 @@
 package com.github.dropguard.summer.data.redis.config;
 
-import com.github.dropguard.summer.test.TestResource;
+import com.github.dropguard.summer.test.TestResourceManager;
 import java.util.Map;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
 
-public class RedisTestResource implements TestResource {
+public class RedisTestResource implements TestResourceManager {
 
     private GenericContainer<?> redis;
 
