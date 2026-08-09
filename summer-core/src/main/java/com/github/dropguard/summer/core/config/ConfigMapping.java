@@ -31,6 +31,13 @@ import java.lang.annotation.Target;
  * }</pre>
  *
  * <p>If no prefix is specified, the entire YAML file is bound to the interface.
+ *
+ * <p>Override semantics: the mapping is a <em>synthetic default</em> bean bound from the
+ * configuration; a {@link com.github.dropguard.summer.core.annotation.Bean @Bean} producer for the
+ * same interface is an explicit override and wins (CDI-style: the user's declared bean takes
+ * priority over the framework's synthetic default). Use this for config that cannot be expressed
+ * statically in YAML — values computed in code, assembled from multiple sources, or provided
+ * programmatically by tests.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)

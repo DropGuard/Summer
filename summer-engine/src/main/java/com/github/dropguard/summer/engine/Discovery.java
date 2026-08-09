@@ -87,6 +87,13 @@ public final class Discovery {
             }
         }
 
+        // A @Bean producer for a @ConfigMapping type is an explicit override (the producer wins).
+        // The in-loop removal in discoverBeanFactoryMethods was order-dependent — if the mapping's
+        // config-properties registration landed after the producer's, both survived and the
+        // container failed with a confusing ambiguity. Deduplicate deterministically here, after
+        // every class is registered, so the override works regardless of index order.
+        removeDuplicateConfigProperties(beans);
+
         new BeanEnrichment(merged).enrich(beans);
 
         // Merge engine-provided (synthetic) beans into the candidate set. This is the
@@ -140,6 +147,26 @@ public final class Discovery {
 
     private static boolean isConfigurationProperties(ClassInfo ci) {
         return ci.hasAnnotation(CONFIG_MAPPING_DOT);
+    }
+
+    /**
+     * Deterministic override dedup: when a type has both a discovered {@code @ConfigMapping}
+     * config-properties bean and a {@code @Bean} producer for the same type, the producer wins (the
+     * mapping's own registration is dropped). Runs after every class is registered, so the result
+     * is independent of index iteration order.
+     */
+    private static void removeDuplicateConfigProperties(List<BeanDefinition> beans) {
+        java.util.Map<String, BeanDefinition> producers = new java.util.HashMap<>();
+        for (BeanDefinition b : beans) {
+            if (b.isFactoryMethod()) {
+                producers.put(b.qualifiedName, b);
+            }
+        }
+        if (producers.isEmpty()) {
+            return;
+        }
+        beans.removeIf(
+                b -> b instanceof ConfigPropertiesBean && producers.containsKey(b.qualifiedName));
     }
 
     private static boolean isComponentLike(ClassInfo ci, IndexView merged) {
@@ -210,12 +237,6 @@ public final class Discovery {
             if (returnType == null) continue;
 
             String returnTypeName = returnType.name().toString();
-
-            // A @Bean takes priority over a discovered @ConfigMapping
-            beans.removeIf(
-                    b ->
-                            b instanceof ConfigPropertiesBean
-                                    && b.qualifiedName.equals(returnTypeName));
 
             beans.add(createFactoryBean(returnTypeName, configCi, method, merged, moduleIndex));
         }
