@@ -134,12 +134,54 @@ public final class DiEngine {
                     className,
                     extraClasspath.length);
             ClassLoader loader = Thread.currentThread().getContextClassLoader();
-            if (extraClasspath.length > 0) {
-                loader = new java.net.URLClassLoader(extraClasspath, loader);
+            final java.net.URLClassLoader compiledLoader =
+                    extraClasspath.length > 0
+                            ? new java.net.URLClassLoader(extraClasspath, loader)
+                            : null;
+            if (compiledLoader != null) {
+                loader = compiledLoader;
             }
-            Class<?> clazz = Class.forName(className, true, loader);
-            return (BeanContainer)
-                    clazz.getMethod("build", args.getClass()).invoke(null, (Object) args);
+            // True once the loader is owned by the container's shutdown task — the finally below
+            // then leaves it to the container's close.
+            final boolean[] loaderAttached = {false};
+            Class<?> clazz;
+            try {
+                // The class load itself is inside the try: a NoClassDefFoundError / LinkageError
+                // here (not just an InvocationTargetException from build()) must also close the
+                // loader, or the scratch dir's deleteOnExit stays broken on that path too.
+                clazz = Class.forName(className, true, loader);
+                BeanContainer container =
+                        (BeanContainer)
+                                clazz.getMethod("build", args.getClass())
+                                        .invoke(null, (Object) args);
+                // Bound the compiled-class cache's footprint: the URLClassLoader bridges the
+                // scratch temp dir (the generated classes are not on the classpath), and the JVM
+                // pins a loaded class's defining loader until the process exits. Closing it when
+                // the container closes frees the jar/file handles so the temp dir's deleteOnExit
+                // actually runs. Loaded classes keep working after close() — only the handles are
+                // released — so the container's own teardown (Phase 1 runners, Phase 2
+                // AutoCloseable beans) is unaffected.
+                if (compiledLoader != null) {
+                    container.addShutdownTask(
+                            () -> {
+                                try {
+                                    compiledLoader.close();
+                                } catch (Exception ignored) {
+                                }
+                            });
+                    loaderAttached[0] = true;
+                }
+                return container;
+            } finally {
+                // Failure path: if build() threw, the loader is never reachable via the container
+                // — close it here so the scratch dir's deleteOnExit still runs.
+                if (compiledLoader != null && !loaderAttached[0]) {
+                    try {
+                        compiledLoader.close();
+                    } catch (Exception ignored) {
+                    }
+                }
+            }
         } catch (ClassNotFoundException e) {
             throw new ConfigurationException(
                     ErrorCode.CONFIG_AOT_CONTEXT_NOT_FOUND,
