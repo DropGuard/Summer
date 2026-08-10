@@ -314,6 +314,8 @@ Summer is an experiment in reduction — not expansion. If a feature is not list
 *   Prototype scope (Singleton only)
 *   Multi-threaded application startup (context initialization is single-threaded by design)
 *   Distributed/XA transactions
+*   Nested transactions (REQUIRED only — a `@Transactional` call inside an active transaction
+    fails loudly with `SummerTransactionException`)
 *   Classpath-based guessing (e.g., "if DataSource is on classpath, auto-configure JdbcTemplate"). Explicit engine selection with `@ConditionalOnBean` is supported — components may follow the active engine via marker beans.
 *   Bean post-processor ecosystem & complex lifecycle hooks
 *   Security module

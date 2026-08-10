@@ -7,6 +7,7 @@ import com.github.dropguard.summer.aop.InterceptorChain;
 import com.github.dropguard.summer.aop.TargetInvoker;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 /** Tests for {@link TransactionInterceptor}. */
@@ -93,6 +94,47 @@ class TransactionInterceptorTest {
         assertFalse(manager.rollbackCalled.get(), "rollback() should NOT have been called");
     }
 
+    @Test
+    void nestedTransactionalCallFailsLoudlyAndRollsBackOuter() throws Throwable {
+        // Contract (see @Transactional): nested transactions are intentionally unsupported.
+        // A proxied @Transactional call made from inside an active transaction must fail loudly —
+        // the inner begin() throws — and the OUTER transaction must roll back. The interceptor
+        // neither joins the inner call nor swallows the failure.
+        RejectingNestedTransactionManager manager = new RejectingNestedTransactionManager();
+        TransactionInterceptor interceptor = new TransactionInterceptor(manager);
+        TestService target = new TestServiceImpl();
+        InterceptedMethod tx =
+                new InterceptedMethod("transactionalMethod", Set.of(Transactional.class));
+        TestInterceptorChain outerChain =
+                new TestInterceptorChain(
+                        target,
+                        tx,
+                        new Object[0],
+                        () ->
+                                // Simulate a cross-bean proxied call: the inner @Transactional
+                                // method is invoked through a second interceptor pass while the
+                                // outer transaction is already active.
+                                interceptor.intercept(
+                                        new TestInterceptorChain(
+                                                target,
+                                                tx,
+                                                new Object[0],
+                                                target::transactionalMethod)));
+
+        assertThrows(
+                SummerTransactionException.class,
+                () -> interceptor.intercept(outerChain),
+                "the nested begin() must surface its SummerTransactionException");
+
+        assertEquals(
+                2,
+                manager.beginCount.get(),
+                "both the outer and the inner begin() are attempted (no silent join)");
+        assertTrue(
+                manager.rollbackCalled.get(),
+                "the outer transaction must roll back after the nested failure");
+    }
+
     // Test interfaces and implementations
     public interface TestService {
         @Transactional
@@ -152,6 +194,32 @@ class TransactionInterceptorTest {
         }
     }
 
+    /** Manager that rejects a second begin() — the framework's "no nested transactions" guard. */
+    private static class RejectingNestedTransactionManager implements TransactionManager {
+        final AtomicInteger beginCount = new AtomicInteger();
+        final AtomicBoolean rollbackCalled = new AtomicBoolean(false);
+
+        @Override
+        public TransactionStatus begin() {
+            if (beginCount.getAndIncrement() > 0) {
+                throw new SummerTransactionException(
+                        "Nested transactions are not supported. A transaction is already active"
+                                + " for the current thread.");
+            }
+            return new SimpleTransactionStatus();
+        }
+
+        @Override
+        public void commit(TransactionStatus status) {
+            // no-op
+        }
+
+        @Override
+        public void rollback(TransactionStatus status) {
+            rollbackCalled.set(true);
+        }
+    }
+
     private static class SimpleTransactionStatus implements TransactionStatus {
         private boolean active = true;
         private boolean rollbackOnly = false;
@@ -174,11 +242,6 @@ class TransactionInterceptorTest {
         @Override
         public void setRollbackOnly() {
             this.rollbackOnly = true;
-        }
-
-        @Override
-        public void flush() {
-            // no-op
         }
     }
 

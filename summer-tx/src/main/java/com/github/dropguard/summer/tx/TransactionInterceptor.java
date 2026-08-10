@@ -11,6 +11,10 @@ import com.github.dropguard.summer.core.annotation.ConditionalOnBean;
  *
  * <p>Bound to {@code @Transactional} via {@code @InterceptorBinding}.
  *
+ * <p>Nested {@code @Transactional} calls are intentionally unsupported: a proxied
+ * {@code @Transactional} method invoked from inside an active transaction fails loudly when its
+ * {@code begin()} hits the manager's nesting guard (see {@link Transactional}).
+ *
  * <p>This is a framework infrastructure bean provided by {@link TxInfrastructureConfiguration}.
  */
 @Interceptor
@@ -18,33 +22,22 @@ import com.github.dropguard.summer.core.annotation.ConditionalOnBean;
 @Transactional
 @Internal
 public class TransactionInterceptor implements MethodInterceptor {
-    private static final ThreadLocal<Boolean> interceptorActive =
-            ThreadLocal.withInitial(() -> false);
     private final TransactionManager transactionManager;
 
     public TransactionInterceptor(TransactionManager transactionManager) {
         this.transactionManager = transactionManager;
     }
 
-    public static boolean isInterceptorActive() {
-        return interceptorActive.get();
-    }
-
     @Override
     public Object intercept(InterceptorChain chain) throws Throwable {
-        // Check if method is annotated with @Transactional
+        // A @Transactional method opens a transaction boundary. A nested call — a proxied
+        // @Transactional method invoked while a transaction is already active on this thread —
+        // must NOT be silently joined: the nested begin() fails loudly in the manager, and the
+        // outer boundary rolls back. (Same-bean internal this.method() calls bypass the proxy and
+        // never reach here.)
         if (chain.method().isAnnotationPresent(Transactional.class)) {
-            boolean alreadyActive = interceptorActive.get();
-            try {
-                interceptorActive.set(true);
-                return handleTransactional(chain);
-            } finally {
-                if (!alreadyActive) {
-                    interceptorActive.remove();
-                }
-            }
+            return handleTransactional(chain);
         }
-
         return chain.proceed();
     }
 

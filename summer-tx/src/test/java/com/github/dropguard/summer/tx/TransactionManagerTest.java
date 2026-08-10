@@ -63,15 +63,6 @@ class TransactionManagerTest {
         assertTrue(status.isNewTransaction());
     }
 
-    @Test
-    void shouldFlushTransaction() {
-        TransactionManager manager = new TestTransactionManager();
-        TransactionStatus status = manager.begin();
-
-        // flush should not throw
-        assertDoesNotThrow(status::flush);
-    }
-
     // Test helper class
     private static class TestTransactionManager implements TransactionManager {
         @Override
@@ -112,11 +103,6 @@ class TransactionManagerTest {
         @Override
         public void setRollbackOnly() {
             this.rollbackOnly = true;
-        }
-
-        @Override
-        public void flush() {
-            // no-op
         }
 
         void setActive(boolean active) {

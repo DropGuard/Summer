@@ -48,45 +48,59 @@ public class SimpleJdbcTransactionManager implements TransactionManager {
 
     @Override
     public void commit(TransactionStatus status) {
-        if (status instanceof ThreadLocalTransactionContext txContext) {
-            if (!txContext.isNewTransaction()) {
-                return;
+        ThreadLocalTransactionContext txContext = requireOwnStatus(status);
+        if (!txContext.isNewTransaction()) {
+            return;
+        }
+        try {
+            Connection raw = txContext.getRawConnection();
+            if (!raw.getAutoCommit()) {
+                raw.commit();
             }
+        } catch (SQLException e) {
             try {
-                Connection raw = txContext.getRawConnection();
-                if (!raw.getAutoCommit()) {
-                    raw.commit();
-                }
-            } catch (SQLException e) {
-                try {
-                    txContext.getRawConnection().rollback();
-                } catch (SQLException rollbackEx) {
-                    e.addSuppressed(rollbackEx);
-                }
-                throw new SummerTransactionException("Failed to commit transaction", e);
-            } finally {
-                txContext.close();
+                txContext.getRawConnection().rollback();
+            } catch (SQLException rollbackEx) {
+                e.addSuppressed(rollbackEx);
             }
+            throw new SummerTransactionException("Failed to commit transaction", e);
+        } finally {
+            txContext.close();
         }
     }
 
     @Override
     public void rollback(TransactionStatus status) {
-        if (status instanceof ThreadLocalTransactionContext txContext) {
-            if (!txContext.isNewTransaction()) {
-                txContext.setRollbackOnly();
-                return;
-            }
-            try {
-                Connection raw = txContext.getRawConnection();
-                if (!raw.getAutoCommit()) {
-                    raw.rollback();
-                }
-            } catch (SQLException e) {
-                throw new SummerTransactionException("Failed to rollback transaction", e);
-            } finally {
-                txContext.close();
-            }
+        ThreadLocalTransactionContext txContext = requireOwnStatus(status);
+        if (!txContext.isNewTransaction()) {
+            txContext.setRollbackOnly();
+            return;
         }
+        try {
+            Connection raw = txContext.getRawConnection();
+            if (!raw.getAutoCommit()) {
+                raw.rollback();
+            }
+        } catch (SQLException e) {
+            throw new SummerTransactionException("Failed to rollback transaction", e);
+        } finally {
+            txContext.close();
+        }
+    }
+
+    /**
+     * This manager only understands the status objects {@link #begin()} produced. A status from
+     * another manager (or a foreign TransactionStatus implementation) silently no-oping through
+     * commit/rollback would look like success while doing nothing — fail loudly instead.
+     */
+    private static ThreadLocalTransactionContext requireOwnStatus(TransactionStatus status) {
+        if (!(status instanceof ThreadLocalTransactionContext txContext)) {
+            throw new SummerTransactionException(
+                    "Unsupported TransactionStatus: "
+                            + (status != null ? status.getClass().getName() : "null")
+                            + " — this manager only accepts the status returned by its own"
+                            + " begin().");
+        }
+        return txContext;
     }
 }

@@ -17,6 +17,13 @@ import java.lang.annotation.Target;
  * transaction model is intentionally minimal — REQUIRED-only semantics, and <em>any</em> thrown
  * exception (checked or unchecked) rolls back. Callers needing selective rollback should handle the
  * exception themselves or not use transactions.
+ *
+ * <p><strong>Nested transactions are intentionally unsupported.</strong> A {@code @Transactional}
+ * method invoked through the proxy from inside another active transaction fails loudly — the nested
+ * {@code begin()} throws {@code SummerTransactionException} and the outer boundary rolls back.
+ * Compose transactional work at one boundary per thread (the service layer) rather than nesting
+ * across beans. Same-bean internal calls ({@code this.method()}) bypass the proxy entirely and
+ * never open a nested transaction (see README "Interface-based AOP").
  */
 @InterceptorBinding
 @Target({ElementType.TYPE, ElementType.METHOD})

@@ -103,12 +103,4 @@ class ThreadLocalTransactionContextTest {
         ThreadLocalTransactionContext.clearCurrentConnection();
         assertNull(ThreadLocalTransactionContext.getCurrentConnection());
     }
-
-    @Test
-    void shouldFlushBeNoop() throws SQLException {
-        Connection conn = mock(Connection.class);
-        ThreadLocalTransactionContext context = new ThreadLocalTransactionContext(conn, true);
-
-        assertDoesNotThrow(context::flush);
-    }
 }

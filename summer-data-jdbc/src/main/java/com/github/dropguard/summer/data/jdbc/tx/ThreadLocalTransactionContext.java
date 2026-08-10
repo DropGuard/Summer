@@ -54,9 +54,6 @@ public class ThreadLocalTransactionContext implements TransactionStatus {
         this.rollbackOnly = true;
     }
 
-    @Override
-    public void flush() {}
-
     public Connection getRawConnection() {
         return rawConnection;
     }
