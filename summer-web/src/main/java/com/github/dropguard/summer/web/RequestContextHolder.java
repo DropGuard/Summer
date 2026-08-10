@@ -33,19 +33,13 @@ public final class RequestContextHolder {
     }
 
     /**
-     * Convenience overload for non-HTTP contexts (e.g. tests, scheduled tasks): installs a context
-     * that carries only the user id.
+     * Convenience overload for non-HTTP contexts (e.g. tests, scheduled tasks): installs a
+     * userId-only context. There is no HTTP request here — {@link RequestContext#request()} and the
+     * request-backed accessors fail loudly on it (see {@link RequestContext#RequestContext(
+     * Long)}).
      */
     public static void set(Long userId) {
-        CONTEXT.set(
-                new RequestContext(
-                        new Request(
-                                com.github.dropguard.summer.web.HttpMethod.GET,
-                                "/",
-                                "",
-                                null,
-                                new byte[0]),
-                        userId));
+        CONTEXT.set(new RequestContext(userId));
     }
 
     /** The active request context, or {@code null} if none is bound. */

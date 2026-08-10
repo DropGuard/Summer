@@ -69,6 +69,9 @@ public class RadixTreeHttpRouter implements HttpRouter {
         }
 
         result.params().forEach(ctx.request()::setPathParam);
+        // Mark the match so the server layer can distinguish "no route" (404) from
+        // "handler wrote no response" (500) — see HttpContext.markMatched().
+        ctx.markMatched();
         result.handler().handle(ctx);
     }
 }

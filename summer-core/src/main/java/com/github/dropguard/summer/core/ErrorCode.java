@@ -26,6 +26,7 @@ public enum ErrorCode {
     BODY_PARSE_ERROR(3002, "Failed to parse request body"),
     ROUTE_CONFLICT(3003, "Route registration conflict"),
     ARCHITECTURE_VIOLATION(3004, "Architecture constraint violated"),
+    HANDLER_INVOCATION_FAILED(3005, "Failed to invoke request handler"),
 
     // Data (4xxx)
     DATA_ACCESS_ERROR(4001, "Database access error"),

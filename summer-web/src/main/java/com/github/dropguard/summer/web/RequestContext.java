@@ -25,8 +25,25 @@ public final class RequestContext {
         this.userId = userId;
     }
 
-    /** The underlying HTTP request. */
+    /**
+     * Creates a userId-only context for non-HTTP flows (tests, scheduled tasks, background workers)
+     * via {@link RequestContextHolder#set(Long)}. There is no HTTP request here, so the
+     * request-backed accessors ({@link #request()}, {@link #attributes()}, {@link #attribute}) fail
+     * loudly rather than fabricating or silently degrading to an empty request.
+     */
+    public RequestContext(Long userId) {
+        this.request = null;
+        this.userId = userId;
+    }
+
+    /** The underlying HTTP request, or a loud error when the context is userId-only. */
     public Request request() {
+        if (request == null) {
+            throw new IllegalStateException(
+                    "No HTTP request in this userId-only RequestContext — created via"
+                            + " RequestContext(Long) for non-HTTP flows (tests, scheduled tasks)."
+                            + " Request-backed APIs are unavailable here.");
+        }
         return request;
     }
 
@@ -37,11 +54,11 @@ public final class RequestContext {
 
     /** All request attributes (typed keys available via {@link RequestAttributes}). */
     public java.util.Map<String, Object> attributes() {
-        return request.getAttributes();
+        return request().getAttributes();
     }
 
     @SuppressWarnings("unchecked")
     public <T> T attribute(RequestAttributes.AttributeKey<T> key) {
-        return request.getAttribute(key);
+        return request().getAttribute(key);
     }
 }

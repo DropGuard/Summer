@@ -114,7 +114,19 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
             }
 
             if (webCtx.status() == null) {
-                webCtx.text(HttpStatus.NOT_FOUND, "Not Found");
+                if (webCtx.responseState() == HttpContext.ResponseState.MATCHED) {
+                    // A route matched but its handler never wrote a response — a violation of the
+                    // deferred-write contract (Gin-style handlers must set a status). Loud
+                    // server-side error; the client gets a generic 500, NOT a misleading 404.
+                    log.error(
+                            "Handler for {} {} matched but wrote no response — the handler must"
+                                    + " set a status (ctx.status/text/json/ok).",
+                            request.getMethod(),
+                            request.getPath());
+                    webCtx.text(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error");
+                } else {
+                    webCtx.text(HttpStatus.NOT_FOUND, "Not Found");
+                }
             }
 
             sendResponse(ctx, webCtx, keepAlive);

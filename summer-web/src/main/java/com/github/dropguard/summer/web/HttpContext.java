@@ -38,7 +38,7 @@ public class HttpContext {
     private final Request request;
     private final Response response = new Response();
     private final BodyParser bodyParser;
-    private boolean handled = false;
+    private ResponseState responseState = ResponseState.UNSET;
 
     public HttpContext(Request request) {
         this(request, new JsonBodyConverter());
@@ -139,11 +139,47 @@ public class HttpContext {
     }
 
     public boolean isHandled() {
-        return handled;
+        return responseState == ResponseState.HANDLED;
     }
 
     public void setHandled(boolean handled) {
-        this.handled = handled;
+        // setHandled(true) declares the response fully taken over outside the normal flow (the
+        // WebSocket upgrade path, and the user escape hatch for channel takeover); false resets.
+        this.responseState = handled ? ResponseState.HANDLED : ResponseState.UNSET;
+    }
+
+    /**
+     * Marks this request as matched to a route handler. Set by the HTTP router implementations just
+     * before invoking a matched handler. {@code @Internal}: consumed by the server layer to
+     * distinguish "no route matched" (404) from "a matched handler wrote no response" (500).
+     */
+    @com.github.dropguard.summer.core.Internal
+    public void markMatched() {
+        this.responseState = ResponseState.MATCHED;
+    }
+
+    /** Where this request sits in the HTTP response lifecycle (see {@link ResponseState}). */
+    @com.github.dropguard.summer.core.Internal
+    public ResponseState responseState() {
+        return responseState;
+    }
+
+    /**
+     * Where a request sits in the HTTP response lifecycle. The server layer reads this after the
+     * middleware/router chain completes, to answer a request that never set a status:
+     *
+     * <ul>
+     *   <li>{@link #UNSET} — no route matched → 404 Not Found
+     *   <li>{@link #MATCHED} — a handler ran but wrote no response → 500 (deferred-write contract
+     *       violation)
+     *   <li>{@link #HANDLED} — the response was taken over outside the normal flow (e.g. a
+     *       WebSocket upgrade) → no HTTP response is sent
+     * </ul>
+     */
+    public enum ResponseState {
+        UNSET,
+        MATCHED,
+        HANDLED
     }
 
     // --- Request helpers ---

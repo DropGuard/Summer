@@ -16,10 +16,4 @@ public class TypeParameterResolver implements HttpParameterResolver {
     public Object resolve(HttpContext ctx, HandlerParam param) {
         return param.type() == HttpContext.class ? ctx : ctx.request();
     }
-
-    @Override
-    public java.util.function.Function<HttpContext, Object> compile(HandlerParam param) {
-        boolean isCtx = param.type() == HttpContext.class;
-        return ctx -> isCtx ? ctx : ctx.request();
-    }
 }

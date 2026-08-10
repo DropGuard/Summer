@@ -21,10 +21,4 @@ public class ValidatingParameterResolver implements HttpParameterResolver {
     public Object resolve(HttpContext ctx, HandlerParam param) {
         return ctx.validatedBody(param.type());
     }
-
-    @Override
-    public java.util.function.Function<HttpContext, Object> compile(HandlerParam param) {
-        Class<?> type = param.type();
-        return ctx -> ctx.validatedBody(type);
-    }
 }

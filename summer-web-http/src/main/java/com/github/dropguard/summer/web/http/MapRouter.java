@@ -52,6 +52,9 @@ public class MapRouter implements HttpRouter {
         String key = method + " " + path;
         RouteEntryWithHandler entry = routes.get(key);
         if (entry != null) {
+            // Mark the match so the server layer can distinguish "no route" (404) from
+            // "handler wrote no response" (500) — see HttpContext.markMatched().
+            ctx.markMatched();
             entry.handler.handle(ctx);
             return;
         }
@@ -62,6 +65,7 @@ public class MapRouter implements HttpRouter {
             Map<String, String> params = PathMatcher.matchPattern(route.getValue(), path);
             if (params != null) {
                 params.forEach(ctx.request()::setPathParam);
+                ctx.markMatched();
                 route.getValue().handler.handle(ctx);
                 return;
             }

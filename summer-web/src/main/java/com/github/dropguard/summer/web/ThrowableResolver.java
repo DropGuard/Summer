@@ -18,9 +18,4 @@ public class ThrowableResolver implements HttpParameterResolver {
     public Object resolve(HttpContext ctx, HandlerParam param) {
         return ctx.request().getAttribute(RequestAttributes.LAST_EXCEPTION);
     }
-
-    @Override
-    public java.util.function.Function<HttpContext, Object> compile(HandlerParam param) {
-        return ctx -> ctx.request().getAttribute(RequestAttributes.LAST_EXCEPTION);
-    }
 }
