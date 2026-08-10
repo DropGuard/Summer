@@ -1,7 +1,9 @@
 package com.github.dropguard.summer.core.config;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.github.dropguard.summer.core.exception.ConfigurationException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -31,11 +33,24 @@ class ConfigBinderEnvTest {
     }
 
     @Test
-    void barePlaceholderDegradesToOriginalWhenEnvAbsent() {
+    void barePlaceholderWithoutDefaultFailsFastWhenEnvAbsent() {
+        // A bare ${VAR} with nothing to resolve and no :default is a typo'd/unset variable.
+        // Leaving a literal placeholder in the value would be a silent footgun — fail loudly
+        // instead (Spring/Quarkus both reject unresolved placeholders).
         Map<String, Object> section = new LinkedHashMap<>();
         section.put("url", "${SUMMER_DB_URL}");
+        assertThrows(
+                ConfigurationException.class, () -> ConfigBinder.resolveEnvPlaceholders(section));
+    }
+
+    @Test
+    void explicitEmptyDefaultResolvesToEmptyString() {
+        // ${VAR:-} / ${VAR:} declare an explicit empty fallback — that is a resolution, not an
+        // unresolved placeholder.
+        Map<String, Object> section = new LinkedHashMap<>();
+        section.put("url", "${SUMMER_DB_URL:-}");
         Map<String, Object> resolved = ConfigBinder.resolveEnvPlaceholders(section);
-        assertEquals("${SUMMER_DB_URL}", resolved.get("url"));
+        assertEquals("", resolved.get("url"));
     }
 
     @Test

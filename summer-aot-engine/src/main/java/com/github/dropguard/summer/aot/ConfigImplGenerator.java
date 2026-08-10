@@ -438,16 +438,10 @@ public final class ConfigImplGenerator {
                 "($T) $T.convert($S, $T.class)", boxedType, typeConverter, rawValue, boxedType);
     }
 
-    /**
-     * Resolves the YAML key for a config interface method, mirroring {@code
-     * ConfigBinder.resolveKey}: {@code @WithName} wins, otherwise the method name is camelCased.
-     */
+    /** Resolves the YAML key for a config interface method — the shared single source. */
     private String resolveKey(MethodInfo m) {
         AnnotationInstance wn = m.annotation(WITH_NAME_DOT);
-        String base =
-                (wn != null && !wn.value().asString().isEmpty()) ? wn.value().asString() : m.name();
-        // Must match ConfigBinder.ConfigMappingHandler.resolveKey so the AOT-generated key equals
-        // the camelCased method name (or @WithName value).
-        return com.github.dropguard.summer.core.config.ConfigBinder.toCamelCase(base);
+        return com.github.dropguard.summer.core.config.ConfigBinder.resolveKey(
+                m.name(), wn != null ? wn.value().asString() : null);
     }
 }

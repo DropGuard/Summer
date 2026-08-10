@@ -1,6 +1,7 @@
 package com.github.dropguard.summer.core.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.dropguard.summer.core.ErrorCode;
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.exception.BeanCreationException;
 import com.github.dropguard.summer.core.exception.ConfigurationException;
@@ -193,6 +194,20 @@ public final class ConfigBinder {
         return result;
     }
 
+    /**
+     * The single key-resolution truth for {@code @ConfigMapping} interface methods, shared by the
+     * runtime binder and the AOT-generated config impl: {@code @WithName} wins, otherwise the
+     * method name is camelCased. Both engines must resolve the same YAML key.
+     *
+     * @param methodName the interface method name
+     * @param withNameValue the {@code @WithName} value, or {@code null} when absent/empty
+     */
+    public static String resolveKey(String methodName, String withNameValue) {
+        String base =
+                (withNameValue != null && !withNameValue.isEmpty()) ? withNameValue : methodName;
+        return toCamelCase(base);
+    }
+
     /** Converts a single key from kebab-case, snake_case, or dot.separated to camelCase. */
     public static String toCamelCase(String key) {
         if (key == null || key.isEmpty()) return key;
@@ -223,7 +238,7 @@ public final class ConfigBinder {
     @SuppressWarnings("unchecked")
     private static Map<String, Object> applyProfileOverrides(
             Map<String, Object> section, String prefix, Map<String, Object> overrides) {
-        if (overrides == null || overrides.isEmpty()) {
+        if (overrides.isEmpty()) {
             return section;
         }
         String scope = (prefix == null || prefix.isEmpty()) ? "" : prefix + ".";
@@ -280,10 +295,10 @@ public final class ConfigBinder {
 
     /**
      * Resolves {@code ${VAR}} and {@code ${VAR:-default}} placeholders in string configuration
-     * values, so configuration can be externalized (12-factor). An environment variable wins, then
-     * a system property, then the supplied default. A bare {@code ${VAR}} with no default and no
-     * value is left unchanged (graceful degradation rather than a hard failure). Applied
-     * recursively to nested sections.
+     * values, so configuration can be externalized (12-factor). A system property ({@code -D})
+     * wins, then an environment variable, then the supplied default (Spring/Quarkus convention). A
+     * bare {@code ${VAR}} with no default and no value fails fast — an unresolved placeholder is a
+     * typo'd/unset variable, not a value. Applied recursively to nested sections.
      *
      * <p>Only strings containing the {@code ${...}} pattern are touched, so existing literal values
      * (e.g. a JDBC URL with no placeholder) bind exactly as before.
@@ -316,12 +331,23 @@ public final class ConfigBinder {
             String name = matcher.group(1);
             String resolved = lookup(name);
             if (resolved == null) {
-                // group(3) carries the default for ${VAR:-default} / ${VAR:default}.
-                // Absent (or empty) for a bare ${VAR}, which degrades to the original
-                // token rather than resolving to an empty string.
-                String defaultVal = matcher.group(3);
-                resolved =
-                        defaultVal != null && !defaultVal.isEmpty() ? defaultVal : matcher.group(0);
+                // group(2) participates only when a ':' default syntax is present (group(3)
+                // always matches, possibly empty). A BARE ${VAR} (group(2) == null) with
+                // nothing to resolve is an unset/typo'd variable — leaving a literal
+                // placeholder in the value would be a silent footgun, so fail fast
+                // (Spring/Quarkus both reject unresolved placeholders). ${VAR:-} / ${VAR:}
+                // declare an explicit empty fallback and resolve to "".
+                if (matcher.group(2) == null) {
+                    throw new ConfigurationException(
+                            ErrorCode.CONFIG_PARSE_ERROR,
+                            "Cannot resolve placeholder ${"
+                                    + name
+                                    + "}: no environment variable or system property is set and"
+                                    + " no :default was given. Use ${"
+                                    + name
+                                    + ":default} to make the fallback explicit.");
+                }
+                resolved = matcher.group(3);
             }
             matcher.appendReplacement(sb, Matcher.quoteReplacement(resolved));
         } while (matcher.find());

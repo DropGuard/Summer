@@ -57,9 +57,7 @@ public final class TypeConverter {
             if (value instanceof Enum) {
                 return value;
             }
-            return Enum.valueOf(
-                    (Class<Enum>) targetType,
-                    value.toString().trim().toUpperCase(java.util.Locale.ROOT));
+            return enumValue((Class<Enum>) targetType, value.toString().trim());
         }
         if (value instanceof Number n) {
             if (targetType == int.class || targetType == Integer.class) return n.intValue();
@@ -95,5 +93,23 @@ public final class TypeConverter {
                         + value.getClass().getName()
                         + " -> "
                         + targetType.getName());
+    }
+
+    /**
+     * Case-insensitive enum lookup — the config-binding contract (Jackson's {@code
+     * ACCEPT_CASE_INSENSITIVE_ENUMS} on the runtime side, the generated {@code enumValue<Type>}
+     * helper's {@code equalsIgnoreCase} on the AOT side). {@code ?env=production} must bind like
+     * {@code env: production}; {@code Enum.valueOf(...toUpperCase())} assumed all-uppercase
+     * constants and threw on mixed-case ones.
+     */
+    private static Enum<?> enumValue(Class<Enum> enumType, String raw) {
+        for (Object constant : enumType.getEnumConstants()) {
+            if (((Enum<?>) constant).name().equalsIgnoreCase(raw)) {
+                return (Enum<?>) constant;
+            }
+        }
+        throw new ConfigurationException(
+                ErrorCode.CONFIG_PARSE_ERROR,
+                "No enum constant " + enumType.getName() + " matching: '" + raw + "'");
     }
 }

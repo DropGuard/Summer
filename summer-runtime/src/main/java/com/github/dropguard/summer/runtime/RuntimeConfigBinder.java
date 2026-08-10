@@ -18,10 +18,10 @@ import java.util.Map;
 @Internal
 public final class RuntimeConfigBinder {
 
-    // Case-insensitive enums for the config-binding path only (not the shared mapper): the AOT
-    // generator coerces enum values via Enum.valueOf(raw.toUpperCase()), so the runtime proxy must
-    // accept the same lowercase YAML values — otherwise @WithDefault("dev") binds on AOT and throws
-    // here. Dual-engine convergence on enum config values.
+    // Case-insensitive enums for the config-binding path only (not the shared mapper). The AOT
+    // generator's generated enumValue<Type> helper matches case-insensitively, so the runtime
+    // proxy must accept the same lowercase YAML values — otherwise @WithDefault("dev") binds on
+    // AOT and throws here. Dual-engine convergence on enum config values.
     private static final ObjectMapper YAML_MAPPER =
             SummerObjectMapper.createYaml(
                     m ->
@@ -74,15 +74,13 @@ public final class RuntimeConfigBinder {
                                                     method.toString());
                                 };
                             }
-                            // Key resolution must mirror the AOT generator
-                            // (ConfigImplGenerator.resolveKey): @WithName wins, else the
-                            // camelCased method name — both engines must resolve the same key.
+                            // Key resolution is the shared single source
+                            // (ConfigBinder.resolveKey), so both engines resolve the same YAML key.
                             WithName withName = method.getAnnotation(WithName.class);
-                            String base =
-                                    (withName != null && !withName.value().isEmpty())
-                                            ? withName.value()
-                                            : method.getName();
-                            String key = ConfigBinder.toCamelCase(base);
+                            String key =
+                                    ConfigBinder.resolveKey(
+                                            method.getName(),
+                                            withName != null ? withName.value() : null);
                             Object value = section.get(key);
                             if (value == null) {
                                 WithDefault withDefault = method.getAnnotation(WithDefault.class);

@@ -92,4 +92,29 @@ class TypeConverterTest {
     void shouldThrowForInvalidDouble() {
         assertThrows(NumberFormatException.class, () -> TypeConverter.convert("abc", Double.class));
     }
+
+    @Test
+    void convertsEnumCaseInsensitively() {
+        // The config-binding contract (Jackson ACCEPT_CASE_INSENSITIVE_ENUMS / the AOT generated
+        // enumValue helper): ?env=production binds like env: production. Mixed-case constants and
+        // lowercase input must both resolve — Enum.valueOf(...toUpperCase()) threw on mixed-case.
+        assertEquals(Env.PRODUCTION, TypeConverter.convert("production", Env.class));
+        assertEquals(Env.PRODUCTION, TypeConverter.convert("PRODUCTION", Env.class));
+        assertEquals(Env.Dev, TypeConverter.convert("DEV", Env.class));
+        assertEquals(Env.Dev, TypeConverter.convert("dev", Env.class));
+        assertEquals(Env.Dev, TypeConverter.convert("  dev  ", Env.class), "input is trimmed");
+    }
+
+    @Test
+    void throwsForUnknownEnumConstant() {
+        assertThrows(
+                ConfigurationException.class,
+                () -> TypeConverter.convert("staging", Env.class),
+                "a value matching no constant must fail loudly, not fall back");
+    }
+
+    private enum Env {
+        PRODUCTION,
+        Dev
+    }
 }
