@@ -312,8 +312,10 @@ class ArchitectureTest {
     @Test
     @DisplayName("No ServiceLoader usage in production code")
     void noServiceLoaderInProduction() {
-        // RouteRegistrarLoader (core.spi) is the SPI discovery point — the one place
-        // framework code is allowed to use ServiceLoader, alongside ContainerEngines.
+        // ServiceLoader discovery is permitted only at the framework's SPI discovery points:
+        // core.spi (RouteRegistrarLoader), engine.spi (AotProductConstructors), and
+        // ContainerEngines (the engine-layer ServiceLoader seam for ContainerEngine). Everywhere
+        // else in production code it is banned.
         ArchRule rule =
                 noClasses()
                         .that()
@@ -321,7 +323,9 @@ class ArchitectureTest {
                         .and()
                         .haveSimpleNameNotContaining("ContainerEngines")
                         .and()
-                        .resideOutsideOfPackages("..com.github.dropguard.summer.core.spi..")
+                        .resideOutsideOfPackages(
+                                "..com.github.dropguard.summer.core.spi..",
+                                "..com.github.dropguard.summer.engine.spi..")
                         .should()
                         .dependOnClassesThat()
                         .haveFullyQualifiedName("java.util.ServiceLoader")

@@ -18,6 +18,14 @@ import org.slf4j.LoggerFactory;
  * which such a compiled engine class is loaded. Lives in the engine module (with {@code
  * ContainerEngine}/{@code ContainerEngines}) so engine discovery/loading is aggregated in one layer
  * — summer-core stays a pure contract layer with no reflection.
+ *
+ * <p>Why a name-based reflective contract instead of the {@link ContainerEngines} ServiceLoader
+ * SPI? The AOT engine class ({@code GeneratedAotContext}) is generated per application by the Maven
+ * plugin, so it cannot be registered in a module's static {@code META-INF/services} file —
+ * ServiceLoader discovery only covers the fixed, buildable-by-name classes {@code AotContainer} and
+ * {@code RuntimeContainer} (the test-infra path). Production boot therefore resolves the effective
+ * engine (config / {@code -Dsummer.engine}) and loads the matching pre-generated class by name; the
+ * two seams serve different execution models, not duplicated logic.
  */
 @Internal
 public final class DiEngine {
@@ -35,16 +43,18 @@ public final class DiEngine {
     private DiEngine() {}
 
     /**
-     * Creates a {@link BeanContainer} using an explicitly chosen engine. This is the entry point
-     * for code paths that already know which engine to use (dual-engine TCK, the test framework's
-     * AOT escape hatch). It never consults configuration or system properties.
+     * Creates a {@link BeanContainer} using an explicitly chosen, ALREADY-RESOLVED engine. This is
+     * the entry point for code paths that know which engine to use (production boot via {@code
+     * SummerApplication.resolveBootstrapEngine()}; the dual-engine TCK; the test framework's AOT
+     * escape hatch). It never consults configuration or system properties — an explicit choice is
+     * honored as-is, never overridden by {@code -Dsummer.engine} (the override is applied once, in
+     * {@link #resolveEngine}, by the boot layer).
      *
      * @param engine the engine to build with
      * @param externalBeans boot-time application beans (e.g. the ordered middleware list from
      *     {@code SummerApplication.apply(...)}); never exposed to tests
      */
     public static BeanContainer create(Engine engine, Object... externalBeans) {
-        engine = resolveEngine(engine);
         if (engine == Engine.AOT) {
             log.info("[Summer] Building container via AOT engine");
             return invokeBuild(

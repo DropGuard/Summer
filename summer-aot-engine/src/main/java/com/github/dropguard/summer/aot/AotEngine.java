@@ -53,11 +53,6 @@ public final class AotEngine {
             MockedBean[] mocks,
             java.util.Map<String, Object> overrides) {
         List<BeanDefinition> beans = Discovery.discover(moduleIndex);
-        // SPI route collection (shared with the Runtime engine): loads every
-        // RouteRegistrar on the classpath (e.g. summer-runtime-web's WebRouteScanner)
-        // and merges routes / exception handlers into the candidate definitions
-        // before condition evaluation, so AOT codegen sees the same web surface.
-        RouteRegistrarLoader.mergeInto(RouteRegistrarLoader.load(beans), beans);
         // Discovery-stage mock replacement: remove the real definitions of every
         // mocked type so they are never generated/instantiated. Shared with Runtime
         // via SharedConditionEvaluator, so concrete-class @Mock behaves identically on
@@ -68,6 +63,12 @@ public final class AotEngine {
             mockedTypeNames.add(mocked.targetTypeName());
         }
         new SharedConditionEvaluator().evaluate(beans, mockedTypeNames);
+        // SPI route collection (shared with the Runtime engine): loads every
+        // RouteRegistrar on the classpath (e.g. summer-runtime-web's WebRouteScanner)
+        // and merges routes / exception handlers into the candidate definitions.
+        // Runs AFTER condition evaluation, matching RuntimeContainer's timing, so a
+        // conditioned-out controller contributes no routes on either engine (parity).
+        RouteRegistrarLoader.mergeInto(RouteRegistrarLoader.load(beans), beans);
         List<BeanDefinition> sorted =
                 new SharedDependencyResolver().resolve(beans, java.util.Arrays.asList(mocks));
         rejectNonPublicProducts(moduleIndex, sorted);

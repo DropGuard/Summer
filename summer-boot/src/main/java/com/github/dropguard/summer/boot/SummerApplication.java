@@ -58,28 +58,21 @@ public final class SummerApplication {
     }
 
     /**
-     * Boots the application. {@code args} is deliberately unused: Summer is configuration-driven
-     * (application.yml + {@code ${VAR}} / {@code -D} overrides) — command-line arguments are not a
-     * configuration channel. The parameter exists only to match the {@code main} convention.
-     */
-    /**
      * Resolves the DI engine from {@code summer.engine} without any engine-specific binder. The
      * boot layer must stay engine-neutral: {@code ConfigBinder.bindSection} reads the YAML section
      * (resolving {@code ${VAR}} placeholders for env/{@code -D} overrides), and the fallback
      * mirrors {@code FrameworkConfig.engine()}'s {@code @WithDefault("runtime")}. Production builds
      * flip the YAML to {@code aot} via the Maven plugin.
      *
-     * <p>Precedence follows the Spring/Quarkus convention: {@code -Dsummer.engine} system property,
-     * then the {@code SUMMER_ENGINE} environment variable, then the YAML value, then the default.
+     * <p>Precedence follows the Spring/Quarkus convention: {@code -Dsummer.engine} system property
+     * (applied last, via the shared {@code DiEngine.resolveEngine} — the one place the override is
+     * parsed), then the {@code SUMMER_ENGINE} environment variable, then the YAML value, then the
+     * default.
      */
     private static Engine resolveBootstrapEngine() {
-        // 1. Explicit system property (-Dsummer.engine) — the highest-precedence override.
-        String override = System.getProperty("summer.engine");
-        if (override == null || override.isBlank()) {
-            // 2. Environment variable (SUMMER_ENGINE) — crosses process boundaries (dev mode's
-            // child JVM cannot see the parent's -D properties, only its environment).
-            override = System.getenv("SUMMER_ENGINE");
-        }
+        // Environment variable (SUMMER_ENGINE) — crosses process boundaries (dev mode's child JVM
+        // cannot see the parent's -D properties, only its environment).
+        String envOverride = System.getenv("SUMMER_ENGINE");
 
         Map<String, Object> section =
                 new ConfigBinder().bindSection(ConfigBinder.BindingContext.of(), "summer");
@@ -88,19 +81,23 @@ public final class SummerApplication {
         // constant (the boot layer is reflection-free, so the annotation itself is unreadable
         // here) — the default lives in FrameworkConfig, never duplicated as a string.
         String raw =
-                override != null
-                        ? override
+                envOverride != null
+                        ? envOverride
                         : value != null
                                 ? value.toString()
                                 : FrameworkConfig.DEV_ENGINE.name().toLowerCase();
+        Engine configured;
         try {
-            return Engine.valueOf(raw.trim().toUpperCase(java.util.Locale.ROOT));
+            configured = Engine.valueOf(raw.trim().toUpperCase(java.util.Locale.ROOT));
         } catch (IllegalArgumentException e) {
             throw new ConfigurationException(
                     ErrorCode.CONFIG_PARSE_ERROR,
                     "Invalid summer.engine value: '" + raw + "' (expected runtime or aot)",
                     e);
         }
+        // -Dsummer.engine — the highest-precedence override, applied exactly once here.
+        // DiEngine.create honors the explicit engine as-is (it no longer re-parses the property).
+        return DiEngine.resolveEngine(configured);
     }
 
     private BeanContainer doStart(String[] args) throws Exception {

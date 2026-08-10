@@ -168,6 +168,9 @@ public final class SharedDependencyResolver {
                 // List<MockedType>, satisfied by the single mock at injection time).
                 List<BeanDefinition> matches =
                         findAllBeans(parameter.elementType(), allBeans, mockedTypeNames);
+                for (BeanDefinition match : matches) {
+                    rejectConcreteClassInjection(bean, match, parameter.elementType());
+                }
                 // @Order alignment: the runtime sorts getBeans by instance order
                 // (BeanContainer.ORDER_COMPARATOR); sort the discovery-time slice by the captured
                 // BeanDefinition.order so the AOT engine emits List<T> in the same order.
@@ -194,7 +197,33 @@ public final class SharedDependencyResolver {
                         registeredTypes(allBeans),
                         nearMisses(paramType, allBeans));
             }
+            rejectConcreteClassInjection(bean, resolved, paramType);
             parameter.resolved().add(resolved);
+        }
+    }
+
+    /**
+     * Fail-fast guard for the concrete-class AOP trap: a proxied bean is registered under its
+     * concrete class as the RAW instance (interfaces carry the proxy), so injecting it by concrete
+     * class would silently hand the dependent a bean with NO interceptors — transactions, auth,
+     * etc. all off. JDK dynamic proxies cannot satisfy a concrete type, so the only correct
+     * injection is through one of the bean's interfaces.
+     */
+    private static void rejectConcreteClassInjection(
+            BeanDefinition dependent, BeanDefinition resolved, String paramType) {
+        if (resolved.needsProxy() && paramType.equals(resolved.qualifiedName)) {
+            throw new com.github.dropguard.summer.core.exception.BeanCreationException(
+                    "Bean "
+                            + dependent.qualifiedName
+                            + " injects "
+                            + resolved.qualifiedName
+                            + " by its concrete class, but that bean is AOP-proxied (JDK dynamic"
+                            + " proxy). The concrete-class registration holds the raw instance"
+                            + " without interceptors — inject by one of its interfaces instead:"
+                            + " "
+                            + (resolved.interfaceNames.isEmpty()
+                                    ? "(none)"
+                                    : String.join(", ", resolved.interfaceNames)));
         }
     }
 

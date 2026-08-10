@@ -42,15 +42,23 @@ public class WebRouteScanner implements RouteRegistrar {
     public void register(RouteRegistry registry, List<BeanDefinition> beans) {
         log.debug("[Summer] WebRouteScanner scanning {} beans for web routes", beans.size());
         for (BeanDefinition bean : beans) {
+            Class<?> clazz;
             try {
-                Class<?> clazz = Class.forName(bean.qualifiedName);
-                registerRoutesForClass(clazz, bean, registry);
-                registerExceptionHandlersForClass(clazz, bean, registry);
+                clazz = Class.forName(bean.qualifiedName);
             } catch (ClassNotFoundException e) {
-                log.warn(
-                        "[Summer] Cannot load class {} for web scanning — skipping",
-                        bean.qualifiedName);
+                // A surviving candidate's class must be loadable: it is in the Jandex index yet
+                // missing from the classpath — a stale/corrupt index (e.g. a failed dev-mode
+                // rebuild). Fail fast like BeanInstantiator instead of silently dropping the
+                // bean's routes (the container would fail at instantiation anyway, confusingly).
+                throw new com.github.dropguard.summer.core.exception.BeanCreationException(
+                        "Cannot load class "
+                                + bean.qualifiedName
+                                + " during web route scanning — the class is in the Jandex"
+                                + " index but missing from the classpath (stale index?).",
+                        e);
             }
+            registerRoutesForClass(clazz, bean, registry);
+            registerExceptionHandlersForClass(clazz, bean, registry);
         }
     }
 

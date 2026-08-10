@@ -2,7 +2,6 @@ package com.github.dropguard.summer.runtime.web;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import com.github.dropguard.summer.aop.SummerAopException;
 import com.github.dropguard.summer.web.Handler;
 import com.github.dropguard.summer.web.HandlerParam;
 import com.github.dropguard.summer.web.HttpContext;
@@ -13,6 +12,7 @@ import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.Request;
 import com.github.dropguard.summer.web.TypeParameterResolver;
 import com.github.dropguard.summer.web.annotation.QueryParam;
+import com.github.dropguard.summer.web.exception.HandlerInvocationException;
 import java.lang.reflect.Method;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -58,7 +58,7 @@ class HandlerFactoryTest {
     }
 
     @Test
-    void shouldWrapCheckedExceptionInSummerAopException() throws Exception {
+    void shouldWrapCheckedExceptionInHandlerInvocationException() throws Exception {
         TestController controller = new TestController();
         Method method = TestController.class.getDeclaredMethod("throwChecked");
         HttpParameterResolverChain chain = new HttpParameterResolverChain(List.of());
@@ -67,7 +67,12 @@ class HandlerFactoryTest {
         Request request = new Request(HttpMethod.GET, "/error", null, null, null);
         HttpContext ctx = new HttpContext(request);
 
-        SummerAopException ex = assertThrows(SummerAopException.class, () -> handler.handle(ctx));
+        HandlerInvocationException ex =
+                assertThrows(
+                        HandlerInvocationException.class,
+                        () -> handler.handle(ctx),
+                        "a checked exception cannot propagate through Handler.handle and must be"
+                                + " wrapped in the web-domain failure, not SummerAopException");
         assertEquals("Handler invocation failed", ex.getMessage());
         assertInstanceOf(Exception.class, ex.getCause());
     }

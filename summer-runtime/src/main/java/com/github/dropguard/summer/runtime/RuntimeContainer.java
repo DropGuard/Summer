@@ -105,8 +105,7 @@ public final class RuntimeContainer implements ContainerEngine {
         SharedDependencyResolver resolver = new SharedDependencyResolver();
         List<BeanDefinition> sorted = resolver.resolve(candidates, mocks);
 
-        Map<String, List<String>> interceptorMap =
-                BeanDefinitionFactory.buildInterceptorMap(candidates);
+        Map<String, List<String>> interceptorMap = buildInterceptorMap(candidates);
         Map<String, Set<String>> bindingMap = new HashMap<>();
         for (BeanDefinition bd : candidates) {
             if (!bd.interceptorBindingAnnotations.isEmpty()) {
@@ -178,5 +177,24 @@ public final class RuntimeContainer implements ContainerEngine {
                     configClass.getSimpleName(),
                     prefix);
         }
+    }
+
+    /**
+     * Builds the interceptor map for proxy generation from the discovery-time {@link
+     * BeanDefinition#interceptors} edges. {@code needsProxy()} already excludes interceptor beans
+     * themselves, so no further filtering is needed.
+     */
+    private static Map<String, List<String>> buildInterceptorMap(List<BeanDefinition> allBeans) {
+        return allBeans.stream()
+                .filter(BeanDefinition::needsProxy)
+                .map(
+                        bean ->
+                                Map.entry(
+                                        bean.qualifiedName,
+                                        bean.interceptors.stream()
+                                                .map(b -> b.qualifiedName)
+                                                .toList()))
+                .filter(e -> !e.getValue().isEmpty())
+                .collect(java.util.stream.Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 }

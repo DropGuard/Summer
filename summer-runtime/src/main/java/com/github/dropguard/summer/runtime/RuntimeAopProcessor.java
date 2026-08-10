@@ -10,7 +10,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -38,15 +37,14 @@ final class RuntimeAopProcessor {
             BeanDefinition bean,
             List<MethodInterceptor> matchingInterceptors,
             Map<Class<?>, Set<Class<? extends Annotation>>> interceptorBindings) {
-        if (instance == null
-                || instance.getClass()
-                        .isAnnotationPresent(com.github.dropguard.summer.aop.Interceptor.class)) {
+        if (instance.getClass()
+                .isAnnotationPresent(com.github.dropguard.summer.aop.Interceptor.class)) {
             return instance;
         }
 
-        List<MethodInterceptor> matching =
-                matchingInterceptors.stream().filter(Objects::nonNull).toList();
-        if (matching.isEmpty()) {
+        // matchingInterceptors never holds nulls: BeanInstantiator builds it from getBean()
+        // results (which throw when missing) filtered to MethodInterceptor instances.
+        if (matchingInterceptors.isEmpty()) {
             return instance;
         }
 
@@ -62,7 +60,7 @@ final class RuntimeAopProcessor {
         }
 
         Map<Method, ProxyFactory.ProxyMethodSpec> specs =
-                buildMethodSpecs(bean, matching, interceptorBindings);
+                buildMethodSpecs(bean, matchingInterceptors, interceptorBindings);
         if (specs.isEmpty()) {
             return instance;
         }

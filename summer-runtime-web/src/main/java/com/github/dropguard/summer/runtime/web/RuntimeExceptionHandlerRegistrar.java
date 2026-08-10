@@ -2,6 +2,7 @@ package com.github.dropguard.summer.runtime.web;
 
 import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
+import com.github.dropguard.summer.core.exception.BeanCreationException;
 import com.github.dropguard.summer.runtime.HandlerMetadata;
 import com.github.dropguard.summer.web.ExceptionHandlerRegistrar;
 import com.github.dropguard.summer.web.ExceptionRegistry;
@@ -18,6 +19,11 @@ import java.util.Map;
  * <p>Pre-computed handler data is set by {@code RuntimeContainer init()} after discovery — the
  * registrar itself only resolves {@code Method} handles by name and parameter count (no annotation
  * scanning).
+ *
+ * <p>Metadata drift (an unloadable bean/exception class, a handler method that vanished from the
+ * class) fails fast at startup instead of silently dropping handlers — the metadata comes from the
+ * same Jandex discovery that produced the container's beans, so a miss is stale/corrupt index
+ * drift, not a recoverable state.
  */
 class RuntimeExceptionHandlerRegistrar implements ExceptionHandlerRegistrar {
 
@@ -38,25 +44,46 @@ class RuntimeExceptionHandlerRegistrar implements ExceptionHandlerRegistrar {
 
         for (var entry : handlers.entrySet()) {
             String beanClassName = entry.getKey();
-            Object instance;
+            Class<?> clazz;
             try {
-                Class<?> clazz = Class.forName(beanClassName);
-                instance = context.getBean(clazz);
+                clazz = Class.forName(beanClassName);
             } catch (ClassNotFoundException e) {
-                continue;
+                throw new BeanCreationException(
+                        "Cannot load class "
+                                + beanClassName
+                                + " for exception-handler registration — the class is in the"
+                                + " Jandex index but missing from the classpath (stale index?).",
+                        e);
             }
+            Object instance = context.getBean(clazz);
 
             for (BeanDefinition.ExceptionHandlerEntry eh : entry.getValue()) {
-                Method method =
-                        findMethod(instance.getClass(), eh.methodName(), eh.parameterCount());
+                Method method = findMethod(clazz, eh.methodName(), eh.parameterCount());
                 if (method == null) {
-                    continue;
+                    throw new BeanCreationException(
+                            "Exception handler method "
+                                    + beanClassName
+                                    + "."
+                                    + eh.methodName()
+                                    + "("
+                                    + eh.parameterCount()
+                                    + " params) recorded at discovery no longer exists on the"
+                                    + " class — stale metadata.");
                 }
                 Class<?> exClass;
                 try {
                     exClass = Class.forName(eh.exceptionClass());
                 } catch (ClassNotFoundException e) {
-                    continue;
+                    throw new BeanCreationException(
+                            "@ExceptionHandler type "
+                                    + eh.exceptionClass()
+                                    + " (for "
+                                    + beanClassName
+                                    + "."
+                                    + eh.methodName()
+                                    + ") cannot be loaded — the class is in the Jandex index but"
+                                    + " missing from the classpath.",
+                            e);
                 }
                 Handler handler = HandlerFactory.create(instance, method, resolverChain);
                 registry.register(exClass.asSubclass(Throwable.class), handler);
@@ -64,6 +91,13 @@ class RuntimeExceptionHandlerRegistrar implements ExceptionHandlerRegistrar {
         }
     }
 
+    /**
+     * Finds the handler method on the type discovery recorded it against — the CONCRETE class, not
+     * whatever instance {@code context.getBean} returns. (The container registers the raw instance
+     * under the concrete-class key and proxies under interface keys only, so the two coincide
+     * today; looking up on the concrete class keeps this registrar independent of that registration
+     * convention.)
+     */
     private static Method findMethod(Class<?> clazz, String name, int paramCount) {
         for (Method m : clazz.getDeclaredMethods()) {
             if (m.getName().equals(name) && m.getParameterCount() == paramCount) {

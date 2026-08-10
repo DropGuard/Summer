@@ -190,7 +190,9 @@ final class BeanInstantiator {
         } else {
             builder.register(clazz, instance);
         }
-        // Interfaces get the proxy (first-wins)
+        // Interface-based AOP: the JDK proxy is registered under every interface (recursively).
+        // No two beans share an interface in a valid build — SharedDependencyResolver rejects the
+        // ambiguity at discovery — so there is no "wins" semantics at registration time.
         registerAllInterfaces(clazz, proxy, isProduct);
     }
 

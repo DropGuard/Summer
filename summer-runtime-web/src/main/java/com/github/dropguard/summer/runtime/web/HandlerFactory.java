@@ -1,11 +1,11 @@
 package com.github.dropguard.summer.runtime.web;
 
-import com.github.dropguard.summer.aop.SummerAopException;
 import com.github.dropguard.summer.web.Handler;
 import com.github.dropguard.summer.web.HandlerParam;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpParameterResolver;
 import com.github.dropguard.summer.web.HttpParameterResolverChain;
+import com.github.dropguard.summer.web.exception.HandlerInvocationException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -46,11 +46,16 @@ final class HandlerFactory {
                 method.invoke(instance, args);
             } catch (InvocationTargetException e) {
                 Throwable cause = e.getTargetException();
+                // RuntimeException causes propagate unwrapped so @ExceptionHandler matching works;
+                // a checked exception cannot propagate through Handler.handle and is wrapped in
+                // the web-domain failure (NOT SummerAopException — invocation has nothing to do
+                // with AOP). Note: the wrap buries the cause, so an @ExceptionHandler for the
+                // checked type does not fire (matching walks the class hierarchy, not causes).
                 throw (cause instanceof RuntimeException re)
                         ? re
-                        : new SummerAopException("Handler invocation failed", cause);
+                        : new HandlerInvocationException("Handler invocation failed", cause);
             } catch (IllegalAccessException e) {
-                throw new SummerAopException("Cannot access handler method", e);
+                throw new HandlerInvocationException("Cannot access handler method", e);
             }
         };
     }
