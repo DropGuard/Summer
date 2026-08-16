@@ -95,6 +95,62 @@ class TransactionInterceptorTest {
     }
 
     @Test
+    void shouldRollbackEvenWhenTargetThrowsErrorNotException() throws Throwable {
+        // Regression: an Error (OOM, StackOverflowError, AssertionError, ...) propagating out of
+        // the target must NOT skip the rollback — the original code only caught Exception, which
+        // leaked the connection and left the ThreadLocal transaction active for the next request.
+        TrackingTransactionManager manager = new TrackingTransactionManager();
+        TransactionInterceptor interceptor = new TransactionInterceptor(manager);
+
+        TestService target = new TestServiceImpl();
+        InterceptedMethod metadata =
+                new InterceptedMethod("transactionalMethod", Set.of(Transactional.class));
+        InterceptorChain chain =
+                new TestInterceptorChain(
+                        target,
+                        metadata,
+                        new Object[0],
+                        () -> {
+                            throw new AssertionError("boom");
+                        });
+
+        AssertionError thrown =
+                assertThrows(
+                        AssertionError.class,
+                        () -> interceptor.intercept(chain),
+                        "the Error must propagate unchanged");
+        assertFalse(thrown.getMessage().contains("rollback"), "original Error must not be masked");
+
+        assertTrue(manager.rollbackCalled.get(), "rollback() must run even on Error");
+        assertFalse(manager.commitCalled.get(), "commit() must NOT run on failure");
+    }
+
+    @Test
+    void commitFailureMustNotBeMisreportedAsRollback() throws Throwable {
+        // Regression: if commit() fails, the manager's own finally has already closed the status.
+        // The interceptor must NOT call rollback() again (that would throw a second exception that
+        // masks the real commit error and lies about what happened).
+        ManagerThatFailsCommit manager = new ManagerThatFailsCommit();
+        TransactionInterceptor interceptor = new TransactionInterceptor(manager);
+
+        TestService target = new TestServiceImpl();
+        InterceptedMethod metadata =
+                new InterceptedMethod("transactionalMethod", Set.of(Transactional.class));
+        InterceptorChain chain =
+                new TestInterceptorChain(
+                        target, metadata, new Object[0], target::transactionalMethod);
+
+        SummerTransactionException thrown =
+                assertThrows(SummerTransactionException.class, () -> interceptor.intercept(chain));
+        assertTrue(
+                thrown.getMessage().contains("commit"),
+                "the reported failure must reference commit, not rollback: " + thrown.getMessage());
+        assertFalse(
+                manager.rollbackAfterCommitFailure.get(),
+                "rollback() must not be called after commit() already closed the status");
+    }
+
+    @Test
     void nestedTransactionalCallFailsLoudlyAndRollsBackOuter() throws Throwable {
         // Contract (see @Transactional): nested transactions are intentionally unsupported.
         // A proxied @Transactional call made from inside an active transaction must fail loudly —
@@ -217,6 +273,29 @@ class TransactionInterceptorTest {
         @Override
         public void rollback(TransactionStatus status) {
             rollbackCalled.set(true);
+        }
+    }
+
+    /** Manager whose commit() throws and, like the real JDBC manager, closes the status. */
+    private static class ManagerThatFailsCommit implements TransactionManager {
+        final AtomicBoolean rollbackAfterCommitFailure = new AtomicBoolean(false);
+
+        @Override
+        public TransactionStatus begin() {
+            return new SimpleTransactionStatus();
+        }
+
+        @Override
+        public void commit(TransactionStatus status) {
+            // Simulate SimpleJdbcTransactionManager.commit(): on SQLException it calls close() in
+            // its finally (which sets active=false) and then throws.
+            ((SimpleTransactionStatus) status).active = false;
+            throw new SummerTransactionException("Failed to commit transaction");
+        }
+
+        @Override
+        public void rollback(TransactionStatus status) {
+            rollbackAfterCommitFailure.set(true);
         }
     }
 

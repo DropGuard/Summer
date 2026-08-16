@@ -42,25 +42,32 @@ public class TransactionInterceptor implements MethodInterceptor {
     }
 
     private Object handleTransactional(InterceptorChain chain) throws Throwable {
-        TransactionStatus transaction = null;
-
+        TransactionStatus transaction = transactionManager.begin();
+        boolean committed = false;
         try {
-            transaction = transactionManager.begin();
-
             Object result = chain.proceed();
 
-            if (transaction != null && !transaction.isRollbackOnly()) {
+            if (!transaction.isRollbackOnly()) {
                 transactionManager.commit(transaction);
-            } else if (transaction != null) {
+                committed = true;
+            } else {
                 transactionManager.rollback(transaction);
             }
-
             return result;
-        } catch (Exception e) {
-            if (transaction != null) {
-                transactionManager.rollback(transaction);
+        } catch (Throwable t) {
+            // Catch Throwable (not just Exception): a method that throws an Error (OOM,
+            // StackOverflowError, AssertionError, ...) must still roll the transaction back and
+            // release its connection — otherwise the ThreadLocal connection leaks and the next
+            // begin() on this thread throws "Nested transactions are not supported".
+            if (!committed && transaction.isActive()) {
+                try {
+                    transactionManager.rollback(transaction);
+                } catch (Throwable rollbackEx) {
+                    // A rollback failure must not mask the original error/exception.
+                    t.addSuppressed(rollbackEx);
+                }
             }
-            throw e;
+            throw t;
         }
     }
 }

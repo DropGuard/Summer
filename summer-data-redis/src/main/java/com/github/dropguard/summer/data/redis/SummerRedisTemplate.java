@@ -92,6 +92,12 @@ public class SummerRedisTemplate implements AutoCloseable {
     }
 
     private RedisCommands<String, Object> commands() {
+        if (closed) {
+            throw new IllegalStateException(
+                    "SummerRedisTemplate has been closed — the enclosing framework container"
+                            + " released its connection. Use the template before close(), or obtain"
+                            + " a fresh instance.");
+        }
         if (eagerCommands != null) {
             return eagerCommands;
         }
