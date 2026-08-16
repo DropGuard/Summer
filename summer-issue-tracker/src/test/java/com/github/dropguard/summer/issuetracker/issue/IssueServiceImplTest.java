@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.github.dropguard.summer.issuetracker.audit.IssueHistoryRepository;
+import com.github.dropguard.summer.issuetracker.audit.SystemAuditRepository;
 import com.github.dropguard.summer.issuetracker.comment.CommentRepository;
 import com.github.dropguard.summer.issuetracker.common.BusinessException;
 import com.github.dropguard.summer.issuetracker.common.IdGenerator;
@@ -17,7 +18,6 @@ import com.github.dropguard.summer.issuetracker.project.ProjectRepository;
 import com.github.dropguard.summer.issuetracker.security.ProjectAuthorization;
 import com.github.dropguard.summer.issuetracker.user.User;
 import com.github.dropguard.summer.issuetracker.user.UserRepository;
-import com.github.dropguard.summer.web.RequestContextHolder;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,10 +27,9 @@ import org.mockito.MockitoAnnotations;
 /**
  * Behavioral unit test for {@link IssueServiceImpl} — the demo's OWN logic, not Summer's.
  * Repositories are mocked; the class is instantiated directly, so this test never touches the
- * framework container or its AOP proxy. (The request-scoped user comes from {@link
- * RequestContextHolder}, set here directly; the coarse-grained RBAC gate lives in {@code
- * RbacInterceptor}, exercised by the IT. Transactional commit/rollback parity is covered by the IT
- * too.)
+ * framework container or its AOP proxy. The {@code actorId} is passed explicitly (the Gin-style
+ * contract; the coarse-grained RBAC gate lives in {@code RbacMiddleware}, exercised by the IT).
+ * Transactional commit/rollback parity is covered by the IT too.
  *
  * <p>{@link ProjectAuthorization} is mocked and stubbed so fine-grained ownership is exercised
  * without wiring the real rules: it throws for a forbidden actor and is a no-op for an allowed one.
@@ -44,6 +43,7 @@ class IssueServiceImplTest {
     @Mock private CommentRepository commentRepository;
     @Mock private IdGenerator idGenerator;
     @Mock private ProjectAuthorization authz;
+    @Mock private SystemAuditRepository auditRepository;
 
     private IssueServiceImpl service;
 
@@ -64,9 +64,12 @@ class IssueServiceImplTest {
                         issueHistoryRepository,
                         commentRepository,
                         idGenerator,
-                        authz);
+                        authz,
+                        auditRepository);
         when(idGenerator.nextId()).thenReturn(999L);
-        RequestContextHolder.set(OWNER_ID);
+        // The audit helper resolves the actor through ProjectAuthorization.
+        when(authz.requireActor(OWNER_ID)).thenReturn(user(OWNER_ID, "MEMBER"));
+        when(authz.requireActor(OTHER_ID)).thenReturn(user(OTHER_ID, "MEMBER"));
         // Fine-grained ownership passes by default; individual tests tighten it.
         org.mockito.Mockito.doNothing().when(authz).assertOwns(eq(OWNER_ID), any(), any(), any());
     }
@@ -78,11 +81,13 @@ class IssueServiceImplTest {
         when(projectRepository.nextIssueSeq(PROJECT_ID)).thenReturn(1L);
         when(userRepository.findById(OWNER_ID)).thenReturn(Optional.of(user(OWNER_ID, "MEMBER")));
 
-        Issue result = service.createIssue(PROJECT_ID, "Title", "Desc", "OPEN", "HIGH", null);
+        Issue result =
+                service.createIssue(OWNER_ID, PROJECT_ID, "Title", "Desc", "OPEN", "HIGH", null);
 
         assertEquals("DEMO-1", result.issueKey());
         verify(issueRepository).insert(any(Issue.class));
-        verify(issueHistoryRepository).insert(any()); // CREATED audit row
+        verify(issueHistoryRepository).insert(any()); // CREATED history row
+        verify(auditRepository).insert(any()); // CREATE_ISSUE system audit
     }
 
     @Test
@@ -92,7 +97,8 @@ class IssueServiceImplTest {
         when(projectRepository.nextIssueSeq(PROJECT_ID)).thenReturn(4L);
         when(userRepository.findById(OWNER_ID)).thenReturn(Optional.of(user(OWNER_ID, "MEMBER")));
 
-        Issue result = service.createIssue(PROJECT_ID, "Title", "Desc", "OPEN", "HIGH", null);
+        Issue result =
+                service.createIssue(OWNER_ID, PROJECT_ID, "Title", "Desc", "OPEN", "HIGH", null);
         assertEquals("DEMO-4", result.issueKey());
     }
 
@@ -116,7 +122,9 @@ class IssueServiceImplTest {
         when(issueRepository.findById(ISSUE_ID)).thenReturn(Optional.of(issue));
         when(projectRepository.findById(PROJECT_ID)).thenReturn(Optional.of(project));
 
-        assertThrows(BusinessException.class, () -> service.changePriority(ISSUE_ID, "URGENT"));
+        assertThrows(
+                BusinessException.class,
+                () -> service.changePriority(OWNER_ID, ISSUE_ID, "URGENT"));
     }
 
     @Test
@@ -128,11 +136,15 @@ class IssueServiceImplTest {
 
         assertThrows(
                 BusinessException.class,
-                () -> service.createIssue(PROJECT_ID, "Title", "Desc", null, "MEDIUM", null),
+                () ->
+                        service.createIssue(
+                                OWNER_ID, PROJECT_ID, "Title", "Desc", null, "MEDIUM", null),
                 "null status should be rejected");
         assertThrows(
                 BusinessException.class,
-                () -> service.createIssue(PROJECT_ID, "Title", "Desc", "OPEN", null, null),
+                () ->
+                        service.createIssue(
+                                OWNER_ID, PROJECT_ID, "Title", "Desc", "OPEN", null, null),
                 "null priority should be rejected");
     }
 
@@ -155,11 +167,12 @@ class IssueServiceImplTest {
         when(issueRepository.findById(ISSUE_ID)).thenReturn(Optional.of(issue));
         when(projectRepository.findById(PROJECT_ID)).thenReturn(Optional.of(project));
 
-        Issue updated = service.updateIssue(ISSUE_ID, "New", "New body");
+        Issue updated = service.updateIssue(OWNER_ID, ISSUE_ID, "New", "New body");
         assertEquals("New", updated.title());
         assertEquals("New body", updated.description());
         verify(issueRepository).updateMutable(any());
-        verify(issueHistoryRepository).insert(any()); // EDITED audit row
+        verify(issueHistoryRepository).insert(any()); // EDITED history row
+        verify(auditRepository).insert(any()); // UPDATE_ISSUE system audit
     }
 
     @Test
@@ -184,10 +197,10 @@ class IssueServiceImplTest {
         org.mockito.Mockito.doThrow(BusinessException.forbidden("no"))
                 .when(authz)
                 .assertOwns(eq(OTHER_ID), any(), any(), any());
-        RequestContextHolder.set(OTHER_ID);
 
         assertThrows(
-                BusinessException.class, () -> service.updateIssue(ISSUE_ID, "New", "New body"));
+                BusinessException.class,
+                () -> service.updateIssue(OTHER_ID, ISSUE_ID, "New", "New body"));
         verify(issueRepository, never()).updateMutable(any());
     }
 

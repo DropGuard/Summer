@@ -1,10 +1,13 @@
 package com.github.dropguard.summer.issuetracker.issue;
+import com.github.dropguard.summer.core.data.Page;
+import com.github.dropguard.summer.core.data.PageRequest;
 
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.issuetracker.project.ProjectRepository;
-import com.github.dropguard.summer.issuetracker.security.SecurityContext;
+import com.github.dropguard.summer.issuetracker.security.Actors;
 import com.github.dropguard.summer.issuetracker.user.User;
 import com.github.dropguard.summer.issuetracker.user.UserRepository;
+import com.github.dropguard.summer.web.DefaultPageRequest;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.annotation.Delete;
@@ -55,6 +58,7 @@ public class IssueController {
         CreateIssueRequest req = ctx.body(CreateIssueRequest.class);
         var issue =
                 issueService.createIssue(
+                        Actors.require(ctx),
                         projectId,
                         req.title(),
                         req.description(),
@@ -74,8 +78,7 @@ public class IssueController {
             @QueryParam("reporterId") Long reporterId,
             @QueryParam("title") String title,
             @QueryParam("tagId") Long tagId,
-            @QueryParam("page") Integer page,
-            @QueryParam("size") Integer size) {
+            DefaultPageRequest page) {
         IssueFilter filter =
                 new IssueFilter.Builder()
                         .assigneeId(assigneeId)
@@ -85,10 +88,7 @@ public class IssueController {
                         .titleContains(title)
                         .tagId(tagId)
                         .build();
-        PageRequest req =
-                new PageRequest(
-                        page == null ? 0 : page, size == null ? PageRequest.DEFAULT_SIZE : size);
-        ctx.ok(issueService.searchPage(projectId, filter, req));
+        ctx.ok(issueService.searchPage(projectId, filter, page.asPageRequest()));
     }
 
     @Get("/api/issues/:id")
@@ -107,7 +107,7 @@ public class IssueController {
                     "Invalid issue key");
         }
         String projectKey = key.substring(0, dash);
-        long actorId = SecurityContext.currentUserId();
+        long actorId = Actors.require(ctx);
         User actor =
                 userRepository
                         .findById(actorId)
@@ -129,30 +129,30 @@ public class IssueController {
     @Put("/api/issues/:id")
     public void update(HttpContext ctx, @PathParam("id") Long id) {
         UpdateIssueRequest req = ctx.body(UpdateIssueRequest.class);
-        ctx.ok(issueService.updateIssue(id, req.title(), req.description()));
+        ctx.ok(issueService.updateIssue(Actors.require(ctx), id, req.title(), req.description()));
     }
 
     @Put("/api/issues/:id/status")
     public void updateStatus(HttpContext ctx, @PathParam("id") Long id) {
         UpdateStatusRequest req = ctx.body(UpdateStatusRequest.class);
-        ctx.ok(issueService.updateStatus(id, req.status()));
+        ctx.ok(issueService.updateStatus(Actors.require(ctx), id, req.status()));
     }
 
     @Put("/api/issues/:id/assign")
     public void assign(HttpContext ctx, @PathParam("id") Long id) {
         AssignRequest req = ctx.body(AssignRequest.class);
-        ctx.ok(issueService.assign(id, req.assigneeId()));
+        ctx.ok(issueService.assign(Actors.require(ctx), id, req.assigneeId()));
     }
 
     @Put("/api/issues/:id/priority")
     public void changePriority(HttpContext ctx, @PathParam("id") Long id) {
         PriorityRequest req = ctx.body(PriorityRequest.class);
-        ctx.ok(issueService.changePriority(id, req.priority()));
+        ctx.ok(issueService.changePriority(Actors.require(ctx), id, req.priority()));
     }
 
     @Delete("/api/issues/:id")
     public void delete(HttpContext ctx, @PathParam("id") Long id) {
-        issueService.deleteIssue(id);
+        issueService.deleteIssue(Actors.require(ctx), id);
         ctx.status(HttpStatus.NO_CONTENT);
     }
 
@@ -164,6 +164,6 @@ public class IssueController {
     @Post("/api/issues/:id/comments")
     public void addComment(HttpContext ctx, @PathParam("id") Long id) {
         CommentRequest req = ctx.body(CommentRequest.class);
-        ctx.json(HttpStatus.CREATED, issueService.addComment(id, req.body()));
+        ctx.json(HttpStatus.CREATED, issueService.addComment(Actors.require(ctx), id, req.body()));
     }
 }

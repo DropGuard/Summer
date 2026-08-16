@@ -12,8 +12,8 @@ import com.github.dropguard.summer.issuetracker.user.UserRepository;
 import java.util.Objects;
 
 /**
- * Single source of truth for project-scoped authorization. Both {@link RbacInterceptor}
- * (coarse-grained, request-aware) and {@link
+ * Single source of truth for project-scoped authorization. Both {@link RbacMiddleware}
+ * (coarse-grained, at the HTTP layer) and {@link
  * com.github.dropguard.summer.issuetracker.issue.IssueServiceImpl} (fine-grained ownership)
  * delegate here so the membership / manager / lead rules live in exactly one place.
  */
@@ -37,22 +37,6 @@ public class ProjectAuthorization {
         return userRepository
                 .findById(actorId)
                 .orElseThrow(() -> BusinessException.unauthorized("Unknown actor"));
-    }
-
-    /** The project a resource id belongs to: an issue id resolves to its project. */
-    public Project resolveProject(ResourceScope.Kind kind, long resourceId) {
-        if (kind == ResourceScope.Kind.PROJECT) {
-            return projectRepository
-                    .findById(resourceId)
-                    .orElseThrow(() -> BusinessException.notFound("Project"));
-        }
-        Issue issue =
-                issueRepository
-                        .findById(resourceId)
-                        .orElseThrow(() -> BusinessException.notFound("Issue"));
-        return projectRepository
-                .findById(issue.projectId())
-                .orElseThrow(() -> BusinessException.notFound("Project"));
     }
 
     /** Tenant isolation: an actor may only touch resources in their own org. */

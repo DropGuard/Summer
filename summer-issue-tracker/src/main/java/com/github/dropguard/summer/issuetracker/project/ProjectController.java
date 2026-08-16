@@ -6,8 +6,8 @@ import com.github.dropguard.summer.issuetracker.audit.SystemAuditRepository;
 import com.github.dropguard.summer.issuetracker.common.BusinessException;
 import com.github.dropguard.summer.issuetracker.common.IdGenerator;
 import com.github.dropguard.summer.issuetracker.issue.IssueService;
+import com.github.dropguard.summer.issuetracker.security.Actors;
 import com.github.dropguard.summer.issuetracker.security.ProjectAuthorization;
-import com.github.dropguard.summer.issuetracker.security.SecurityContext;
 import com.github.dropguard.summer.issuetracker.user.User;
 import com.github.dropguard.summer.issuetracker.user.UserRepository;
 import com.github.dropguard.summer.web.HttpContext;
@@ -56,7 +56,7 @@ public class ProjectController {
     @Post("/api/projects")
     public void create(HttpContext ctx) {
         CreateProjectRequest req = ctx.validatedBody(CreateProjectRequest.class);
-        long userId = SecurityContext.currentUserId();
+        long userId = Actors.require(ctx);
         User lead =
                 userRepository
                         .findById(userId)
@@ -87,7 +87,7 @@ public class ProjectController {
 
     @Get("/api/projects")
     public void listMine(HttpContext ctx) {
-        ctx.ok(projectRepository.findByMember(SecurityContext.currentUserId()));
+        ctx.ok(projectRepository.findByMember(Actors.require(ctx)));
     }
 
     @Get("/api/projects/:id")
@@ -97,11 +97,11 @@ public class ProjectController {
                         .findById(id)
                         .orElseThrow(() -> BusinessException.notFound("Project"));
         // Resource-scoped read: enforce tenant isolation + project membership here,
-        // mirroring RbacInterceptor's coarse-grained gate. ProjectRepository is hit
+        // mirroring RbacMiddleware's coarse-grained gate. ProjectRepository is hit
         // directly (no proxied ProjectService), so the check cannot live on a proxy.
         User actor =
                 userRepository
-                        .findById(SecurityContext.currentUserId())
+                        .findById(Actors.require(ctx))
                         .orElseThrow(() -> BusinessException.unauthorized("Unknown actor"));
         authz.assertSameOrg(actor, project);
         authz.assertCanAccess(actor, project);
@@ -116,7 +116,7 @@ public class ProjectController {
                 projectRepository
                         .findById(id)
                         .orElseThrow(() -> BusinessException.notFound("Project"));
-        User actor = userRepository.findById(SecurityContext.currentUserId()).orElseThrow();
+        User actor = userRepository.findById(Actors.require(ctx)).orElseThrow();
         authz.assertSameOrg(actor, project);
         // Only a manager or lead may add members — delegated to the shared authz rules.
         authz.assertCanAdminister(actor, project);
@@ -162,7 +162,7 @@ public class ProjectController {
         // enforced here because ProjectRepository is hit directly (no proxied service).
         User actor =
                 userRepository
-                        .findById(SecurityContext.currentUserId())
+                        .findById(Actors.require(ctx))
                         .orElseThrow(() -> BusinessException.unauthorized("Unknown actor"));
         authz.assertSameOrg(actor, project);
         authz.assertCanAccess(actor, project);

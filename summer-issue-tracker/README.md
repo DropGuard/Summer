@@ -63,46 +63,42 @@ The first cut of this demo followed a Gin-style habit: the authenticated user id
 and RBAC was **inlined** at the top of each method. It worked, but it was ugly
 and it hid a real Summer gap:
 
-> **Summer had no request-scoped context holder.** There was no static accessor
-> a service (or, crucially, a method-level AOP interceptor) could call to read
-> "the current user". The user id only lived on the `HttpContext` request
-> attribute, which a service never sees. So declarative, method-level authorization
-> was impossible — RBAC had to be hand-written inside every service method.
+> **Summer's request-scoped identity channel is the request attribute, not a static
+> context holder.** The authenticated user id lives on the `HttpContext` request
+> attribute (`RequestAttributes.USER_ID`), set by an `AuthMiddleware`. A service
+> never sees the `HttpContext`, so coarse-grained, route-level RBAC has to be a
+> middleware — not an interceptor on the service.
 
-That is exactly the kind of rough edge a third-party user hits. So instead of just
-documenting it, we closed it in the framework:
+### Framework shape (`summer-web`): `AuthMiddleware` + request attribute
 
-### Framework change (`summer-web`): `RequestContextHolder`
+- `summer.web.AuthMiddleware` — an interface whose `authenticate(HttpContext)`
+  resolves the user id from the request (e.g. a bearer token) and returns it.
+  The framework's `apply` then stores it as the `RequestAttributes.USER_ID`
+  request attribute — the single channel handlers and middleware read it from.
+- `summer.web.RequestAttributes.USER_ID` — the attribute key.
+- Middleware composes `handler = m.apply(handler)` in list order; the **last**
+  list entry runs **first**.
 
-- `summer.web.RequestContext` — a per-request view (holds the resolved user id).
-- `summer.web.RequestContextHolder` — `static set / current / currentUserId / clear`.
-- The framework's `AuthMiddleware.apply` now publishes the context the moment a
-  request is authenticated.
-- `NettyHttpServerHandler.processRequest` wraps `handler.handle(ctx)` in a
-  `try/finally` that calls `RequestContextHolder.clear()`. Because each request
-  runs on its **own virtual thread** (no pooling), the binding is released
-  deterministically with no cross-request bleed.
+### Demo side: coarse-grained gate as middleware, fine-grained rule in the service
 
-This is safe under Summer's execution model and costs nothing for request paths
-that don't need it.
+- `security/JwtAuthMiddleware.java` — implements `AuthMiddleware`, resolves the
+  user id from the JWT bearer token; public routes (register/login/health) return
+  `null` so no attribute is set.
+- `security/RbacMiddleware.java` — `@GlobalMiddleware @Order(1)` — the
+  **coarse-grained** RBAC gate (tenant isolation + project membership /
+  manager-or-lead) enforced at the HTTP layer before any handler runs. `@Order(2)`
+  on auth means auth populates the attribute before this gate reads it.
+- `security/Actors.java` — reads the user id from the request attribute
+  (`RequestAttributes.USER_ID`) and centralizes the "authentication required"
+  check. Controllers call `Actors.require(ctx)` and pass the `actorId` into the
+  service methods.
+- `IssueService` methods **do** take an explicit `actorId` parameter. The
+  **fine-grained** rule ("a plain member may only mutate issues they reported or
+  are assigned to") and the audit trail's actor live in the service, which holds
+  the target resource at hand.
 
-### Demo side: declarative, AOP-based RBAC
-
-With a request context available, the demo's RBAC moved out of the service
-bodies and into an interceptor:
-
-- `security/RequireRole.java` — an `@InterceptorBinding` marker (no members; the
-  interceptor routes by method name, avoiding reflection on annotation values).
-- `security/RbacInterceptor.java` — `@Interceptor @RequireRole`, reads the
-  current user from `RequestContextHolder`, enforces the **coarse-grained** gate
-  (tenant isolation + project membership / manager-or-lead) before the method runs.
-- `IssueService` methods now carry **no `actorId` parameter**. The interceptor
-  does the gate; the service reads the user only for the **fine-grained** rule
-  ("a member may only mutate issues they reported or are assigned to") and for the
-  audit trail's actor — all from `RequestContextHolder`.
-
-This is the corrected design and the proof that Summer's AOP can now do
-request-aware, method-level authorization.
+This is the corrected design and the proof that Summer's `AuthMiddleware` +
+`@GlobalMiddleware` chain can do request-aware, route-level authorization.
 
 ### One real API constraint that remains
 
@@ -110,9 +106,11 @@ request-aware, method-level authorization.
   sub-query or join construct, so many-to-many filters (e.g. "issues with tag
   X") cannot be expressed in the criteria API. The demo handles the
   single-entity dimensions (status / priority / assignee / title) with
-  `QueryTemplate`/`QueryBuilder` and resolves the tag dimension with a separate
-  `JdbcTemplate` IN-lookup in Java. Worth a `join(...)` / sub-query builder
-  in `summer-data-jdbc` down the line.
+  `QueryTemplate`/`QueryBuilder` and resolves the tag dimension with a `WHERE
+  EXISTS` sub-query via `QueryBuilder.exists(...)` (which never multiplies root
+  rows, keeping `count()` and pagination correct). Arbitrary join trees (outer
+  joins, nested ON groups) are out of scope; express those as hand-written SQL
+  through `JdbcTemplate`.
 
 ### Test boundary (intentional)
 
@@ -121,8 +119,8 @@ only the **public** `summer.test` API (`Testing.buildForTest`, `@Replaces`,
 Testcontainers Postgres). It does **not** depend on `summer.test.internal`
 (dual-engine `@DualEngine` / negative-fixture machinery) — that is the framework
 TCK's job, not this external demo's. The dual-engine consistency of
-`@Transactional` + `@RequireRole` under AOT is therefore exercised by Summer's
-own tck, not here.
+`@Transactional` + auth under AOT is therefore exercised by Summer's own tck,
+not here.
 
 ## Project layout
 

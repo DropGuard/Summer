@@ -8,8 +8,8 @@ import com.github.dropguard.summer.issuetracker.issue.IssueRepository;
 import com.github.dropguard.summer.issuetracker.issue.IssueService;
 import com.github.dropguard.summer.issuetracker.project.Project;
 import com.github.dropguard.summer.issuetracker.project.ProjectRepository;
+import com.github.dropguard.summer.issuetracker.security.Actors;
 import com.github.dropguard.summer.issuetracker.security.ProjectAuthorization;
-import com.github.dropguard.summer.issuetracker.security.SecurityContext;
 import com.github.dropguard.summer.issuetracker.user.User;
 import com.github.dropguard.summer.issuetracker.user.UserRepository;
 import com.github.dropguard.summer.web.HttpContext;
@@ -59,7 +59,7 @@ public class TagController {
 
     @Post("/api/orgs/:orgId/tags")
     public void create(HttpContext ctx, @PathParam("orgId") Long orgId) {
-        User actor = currentActor();
+        User actor = currentActor(ctx);
         if (!actor.orgId().equals(orgId)) {
             throw BusinessException.forbidden("You can only manage tags in your own organization");
         }
@@ -74,7 +74,7 @@ public class TagController {
 
     @Get("/api/orgs/:orgId/tags")
     public void list(HttpContext ctx, @PathParam("orgId") Long orgId) {
-        User actor = currentActor();
+        User actor = currentActor(ctx);
         if (!actor.orgId().equals(orgId)) {
             throw BusinessException.forbidden("You can only view tags in your own organization");
         }
@@ -83,7 +83,7 @@ public class TagController {
 
     @Get("/api/issues/:id/tags")
     public void issueTags(HttpContext ctx, @PathParam("id") Long id) {
-        // Routed through IssueService, which enforces issue-scoped RBAC via @RequireRole.
+        // Routed through IssueService, which enforces issue-scoped access in the service layer.
         ctx.ok(issueService.getTags(id));
     }
 
@@ -92,7 +92,7 @@ public class TagController {
         // Cross-org guard: the issue, its project, and the tag must all belong to the
         // actor's organization, and the actor must be able to access the project.
         // This endpoint hits the repository directly, so the check is explicit.
-        User actor = currentActor();
+        User actor = currentActor(ctx);
         Issue issue =
                 issueRepository.findById(id).orElseThrow(() -> BusinessException.notFound("Issue"));
         Project project = projectRepository.findById(issue.projectId()).orElseThrow();
@@ -109,7 +109,7 @@ public class TagController {
 
     @Delete("/api/issues/:id/tags/:tagId")
     public void detach(HttpContext ctx, @PathParam("id") Long id, @PathParam("tagId") Long tagId) {
-        User actor = currentActor();
+        User actor = currentActor(ctx);
         Issue issue =
                 issueRepository.findById(id).orElseThrow(() -> BusinessException.notFound("Issue"));
         Project project = projectRepository.findById(issue.projectId()).orElseThrow();
@@ -124,8 +124,8 @@ public class TagController {
         ctx.status(HttpStatus.NO_CONTENT);
     }
 
-    private User currentActor() {
-        long actorId = SecurityContext.currentUserId();
+    private User currentActor(HttpContext ctx) {
+        long actorId = Actors.require(ctx);
         return userRepository
                 .findById(actorId)
                 .orElseThrow(() -> BusinessException.unauthorized("Unknown actor"));

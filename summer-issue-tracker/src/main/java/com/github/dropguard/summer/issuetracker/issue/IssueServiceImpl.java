@@ -1,8 +1,12 @@
 package com.github.dropguard.summer.issuetracker.issue;
+import com.github.dropguard.summer.core.data.Page;
+import com.github.dropguard.summer.core.data.PageRequest;
 
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.issuetracker.audit.IssueHistory;
 import com.github.dropguard.summer.issuetracker.audit.IssueHistoryRepository;
+import com.github.dropguard.summer.issuetracker.audit.SystemAudit;
+import com.github.dropguard.summer.issuetracker.audit.SystemAuditRepository;
 import com.github.dropguard.summer.issuetracker.comment.Comment;
 import com.github.dropguard.summer.issuetracker.comment.CommentRepository;
 import com.github.dropguard.summer.issuetracker.common.BusinessException;
@@ -14,24 +18,23 @@ import com.github.dropguard.summer.issuetracker.tag.Tag;
 import com.github.dropguard.summer.issuetracker.user.User;
 import com.github.dropguard.summer.issuetracker.user.UserRepository;
 import com.github.dropguard.summer.tx.Transactional;
-import com.github.dropguard.summer.web.RequestContextHolder;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
 /**
  * Concrete issue service. Implements {@link IssueService} so Summer's JDK-dynamic- proxy AOP can
- * wrap it — required for {@code @Transactional} and {@code @RequireRole} to apply.
+ * wrap it — required for {@code @Transactional} to apply.
  *
  * <p>RBAC is split:
  *
  * <ul>
  *   <li><b>Coarse-grained</b> (tenant isolation, project membership, manager/lead) is enforced by
- *       {@code RbacInterceptor} before any method runs — it reads the current user from {@link
- *       RequestContextHolder}, no parameter needed.
+ *       {@code RbacMiddleware} at the HTTP layer, before any handler runs — the actor comes from
+ *       the {@code userId} request attribute.
  *   <li><b>Fine-grained</b> (a plain member may only mutate issues they reported or are assigned
- *       to) is enforced here, also reading the current user from the holder. This keeps the method
- *       signatures clean.
+ *       to) is enforced here with the explicit {@code actorId} parameter; the system audit trail is
+ *       written here too, where the target resource is at hand.
  * </ul>
  *
  * <p>Every mutating method writes the issue row AND the matching {@link IssueHistory} inside one
@@ -48,6 +51,7 @@ public class IssueServiceImpl implements IssueService {
     private final CommentRepository commentRepository;
     private final IdGenerator idGenerator;
     private final ProjectAuthorization authz;
+    private final SystemAuditRepository auditRepository;
 
     public IssueServiceImpl(
             IssueRepository issueRepository,
@@ -56,7 +60,8 @@ public class IssueServiceImpl implements IssueService {
             IssueHistoryRepository issueHistoryRepository,
             CommentRepository commentRepository,
             IdGenerator idGenerator,
-            ProjectAuthorization authz) {
+            ProjectAuthorization authz,
+            SystemAuditRepository auditRepository) {
         this.issueRepository = issueRepository;
         this.projectRepository = projectRepository;
         this.userRepository = userRepository;
@@ -64,19 +69,13 @@ public class IssueServiceImpl implements IssueService {
         this.commentRepository = commentRepository;
         this.idGenerator = idGenerator;
         this.authz = authz;
-    }
-
-    private long currentUserId() {
-        Long id = RequestContextHolder.currentUserId();
-        if (id == null) {
-            throw BusinessException.unauthorized("Authentication required");
-        }
-        return id;
+        this.auditRepository = auditRepository;
     }
 
     @Override
     @Transactional
     public Issue createIssue(
+            long actorId,
             long projectId,
             String title,
             String description,
@@ -89,7 +88,6 @@ public class IssueServiceImpl implements IssueService {
         if (status == null || priority == null) {
             throw BusinessException.badRequest("Status and priority are required");
         }
-        long actorId = currentUserId();
         Project project =
                 projectRepository
                         .findById(projectId)
@@ -114,13 +112,13 @@ public class IssueServiceImpl implements IssueService {
         issueRepository.insert(issue);
         issueHistoryRepository.insert(
                 new IssueHistory(idGenerator.nextId(), id, actorId, "CREATED", null, null, now));
+        audit(actorId, "CREATEISSUE", issue);
         return issue;
     }
 
     @Override
     @Transactional
-    public Issue updateStatus(long issueId, String newStatus) {
-        long actorId = currentUserId();
+    public Issue updateStatus(long actorId, long issueId, String newStatus) {
         Issue issue = load(issueId);
         Project project = projectRepository.findById(issue.projectId()).orElseThrow();
         assertOwns(actorId, issue, project, "change status");
@@ -151,13 +149,13 @@ public class IssueServiceImpl implements IssueService {
                         issue.status(),
                         normalized,
                         OffsetDateTime.now()));
+        audit(actorId, "UPDATESTATUS", updated);
         return updated;
     }
 
     @Override
     @Transactional
-    public Issue assign(long issueId, Long newAssigneeId) {
-        long actorId = currentUserId();
+    public Issue assign(long actorId, long issueId, Long newAssigneeId) {
         Issue issue = load(issueId);
         Project project = projectRepository.findById(issue.projectId()).orElseThrow();
         assertOwns(actorId, issue, project, "reassign");
@@ -192,13 +190,13 @@ public class IssueServiceImpl implements IssueService {
                         from,
                         to,
                         OffsetDateTime.now()));
+        audit(actorId, "ASSIGN", updated);
         return updated;
     }
 
     @Override
     @Transactional
-    public Issue changePriority(long issueId, String newPriority) {
-        long actorId = currentUserId();
+    public Issue changePriority(long actorId, long issueId, String newPriority) {
         Issue issue = load(issueId);
         Project project = projectRepository.findById(issue.projectId()).orElseThrow();
         assertOwns(actorId, issue, project, "change priority");
@@ -229,13 +227,13 @@ public class IssueServiceImpl implements IssueService {
                         issue.priority(),
                         normalized,
                         OffsetDateTime.now()));
+        audit(actorId, "CHANGEPRIORITY", updated);
         return updated;
     }
 
     @Override
     @Transactional
-    public Issue updateIssue(long issueId, String title, String description) {
-        long actorId = currentUserId();
+    public Issue updateIssue(long actorId, long issueId, String title, String description) {
         Issue issue = load(issueId);
         Project project = projectRepository.findById(issue.projectId()).orElseThrow();
         assertOwns(actorId, issue, project, "edit");
@@ -265,13 +263,13 @@ public class IssueServiceImpl implements IssueService {
                         null,
                         null,
                         OffsetDateTime.now()));
+        audit(actorId, "UPDATEISSUE", updated);
         return updated;
     }
 
     @Override
     @Transactional
-    public void deleteIssue(long issueId) {
-        long actorId = currentUserId();
+    public void deleteIssue(long actorId, long issueId) {
         Issue issue = load(issueId);
         // Detach tags and delete comments before the issue row — the FK
         // constraints on comments and issue_tags lack ON DELETE CASCADE.
@@ -289,6 +287,7 @@ public class IssueServiceImpl implements IssueService {
                         null,
                         OffsetDateTime.now()));
         issueRepository.delete(issueId);
+        audit(actorId, "DELETEISSUE", issue);
     }
 
     @Override
@@ -338,20 +337,20 @@ public class IssueServiceImpl implements IssueService {
 
     @Override
     public Page<Issue> searchPage(long projectId, IssueFilter filter, PageRequest page) {
-        return issueRepository.searchPage(projectId, filter, page.offset(), page.size());
+        return issueRepository.searchPage(projectId, filter, page);
     }
 
     @Override
     @Transactional
-    public Comment addComment(long issueId, String body) {
+    public Comment addComment(long actorId, long issueId, String body) {
         if (body == null || body.isBlank()) {
             throw BusinessException.badRequest("Comment body must not be empty");
         }
-        long actorId = currentUserId();
         Issue issue = load(issueId);
         Comment comment =
                 new Comment(idGenerator.nextId(), issueId, actorId, body, OffsetDateTime.now());
         commentRepository.insert(comment);
+        audit(actorId, "ADDCOMMENT", issue);
         return comment;
     }
 
@@ -360,15 +359,29 @@ public class IssueServiceImpl implements IssueService {
         return issueRepository.findComments(issueId);
     }
 
-    // ── Fine-grained RBAC (coarse-grained lives in RbacInterceptor) ──────
+    // ── Fine-grained RBAC (coarse-grained lives in RbacMiddleware) ──────
 
     /**
      * A plain member may only mutate issues they reported or are assigned to; managers and the lead
-     * are unrestricted (the interceptor already confirmed membership / lead status for everyone).
+     * are unrestricted (the middleware already confirmed membership / lead status for everyone).
      * Delegated to {@link ProjectAuthorization} so the rule is defined in one place.
      */
     private void assertOwns(long actorId, Issue issue, Project project, String action) {
         authz.assertOwns(actorId, issue, project, action);
+    }
+
+    /** Writes a self-contained system audit event for a mutating operation on an issue. */
+    private void audit(long actorId, String action, Issue issue) {
+        auditRepository.insert(
+                new SystemAudit(
+                        idGenerator.nextId(),
+                        authz.requireActor(actorId).orgId(),
+                        actorId,
+                        action,
+                        "ISSUE",
+                        issue.id(),
+                        issue.issueKey(),
+                        OffsetDateTime.now()));
     }
 
     private Issue load(long issueId) {

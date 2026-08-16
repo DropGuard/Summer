@@ -1,4 +1,6 @@
 package com.github.dropguard.summer.issuetracker.issue;
+import com.github.dropguard.summer.core.data.Page;
+import com.github.dropguard.summer.core.data.PageRequest;
 
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
@@ -139,7 +141,7 @@ public class IssueRepository {
      * the total count stay correct even when an issue carries several matching tags.
      */
     public List<Issue> search(Long projectId, IssueFilter filter) {
-        return searchPage(projectId, filter, 0, Integer.MAX_VALUE).content();
+        return searchPage(projectId, filter, new PageRequest(0, PageRequest.MAX_SIZE)).content();
     }
 
     /**
@@ -148,7 +150,12 @@ public class IssueRepository {
      * {@code exists(...)}, so the page window and the total both reflect the tag-filtered result
      * set.
      */
-    public Page<Issue> searchPage(Long projectId, IssueFilter filter, int offset, int limit) {
+    public Page<Issue> searchPage(Long projectId, IssueFilter filter, PageRequest page) {
+        QueryBuilder<Issue> qb = buildFilteredQuery(projectId, filter);
+        return qb.page(page);
+    }
+
+    private QueryBuilder<Issue> buildFilteredQuery(Long projectId, IssueFilter filter) {
         QueryBuilder<Issue> qb =
                 queryTemplate.select(Issue.class).where(QueryTemplate.eq("project_id", projectId));
 
@@ -176,10 +183,6 @@ public class IssueRepository {
                             QueryTemplate.eqCol("it.issue_id", "root.id"),
                             QueryTemplate.eq("it.tag_id", filter.tagId())));
         }
-        qb.orderBy("updated_at").desc();
-
-        long total = qb.count();
-        List<Issue> candidates = qb.offset(offset).limit(limit).list();
-        return Page.of(candidates, total, new PageRequest(offset / Math.max(limit, 1), limit));
+        return qb.orderBy("updated_at").desc();
     }
 }

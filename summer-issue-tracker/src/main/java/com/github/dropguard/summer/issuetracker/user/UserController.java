@@ -1,7 +1,7 @@
 package com.github.dropguard.summer.issuetracker.user;
 
 import com.github.dropguard.summer.core.Component;
-import com.github.dropguard.summer.issuetracker.security.SecurityContext;
+import com.github.dropguard.summer.issuetracker.security.Actors;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.annotation.Get;
 import com.github.dropguard.summer.web.annotation.RestController;
@@ -30,7 +30,7 @@ public class UserController {
 
     @Get("/api/me")
     public void me(HttpContext ctx) {
-        long userId = SecurityContext.currentUserId();
+        long userId = Actors.require(ctx);
         User user =
                 userRepository
                         .findById(userId)

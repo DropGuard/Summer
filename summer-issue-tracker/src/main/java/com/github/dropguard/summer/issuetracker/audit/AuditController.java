@@ -2,7 +2,7 @@ package com.github.dropguard.summer.issuetracker.audit;
 
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.issuetracker.common.BusinessException;
-import com.github.dropguard.summer.issuetracker.security.SecurityContext;
+import com.github.dropguard.summer.issuetracker.security.Actors;
 import com.github.dropguard.summer.issuetracker.user.User;
 import com.github.dropguard.summer.issuetracker.user.UserRepository;
 import com.github.dropguard.summer.web.HttpContext;
@@ -32,7 +32,7 @@ public class AuditController {
     public void listByOrg(HttpContext ctx, @PathParam("orgId") Long orgId) {
         User actor =
                 userRepository
-                        .findById(SecurityContext.currentUserId())
+                        .findById(Actors.require(ctx))
                         .orElseThrow(() -> BusinessException.unauthorized("Unknown actor"));
         if (!actor.orgId().equals(orgId)) {
             throw BusinessException.forbidden(
