@@ -20,12 +20,12 @@ import org.junit.jupiter.api.BeforeEach;
  * the framework-enforced parity guarantee.
  */
 @SummerTest
-public class QueryBuilderTCK {
+public class QueryBuilderTCKTest {
 
     private final BeanContainer context;
     private QueryTemplate queryTemplate;
 
-    public QueryBuilderTCK(BeanContainer context) {
+    public QueryBuilderTCKTest(BeanContainer context) {
         this.context = context;
     }
 
@@ -43,8 +43,15 @@ public class QueryBuilderTCK {
 
     @DualEngine
     void selectByEquality() {
+        assertEquals(
+                2L,
+                queryTemplate.select(User.class).where(QueryTemplate.eq("name", "Alice")).count());
         var alices =
-                queryTemplate.select(User.class).where(QueryTemplate.eq("name", "Alice")).list();
+                queryTemplate
+                        .select(User.class)
+                        .where(QueryTemplate.eq("name", "Alice"))
+                        .limit(100)
+                        .list();
         assertEquals(2, alices.size());
         assertTrue(alices.stream().allMatch(u -> u.name().equals("Alice")));
     }

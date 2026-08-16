@@ -32,7 +32,7 @@ public class ConditionalRouteParityTest {
     }
 
     @DualEngine
-    void conditionedOutControllerRegistersNoRoutes() {
+    void conditionedOutControllerRegistersNoRoutes() throws Exception {
         HttpRouter.Builder builder = new HttpRouter.Builder(RadixTreeHttpRouter::new);
         for (RouteRegistrar registrar : context.getBeans(RouteRegistrar.class)) {
             registrar.registerControllers(builder, context);

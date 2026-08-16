@@ -26,7 +26,7 @@ public class TypedParamDualEngineTest extends AbstractWebRouteTCK {
         super(context);
     }
 
-    private String dispatch(String path, String query) {
+    private String dispatch(String path, String query) throws Exception {
         Request req = new Request(HttpMethod.GET, path, query, null, null);
         HttpContext ctx = new HttpContext(req);
         router.route(ctx);
@@ -34,7 +34,7 @@ public class TypedParamDualEngineTest extends AbstractWebRouteTCK {
     }
 
     @DualEngine
-    protected void typedParamsConvertIdenticallyOnBothEngines() {
+    protected void typedParamsConvertIdenticallyOnBothEngines() throws Exception {
         // Enum path param, lowercase input -> case-insensitive enum coercion.
         assertEquals("color:RED", dispatch("/rt/color/red", null));
         assertEquals("color:GREEN", dispatch("/rt/color/GREEN", null));

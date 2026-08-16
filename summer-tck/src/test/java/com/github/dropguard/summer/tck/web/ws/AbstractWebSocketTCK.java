@@ -25,7 +25,7 @@ public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
     protected abstract WsRouter.Builder createBuilder();
 
     @Test
-    void testWsRouteExactMatch() {
+    void testWsRouteExactMatch() throws Exception {
         AtomicReference<String> received = new AtomicReference<>();
 
         WsRouter router = createBuilder().ws("/chat", ctx -> received.set("connected")).build();
@@ -45,7 +45,7 @@ public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testWsRouteWithPathParam() {
+    void testWsRouteWithPathParam() throws Exception {
         AtomicReference<String> roomRef = new AtomicReference<>();
 
         WsRouter router =
@@ -63,7 +63,7 @@ public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testWsRouteWithMultiplePathParams() {
+    void testWsRouteWithMultiplePathParams() throws Exception {
         AtomicReference<String> resultRef = new AtomicReference<>();
 
         WsRouter router =
@@ -106,7 +106,7 @@ public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testWsRouteMultipleHandlers() {
+    void testWsRouteMultipleHandlers() throws Exception {
         AtomicReference<String> chatRef = new AtomicReference<>();
         AtomicReference<String> notifyRef = new AtomicReference<>();
 
@@ -128,7 +128,7 @@ public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testWsRouteWithWildcard() {
+    void testWsRouteWithWildcard() throws Exception {
         AtomicReference<String> received = new AtomicReference<>();
 
         WsRouter router = createBuilder().ws("/ws/**", ctx -> received.set("wildcard")).build();
@@ -142,7 +142,7 @@ public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testBindWiresLifecycleCallbacks() {
+    void testBindWiresLifecycleCallbacks() throws Exception {
         List<String> receivedMessages = new ArrayList<>();
         AtomicReference<String> connectMessage = new AtomicReference<>();
         AtomicBoolean closed = new AtomicBoolean(false);

@@ -30,7 +30,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     // --- Static route matching ---
 
     @Test
-    void testExactStaticRoute() {
+    void testExactStaticRoute() throws Exception {
         HttpRouter r = builder().get("/users", ctx -> ctx.text(HttpStatus.OK, "user-list")).build();
 
         r.route(ctx(HttpMethod.GET, "/users"));
@@ -38,7 +38,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testMultiSegmentStaticRoute() {
+    void testMultiSegmentStaticRoute() throws Exception {
         HttpRouter r =
                 builder().get("/api/v1/users", ctx -> ctx.text(HttpStatus.OK, "v1-users")).build();
 
@@ -46,7 +46,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testUnmatchedRouteReturnsNull() {
+    void testUnmatchedRouteReturnsNull() throws Exception {
         HttpRouter r = builder().get("/users", ctx -> ctx.text(HttpStatus.OK, "user-list")).build();
 
         HttpContext ctx = ctx(HttpMethod.GET, "/posts");
@@ -57,7 +57,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     // --- Path parameters ---
 
     @Test
-    void testSinglePathParam() {
+    void testSinglePathParam() throws Exception {
         HttpRouter r =
                 builder()
                         .get(
@@ -72,7 +72,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testMultiplePathParams() {
+    void testMultiplePathParams() throws Exception {
         HttpRouter r =
                 builder()
                         .get(
@@ -89,7 +89,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testPathParamAtEnd() {
+    void testPathParamAtEnd() throws Exception {
         HttpRouter r =
                 builder()
                         .get(
@@ -104,7 +104,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testPathParamAtStart() {
+    void testPathParamAtStart() throws Exception {
         HttpRouter r =
                 builder()
                         .get(
@@ -121,7 +121,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     // --- Colon-style path parameters (:param) ---
 
     @Test
-    void testSinglePathParamColon() {
+    void testSinglePathParamColon() throws Exception {
         HttpRouter r =
                 builder()
                         .get(
@@ -136,7 +136,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testMultiplePathParamsColon() {
+    void testMultiplePathParamsColon() throws Exception {
         HttpRouter r =
                 builder()
                         .get(
@@ -153,7 +153,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testPathParamAtEndColon() {
+    void testPathParamAtEndColon() throws Exception {
         HttpRouter r =
                 builder()
                         .get(
@@ -168,7 +168,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testPathParamAtStartColon() {
+    void testPathParamAtStartColon() throws Exception {
         HttpRouter r =
                 builder()
                         .get(
@@ -183,7 +183,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testDoubleSlashNormalizationColon() {
+    void testDoubleSlashNormalizationColon() throws Exception {
         HttpRouter r =
                 builder()
                         .get(
@@ -198,7 +198,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testPathParamWithSpecialCharsColon() {
+    void testPathParamWithSpecialCharsColon() throws Exception {
         HttpRouter r =
                 builder()
                         .get(
@@ -214,7 +214,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     // --- HTTP method isolation ---
 
     @Test
-    void testSamePathDifferentMethods() {
+    void testSamePathDifferentMethods() throws Exception {
         HttpRouter r =
                 builder()
                         .get("/users", ctx -> ctx.text(HttpStatus.OK, "get-users"))
@@ -230,7 +230,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testWrongMethodReturnsNull() {
+    void testWrongMethodReturnsNull() throws Exception {
         HttpRouter r = builder().get("/users", ctx -> ctx.text(HttpStatus.OK, "get-users")).build();
 
         HttpContext ctx = ctx(HttpMethod.POST, "/users");
@@ -241,14 +241,14 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     // --- Path normalization ---
 
     @Test
-    void testTrailingSlashMatches() {
+    void testTrailingSlashMatches() throws Exception {
         HttpRouter r = builder().get("/users", ctx -> ctx.text(HttpStatus.OK, "user-list")).build();
 
         assertEquals("user-list", bodyAsString(r, HttpMethod.GET, "/users/"));
     }
 
     @Test
-    void testTrailingSlashOnRegistration() {
+    void testTrailingSlashOnRegistration() throws Exception {
         HttpRouter r =
                 builder().get("/users/", ctx -> ctx.text(HttpStatus.OK, "user-list")).build();
 
@@ -256,7 +256,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testRootPath() {
+    void testRootPath() throws Exception {
         HttpRouter r = builder().get("/", ctx -> ctx.text(HttpStatus.OK, "home")).build();
 
         assertEquals("home", bodyAsString(r, HttpMethod.GET, "/"));
@@ -264,7 +264,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testDoubleSlashNormalization() {
+    void testDoubleSlashNormalization() throws Exception {
         HttpRouter r =
                 builder()
                         .get(
@@ -279,14 +279,14 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testMultipleTrailingSlashes() {
+    void testMultipleTrailingSlashes() throws Exception {
         HttpRouter r = builder().get("/users", ctx -> ctx.text(HttpStatus.OK, "user-list")).build();
 
         assertEquals("user-list", bodyAsString(r, HttpMethod.GET, "/users///"));
     }
 
     @Test
-    void testLeadingDoubleSlash() {
+    void testLeadingDoubleSlash() throws Exception {
         HttpRouter r = builder().get("/api/health", ctx -> ctx.text(HttpStatus.OK, "ok")).build();
 
         assertEquals("ok", bodyAsString(r, HttpMethod.GET, "//api/health"));
@@ -295,7 +295,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     // --- Edge cases ---
 
     @Test
-    void testEmptyPathSegments() {
+    void testEmptyPathSegments() throws Exception {
         HttpRouter r =
                 builder().get("/api///users", ctx -> ctx.text(HttpStatus.OK, "users")).build();
 
@@ -303,7 +303,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testPathParamWithSpecialChars() {
+    void testPathParamWithSpecialChars() throws Exception {
         HttpRouter r =
                 builder()
                         .get(
@@ -319,7 +319,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     // --- Wildcard matching ---
 
     @Test
-    void testSingleSegmentWildcard() {
+    void testSingleSegmentWildcard() throws Exception {
         HttpRouter r =
                 builder().get("/files/*", ctx -> ctx.text(HttpStatus.OK, "file-wildcard")).build();
 
@@ -332,7 +332,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testMultiSegmentWildcard() {
+    void testMultiSegmentWildcard() throws Exception {
         HttpRouter r =
                 builder().get("/api/**", ctx -> ctx.text(HttpStatus.OK, "catch-all")).build();
 
@@ -342,16 +342,94 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
     }
 
     @Test
-    void testWildcardWithStaticPrefix() {
+    void testWildcardWithStaticPrefix() throws Exception {
         HttpRouter r =
                 builder().get("/static/**", ctx -> ctx.text(HttpStatus.OK, "static-files")).build();
 
         assertEquals("static-files", bodyAsString(r, HttpMethod.GET, "/static/css/main.css"));
         assertEquals("static-files", bodyAsString(r, HttpMethod.GET, "/static/js/app.js"));
+        // A /** wildcard matches the bare prefix too (zero segments) — /static/** accepts /static
+        // and /static/ as well as /static/x. Both routers must agree (Map PathMatcher and Radix).
+        assertEquals("static-files", bodyAsString(r, HttpMethod.GET, "/static"));
+        assertEquals("static-files", bodyAsString(r, HttpMethod.GET, "/static/"));
 
         HttpContext noMatch = ctx(HttpMethod.GET, "/api/users");
         r.route(noMatch);
         assertNull(noMatch.body());
+    }
+
+    // --- Matching priority (shared contract: static > {param} > * > **) ---
+
+    @Test
+    void testStaticSiblingBeatsCatchAll() throws Exception {
+        HttpRouter r =
+                builder()
+                        .get("/api/users", ctx -> ctx.text(HttpStatus.OK, "user-list"))
+                        .get("/api/**", ctx -> ctx.text(HttpStatus.OK, "catch-all"))
+                        .build();
+
+        assertEquals("user-list", bodyAsString(r, HttpMethod.GET, "/api/users"));
+    }
+
+    @Test
+    void testParamSiblingBeatsCatchAll() throws Exception {
+        HttpRouter r =
+                builder()
+                        .get("/api/{id}", ctx -> ctx.text(HttpStatus.OK, "by-id"))
+                        .get("/api/**", ctx -> ctx.text(HttpStatus.OK, "catch-all"))
+                        .build();
+
+        assertEquals("by-id", bodyAsString(r, HttpMethod.GET, "/api/42"));
+    }
+
+    @Test
+    void testCatchAllStillCoversDeeperPaths() throws Exception {
+        HttpRouter r =
+                builder()
+                        .get("/api/users", ctx -> ctx.text(HttpStatus.OK, "user-list"))
+                        .get("/api/**", ctx -> ctx.text(HttpStatus.OK, "catch-all"))
+                        .build();
+
+        assertEquals("catch-all", bodyAsString(r, HttpMethod.GET, "/api/users/42"));
+        assertEquals("catch-all", bodyAsString(r, HttpMethod.GET, "/api/v1/posts"));
+    }
+
+    @Test
+    void testParamSiblingBeatsSingleWildcard() throws Exception {
+        HttpRouter r =
+                builder()
+                        .get("/files/{name}", ctx -> ctx.text(HttpStatus.OK, "by-name"))
+                        .get("/files/*", ctx -> ctx.text(HttpStatus.OK, "star"))
+                        .build();
+
+        assertEquals("by-name", bodyAsString(r, HttpMethod.GET, "/files/report.pdf"));
+    }
+
+    @Test
+    void testSingleWildcardBeatsCatchAll() throws Exception {
+        HttpRouter r =
+                builder()
+                        .get("/files/*", ctx -> ctx.text(HttpStatus.OK, "star"))
+                        .get("/files/**", ctx -> ctx.text(HttpStatus.OK, "catch-all"))
+                        .build();
+
+        assertEquals("star", bodyAsString(r, HttpMethod.GET, "/files/report.pdf"));
+    }
+
+    @Test
+    void testSingleWildcardBeatsCatchAllRegardlessOfRegistrationOrder() throws Exception {
+        // Same contract with the catch-all registered FIRST: the Map router's rank selection must
+        // not depend on map iteration order, so the * route still wins for a one-segment path.
+        // Regression: MapRouter's constructor previously failed to copy the catchAll flag, so
+        // /** ranked as a plain wildcard and this assertion was order-dependent.
+        HttpRouter r =
+                builder()
+                        .get("/files/**", ctx -> ctx.text(HttpStatus.OK, "catch-all"))
+                        .get("/files/*", ctx -> ctx.text(HttpStatus.OK, "star"))
+                        .build();
+
+        assertEquals("star", bodyAsString(r, HttpMethod.GET, "/files/report.pdf"));
+        assertEquals("catch-all", bodyAsString(r, HttpMethod.GET, "/files/sub/dir"));
     }
 
     // --- Helper ---
@@ -365,7 +443,7 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
         return new HttpContext(req);
     }
 
-    private String bodyAsString(HttpRouter r, HttpMethod method, String path) {
+    private String bodyAsString(HttpRouter r, HttpMethod method, String path) throws Exception {
         HttpContext ctx = ctx(method, path);
         r.route(ctx);
         byte[] body = ctx.body();

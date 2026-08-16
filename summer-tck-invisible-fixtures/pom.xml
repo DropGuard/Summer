@@ -13,9 +13,9 @@
     <artifactId>summer-tck-invisible-fixtures</artifactId>
     <name>Summer TCK Invisible Fixtures</name>
     <description>
-        Whole-universe-invisible fixtures for the narrow @SummerTest(classes=...) path, which
-        indexes their .class bytes directly via NarrowIndexBuilder (Quarkus ArcTestContainer
-        beanClasses(...) model). Two kinds live here: the intentionally-broken beans for sad-path
+        Whole-universe-invisible fixtures for the narrow-seeded test path
+        (SummerTestExtension.builder().beanClasses(...), which indexes the seeds' .class bytes
+        directly via NarrowIndexBuilder — the Quarkus ArcTestContainer beanClasses(...) model). Two kinds live here: the intentionally-broken beans for sad-path
         TCK tests (circular dependency, missing dependency, ambiguous resolution, self-injection)
         and the narrow-only positive fixtures that the whole universe must never see (e.g. the
         row-model metadata regression's config, whose stub DataSource would collide with the tck's

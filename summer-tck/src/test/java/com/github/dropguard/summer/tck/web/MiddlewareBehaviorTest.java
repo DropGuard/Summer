@@ -20,22 +20,22 @@ public class MiddlewareBehaviorTest extends AbstractMiddlewareTCK {
     }
 
     @DualEngine
-    void methodLevelMiddleware() {
+    void methodLevelMiddleware() throws Exception {
         super.testMethodLevelMiddleware();
     }
 
     @DualEngine
-    void classLevelMiddleware() {
+    void classLevelMiddleware() throws Exception {
         super.testClassLevelMiddleware();
     }
 
     @DualEngine
-    void multipleMiddlewares() {
+    void multipleMiddlewares() throws Exception {
         super.testMultipleMiddlewares();
     }
 
     @DualEngine
-    void globalMiddlewareAppliedToAllRoutes() {
+    void globalMiddlewareAppliedToAllRoutes() throws Exception {
         super.testGlobalMiddlewareAppliedToAllRoutes();
     }
 }

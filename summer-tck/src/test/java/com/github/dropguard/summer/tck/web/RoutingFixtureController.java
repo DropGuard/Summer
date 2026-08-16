@@ -84,4 +84,18 @@ public class RoutingFixtureController {
     public void onIllegalArgument(IllegalArgumentException ex, HttpContext ctx) {
         ctx.text(HttpStatus.BAD_REQUEST, "error_caught:" + ex.getMessage());
     }
+
+    /**
+     * Checked-exception route: Handler.handle declares throws Exception (the Gin panic-recovery
+     * model in Java), so a checked exception propagates to its @ExceptionHandler.
+     */
+    @Get("/checked-error")
+    public void checkedError(HttpContext ctx) throws java.io.IOException {
+        throw new java.io.IOException("io failure");
+    }
+
+    @ExceptionHandler(java.io.IOException.class)
+    public void onIo(java.io.IOException ex, HttpContext ctx) {
+        ctx.text(HttpStatus.BAD_REQUEST, "io_caught:" + ex.getMessage());
+    }
 }

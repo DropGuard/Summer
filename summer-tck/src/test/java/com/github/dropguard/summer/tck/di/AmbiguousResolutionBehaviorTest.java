@@ -1,9 +1,9 @@
 package com.github.dropguard.summer.tck.di;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.github.dropguard.summer.core.BeanContainer;
-import com.github.dropguard.summer.tck.invisible.fixtures.di.AmbiguousService;
+import com.github.dropguard.summer.core.exception.AmbiguousBeanException;
 import com.github.dropguard.summer.tck.invisible.fixtures.di.AmbiguousServiceImplOne;
 import com.github.dropguard.summer.tck.invisible.fixtures.di.AmbiguousServiceImplTwo;
 import com.github.dropguard.summer.test.SummerTestExtension;
@@ -12,8 +12,10 @@ import com.github.dropguard.summer.test.annotation.SummerTest;
 import org.junit.jupiter.api.extension.RegisterExtension;
 
 /**
- * Dual-engine contract: resolving a type with two {@code @Component} implementations. GAP: should
- * throw {@code AmbiguousBeanException} but silently resolves one impl.
+ * Behavioral: resolving a type with two {@code @Component} implementations of one interface is
+ * ambiguous and must fail loudly ({@link AmbiguousBeanException}) on both engines — never silently
+ * resolve one. (The multi-impl interface key is no longer registered, so {@code getBean} scans both
+ * impls by assignability and reports the ambiguity.)
  */
 @SummerTest
 public class AmbiguousResolutionBehaviorTest {
@@ -31,8 +33,14 @@ public class AmbiguousResolutionBehaviorTest {
     }
 
     @DualEngine
-    void ambiguousResolutionResolvesSilently() {
-        AmbiguousService resolved = container.getBean(AmbiguousService.class);
-        assertNotNull(resolved, "GAP: ambiguity is not enforced; one impl is resolved silently");
+    void ambiguousResolutionFailsFastOnBothEngines() {
+        assertThrows(
+                AmbiguousBeanException.class,
+                () ->
+                        container.getBean(
+                                com.github.dropguard.summer.tck.invisible.fixtures.di
+                                        .AmbiguousService.class),
+                "two @Component impls of one interface must be rejected as ambiguous, not"
+                        + " silently resolved");
     }
 }

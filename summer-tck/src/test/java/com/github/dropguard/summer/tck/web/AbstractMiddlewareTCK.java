@@ -102,7 +102,7 @@ public abstract class AbstractMiddlewareTCK extends AbstractTCK {
     }
 
     /** Route request through global middlewares and router. */
-    private String routeWithMiddlewares(Request req) {
+    private String routeWithMiddlewares(Request req) throws Exception {
         HttpContext ctx = new HttpContext(req);
 
         // Build handler chain: global middlewares -> router
@@ -126,7 +126,7 @@ public abstract class AbstractMiddlewareTCK extends AbstractTCK {
     }
 
     @Test
-    void testMethodLevelMiddleware() {
+    void testMethodLevelMiddleware() throws Exception {
         // Route-level middleware via RouteProvider
         Request req = new Request(HttpMethod.GET, "/api/users/secured", null, null, null);
 
@@ -136,7 +136,7 @@ public abstract class AbstractMiddlewareTCK extends AbstractTCK {
     }
 
     @Test
-    void testClassLevelMiddleware() {
+    void testClassLevelMiddleware() throws Exception {
         // Route group middleware via RouteProvider
         Request req = new Request(HttpMethod.GET, "/api/class-level/test", null, null, null);
 
@@ -146,7 +146,7 @@ public abstract class AbstractMiddlewareTCK extends AbstractTCK {
     }
 
     @Test
-    void testMultipleMiddlewares() {
+    void testMultipleMiddlewares() throws Exception {
         // Multiple route-level middlewares via RouteProvider
         Request req = new Request(HttpMethod.GET, "/api/users/multi", null, null, null);
 
@@ -158,7 +158,7 @@ public abstract class AbstractMiddlewareTCK extends AbstractTCK {
     }
 
     @Test
-    void testGlobalMiddlewareAppliedToAllRoutes() {
+    void testGlobalMiddlewareAppliedToAllRoutes() throws Exception {
         // GlobalLoggingMiddleware should wrap all routes
         Request req = new Request(HttpMethod.GET, "/api/users/123", null, null, null);
 

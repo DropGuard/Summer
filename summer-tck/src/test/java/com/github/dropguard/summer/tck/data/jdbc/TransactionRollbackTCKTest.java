@@ -23,12 +23,12 @@ import org.junit.jupiter.api.BeforeEach;
  * the method running connection-less.
  */
 @SummerTest
-public class TransactionRollbackTCK {
+public class TransactionRollbackTCKTest {
 
     private final BeanContainer context;
     private JdbcTemplate jdbcTemplate;
 
-    public TransactionRollbackTCK(BeanContainer context) {
+    public TransactionRollbackTCKTest(BeanContainer context) {
         this.context = context;
     }
 

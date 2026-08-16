@@ -23,12 +23,13 @@ public class RuntimeWebRouteTest extends AbstractWebRouteTCK {
     }
 
     @DualEngine
-    protected void routingIsIdenticalAcrossEngines() {
+    protected void routingIsIdenticalAcrossEngines() throws Exception {
         super.routeBehaviour();
     }
 
     @Test
-    protected void exceptionHandlerBehaviour() {
+    protected void exceptionHandlerBehaviour() throws Exception {
+        // Behavioral: runtime + checked handler exceptions map through the registry to responses.
         super.exceptionHandlerBehaviour();
     }
 }

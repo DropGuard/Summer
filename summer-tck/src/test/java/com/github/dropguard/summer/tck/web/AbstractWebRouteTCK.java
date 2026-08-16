@@ -2,7 +2,6 @@ package com.github.dropguard.summer.tck.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import com.github.dropguard.summer.core.BeanContainer;
@@ -65,7 +64,8 @@ public abstract class AbstractWebRouteTCK extends AbstractTCK {
      * Routing assertions, parameterised by HTTP method/path/body/expected body. Subclasses expose
      * this through {@code @ParameterizedTest} (Runtime) or {@code @DualEngine} (AOT parity).
      */
-    protected void routeBehaviour(HttpMethod method, String path, String body, String expected) {
+    protected void routeBehaviour(HttpMethod method, String path, String body, String expected)
+            throws Exception {
         byte[] bodyBytes = body != null ? body.getBytes(StandardCharsets.UTF_8) : null;
         String contentType = body != null ? "application/json" : null;
         Request req = new Request(method, path, null, contentType, bodyBytes);
@@ -81,14 +81,11 @@ public abstract class AbstractWebRouteTCK extends AbstractTCK {
      * exercises all routing cases on both engines (the two repetition axes — engine and case —
      * cannot share one method, so the case axis is folded into the body here).
      */
-    protected void routeBehaviour() {
-        routeTestCases()
-                .forEach(
-                        args -> {
-                            Object[] v = args.get();
-                            routeBehaviour(
-                                    (HttpMethod) v[0], (String) v[1], (String) v[2], (String) v[3]);
-                        });
+    protected void routeBehaviour() throws Exception {
+        for (var args : routeTestCases().toList()) {
+            Object[] v = args.get();
+            routeBehaviour((HttpMethod) v[0], (String) v[1], (String) v[2], (String) v[3]);
+        }
     }
 
     /**
@@ -107,34 +104,40 @@ public abstract class AbstractWebRouteTCK extends AbstractTCK {
     }
 
     /**
-     * Exception-handler triggering and resolution assertions. Subclasses expose this through
-     * {@code @Test} (Runtime) or {@code @DualEngine} (AOT parity).
+     * HTTP-level exception behavior: a handler throwing (runtime or checked) is caught by the
+     * router dispatch and mapped through the registered {@code @ExceptionHandler}s — the Gin
+     * panic-recovery model in Java. This exercises the real path (throw -> dispatch catch ->
+     * registry -> handler response), not the registry in isolation.
      */
-    protected void exceptionHandlerBehaviour() {
-        Request req = new Request(HttpMethod.GET, "/rt/error", null, null, null);
-        HttpContext ctx = new HttpContext(req);
+    protected void exceptionHandlerBehaviour() throws Exception {
+        // Runtime exception from a handler -> its @ExceptionHandler response.
+        assertEquals(
+                "error_caught:invalid id",
+                dispatchWithExceptionMapping(HttpMethod.GET, "/rt/error"));
 
+        // Checked exception from a handler -> its @ExceptionHandler response.
+        // Handler.handle declares throws Exception, so a checked exception propagates unwrapped
+        // (the Java rendering of Gin's recovery model) and matches the checked-type handler.
+        assertEquals(
+                "io_caught:io failure",
+                dispatchWithExceptionMapping(HttpMethod.GET, "/rt/checked-error"));
+    }
+
+    /** Mirrors NettyHttpServerHandler: route, catch, map through the exception registry. */
+    private String dispatchWithExceptionMapping(HttpMethod method, String path) throws Exception {
+        HttpContext ctx = new HttpContext(new Request(method, path, null, null, null));
         try {
             router.route(ctx);
-            fail("Expected router.route to propagate the exception from UserController");
+            fail("Expected router.route to propagate the handler exception");
         } catch (Exception e) {
-            assertTrue(e instanceof IllegalArgumentException);
-
-            // Resolve using the ExceptionRegistry
             Handler errHandler = exceptionRegistry.getHandler(e);
-            assertNotNull(
-                    errHandler, "ExceptionHandler must be registered for IllegalArgumentException");
-
+            assertNotNull(errHandler, "ExceptionHandler must be registered for " + e.getClass());
             ctx.request()
                     .setAttribute(
                             com.github.dropguard.summer.web.RequestAttributes.LAST_EXCEPTION, e);
-            try {
-                errHandler.handle(ctx);
-                assertEquals(
-                        "error_caught:invalid id", new String(ctx.body(), StandardCharsets.UTF_8));
-            } catch (Exception ex) {
-                fail("Exception handler handle() threw exception: " + ex.getMessage());
-            }
+            errHandler.handle(ctx);
         }
+        byte[] body = ctx.body();
+        return body != null ? new String(body, StandardCharsets.UTF_8) : null;
     }
 }
