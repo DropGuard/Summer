@@ -108,6 +108,7 @@
         <dependency>
             <groupId>com.github.dropguard</groupId>
             <artifactId>summer-test-starter</artifactId>
+            <type>pom</type>
             <scope>test</scope>
         </dependency>
     </dependencies>
