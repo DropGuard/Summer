@@ -7,11 +7,10 @@ import java.util.List;
  * Route metadata shared by both DI engines.
  *
  * <p>The fields here are the cross-engine contract: string identifiers ({@link #controllerClass},
- * {@link #methodName}, {@link #returnType}) plus the parameter binding list. Both the Runtime and
- * AOT engines read exactly these strings — the AOT engine emits static handler calls from them, the
- * Runtime engine resolves the reflective {@code Method} from them at registration time (inside
- * {@code summer-runtime}, which is the only module permitted to hold a {@code
- * java.lang.reflect.Method}).
+ * {@link #methodName}) plus the parameter binding list. Both the Runtime and AOT engines read
+ * exactly these strings — the AOT engine emits static handler calls from them, the Runtime engine
+ * resolves the reflective {@code Method} from them at registration time (inside {@code
+ * summer-runtime}, which is the only module permitted to hold a {@code java.lang.reflect.Method}).
  *
  * <p>This type deliberately holds no {@code java.lang.reflect.Method}: reflection types belong to
  * the runtime engine, never to the dual-engine shared layer in {@code summer-core}.
@@ -30,9 +29,7 @@ public final class RouteInfo {
         HEADER,
         COOKIE,
         PRINCIPAL,
-        VALIDATED_BODY,
-        /** Fallback for unknown bindings — engines must treat as unsupported. */
-        UNKNOWN
+        VALIDATED_BODY
     }
 
     /** Method parameter binding metadata. */
@@ -46,14 +43,6 @@ public final class RouteInfo {
         public final String type;
         public final ParamBinding binding;
         public final boolean validated;
-
-        public ParamInfo(String name, String type, ParamBinding binding) {
-            this(name, "", type, binding, false);
-        }
-
-        public ParamInfo(String name, String type, ParamBinding binding, boolean validated) {
-            this(name, "", type, binding, validated);
-        }
 
         /**
          * @param bindingName the {@code @PathParam}/{@code @QueryParam} value (empty if none)
@@ -81,7 +70,6 @@ public final class RouteInfo {
     public final String path;
     public final String controllerClass;
     public final String methodName;
-    public final String returnType;
 
     /**
      * Parameter binding metadata, populated by the route scanners during container construction
@@ -96,17 +84,11 @@ public final class RouteInfo {
      * type deliberately holds no {@code java.lang.reflect} reference (neither {@code Method} nor
      * {@code Class}), keeping the dual-engine layer reflection-free.
      */
-    public RouteInfo(
-            String httpMethod,
-            String path,
-            String controllerClass,
-            String methodName,
-            String returnType) {
+    public RouteInfo(String httpMethod, String path, String controllerClass, String methodName) {
         this.httpMethod = httpMethod;
         this.path = path;
         this.controllerClass = controllerClass;
         this.methodName = methodName;
-        this.returnType = returnType;
     }
 
     @Override

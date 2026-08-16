@@ -1,8 +1,11 @@
 package com.github.dropguard.summer.core.spi;
 
+import com.github.dropguard.summer.core.ErrorCode;
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
 import com.github.dropguard.summer.core.bean.RouteInfo;
+import com.github.dropguard.summer.core.exception.BeanCreationException;
+import com.github.dropguard.summer.core.exception.SummerException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -65,8 +68,12 @@ public final class RouteRegistrarLoader {
             try {
                 registrar.register(registry, beans);
             } catch (Exception e) {
-                log.error("[Summer] RouteRegistrar failed: {}", registrar.getClass().getName(), e);
-                throw new RuntimeException("Route registration failed", e);
+                // No double report: the exception below carries the registrar's identity and the
+                // ErrorCode, and propagates to the one place that logs a startup failure.
+                throw new SummerException(
+                        ErrorCode.ROUTE_CONFLICT,
+                        "Route registration failed in " + registrar.getClass().getName(),
+                        e);
             }
         }
         return result;
@@ -75,39 +82,57 @@ public final class RouteRegistrarLoader {
     /**
      * Merges a {@link Result} into the candidate bean definitions: routes are appended to the
      * matching bean's {@link BeanDefinition#routes}, exception handlers to {@link
-     * BeanDefinition#exceptionHandlerMethods}. Unknown bean names are logged and skipped.
+     * BeanDefinition#exceptionHandlerMethods}.
+     *
+     * <p>Routes/handlers registered for a bean that is not among the candidates fail fast. The
+     * registrar that produced them scanned the same {@code candidates} list (the runtime and AOT
+     * engines both pass the same list to {@link #load} and then here), and condition-evaluation
+     * already ran before collection — so a missing candidate is either a stale Jandex index or an
+     * inconsistency between registrars, never a legitimately conditioned-out controller. Silently
+     * dropping it would surface as an opaque 404 in production.
      *
      * @param result the collected SPI contributions
      * @param candidates the candidate bean definitions to merge into
      */
     public static void mergeInto(Result result, List<BeanDefinition> candidates) {
         for (RouteInfo route : result.routes) {
-            BeanDefinition target =
-                    candidates.stream()
-                            .filter(b -> b.qualifiedName.equals(route.controllerClass))
-                            .findFirst()
-                            .orElse(null);
+            BeanDefinition target = findCandidate(candidates, route.controllerClass);
             if (target != null) {
                 target.routes.add(route);
             } else {
-                log.warn("[Summer] Route registered for unknown bean: {}", route.controllerClass);
+                throw new BeanCreationException(
+                        "Route registered for unknown bean: "
+                                + route.controllerClass
+                                + " ("
+                                + route.httpMethod
+                                + " "
+                                + route.path
+                                + ") — the bean is not among the container's candidates. Stale"
+                                + " Jandex index or a RouteRegistrar inconsistency?");
             }
         }
         for (Map.Entry<String, List<BeanDefinition.ExceptionHandlerEntry>> entry :
                 result.exceptionHandlers.entrySet()) {
-            BeanDefinition target =
-                    candidates.stream()
-                            .filter(b -> b.qualifiedName.equals(entry.getKey()))
-                            .findFirst()
-                            .orElse(null);
+            BeanDefinition target = findCandidate(candidates, entry.getKey());
             if (target != null) {
                 target.exceptionHandlerMethods.addAll(entry.getValue());
             } else {
-                log.warn(
-                        "[Summer] Exception handler registered for unknown bean: {}",
-                        entry.getKey());
+                throw new BeanCreationException(
+                        "Exception handler registered for unknown bean: "
+                                + entry.getKey()
+                                + " — the bean is not among the container's candidates. Stale"
+                                + " Jandex index or a RouteRegistrar inconsistency?");
             }
         }
+    }
+
+    private static BeanDefinition findCandidate(List<BeanDefinition> candidates, String name) {
+        for (BeanDefinition bean : candidates) {
+            if (bean.qualifiedName.equals(name)) {
+                return bean;
+            }
+        }
+        return null;
     }
 
     private static final class CollectingRegistry implements RouteRegistry {
@@ -141,13 +166,7 @@ public final class RouteRegistrarLoader {
                                 validated));
             }
             RouteInfo route =
-                    new RouteInfo(
-                            httpMethod,
-                            path,
-                            bean.qualifiedName,
-                            handlerMethodName,
-                            "void" // return type not used by SPI
-                            );
+                    new RouteInfo(httpMethod, path, bean.qualifiedName, handlerMethodName);
             route.params.addAll(routeParams);
             result.routes.add(route);
         }
@@ -178,8 +197,10 @@ public final class RouteRegistrarLoader {
                 case PAGEABLE -> RouteInfo.ParamBinding.PAGEABLE;
                 case SCROLL -> RouteInfo.ParamBinding.SCROLL;
                 case PRINCIPAL -> RouteInfo.ParamBinding.PRINCIPAL;
-                // VALIDATED_BODY is handled by the caller (mapped to BODY + validated=true)
-                default -> RouteInfo.ParamBinding.UNKNOWN;
+                // VALIDATED_BODY never reaches here — the caller maps it to BODY + validated=true
+                // before calling convertBinding. Kept as an explicit case for exhaustiveness now
+                // that there is no UNKNOWN fallback: an unrecognized binding is a compile error.
+                case VALIDATED_BODY -> RouteInfo.ParamBinding.BODY;
             };
         }
     }

@@ -85,8 +85,6 @@ public interface RouteRegistry {
         PAGEABLE,
         SCROLL,
         PRINCIPAL,
-        VALIDATED_BODY,
-        /** Fallback for unknown bindings — engines must treat as unsupported. */
-        UNKNOWN
+        VALIDATED_BODY
     }
 }

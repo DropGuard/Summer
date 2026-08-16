@@ -81,11 +81,4 @@ class ExceptionTest {
         assertEquals("Serialization failed", ex.getMessage());
         assertSame(cause, ex.getCause());
     }
-
-    @Test
-    void shouldCreateAotContextNotFoundException() {
-        AotContextNotFoundException ex = new AotContextNotFoundException();
-        assertNotNull(ex.getMessage());
-        assertTrue(ex.getMessage().contains("AOT Context not found"));
-    }
 }

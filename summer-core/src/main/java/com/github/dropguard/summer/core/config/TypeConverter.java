@@ -31,6 +31,7 @@ public final class TypeConverter {
      * @return the converted value, or null if value is null
      * @throws ConfigurationException if the value cannot be coerced to the target type
      */
+    @SuppressWarnings("unchecked") // targetType.isEnum() checked above; the cast is safe
     public static Object convert(Object value, Class<?> targetType) {
         if (value == null) {
             return null;

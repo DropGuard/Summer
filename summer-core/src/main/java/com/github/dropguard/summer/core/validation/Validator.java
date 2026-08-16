@@ -12,16 +12,16 @@ package com.github.dropguard.summer.core.validation;
  * {
  * 	&#64;code
  * 	&#64;Component
- * 	public class TlsValidator implements Validator<GrpcTlsConfig> {
+ * 	public class TlsConfigValidator implements Validator&lt;MyTlsConfig&gt; {
  *
  * 		&#64;Override
- * 		public Class<GrpcTlsConfig> targetType() {
- * 			return GrpcTlsConfig.class;
+ * 		public Class&lt;MyTlsConfig&gt; targetType() {
+ * 			return MyTlsConfig.class;
  * 		}
  *
  * 		@Override
- * 		public void validate(GrpcTlsConfig config) {
- * 			if (config.enabled() && config.certChain() == null) {
+ * 		public void validate(MyTlsConfig config) {
+ * 			if (config.enabled() &amp;&amp; config.certChain() == null) {
  * 				throw new ConfigValidationException("TLS enabled but cert-chain is required");
  * 			}
  * 		}

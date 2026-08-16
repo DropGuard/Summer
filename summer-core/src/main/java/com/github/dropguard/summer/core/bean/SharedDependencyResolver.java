@@ -43,23 +43,7 @@ public final class SharedDependencyResolver {
      * @throws CircularDependencyException if a cycle is detected
      */
     public List<BeanDefinition> resolve(List<BeanDefinition> beans) {
-        return resolve(beans, Set.of());
-    }
-
-    /**
-     * Resolves dependencies and returns beans in topological order.
-     *
-     * @param beans bean list (real definitions; mocked types have already been removed by {@code
-     *     SharedConditionEvaluator})
-     * @param mockedTypeNames fully-qualified names of types replaced by a mock. A dependency on a
-     *     mocked type is treated as satisfiable — the mock instance is supplied at instantiation
-     *     time (registered before the instantiate loop), so the resolver must not fail the build
-     *     for it.
-     * @return topologically sorted bean list
-     * @throws CircularDependencyException if a cycle is detected
-     */
-    public List<BeanDefinition> resolve(List<BeanDefinition> beans, Set<String> mockedTypeNames) {
-        return resolve(beans, mockedTypeNames, Map.of());
+        return resolve(beans, List.of());
     }
 
     /**
@@ -123,6 +107,29 @@ public final class SharedDependencyResolver {
     }
 
     /**
+     * Counts how many beans implement each interface name (transitive, from {@link
+     * BeanDefinition#interfaceNames}). The registration phase uses this to decide whether a bean's
+     * interface key is worth registering: an interface implemented by exactly one bean supports
+     * single-bean lookup by interface ({@code getBean(iface)} / constructor injection by
+     * interface); an interface implemented by multiple beans is a <em>collection-injection
+     * strategy</em> (e.g. {@code List<HttpParameterResolver>} in a chain, {@code List<Middleware>})
+     * resolved via {@code getBeans}, so the interface key is deliberately NOT registered — the
+     * last-writer-wins overwrite on a shared key is meaningless and hides the multi-impl contract.
+     *
+     * @return map of interface name -> number of beans implementing it
+     */
+    public static java.util.Map<String, Integer> interfaceImplementationCounts(
+            List<BeanDefinition> beans) {
+        java.util.Map<String, Integer> counts = new java.util.HashMap<>();
+        for (BeanDefinition bean : beans) {
+            for (String iface : bean.interfaceNames) {
+                counts.merge(iface, 1, Integer::sum);
+            }
+        }
+        return counts;
+    }
+
+    /**
      * Validates that no two bean definitions share the same qualified name. Two {@code @Bean}
      * methods returning the same type, or a {@code @Component} and a {@code @Bean} producing the
      * same type, is ambiguous and must be rejected at build time.
@@ -179,9 +186,18 @@ public final class SharedDependencyResolver {
                 continue;
             }
 
-            // Scalar (non-List) parameter.
-            if (paramType.equals("com.github.dropguard.summer.core.BeanContainer"))
-                continue; // container unavailable at build time; engines pass null
+            // Scalar (non-List) parameter. Injecting the container into a bean would create a
+            // circular bootstrap reference (the container is being built). Rejected here, at
+            // discovery time, so both engines fail fast at build rather than at instantiation —
+            // this is the same rejection the engines perform (BeanInstantiator /
+            // WireMethodGenerator), moved earlier so it cannot diverge.
+            if (paramType.equals("com.github.dropguard.summer.core.BeanContainer")) {
+                throw new com.github.dropguard.summer.core.exception.BeanCreationException(
+                        "ApplicationContext injection is not supported: "
+                                + bean.qualifiedName
+                                + " declares a BeanContainer constructor parameter. Use"
+                                + " BeanContainer from the caller instead.");
+            }
 
             BeanDefinition resolved = findBean(paramType, allBeans);
             if (resolved == null) {

@@ -132,6 +132,14 @@ public sealed class BeanDefinition permits ConfigPropertiesBean {
     /** Method-level @ConditionalOnBean target (null when absent). */
     public String methodConditionalOnBeanType;
 
+    /**
+     * Name of the {@code @PostConstruct} lifecycle method (null when absent). Populated during
+     * enrichment, following CDI semantics: the most specific declaration in the class hierarchy
+     * wins, and {@code @Bean} products never receive lifecycle callbacks (the producer owns its
+     * product's initialization).
+     */
+    public String postConstructMethod;
+
     // ── Phase 3: Resolution outputs ───────────────────────────────────
 
     /**

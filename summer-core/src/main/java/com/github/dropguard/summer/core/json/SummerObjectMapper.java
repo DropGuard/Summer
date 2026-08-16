@@ -49,7 +49,11 @@ public final class SummerObjectMapper {
      * @return a new ObjectMapper with safe defaults
      */
     public static ObjectMapper create() {
-        return create(null);
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        return mapper;
     }
 
     /**
@@ -59,14 +63,10 @@ public final class SummerObjectMapper {
      * @return a new ObjectMapper with safe defaults
      */
     public static ObjectMapper create(Consumer<ObjectMapper> customizer) {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());
-        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        ObjectMapper mapper = create();
         if (customizer != null) {
             customizer.accept(mapper);
         }
-
         return mapper;
     }
 
@@ -76,7 +76,11 @@ public final class SummerObjectMapper {
      * @return a new ObjectMapper configured for YAML parsing
      */
     public static ObjectMapper createYaml() {
-        return createYaml(null);
+        ObjectMapper mapper =
+                new ObjectMapper(new com.fasterxml.jackson.dataformat.yaml.YAMLFactory());
+        mapper.registerModule(new JavaTimeModule());
+        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        return mapper;
     }
 
     /**
@@ -86,15 +90,10 @@ public final class SummerObjectMapper {
      * @return a new ObjectMapper configured for YAML parsing
      */
     public static ObjectMapper createYaml(Consumer<ObjectMapper> customizer) {
-        ObjectMapper mapper =
-                new ObjectMapper(new com.fasterxml.jackson.dataformat.yaml.YAMLFactory());
-        mapper.registerModule(new JavaTimeModule());
-        mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-
+        ObjectMapper mapper = createYaml();
         if (customizer != null) {
             customizer.accept(mapper);
         }
-
         return mapper;
     }
 }

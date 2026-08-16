@@ -66,4 +66,17 @@ class SharedDependencyResolverTest {
                 () -> new SharedDependencyResolver().resolve(List.of(plain, dependent), List.of()),
                 "a non-proxied bean may be injected by its concrete class");
     }
+
+    @Test
+    void beanContainerInjectionIsRejectedAtDiscovery() {
+        // Rejected here, at discovery time — the engine-side checks were removed as unreachable,
+        // so this is the single guard for both engines.
+        BeanDefinition dependent = component("pkg.ContainerInjecting", Set.of());
+        dependent.parameters.add(param("com.github.dropguard.summer.core.BeanContainer"));
+
+        assertThrows(
+                BeanCreationException.class,
+                () -> new SharedDependencyResolver().resolve(List.of(dependent), List.of()),
+                "BeanContainer constructor injection must fail at discovery, before any engine");
+    }
 }

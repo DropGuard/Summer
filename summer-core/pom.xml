@@ -36,6 +36,13 @@
             <version>3.0.2</version>
         </dependency>
 
+        <!-- Jakarta Annotations API (@PostConstruct lifecycle boundary — annotations only, so
+             user beans get the standard CDI config-phase-end callback transitively from core) -->
+        <dependency>
+            <groupId>jakarta.annotation</groupId>
+            <artifactId>jakarta.annotation-api</artifactId>
+        </dependency>
+
         <!-- Logging -->
         <dependency>
             <groupId>org.slf4j</groupId>
