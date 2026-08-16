@@ -3,17 +3,15 @@ package com.github.dropguard.summer.plugin;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.github.dropguard.summer.aot.AotContextGenerator;
+import com.github.dropguard.summer.aot.AotEngine;
 import com.github.dropguard.summer.aot.AotProxyGenerator;
 import com.github.dropguard.summer.aot.AotSourceCompiler;
 import com.github.dropguard.summer.aot.JavaSourceFiles;
 import com.github.dropguard.summer.aot.RouteAdapterGenerator;
 import com.github.dropguard.summer.aot.WireMethodGenerator;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
-import com.github.dropguard.summer.core.bean.SharedDependencyResolver;
-import com.github.dropguard.summer.core.spi.RouteRegistrarLoader;
 import com.github.dropguard.summer.engine.BeanDeployment;
-import com.github.dropguard.summer.engine.Discovery;
-import com.github.dropguard.summer.engine.SharedConditionEvaluator;
+import com.github.dropguard.summer.engine.BuildPipeline;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -107,41 +105,12 @@ public class SummerMojo extends AbstractMojo {
                     deployment.syntheticBeans().stream()
                             .map(b -> b.qualifiedName)
                             .collect(java.util.stream.Collectors.joining(",")));
-            List<BeanDefinition> beans = Discovery.discover(deployment);
-            log.info("[Summer] Discovered {} beans", beans.size());
-
-            // SPI route collection (shared with the Runtime engine): loads every
-            // RouteRegistrar on the classpath (e.g. summer-runtime-web's WebRouteScanner)
-            // and merges routes / exception handlers into the candidate definitions
-            // before condition evaluation, so AOT codegen sees the same web surface.
-            RouteRegistrarLoader.mergeInto(RouteRegistrarLoader.load(beans), beans);
-
-            new SharedConditionEvaluator().evaluate(beans);
-            log.info("[Summer] After condition evaluation: {} beans", beans.size());
-
-            SharedDependencyResolver resolver = new SharedDependencyResolver();
-            List<BeanDefinition> sorted = resolver.resolve(beans);
-            log.info("[Summer] Resolved {} beans", sorted.size());
-            if (log.isDebugEnabled()) {
-                for (BeanDefinition b : sorted) {
-                    log.debug(
-                            "[Summer]   bean: {} [factory {}#{}] archive={} params={}{}",
-                            b.qualifiedName,
-                            b.configClassName,
-                            b.producerMethodName,
-                            b.archiveName,
-                            b.parameters.size(),
-                            b.syntheticInstance != null ? " [synthetic]" : "");
-                }
-            }
-            java.util.Set<String> usedNames = new java.util.HashSet<>();
-            for (com.github.dropguard.summer.core.bean.BeanDefinition bean : sorted) {
-                String baseName = bean.variableName;
-                int suffix = 2;
-                while (!usedNames.add(bean.variableName)) {
-                    bean.variableName = baseName + suffix++;
-                }
-            }
+            // The shared assembly core (discovery → conditions → routes → resolve → name dedup),
+            // identical to the test-time AOT compiler's sequence — one implementation, one order.
+            List<BeanDefinition> sorted = BuildPipeline.resolve(deployment, List.of()).sorted();
+            // Fail-fast for @Bean products with non-public return types (the generated code
+            // references them cross-package); the test-time compiler enforces the same check.
+            AotEngine.rejectNonPublicProducts(deployment, sorted);
 
             WireMethodGenerator wireGen = new WireMethodGenerator(index);
             currentBean = "(context)";

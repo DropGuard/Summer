@@ -56,10 +56,6 @@
                         </goals>
                         <configuration>
                             <mainClass>com.example.App</mainClass>
-                            <fork>true</fork>
-                            <jvmArgs>
-                                <jvmArg>--sun-misc-unsafe-memory-access=allow</jvmArg>
-                            </jvmArgs>
                         </configuration>
                     </execution>
                 </executions>

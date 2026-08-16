@@ -16,25 +16,21 @@ public class JandexFastIndexer {
 
     public JandexFastIndexer() {}
 
-    public void reindex(File outputDir) {
-        try {
-            log.info("[Summer] Rebuilding Jandex index...");
-            Indexer indexer = new Indexer();
-            indexDirectory(outputDir, outputDir, indexer);
-            Index index = indexer.complete();
+    public void reindex(File outputDir) throws Exception {
+        log.info("[Summer] Rebuilding Jandex index...");
+        Indexer indexer = new Indexer();
+        indexDirectory(outputDir, outputDir, indexer);
+        Index index = indexer.complete();
 
-            File metaInf = new File(outputDir, "META-INF");
-            if (!metaInf.exists()) metaInf.mkdirs();
+        File metaInf = new File(outputDir, "META-INF");
+        if (!metaInf.exists()) metaInf.mkdirs();
 
-            File idxFile = new File(metaInf, "jandex.idx");
-            try (FileOutputStream out = new FileOutputStream(idxFile)) {
-                IndexWriter writer = new IndexWriter(out);
-                writer.write(index);
-            }
-            log.info("[Summer] Index updated.");
-        } catch (Exception e) {
-            log.error("Failed to rebuild Jandex index", e);
+        File idxFile = new File(metaInf, "jandex.idx");
+        try (FileOutputStream out = new FileOutputStream(idxFile)) {
+            IndexWriter writer = new IndexWriter(out);
+            writer.write(index);
         }
+        log.info("[Summer] Index updated.");
     }
 
     private void indexDirectory(File baseDir, File currentDir, Indexer indexer) throws Exception {
