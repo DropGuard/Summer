@@ -89,10 +89,13 @@ class DefaultPageResolverTest {
     }
 
     @Test
-    void shouldClampNegativeSizeToZero() throws Exception {
+    void shouldClampNegativeSizeToDefault() throws Exception {
         HttpContext ctx = ctx("size=-10");
         DefaultPageRequest pageable = (DefaultPageRequest) resolver.resolve(ctx, pageableParam());
-        assertEquals(0, pageable.size());
+        // The resolver clamps negatives to 0, then DefaultPageRequest delegates to
+        // core.PageRequest,
+        // which normalizes a non-positive size to the default (20). Unified core semantics.
+        assertEquals(20, pageable.size());
     }
 
     @Test

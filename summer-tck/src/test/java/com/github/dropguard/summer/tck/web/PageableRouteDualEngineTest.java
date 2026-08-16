@@ -27,7 +27,7 @@ public class PageableRouteDualEngineTest extends AbstractWebRouteTCK {
     }
 
     @DualEngine
-    protected void pageableParamResolvesThroughChainOnBothEngines() {
+    protected void pageableParamResolvesThroughChainOnBothEngines() throws Exception {
         // query is a separate Request field: the path stays clean for router matching.
         Request req = new Request(HttpMethod.GET, "/rt/items", "page=2&size=10", null, null);
         HttpContext ctx = new HttpContext(req);
