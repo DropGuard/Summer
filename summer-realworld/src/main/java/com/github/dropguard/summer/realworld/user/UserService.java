@@ -4,6 +4,7 @@ import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.realworld.common.ConflictException;
 import com.github.dropguard.summer.realworld.common.ValidationException;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import org.mindrot.jbcrypt.BCrypt;
 
@@ -59,6 +60,11 @@ public class UserService {
 
     public Optional<User> findById(Long id) {
         return userRepository.findById(id);
+    }
+
+    /** Batch-loads users by id set in one query — the anti-N+1 counterpart of {@link #findById}. */
+    public List<User> findByIds(java.util.Collection<Long> ids) {
+        return userRepository.findByIds(ids);
     }
 
     public User update(

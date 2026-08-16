@@ -8,7 +8,8 @@ import com.github.dropguard.summer.web.annotation.Get;
 import com.github.dropguard.summer.web.annotation.RestController;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * REST endpoints for DM history.
@@ -41,12 +42,26 @@ public class DmController {
         Long currentUserId = ctx.request().getAttribute(RequestAttributes.USER_ID);
         List<Conversation> conversations = dmRepository.findConversations(currentUserId);
 
+        // Resolve the other party of every conversation in one batch query instead
+        // of looping findById (N+1): collect all other user ids, load them in a
+        // single IN query, then group by id.
+        List<Long> otherIds =
+                conversations.stream()
+                        .map(
+                                c ->
+                                        c.userOneId().equals(currentUserId)
+                                                ? c.userTwoId()
+                                                : c.userOneId())
+                        .toList();
+        Map<Long, User> usersById =
+                userRepository.findByIds(otherIds).stream()
+                        .collect(Collectors.toMap(User::id, u -> u));
+
         List<ConversationResponse> result = new ArrayList<>();
         for (Conversation c : conversations) {
             Long otherId = c.userOneId().equals(currentUserId) ? c.userTwoId() : c.userOneId();
-            Optional<User> otherUser = userRepository.findById(otherId);
-            if (otherUser.isEmpty()) continue;
-            User u = otherUser.get();
+            User u = usersById.get(otherId);
+            if (u == null) continue;
             result.add(
                     new ConversationResponse(
                             u.id(),

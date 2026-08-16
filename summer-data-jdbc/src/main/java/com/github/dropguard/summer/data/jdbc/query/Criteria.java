@@ -17,6 +17,7 @@ public sealed interface Criteria
         permits Criteria.Eq,
                 Criteria.Comparison,
                 Criteria.Like,
+                Criteria.In,
                 Criteria.IsNull,
                 Criteria.ColEq,
                 Criteria.JoinPredicate,
@@ -65,6 +66,29 @@ public sealed interface Criteria
         @Override
         public SqlFragment render() {
             return new SqlFragment(column + " LIKE ?", List.of(value));
+        }
+    }
+
+    /**
+     * {@code column IN (?, ?, ...)} — the batch-loading primitive that turns an N-times loop of
+     * single-row lookups into one parameterized query. An empty value list renders as {@code 1 = 0}
+     * (a contradiction) so callers can batch-load children by an empty parent-id set without
+     * issuing invalid {@code IN ()} SQL or a wildcard that returns the whole table.
+     */
+    record In(String column, List<?> values) implements Criteria {
+        @Override
+        public Set<String> columns() {
+            return Set.of(column);
+        }
+
+        @Override
+        public SqlFragment render() {
+            if (values == null || values.isEmpty()) {
+                return new SqlFragment("1 = 0", List.of());
+            }
+            String placeholders =
+                    String.join(", ", java.util.Collections.nCopies(values.size(), "?"));
+            return new SqlFragment(column + " IN (" + placeholders + ")", new ArrayList<>(values));
         }
     }
 

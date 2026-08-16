@@ -3,8 +3,8 @@ package com.github.dropguard.summer.realworld.article;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
-import com.github.dropguard.summer.realworld.user.UserRepository;
 import com.github.dropguard.summer.realworld.TestSeeds;
+import com.github.dropguard.summer.realworld.user.UserRepository;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 import com.github.dropguard.summer.test.annotation.TestResource;
 import com.github.dropguard.summer.test.db.PostgresTestResource;
@@ -14,8 +14,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration test for {@link FavoriteRepository} against real Postgres (Testcontainers).
  *
- * <p>Seeds the baseline via {@link com.github.dropguard.summer.realworld.TestSeeds#seedBaseline} (user 1 /
- * article 1) and declares its own {@code favoriteRepository}.
+ * <p>Seeds the baseline via {@link com.github.dropguard.summer.realworld.TestSeeds#seedBaseline}
+ * (user 1 / article 1) and declares its own {@code favoriteRepository}.
  */
 @SummerTest
 @TestResource(PostgresTestResource.class)

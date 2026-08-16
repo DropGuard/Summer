@@ -3,8 +3,8 @@ package com.github.dropguard.summer.realworld.comment;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
-import com.github.dropguard.summer.realworld.article.ArticleRepository;
 import com.github.dropguard.summer.realworld.TestSeeds;
+import com.github.dropguard.summer.realworld.article.ArticleRepository;
 import com.github.dropguard.summer.realworld.user.UserRepository;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 import com.github.dropguard.summer.test.annotation.TestResource;
@@ -16,8 +16,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration test for {@link CommentService} against real Postgres (Testcontainers).
  *
- * <p>Seeds the baseline via {@link com.github.dropguard.summer.realworld.TestSeeds#seedBaseline} (user 1 /
- * article 1) and declares its own {@code commentService} + {@code commentRepository}.
+ * <p>Seeds the baseline via {@link com.github.dropguard.summer.realworld.TestSeeds#seedBaseline}
+ * (user 1 / article 1) and declares its own {@code commentService} + {@code commentRepository}.
  */
 @SummerTest
 @TestResource(PostgresTestResource.class)

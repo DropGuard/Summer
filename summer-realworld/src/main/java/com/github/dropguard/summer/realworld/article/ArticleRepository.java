@@ -4,6 +4,7 @@ import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Component
@@ -109,6 +110,45 @@ public class ArticleRepository {
                         String.class,
                         articleId);
         return tags == null ? new ArrayList<>() : tags;
+    }
+
+    /**
+     * Batch tag names for a set of articles in one query, grouped by article id — the anti-N+1
+     * counterpart of {@link #findTags} for a list response (one query instead of one per article).
+     * Articles with no tags are absent from the map.
+     */
+    public Map<Long, List<String>> findTagsByArticleIds(java.util.Collection<Long> articleIds) {
+        if (articleIds == null || articleIds.isEmpty()) {
+            return Map.of();
+        }
+        String sql =
+                "SELECT at.article_id, t.name FROM tags t JOIN article_tags at ON at.tag_id = t.id"
+                        + " WHERE at.article_id IN ("
+                        + String.join(",", java.util.Collections.nCopies(articleIds.size(), "?"))
+                        + ") ORDER BY at.article_id, at.position";
+        Map<Long, List<String>> grouped = new java.util.LinkedHashMap<>();
+        List<Object[]> rows =
+                jdbcTemplate.queryForList(
+                        sql,
+                        (rs, rowNum) -> new Object[] {rs.getLong(1), rs.getString(2)},
+                        articleIds.toArray());
+        for (Object[] row : rows) {
+            Long articleId = ((Number) row[0]).longValue();
+            grouped.computeIfAbsent(articleId, k -> new ArrayList<>()).add((String) row[1]);
+        }
+        return grouped;
+    }
+
+    /**
+     * All distinct tag names across every article, in a single query — the anti-N+1 way to build
+     * the global tag list. Callers that previously looped {@code findAll()} + {@code
+     * findTags(articleId)} (one query per article) can use this one query instead.
+     */
+    public List<String> findAllDistinctTagNames() {
+        return jdbcTemplate.queryForList(
+                "SELECT DISTINCT t.name FROM tags t JOIN article_tags at ON at.tag_id = t.id"
+                        + " ORDER BY t.name",
+                String.class);
     }
 
     private void syncTags(Long articleId, List<String> tags) {

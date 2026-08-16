@@ -3,8 +3,8 @@ package com.github.dropguard.summer.realworld.user;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
-import com.github.dropguard.summer.realworld.article.ArticleRepository;
 import com.github.dropguard.summer.realworld.TestSeeds;
+import com.github.dropguard.summer.realworld.article.ArticleRepository;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 import com.github.dropguard.summer.test.annotation.TestResource;
 import com.github.dropguard.summer.test.db.PostgresTestResource;
@@ -17,7 +17,8 @@ import org.junit.jupiter.api.Test;
  * {@code follows} table behavior (FK constraints, {@code ON CONFLICT DO NOTHING}, ordering) that
  * the Mockito-only {@link FollowServiceTest} does not.
  *
- * <p>Seeds the baseline via {@link com.github.dropguard.summer.realworld.TestSeeds#seedBaseline} (user 1).
+ * <p>Seeds the baseline via {@link com.github.dropguard.summer.realworld.TestSeeds#seedBaseline}
+ * (user 1).
  */
 @SummerTest
 @TestResource(PostgresTestResource.class)

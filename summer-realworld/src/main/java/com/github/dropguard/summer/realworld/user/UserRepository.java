@@ -2,18 +2,22 @@ package com.github.dropguard.summer.realworld.user;
 
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
+import com.github.dropguard.summer.data.jdbc.query.QueryTemplate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 @Component
 public class UserRepository {
     private final JdbcTemplate jdbcTemplate;
+    private final QueryTemplate queryTemplate;
 
     private static final String COLUMNS =
             "id, username, email, password, bio, image, created_at, updated_at";
 
-    public UserRepository(JdbcTemplate jdbcTemplate) {
+    public UserRepository(JdbcTemplate jdbcTemplate, QueryTemplate queryTemplate) {
         this.jdbcTemplate = jdbcTemplate;
+        this.queryTemplate = queryTemplate;
     }
 
     public User save(User user) {
@@ -59,6 +63,23 @@ public class UserRepository {
         return Optional.ofNullable(
                 jdbcTemplate.queryForObject(
                         "SELECT " + COLUMNS + " FROM users WHERE id = ?", User.class, id));
+    }
+
+    /**
+     * Batch-loads users by a set of ids in a single {@code IN} query — the anti-N+1 counterpart of
+     * {@link #findById}. Callers assembling a list (e.g. resolving the author of every article in a
+     * feed) load all users in one query instead of looping {@code findById} N times.
+     */
+    public List<User> findByIds(Collection<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return queryTemplate
+                .select(User.class)
+                .where(QueryTemplate.in("id", ids))
+                .orderBy("id")
+                .limit(ids.size())
+                .list();
     }
 
     public Optional<User> findByEmail(String email) {

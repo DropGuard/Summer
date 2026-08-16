@@ -11,6 +11,8 @@ import com.github.dropguard.summer.data.jdbc.annotation.RowModel;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import javax.sql.DataSource;
 import org.jboss.jandex.IndexView;
 import org.jboss.jandex.Indexer;
@@ -217,6 +219,26 @@ class QueryBuilderIntegrationTest {
                                         .where(eq("not_a_column", "x"))
                                         .list());
         assertTrue(ex.getMessage().contains("Unknown column"));
+    }
+
+    @Test
+    void inMatchesRowsWhoseColumnIsInTheSet() {
+        // in() is the batch-loading primitive: one query for a set of keys.
+        List<Issue> result =
+                queryTemplate
+                        .select(Issue.class)
+                        .where(in("id", List.of(1, 3)))
+                        .orderBy("id")
+                        .limit(100)
+                        .list();
+        assertEquals(List.of(1, 3), result.stream().map(Issue::id).toList());
+    }
+
+    @Test
+    void inWithEmptySetMatchesNothing() {
+        // An empty IN set must not render invalid "IN ()" SQL nor match everything.
+        long count = queryTemplate.select(Issue.class).where(in("id", List.of())).count();
+        assertEquals(0L, count);
     }
 
     @Test
@@ -503,5 +525,71 @@ class QueryBuilderIntegrationTest {
                         IllegalArgumentException.class,
                         () -> queryTemplate.select(Issue.class).where(eq("nope.col", 1)).list());
         assertTrue(ex.getMessage().contains("Unknown table alias"));
+    }
+
+    @Test
+    void loadByForeignKeysGroupsChildrenByFkInOneQuery() {
+        // Anti-N+1: load all tags for issues 1 and 2 in a single IN query, grouped by issue_id.
+        // issue_tags rows: (1,10),(1,20),(2,10).
+        Map<Object, List<IssueTag>> byIssue =
+                queryTemplate.loadByForeignKeys(IssueTag.class, "issue_id", List.of(1, 2));
+        assertEquals(Set.of(1, 2), byIssue.keySet());
+        assertEquals(
+                Set.of(10, 20),
+                byIssue.get(1).stream()
+                        .map(IssueTag::tagId)
+                        .collect(java.util.stream.Collectors.toSet()));
+        assertEquals(
+                Set.of(10),
+                byIssue.get(2).stream()
+                        .map(IssueTag::tagId)
+                        .collect(java.util.stream.Collectors.toSet()));
+    }
+
+    @Test
+    void loadByForeignKeysWithEmptyKeysReturnsEmptyMapWithoutQuerying() {
+        assertEquals(
+                Map.of(), queryTemplate.loadByForeignKeys(IssueTag.class, "issue_id", List.of()));
+    }
+
+    @Test
+    void loadByForeignKeysWithNullKeysReturnsEmptyMapWithoutQuerying() {
+        assertEquals(Map.of(), queryTemplate.loadByForeignKeys(IssueTag.class, "issue_id", null));
+    }
+
+    @Test
+    void loadByForeignKeysRejectsUnknownFkColumn() {
+        IllegalArgumentException ex =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                queryTemplate.loadByForeignKeys(
+                                        IssueTag.class, "bogus_fk", List.of(1)));
+        assertTrue(ex.getMessage().contains("Unknown column"));
+    }
+
+    @Test
+    void inDrivesBatchUpdateAcrossMatchedRows() {
+        // UPDATE ... WHERE id IN (...) — batch mutation via the IN predicate.
+        queryTemplate
+                .update(Issue.class)
+                .set("status", "CLOSED")
+                .where(in("id", List.of(1, 3)))
+                .execute();
+
+        assertEquals(
+                "CLOSED", queryTemplate.select(Issue.class).where(eq("id", 1)).first().status());
+        assertEquals(
+                "CLOSED", queryTemplate.select(Issue.class).where(eq("id", 3)).first().status());
+        assertEquals("OPEN", queryTemplate.select(Issue.class).where(eq("id", 2)).first().status());
+    }
+
+    @Test
+    void inDrivesBatchDeleteAcrossMatchedRows() {
+        // DELETE ... WHERE id IN (...) — batch delete via the IN predicate.
+        queryTemplate.delete(Issue.class).where(in("id", List.of(1, 2))).execute();
+
+        assertEquals(1L, queryTemplate.select(Issue.class).count());
+        assertEquals("Third", queryTemplate.select(Issue.class).first().title());
     }
 }

@@ -21,6 +21,7 @@ import com.github.dropguard.summer.web.annotation.Put;
 import com.github.dropguard.summer.web.annotation.RestController;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -90,9 +91,7 @@ public class ArticleController {
         List<Article> paginatedArticles = articles.subList(fromIndex, toIndex);
 
         List<ArticleData> articleResponses =
-                paginatedArticles.stream()
-                        .map(a -> createArticleData(a, currentUserId, false))
-                        .collect(Collectors.toList());
+                createArticleDatas(paginatedArticles, currentUserId, false);
 
         ctx.json(HttpStatus.OK, new ArticlesResponse(articleResponses, total));
     }
@@ -114,9 +113,7 @@ public class ArticleController {
         List<Article> paginatedArticles = articles.subList(fromIndex, toIndex);
 
         List<ArticleData> articleResponses =
-                paginatedArticles.stream()
-                        .map(a -> createArticleData(a, currentUserId, false))
-                        .collect(Collectors.toList());
+                createArticleDatas(paginatedArticles, currentUserId, false);
 
         ctx.json(HttpStatus.OK, new ArticlesResponse(articleResponses, total));
     }
@@ -130,9 +127,11 @@ public class ArticleController {
         }
 
         Long currentUserId = tryGetCurrentUserId(ctx);
+        Article article = articleOpt.get();
+        Map<Long, User> authorsById = authorsById(List.of(article));
         ctx.json(
                 HttpStatus.OK,
-                new ArticleResponse(createArticleData(articleOpt.get(), currentUserId, true)));
+                new ArticleResponse(createArticleData(article, currentUserId, true, authorsById)));
     }
 
     @Post("/articles")
@@ -146,9 +145,10 @@ public class ArticleController {
         Article article =
                 articleService.create(
                         a.title(), a.description(), a.body(), a.tagList(), currentUserId);
+        Map<Long, User> authorsById = authorsById(List.of(article));
         ctx.json(
                 HttpStatus.CREATED,
-                new ArticleResponse(createArticleData(article, currentUserId, true)));
+                new ArticleResponse(createArticleData(article, currentUserId, true, authorsById)));
     }
 
     @Put("/articles/{slug}")
@@ -186,9 +186,11 @@ public class ArticleController {
 
         Article updatedArticle =
                 articleService.update(article, a.title(), a.description(), a.body(), a.tagList());
+        Map<Long, User> authorsById = authorsById(List.of(updatedArticle));
         ctx.json(
                 HttpStatus.OK,
-                new ArticleResponse(createArticleData(updatedArticle, currentUserId, true)));
+                new ArticleResponse(
+                        createArticleData(updatedArticle, currentUserId, true, authorsById)));
     }
 
     @Delete("/articles/{slug}")
@@ -222,9 +224,11 @@ public class ArticleController {
         }
 
         favoriteRepository.favorite(currentUserId, articleOpt.get().id());
+        Article article = articleOpt.get();
+        Map<Long, User> authorsById = authorsById(List.of(article));
         ctx.json(
                 HttpStatus.OK,
-                new ArticleResponse(createArticleData(articleOpt.get(), currentUserId, true)));
+                new ArticleResponse(createArticleData(article, currentUserId, true, authorsById)));
     }
 
     @Delete("/articles/{slug}/favorite")
@@ -238,9 +242,53 @@ public class ArticleController {
         }
 
         favoriteRepository.unfavorite(currentUserId, articleOpt.get().id());
+        Article article = articleOpt.get();
+        Map<Long, User> authorsById = authorsById(List.of(article));
         ctx.json(
                 HttpStatus.OK,
-                new ArticleResponse(createArticleData(articleOpt.get(), currentUserId, true)));
+                new ArticleResponse(createArticleData(article, currentUserId, true, authorsById)));
+    }
+
+    /**
+     * Batch-assembles {@link ArticleData} for a list of articles in a constant number of queries —
+     * the anti-N+1 path for list responses. All authors, tags, favorite counts, and favorited
+     * statuses are loaded once (a handful of batch queries) instead of once per article.
+     */
+    private List<ArticleData> createArticleDatas(
+            List<Article> articles, Long currentUserId, boolean includeBody) {
+        if (articles.isEmpty()) {
+            return List.of();
+        }
+        List<Long> articleIds = articles.stream().map(Article::id).collect(Collectors.toList());
+        Map<Long, User> authorsById = authorsById(articles);
+        Map<Long, List<String>> tagsByArticleId =
+                articleRepository.findTagsByArticleIds(articleIds);
+        Map<Long, Integer> favoriteCounts = favoriteRepository.countByArticleIds(articleIds);
+        Set<Long> favoritedIds =
+                currentUserId != null
+                        ? favoriteRepository.getFavoritedByUser(currentUserId, articleIds)
+                        : Set.of();
+
+        return articles.stream()
+                .map(
+                        a -> {
+                            boolean favorited = favoritedIds.contains(a.id());
+                            int favoritesCount = favoriteCounts.getOrDefault(a.id(), 0);
+                            Author author =
+                                    createAuthorData(a.authorId(), currentUserId, authorsById);
+                            return new ArticleData(
+                                    a.slug(),
+                                    a.title(),
+                                    a.description(),
+                                    includeBody ? a.body() : null,
+                                    tagsByArticleId.getOrDefault(a.id(), List.of()),
+                                    a.createdAt().toString(),
+                                    a.updatedAt().toString(),
+                                    favorited,
+                                    favoritesCount,
+                                    author);
+                        })
+                .collect(Collectors.toList());
     }
 
     /**
@@ -248,12 +296,12 @@ public class ArticleController {
      *     body)
      */
     private ArticleData createArticleData(
-            Article article, Long currentUserId, boolean includeBody) {
+            Article article, Long currentUserId, boolean includeBody, Map<Long, User> authorsById) {
         boolean favorited =
                 currentUserId != null
                         && favoriteRepository.isFavorited(currentUserId, article.id());
         int favoritesCount = favoriteRepository.countByArticleId(article.id());
-        Author author = createAuthorData(article.authorId(), currentUserId);
+        Author author = createAuthorData(article.authorId(), currentUserId, authorsById);
 
         return new ArticleData(
                 article.slug(),
@@ -268,15 +316,26 @@ public class ArticleController {
                 author);
     }
 
-    private Author createAuthorData(Long authorId, Long currentUserId) {
-        Optional<User> authorOpt = userService.findById(authorId);
-        if (authorOpt.isPresent()) {
-            User author = authorOpt.get();
+    private Author createAuthorData(
+            Long authorId, Long currentUserId, Map<Long, User> authorsById) {
+        User author = authorsById.get(authorId);
+        if (author != null) {
             boolean following =
                     currentUserId != null && followRepository.isFollowing(currentUserId, authorId);
             return new Author(author.username(), author.bio(), author.image(), following);
         }
         return new Author(null, null, null, false);
+    }
+
+    /**
+     * Batch-loads the authors of the given articles in a single IN query, keyed by user id — the
+     * anti-N+1 lookup for a list response (one query instead of one per article).
+     */
+    private Map<Long, User> authorsById(List<Article> articles) {
+        List<Long> authorIds =
+                articles.stream().map(Article::authorId).distinct().collect(Collectors.toList());
+        return userService.findByIds(authorIds).stream()
+                .collect(Collectors.toMap(User::id, u -> u));
     }
 
     private Long getCurrentUserId(HttpContext ctx) {

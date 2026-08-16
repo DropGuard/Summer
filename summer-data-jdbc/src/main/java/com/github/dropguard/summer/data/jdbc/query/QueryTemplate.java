@@ -36,6 +36,105 @@ public class QueryTemplate {
     }
 
     /**
+     * Batch-loads the children of a set of parents in a single query and groups them by foreign key
+     * — the anti-N+1 building block.
+     *
+     * <p>The classic N+1 is: query a list of parents (1 query), then loop each parent and query its
+     * children individually (N queries). This method collapses the loop into one parameterized
+     * {@code SELECT ... WHERE fkColumn IN (...)} and returns the children grouped by their
+     * foreign-key value, so the caller maps them onto the already-loaded parents with a single
+     * additional query instead of N.
+     *
+     * <p>{@code fkColumn} is validated against the child entity's registered metadata, so a raw
+     * caller-supplied column string can never reach the generated SQL. An empty {@code fkValues}
+     * returns an empty map without issuing a query. The foreign key is read from the mapped child
+     * instance by the same field-to-column rule the {@code RowMapper} uses, so the grouping key is
+     * always the child's real column value.
+     *
+     * @param childClass the child {@code @RowModel} entity to load (e.g. {@code Comment.class})
+     * @param fkColumn the child's foreign-key column that references the parent (e.g. {@code
+     *     "issue_id"})
+     * @param fkValues the set of parent keys to load children for (the parents' ids)
+     * @return a map from foreign-key value to the children whose {@code fkColumn} equals it; keys
+     *     with no children are absent (callers may default to an empty list)
+     * @throws IllegalArgumentException when {@code fkColumn} is not a known column of {@code
+     *     childClass}
+     */
+    public <C> Map<Object, List<C>> loadByForeignKeys(
+            Class<C> childClass, String fkColumn, java.util.Collection<?> fkValues) {
+        EntityMetadata childMeta = registry.get(childClass);
+        if (!childMeta.columns().contains(fkColumn)) {
+            throw new IllegalArgumentException(
+                    "Unknown column '"
+                            + fkColumn
+                            + "' on entity "
+                            + childClass.getName()
+                            + ". Known columns: "
+                            + childMeta.columns());
+        }
+        if (fkValues == null || fkValues.isEmpty()) {
+            return Map.of();
+        }
+        String sql =
+                "SELECT * FROM "
+                        + childMeta.tableName()
+                        + " WHERE "
+                        + fkColumn
+                        + " IN ("
+                        + String.join(",", java.util.Collections.nCopies(fkValues.size(), "?"))
+                        + ")";
+        List<C> children = jdbcTemplate.queryForList(sql, childClass, fkValues.toArray());
+        Map<Object, List<C>> grouped = new java.util.LinkedHashMap<>();
+        for (C child : children) {
+            Object key = foreignKeyValue(childMeta, fkColumn, child);
+            grouped.computeIfAbsent(key, k -> new java.util.ArrayList<>()).add(child);
+        }
+        return grouped;
+    }
+
+    private static Object foreignKeyValue(EntityMetadata meta, String fkColumn, Object entity) {
+        // Recover the field name from the snake_case column (the inverse of camelToSnake):
+        // the record component getter is invoked reflectively, same as EntityAccessor.
+        String fieldName = snakeToCamel(fkColumn);
+        for (var field : meta.fields()) {
+            if (field.name().equals(fieldName)) {
+                try {
+                    java.lang.reflect.Method getter = entity.getClass().getMethod(fieldName);
+                    return getter.invoke(entity);
+                } catch (ReflectiveOperationException e) {
+                    throw new IllegalStateException(
+                            "Cannot read foreign-key field '"
+                                    + fieldName
+                                    + "' from "
+                                    + entity.getClass().getName(),
+                            e);
+                }
+            }
+        }
+        throw new IllegalStateException(
+                "No registered field maps to column '"
+                        + fkColumn
+                        + "' on "
+                        + entity.getClass().getName());
+    }
+
+    /** Inverse of {@link RowMapperFactory#camelToSnake}: {@code issue_id} -> {@code issueId}. */
+    private static String snakeToCamel(String snake) {
+        StringBuilder sb = new StringBuilder();
+        boolean upper = false;
+        for (int i = 0; i < snake.length(); i++) {
+            char ch = snake.charAt(i);
+            if (ch == '_') {
+                upper = true;
+            } else {
+                sb.append(upper ? Character.toUpperCase(ch) : ch);
+                upper = false;
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
      * Inserts all columns of the given entity. This is plain INSERT — not upsert; callers needing
      * "insert or update" should issue an explicit statement.
      */
@@ -95,6 +194,15 @@ public class QueryTemplate {
 
     public static Criteria eq(String column, Object value) {
         return new Criteria.Eq(column, value);
+    }
+
+    /**
+     * {@code column IN (values...)} — batch-loading predicate: matches any row whose column is in
+     * the given value set. An empty set matches nothing (rendered as a contradiction), so callers
+     * can batch-load children by an empty parent-id set without invalid SQL.
+     */
+    public static Criteria in(String column, java.util.Collection<?> values) {
+        return new Criteria.In(column, values == null ? List.of() : List.copyOf(values));
     }
 
     /**

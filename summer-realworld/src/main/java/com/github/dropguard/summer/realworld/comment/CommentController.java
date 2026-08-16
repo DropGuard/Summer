@@ -19,6 +19,7 @@ import com.github.dropguard.summer.web.annotation.PathParam;
 import com.github.dropguard.summer.web.annotation.Post;
 import com.github.dropguard.summer.web.annotation.RestController;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -59,7 +60,11 @@ public class CommentController {
         String commentBody = body.comment().body();
 
         Comment comment = commentService.create(commentBody, articleOpt.get().id(), currentUserId);
-        ctx.json(HttpStatus.CREATED, new CommentResponse(createCommentData(comment)));
+        // Resolve the single author via the batch path for consistency.
+        Map<Long, User> authorById =
+                userService.findByIds(List.of(comment.authorId())).stream()
+                        .collect(Collectors.toMap(User::id, u -> u));
+        ctx.json(HttpStatus.CREATED, new CommentResponse(createCommentData(comment, authorById)));
     }
 
     @Get("/articles/{slug}/comments")
@@ -71,8 +76,20 @@ public class CommentController {
         }
 
         List<Comment> comments = commentService.findByArticleId(articleOpt.get().id());
+        // Resolve every comment's author in one batch IN query instead of looping
+        // createCommentData's findById (N+1).
+        Map<Long, User> authorsById =
+                userService
+                        .findByIds(
+                                comments.stream()
+                                        .map(Comment::authorId)
+                                        .collect(Collectors.toList()))
+                        .stream()
+                        .collect(Collectors.toMap(User::id, u -> u));
         List<CommentData> commentResponses =
-                comments.stream().map(this::createCommentData).collect(Collectors.toList());
+                comments.stream()
+                        .map(c -> createCommentData(c, authorsById))
+                        .collect(Collectors.toList());
 
         ctx.json(HttpStatus.OK, new CommentsResponse(commentResponses));
     }
@@ -116,19 +133,19 @@ public class CommentController {
         ctx.json(HttpStatus.NO_CONTENT, "");
     }
 
-    private CommentData createCommentData(Comment comment) {
-        Optional<User> authorOpt = userService.findById(comment.authorId());
-        Author author =
-                authorOpt
-                        .map(u -> new Author(u.username(), u.bio(), u.image(), false))
-                        .orElse(new Author(null, null, null, false));
+    private CommentData createCommentData(Comment comment, Map<Long, User> authorsById) {
+        User author = authorsById.get(comment.authorId());
+        Author authorData =
+                author != null
+                        ? new Author(author.username(), author.bio(), author.image(), false)
+                        : new Author(null, null, null, false);
 
         return new CommentData(
                 comment.id(),
                 comment.createdAt().toString(),
                 comment.updatedAt().toString(),
                 comment.body(),
-                author);
+                authorData);
     }
 
     private Long getCurrentUserId(HttpContext ctx) {
