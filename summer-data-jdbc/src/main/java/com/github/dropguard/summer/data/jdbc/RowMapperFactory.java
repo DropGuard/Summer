@@ -14,6 +14,8 @@ import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
 import org.jboss.jandex.RecordComponentInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Discovers {@code @RowModel} records through a Jandex index and builds the {@link RowMapper}
@@ -36,6 +38,8 @@ import org.jboss.jandex.RecordComponentInfo;
  */
 @Internal
 public final class RowMapperFactory {
+
+    private static final Logger log = LoggerFactory.getLogger(RowMapperFactory.class);
 
     private static final DotName ROW_MODEL_DOT =
             DotName.createSimple("com.github.dropguard.summer.data.jdbc.annotation.RowModel");
@@ -66,6 +70,10 @@ public final class RowMapperFactory {
             // mapping is unaffected (it maps by name, not position).
             List<RecordComponentInfo> components = ci.recordComponentsInDeclarationOrder();
             if (components == null || components.isEmpty()) {
+                log.warn(
+                        "[Summer] @RowModel on {} is not a record — no row mapper is registered"
+                                + " for it. @RowModel requires a Java record.",
+                        ci.name());
                 continue;
             }
 

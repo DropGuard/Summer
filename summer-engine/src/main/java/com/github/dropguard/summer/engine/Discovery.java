@@ -303,6 +303,18 @@ public final class Discovery {
         // A @Bean product belongs to its declaring @Configuration's archive.
         fb.archiveName = moduleIndex.archiveOf(configCi.name().toString());
         fillFactoryBean(fb, configCi, method, merged);
+        // Class-level @ConditionalOnBean on the PRODUCT type (not the producer method). Discovery
+        // is the single place that collects @ConditionalOnBean: the method-level condition above
+        // (fillFactoryBean) AND this product-class-level one, both feeding the AND semantics in
+        // SharedConditionEvaluator. Reading the product class here keeps the two conditions next
+        // to each other instead of re-reading the class in BeanEnrichment.
+        if (returnTypeCi != null) {
+            AnnotationInstance productConditional =
+                    returnTypeCi.annotation(CONDITIONAL_ON_BEAN_DOT);
+            if (productConditional != null) {
+                fb.conditionalOnBeanType = productConditional.value().asClass().name().toString();
+            }
+        }
         return fb;
     }
 

@@ -2,7 +2,6 @@ package com.github.dropguard.summer.data.jdbc;
 
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.annotation.Configuration;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -46,9 +45,5 @@ public final class EntityMetadataRegistry {
 
     public boolean contains(Class<?> entityClass) {
         return byClassName.containsKey(entityClass.getName());
-    }
-
-    public Map<String, EntityMetadata> all() {
-        return Collections.unmodifiableMap(byClassName);
     }
 }

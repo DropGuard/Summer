@@ -35,7 +35,13 @@ public class PersonRepository {
     }
 
     public List<Person> findByStatus(String status) {
-        return queryTemplate.select(Person.class).where(QueryTemplate.eq("status", status)).list();
+        // Explicit bound: this fixture returns up to 100 rows (the test data is small). A
+        // repository method that silently returns "all rows" would be an unbounded scan.
+        return queryTemplate
+                .select(Person.class)
+                .where(QueryTemplate.eq("status", status))
+                .limit(100)
+                .list();
     }
 
     public void updateStatus(Long id, String status) {

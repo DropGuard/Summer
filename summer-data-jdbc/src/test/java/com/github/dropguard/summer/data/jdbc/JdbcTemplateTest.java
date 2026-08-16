@@ -249,6 +249,18 @@ class JdbcTemplateTest {
         }
     }
 
+    // ---- Post-assembly immutability (A33) ----
+
+    @Test
+    @DisplayName("registerMapper after seal() throws")
+    void registerMapperAfterSealThrows() {
+        jdbcTemplate.seal();
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> jdbcTemplate.registerMapper(TestRow.class, (rs, rowNum) -> null));
+    }
+
     // ---- Helper types ----
 
     record TestRow(int id, String name) {}

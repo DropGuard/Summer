@@ -9,11 +9,16 @@ import org.jboss.jandex.IndexView;
  * Registers reflective {@link RowMapper}s for every {@code @RowModel} record in the deployment
  * index — the Runtime engine's row-mapping path.
  *
- * <p>This registrar is <b>Runtime-only</b>: the AOT engine emits inline mappers at build time
- * instead (see {@code WireMethodGenerator}), so it must not also run reflective registration or the
- * same mapper would be registered twice. The engine-agnostic structural metadata (table/column
- * mapping for {@link QueryBuilder}) lives in {@link EntityMetadataRegistrar}, which runs on both
- * engines.
+ * <p>This registrar is <b>Runtime-only</b>: the AOT engine emits the equivalent {@code
+ * registerMapper} statements at build time instead (see {@code JdbcTemplateAotConstructor}), so it
+ * must not also run reflective registration or the same mapper would be registered twice. The
+ * engine-agnostic structural metadata (table/column mapping for {@link QueryBuilder}) lives in
+ * {@link EntityMetadataRegistrar}, which runs on both engines.
+ *
+ * <p>This registrar is the last assembly-time writer of the mappers (the {@code @Internal} contract
+ * of {@code registerMapper}); the template's immutability boundary is the container's seal phase,
+ * which freezes it once the whole assembly is done — not this constructor, so any assembly-time
+ * writer may fill the template regardless of creation order.
  */
 @ConditionalOnBean(RuntimeDiMarker.class)
 final class ReflectiveRowMapperRegistrar {

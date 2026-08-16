@@ -14,10 +14,11 @@ import java.lang.annotation.Target;
  * this boundary (Java has no module-private modifier); the annotation is a signal, reinforced by
  * instability — depending on an internal type means a framework upgrade can break your code.
  *
- * <p>Public API for framework users is limited to the {@code @SummerTest}, {@code @Mock}, and
+ * <p>This annotation is framework-wide (used across {@code summer-core}, {@code summer-engine},
+ * {@code summer-web}, and every infrastructure module), not limited to {@code summer-test}. Public
+ * API for framework users is limited to the {@code @SummerTest}, {@code @Mock}, and
  * {@code @TestProfile} annotations plus the {@code TestContainer} facade ({@code build()} / {@code
- * buildForTest(Class)}). Everything else in {@code summer-test} is internal unless explicitly
- * documented otherwise.
+ * buildForTest(Class)}). Everything else is internal unless explicitly documented otherwise.
  */
 @Documented
 @Retention(RetentionPolicy.SOURCE)

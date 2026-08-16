@@ -1,5 +1,7 @@
 package com.github.dropguard.summer.data.jdbc;
 
+import com.github.dropguard.summer.core.FrozenState;
+import com.github.dropguard.summer.core.Sealable;
 import com.github.dropguard.summer.core.exception.DataAccessException;
 import com.github.dropguard.summer.data.jdbc.tx.ThreadLocalTransactionContext;
 import java.sql.Connection;
@@ -13,7 +15,15 @@ import java.util.Map;
 import javax.sql.DataSource;
 
 /**
- * Core JDBC operations class. Thread-safe and designed to be a singleton.
+ * Core JDBC operations class. Singleton, and read-only after container assembly — the
+ * write-once-then-read boundary is enforced, not just documented.
+ *
+ * <p>Thread-safety model: the {@code mappers} registry is written only during container assembly,
+ * then read concurrently by queries (safe publication via {@link #state}). The boundary is the same
+ * on both engines: assembly-time writers fill the mappers — the runtime engine's {@code
+ * ReflectiveRowMapperRegistrar} bean, the AOT engine's generated {@code registerMapper} statements
+ * — and the container's seal phase then calls {@link #seal()} (this bean implements {@link
+ * Sealable}) once the whole graph is up. {@link #registerMapper} throws after that.
  *
  * <p>Connection acquisition is transaction-aware: when a {@code @Transactional} boundary is active
  * on the current thread, {@link #getConnection()} reuses the transaction's connection (so writes
@@ -21,13 +31,19 @@ import javax.sql.DataSource;
  * underlying {@link DataSource}. Users never wrap their {@code DataSource} by hand — the framework
  * handles connection sharing here.
  */
-public class JdbcTemplate {
+public class JdbcTemplate implements Sealable {
 
     private final DataSource dataSource;
-    private final Map<Class<?>, RowMapper<?>> mappers = new HashMap<>();
+    private final Map<Class<?>, RowMapper<?>> mappers;
+    private final FrozenState state = new FrozenState();
 
+    /**
+     * Mutable-construction path: assembly-time writers fill the mappers via {@link
+     * #registerMapper}, and the container's seal phase freezes the state at the end of assembly.
+     */
     public JdbcTemplate(DataSource dataSource) {
         this.dataSource = dataSource;
+        this.mappers = new HashMap<>();
     }
 
     /**
@@ -44,14 +60,24 @@ public class JdbcTemplate {
     }
 
     /**
-     * Registers a {@code RowMapper} for the given row type. Called by the DI engine at startup
-     * (reflective registrar) and by AOT-generated wire code — {@code @Internal}: part of the
-     * framework's engine contract, not the public API. Kept {@code public} because the AOT engine
-     * emits this call from a generated class in another package.
+     * Registers a {@code RowMapper} for the given row type. Assembly-time API — {@code @Internal}:
+     * part of the framework's engine contract, not the public API. Filled by the runtime engine's
+     * {@code ReflectiveRowMapperRegistrar} and the AOT engine's generated statements; throws once
+     * the template is sealed (the container seal phase, post-assembly on both engines).
      */
     @com.github.dropguard.summer.core.Internal
     public void registerMapper(Class<?> rowType, RowMapper<?> mapper) {
+        state.ensureMutable("registerMapper");
         mappers.put(rowType, mapper);
+    }
+
+    /**
+     * Seals this template: further {@link #registerMapper} calls throw. Called by the container's
+     * seal phase at the end of assembly (both engines); a caller may also seal earlier. Idempotent.
+     */
+    @Override
+    public void seal() {
+        state.freeze();
     }
 
     public int update(String sql, Object... args) {

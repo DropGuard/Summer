@@ -171,13 +171,6 @@ public final class AotContextGenerator {
         // hand-written registration here.
         wireGen.generateWireMethod(method, sortedBeans, profileOverrides);
 
-        // AOT row mappers: emit inline (zero-reflection) RowMapper lambdas for every
-        // @RowModel record, registered directly on JdbcTemplate. This is the AOT
-        // counterpart of data-jdbc's reflective RowMapperRegistrar, which is
-        // @ConditionalOnBean(RuntimeDiMarker) and therefore skipped on the AOT engine
-        // (it uses AotDiMarker) — see WireMethodGenerator#emitRowMapperRegistrations.
-        wireGen.emitRowMapperRegistrations(method, null, sortedBeans);
-
         // Route adapter
         if (sortedBeans.stream().anyMatch(b -> !b.routes.isEmpty())) {
             method.addCode("\n");

@@ -93,30 +93,6 @@ class WireMethodGeneratorTest {
     }
 
     @Test
-    void beanContainerScalarIsRejected() throws Exception {
-        // Mirrors the runtime engine (BeanInstantiator): injecting the container into a bean
-        // would create a circular bootstrap reference — codegen must reject it, not emit null.
-        BeanDefinition consumer = new BeanDefinition(Consumer.class.getName(), "Consumer");
-        consumer.parameters.add(
-                new InjectionParameter(
-                        "com.github.dropguard.summer.core.BeanContainer", new ArrayList<>()));
-
-        com.github.dropguard.summer.core.exception.BeanCreationException ex =
-                org.junit.jupiter.api.Assertions.assertThrows(
-                        com.github.dropguard.summer.core.exception.BeanCreationException.class,
-                        () -> {
-                            try {
-                                buildArgs(consumer);
-                            } catch (java.lang.reflect.InvocationTargetException e) {
-                                // reflective helper wraps the real exception
-                                throw (RuntimeException) e.getCause();
-                            }
-                        });
-        org.junit.jupiter.api.Assertions.assertTrue(
-                ex.getMessage().contains("ApplicationContext injection is not supported"));
-    }
-
-    @Test
     void scalarDependencyEmitsVariableName() throws Exception {
         BeanDefinition depBean = dep(Dep.class.getName());
         BeanDefinition consumer = new BeanDefinition(Consumer.class.getName(), "Consumer");

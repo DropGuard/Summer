@@ -75,6 +75,16 @@ public final class BeanContainer implements AutoCloseable {
     /**
      * Gets a bean by type. First tries exact key match, then falls back to {@code isInstance}
      * scanning. Throws if zero or multiple matches.
+     *
+     * <p><b>Strategy interfaces:</b> Summer supports multiple beans implementing one interface
+     * (e.g. {@code CursorPageResolver} + {@code DefaultPageResolver} both implement {@code
+     * HttpParameterResolver}, composed via {@code HttpParameterResolverChain}). Such an interface
+     * is deliberately NOT registered as a shared key (see {@code
+     * BeanInstantiator#registerAllInterfaces} — a last-writer-wins overwrite would hide the
+     * multi-impl contract), so {@code getBean(strategyIface)} falls back to the {@code isInstance}
+     * scan and throws {@code AmbiguousBeanException} for the multi-impl case. To obtain all impls
+     * use {@link #getBeans(Class)}; to resolve a specific one use the concrete type. This is by
+     * design, not a gap.
      */
     public <T> T getBean(Class<T> type) {
         return getBean(typeIndex, type);
@@ -196,7 +206,9 @@ public final class BeanContainer implements AutoCloseable {
         try {
             ac.close();
         } catch (Exception e) {
-            log.error("[Summer] Error closing bean {}: {}", ac.getClass().getName(), e);
+            // e must be the trailing argument NOT bound to a {} placeholder, or SLF4J renders only
+            // its message and the stack trace is lost (the throwable-as-last-arg rule).
+            log.error("[Summer] Error closing bean {}", ac.getClass().getName(), e);
         }
     }
 
@@ -298,9 +310,30 @@ public final class BeanContainer implements AutoCloseable {
 
         /** Produces an immutable {@link BeanContainer}. */
         public BeanContainer build(Engine engine) {
+            // Seal phase: after every bean is instantiated, every @PostConstruct has run, and every
+            // validator has passed, the container stops assembly-time writes. Reverse creation
+            // order — a bean's dependencies (created earlier) seal after it. Runtime and AOT share
+            // this exact point (both end with build(...)), so the boundary is engine-agnostic by
+            // construction; a bean may also seal itself earlier (seal is idempotent).
+            sealBeans();
+
             // The container constructor defensively copies both the type index and the bean list,
             // so a builder still referenced after build() can no longer mutate the built container.
             return new BeanContainer(typeIndex, beans, engine, routes);
+        }
+
+        /**
+         * Seals every {@link Sealable} bean in reverse creation order — the unified "assembly
+         * complete" signal. Non-Sealable beans are untouched. Idempotent: a bean that sealed itself
+         * earlier is sealed again as a no-op.
+         */
+        private void sealBeans() {
+            for (int i = beans.size() - 1; i >= 0; i--) {
+                Object instance = beans.get(i).instance();
+                if (instance instanceof Sealable sealable) {
+                    sealable.seal();
+                }
+            }
         }
 
         /** Convenience overload — defaults to {@link Engine#RUNTIME}. */

@@ -3,6 +3,7 @@ package com.github.dropguard.summer.data.jdbc.query;
 import static com.github.dropguard.summer.data.jdbc.query.QueryTemplate.*;
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.github.dropguard.summer.core.data.PageRequest;
 import com.github.dropguard.summer.data.jdbc.EntityMetadataRegistry;
 import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
 import com.github.dropguard.summer.data.jdbc.RowMapperFactory;
@@ -83,17 +84,29 @@ class QueryBuilderIntegrationTest {
 
     @Test
     void selectsBySingleEquality() {
-        List<Issue> open = queryTemplate.select(Issue.class).where(eq("status", "OPEN")).list();
+        // count() asserts the number of matches; list().limit(N) asserts row content. The limit is
+        // explicit (the framework never assumes a page size) and count() confirms no row was
+        // truncated.
+        assertEquals(2L, queryTemplate.select(Issue.class).where(eq("status", "OPEN")).count());
+        List<Issue> open =
+                queryTemplate.select(Issue.class).where(eq("status", "OPEN")).limit(100).list();
         assertEquals(2, open.size());
         assertTrue(open.stream().allMatch(i -> i.status().equals("OPEN")));
     }
 
     @Test
     void selectsByCompositeAnd() {
+        assertEquals(
+                1L,
+                queryTemplate
+                        .select(Issue.class)
+                        .where(eq("status", "OPEN"), eq("assignee", "alice"))
+                        .count());
         List<Issue> result =
                 queryTemplate
                         .select(Issue.class)
                         .where(eq("status", "OPEN"), eq("assignee", "alice"))
+                        .limit(100)
                         .list();
         assertEquals(1, result.size());
         assertEquals("First", result.get(0).title());
@@ -101,18 +114,32 @@ class QueryBuilderIntegrationTest {
 
     @Test
     void selectsByOrGroup() {
+        assertEquals(
+                3L,
+                queryTemplate
+                        .select(Issue.class)
+                        .where(or(eq("assignee", "alice"), eq("assignee", "bob")))
+                        .count());
         List<Issue> result =
                 queryTemplate
                         .select(Issue.class)
                         .where(or(eq("assignee", "alice"), eq("assignee", "bob")))
+                        .limit(100)
                         .list();
         assertEquals(3, result.size());
     }
 
     @Test
     void comparisonAndOrdering() {
+        assertEquals(2L, queryTemplate.select(Issue.class).where(ge("id", 2)).count());
         List<Issue> result =
-                queryTemplate.select(Issue.class).where(ge("id", 2)).orderBy("id").desc().list();
+                queryTemplate
+                        .select(Issue.class)
+                        .where(ge("id", 2))
+                        .orderBy("id")
+                        .desc()
+                        .limit(100)
+                        .list();
         assertEquals(List.of(3, 2), result.stream().map(Issue::id).toList());
     }
 
@@ -121,6 +148,43 @@ class QueryBuilderIntegrationTest {
         List<Issue> result =
                 queryTemplate.select(Issue.class).orderBy("id").limit(2).offset(1).list();
         assertEquals(List.of(2, 3), result.stream().map(Issue::id).toList());
+    }
+
+    @Test
+    void pageReturnsWindowAndTotal() {
+        // 3 rows total; page (0, 2) fetches ids 1,2 and reports total=3.
+        var page0 = queryTemplate.select(Issue.class).orderBy("id").page(new PageRequest(0, 2));
+        assertEquals(List.of(1, 2), page0.content().stream().map(Issue::id).toList());
+        assertEquals(3L, page0.total());
+        assertEquals(0, page0.page());
+        assertEquals(2, page0.size());
+    }
+
+    @Test
+    void pageLastPageReturnsRemainder() {
+        // page (1, 2) fetches the third row; total stays 3.
+        var page1 = queryTemplate.select(Issue.class).orderBy("id").page(new PageRequest(1, 2));
+        assertEquals(List.of(3), page1.content().stream().map(Issue::id).toList());
+        assertEquals(3L, page1.total());
+        assertEquals(1, page1.page());
+        assertEquals(2, page1.size());
+    }
+
+    @Test
+    void pageTotalIsNotInflatedByExistsFilter() {
+        // Tag filter (tag_id=10) matches issues 1 and 2 via EXISTS; total must be 2, not the
+        // multiplied row count.
+        var page =
+                queryTemplate
+                        .select(Issue.class)
+                        .exists(
+                                IssueTag.class,
+                                "it",
+                                and(eqCol("it.issue_id", "root.id"), eq("it.tag_id", 10)))
+                        .orderBy("id")
+                        .page(new PageRequest(0, 10));
+        assertEquals(List.of(1, 2), page.content().stream().map(Issue::id).toList());
+        assertEquals(2L, page.total());
     }
 
     @Test
@@ -260,6 +324,7 @@ class QueryBuilderIntegrationTest {
                                 IssueTag.class,
                                 "it",
                                 and(eqCol("it.issue_id", "root.id"), eq("it.tag_id", 10)))
+                        .limit(100)
                         .list();
         assertEquals(List.of(1, 2), tagged.stream().map(Issue::id).sorted().toList());
         // count() must count distinct root rows, not joined rows
@@ -273,6 +338,16 @@ class QueryBuilderIntegrationTest {
 
     @Test
     void existsCombinesWithRootCriteria() {
+        assertEquals(
+                1L,
+                queryTemplate
+                        .select(Issue.class)
+                        .where(eq("status", "OPEN"))
+                        .exists(
+                                IssueTag.class,
+                                "it",
+                                and(eqCol("it.issue_id", "root.id"), eq("it.tag_id", 20)))
+                        .count());
         List<Issue> result =
                 queryTemplate
                         .select(Issue.class)
@@ -281,6 +356,7 @@ class QueryBuilderIntegrationTest {
                                 IssueTag.class,
                                 "it",
                                 and(eqCol("it.issue_id", "root.id"), eq("it.tag_id", 20)))
+                        .limit(100)
                         .list();
         // Only issue 1 is OPEN and tagged 20.
         assertEquals(List.of(1), result.stream().map(Issue::id).toList());
@@ -290,14 +366,121 @@ class QueryBuilderIntegrationTest {
     void joinBringsRelatedTableIntoFrom() {
         // join() is for 1:1/N:1 expansion; verify it emits a JOIN and validates
         // the ON predicate's qualified columns.
+        assertEquals(
+                3L,
+                queryTemplate
+                        .select(Issue.class)
+                        .join(IssueTag.class, "it", eqCol("it.issue_id", "root.id"))
+                        .count());
         List<Issue> result =
                 queryTemplate
                         .select(Issue.class)
                         .join(IssueTag.class, "it", eqCol("it.issue_id", "root.id"))
+                        .limit(100)
                         .list();
         // JOIN multiplies root rows by matches: issue 1 has tags 10,20 (2 rows),
         // issue 2 has tag 10 (1 row), issue 3 has none -> 3 rows total.
         assertEquals(3, result.size());
+    }
+
+    @Test
+    void joinOnWithValueBindingAlignsParams() {
+        // The ON clause binds a value (tag_id = 10); its `?` must receive the
+        // bound value, not be left dangling (regression: ON params were dropped,
+        // shifting every later binding).
+        assertEquals(
+                2L,
+                queryTemplate
+                        .select(Issue.class)
+                        .join(
+                                IssueTag.class,
+                                "it",
+                                and(eqCol("it.issue_id", "root.id"), eq("it.tag_id", 10)))
+                        .count());
+        List<Issue> result =
+                queryTemplate
+                        .select(Issue.class)
+                        .join(
+                                IssueTag.class,
+                                "it",
+                                and(eqCol("it.issue_id", "root.id"), eq("it.tag_id", 10)))
+                        .limit(100)
+                        .list();
+        // Issues 1 and 2 are tagged 10; issue 3 has no tags.
+        assertEquals(List.of(1, 2), result.stream().map(Issue::id).sorted().toList());
+    }
+
+    @Test
+    void joinValueBindingCombinesWithWhereValueBinding() {
+        // where(...) before join(...): the ON param must still precede the WHERE
+        // param in the PreparedStatement (SQL text order: JOIN before WHERE).
+        assertEquals(
+                1L,
+                queryTemplate
+                        .select(Issue.class)
+                        .where(eq("assignee", "alice"))
+                        .join(
+                                IssueTag.class,
+                                "it",
+                                and(eqCol("it.issue_id", "root.id"), eq("it.tag_id", 10)))
+                        .count());
+        List<Issue> result =
+                queryTemplate
+                        .select(Issue.class)
+                        .where(eq("assignee", "alice"))
+                        .join(
+                                IssueTag.class,
+                                "it",
+                                and(eqCol("it.issue_id", "root.id"), eq("it.tag_id", 10)))
+                        .limit(100)
+                        .list();
+        // Alice owns issues 1 and 3; only issue 1 is tagged 10.
+        assertEquals(List.of(1), result.stream().map(Issue::id).toList());
+    }
+
+    @Test
+    void multipleJoinsKeepParamsAligned() {
+        // Two joins, each with a value-binding ON clause; both params must bind
+        // to their own `?` regardless of alias map iteration order.
+        assertEquals(
+                1L,
+                queryTemplate
+                        .select(Issue.class)
+                        .join(
+                                IssueTag.class,
+                                "t10",
+                                and(eqCol("t10.issue_id", "root.id"), eq("t10.tag_id", 10)))
+                        .join(
+                                IssueTag.class,
+                                "t20",
+                                and(eqCol("t20.issue_id", "root.id"), eq("t20.tag_id", 20)))
+                        .count());
+        List<Issue> result =
+                queryTemplate
+                        .select(Issue.class)
+                        .join(
+                                IssueTag.class,
+                                "t10",
+                                and(eqCol("t10.issue_id", "root.id"), eq("t10.tag_id", 10)))
+                        .join(
+                                IssueTag.class,
+                                "t20",
+                                and(eqCol("t20.issue_id", "root.id"), eq("t20.tag_id", 20)))
+                        .limit(100)
+                        .list();
+        // Only issue 1 carries both tags 10 and 20.
+        assertEquals(List.of(1), result.stream().map(Issue::id).toList());
+    }
+
+    @Test
+    void firstOverridesCallerLimit() {
+        // Regression: .limit(n).first() must emit a single LIMIT (the old code
+        // appended " LIMIT 1" after " LIMIT n" -> invalid SQL).
+        Issue first = queryTemplate.select(Issue.class).orderBy("id").limit(2).first();
+        assertEquals(1, first.id());
+
+        Issue afterOffset = queryTemplate.select(Issue.class).orderBy("id").offset(1).first();
+        assertEquals(2, afterOffset.id());
     }
 
     @Test

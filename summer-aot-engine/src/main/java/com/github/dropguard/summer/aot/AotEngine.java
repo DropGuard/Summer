@@ -4,18 +4,15 @@ import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
 import com.github.dropguard.summer.core.bean.MockedBean;
-import com.github.dropguard.summer.core.bean.SharedDependencyResolver;
 import com.github.dropguard.summer.core.exception.AotCompilationException;
-import com.github.dropguard.summer.core.spi.RouteRegistrarLoader;
+import com.github.dropguard.summer.core.exception.BeanCreationException;
 import com.github.dropguard.summer.engine.BeanDeployment;
+import com.github.dropguard.summer.engine.BuildPipeline;
 import com.github.dropguard.summer.engine.DiEngine;
-import com.github.dropguard.summer.engine.Discovery;
-import com.github.dropguard.summer.engine.SharedConditionEvaluator;
 import java.io.File;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import org.jboss.jandex.IndexView;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,25 +49,11 @@ public final class AotEngine {
             String className,
             MockedBean[] mocks,
             java.util.Map<String, Object> overrides) {
-        List<BeanDefinition> beans = Discovery.discover(moduleIndex);
-        // Discovery-stage mock replacement: remove the real definitions of every
-        // mocked type so they are never generated/instantiated. Shared with Runtime
-        // via SharedConditionEvaluator, so concrete-class @Mock behaves identically on
-        // both engines (previously the AOT wire method overwrote the mock by class
-        // key and lost).
-        Set<String> mockedTypeNames = new java.util.HashSet<>();
-        for (MockedBean mocked : mocks) {
-            mockedTypeNames.add(mocked.targetTypeName());
-        }
-        new SharedConditionEvaluator().evaluate(beans, mockedTypeNames);
-        // SPI route collection (shared with the Runtime engine): loads every
-        // RouteRegistrar on the classpath (e.g. summer-runtime-web's WebRouteScanner)
-        // and merges routes / exception handlers into the candidate definitions.
-        // Runs AFTER condition evaluation, matching RuntimeContainer's timing, so a
-        // conditioned-out controller contributes no routes on either engine (parity).
-        RouteRegistrarLoader.mergeInto(RouteRegistrarLoader.load(beans), beans);
+        // The shared assembly core: discovery → conditions (mock removal included) → route
+        // collection → dependency resolution → variable-name dedup. Same single sequence as the
+        // build-time plugin and (next increment) the runtime engine — parity is structural.
         List<BeanDefinition> sorted =
-                new SharedDependencyResolver().resolve(beans, java.util.Arrays.asList(mocks));
+                BuildPipeline.resolve(moduleIndex, java.util.Arrays.asList(mocks)).sorted();
         rejectNonPublicProducts(moduleIndex, sorted);
 
         return compile(moduleIndex, sorted, cacheKey, className, mocks, overrides);
@@ -81,9 +64,10 @@ public final class AotEngine {
      * package — a package-private (or otherwise non-public) return type is not accessible
      * cross-package and breaks the generated code. Checked after condition evaluation + resolution,
      * so products that are conditioned out on this path (e.g. a Runtime-only registrar) are
-     * legitimately skipped and never rejected.
+     * legitimately skipped and never rejected. Shared by the test-time compiler and the build-time
+     * plugin — one fail-fast check.
      */
-    private static void rejectNonPublicProducts(
+    public static void rejectNonPublicProducts(
             BeanDeployment moduleIndex, List<BeanDefinition> sorted) {
         IndexView index = moduleIndex.discoveryIndex();
         for (BeanDefinition bean : sorted) {
@@ -173,6 +157,13 @@ public final class AotEngine {
             log.debug("[Summer] AOT compile complete: cacheKey={}", cacheKey);
             return container;
 
+        } catch (BeanCreationException bce) {
+            // The generated code throws BeanCreationException for domain failures it already
+            // reports precisely (e.g. a throwing @PostConstruct, wrapped with the bean's name in
+            // the generated call). Rethrow as-is so the test-time AOT path surfaces the same
+            // typed, named error as the runtime engine — wrapping it in the generic compilation
+            // exception would hide the bean behind a "compilation failed" message.
+            throw bce;
         } catch (Exception e) {
             throw new AotCompilationException(
                     "[Summer] AOT compilation failed: cacheKey="

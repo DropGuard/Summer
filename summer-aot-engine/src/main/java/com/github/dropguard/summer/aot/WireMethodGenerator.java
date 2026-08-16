@@ -13,6 +13,8 @@ import com.palantir.javapoet.TypeSpec;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.jboss.jandex.ClassInfo;
+import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
 
 /**
@@ -20,32 +22,20 @@ import org.jboss.jandex.IndexView;
  * builder.register(...)} calls for each bean.
  *
  * <p>Facade over the codegen pipeline: constructor injection / {@code @Bean} invocation / AOP proxy
- * wrapping / interface registration are emitted here; {@code @ConfigMapping} binding and
- * {@code @RowModel} row-mapper registration are delegated to {@link ConfigImplGenerator} and {@link
- * RowMapperEmitter} respectively.
+ * wrapping / interface registration are emitted here; {@code @ConfigMapping} binding is delegated
+ * to {@link ConfigImplGenerator}; {@code @RowModel} row mappers are registered by the owning module
+ * via {@link AotProductConstructor}'s post-construction statements (see the data-jdbc
+ * implementation), mirroring the runtime engine's assembly-time filler bean.
  */
 @Internal
 public final class WireMethodGenerator {
 
     private final IndexView index;
     private final ConfigImplGenerator configGen;
-    private final RowMapperEmitter rowMapperEmitter;
 
     public WireMethodGenerator(IndexView index) {
         this.index = index;
         this.configGen = new ConfigImplGenerator(index);
-        this.rowMapperEmitter = new RowMapperEmitter(index);
-    }
-
-    /**
-     * Emits inline {@code RowMapper} lambda registrations for {@code @RowModel} records. Delegates
-     * to {@link RowMapperEmitter}.
-     */
-    void emitRowMapperRegistrations(
-            MethodSpec.Builder wire,
-            java.util.Set<String> activeClassNames,
-            List<BeanDefinition> sortedBeans) {
-        rowMapperEmitter.emitRowMapperRegistrations(wire, activeClassNames, sortedBeans);
     }
 
     private void emitComponentInstantiation(
@@ -68,6 +58,9 @@ public final class WireMethodGenerator {
             } else {
                 wire.addStatement("$T $N = new $T($L)", beanClass, implVar, beanClass, args);
             }
+            // @PostConstruct runs on the raw instance before the proxy wraps it — lifecycle
+            // callbacks are never intercepted (CDI semantics).
+            emitPostConstruct(wire, bean, implVar);
 
             String interceptorsListVar = varName + "_interceptors";
             wire.addStatement(
@@ -100,7 +93,33 @@ public final class WireMethodGenerator {
             } else {
                 wire.addStatement("$T $N = new $T($L)", beanClass, varName, beanClass, args);
             }
+            emitPostConstruct(wire, bean, varName);
         }
+    }
+
+    /**
+     * Emits the {@code @PostConstruct} lifecycle call on the raw instance, immediately after
+     * construction — the generated counterpart of {@code BeanInstantiator.invokePostConstruct}.
+     *
+     * <p>The call is wrapped so a throwing callback surfaces as a {@link BeanCreationException}
+     * naming the bean, mirroring the runtime engine's message — otherwise the generated direct call
+     * would propagate the raw exception and the two engines would report the same failure
+     * differently. Catching {@code Throwable} mirrors the runtime's unwrap-to-the-bean's-own-cause
+     * behaviour (the bean may throw an {@code Error}, and the runtime reports it as the cause).
+     */
+    private static void emitPostConstruct(
+            MethodSpec.Builder wire, BeanDefinition bean, String varName) {
+        if (bean.postConstructMethod == null) {
+            return;
+        }
+        wire.beginControlFlow("try");
+        wire.addStatement("$N.$N()", varName, bean.postConstructMethod);
+        wire.nextControlFlow("catch (java.lang.Throwable t)");
+        wire.addStatement(
+                "throw new $T($S, t)",
+                com.github.dropguard.summer.core.exception.BeanCreationException.class,
+                "Failed to invoke @PostConstruct on bean: " + bean.qualifiedName);
+        wire.endControlFlow();
     }
 
     private CodeBlock buildConstructorArgs(BeanDefinition bean) {
@@ -151,17 +170,9 @@ public final class WireMethodGenerator {
             cb.add(")");
             return cb.build();
         }
-        // Scalar (non-List) parameter.
-        if (parameter.typeName().equals("com.github.dropguard.summer.core.BeanContainer")) {
-            // Mirror the runtime engine (BeanInstantiator): injecting the container into a bean
-            // would create a circular bootstrap reference. The runtime engine rejects it at
-            // instantiation; the AOT engine must reject it at codegen time, or the generated
-            // container silently accepts a graph the runtime engine refuses — a dual-engine
-            // divergence.
-            throw new com.github.dropguard.summer.core.exception.BeanCreationException(
-                    "ApplicationContext injection is not supported by the AOT engine."
-                            + " Use BeanContainer from caller.");
-        }
+        // Scalar (non-List) parameter. BeanContainer injection is rejected in
+        // SharedDependencyResolver at discovery time (every BeanDefinition passes through it), so
+        // no scalar parameter here is ever a BeanContainer.
         if (parameter.resolved().isEmpty()) {
             // A dependency on a mocked type: its bean definition was removed at discovery and
             // the mock instance is registered on the builder before the wire loop runs
@@ -181,25 +192,61 @@ public final class WireMethodGenerator {
         // module supplies the expression via the AotProductConstructor SPI (e.g. data-jdbc's
         // EntityMetadataRegistrar, whose declared constructor takes the IndexView that the AOT
         // container deliberately never materializes). Emitted verbatim, like aotInstanceExpression.
-        AotProductConstructor provider = AotProductConstructors.forProduct(bean.qualifiedName);
-        if (provider != null) {
-            String expression = provider.construction(bean, index);
-            if (expression != null) {
-                wire.addStatement("$T $N = $L", producedClass, varName, expression);
-                return;
-            }
-        }
+        // Resolved along the product's supertype chain so a subclass product inherits its base
+        // type's provider (e.g. data-jdbc's JdbcTemplateAotConstructor fills mappers on any
+        // JdbcTemplate-typed product) — mirroring the runtime engine, whose assignability-based
+        // lookup already covers subclasses.
+        AotProductConstructor provider = resolveProvider(bean);
+        String construction = provider != null ? provider.construction(bean, index) : null;
 
         String configVar = bean.configBeanDefinition.variableName;
         String methodName = bean.producerMethodName;
         CodeBlock args = buildConstructorArgs(bean);
 
-        if (bean.parameters.isEmpty()) {
+        if (construction != null) {
+            wire.addStatement("$T $N = $L", producedClass, varName, construction);
+        } else if (bean.parameters.isEmpty()) {
             wire.addStatement("$T $N = $N.$N()", producedClass, varName, configVar, methodName);
         } else {
             wire.addStatement(
                     "$T $N = $N.$N($L)", producedClass, varName, configVar, methodName, args);
         }
+        // Post-construction assembly-time writes (the AOT counterpart of a runtime assembly-time
+        // filler bean): emitted after construction so the producer body still runs, before
+        // registration so dependents see the fully-assembled product.
+        if (provider != null) {
+            for (String statement : provider.postConstruction(bean, index)) {
+                wire.addStatement("$N.$L", varName, statement);
+            }
+        }
+    }
+
+    /**
+     * The {@link AotProductConstructor} for a product, walking its supertype chain by name: the
+     * loader keys providers by exact product type, and a provider registered for a base type (e.g.
+     * {@code JdbcTemplate}) also assembles subclass products. The walk stops at the first match — a
+     * more specific declaration wins.
+     *
+     * <p>The ClassInfo is needed only to read the next supertype name; a level whose ClassInfo is
+     * not in the index (a narrow universe indexes only seeds and {@code @Bean} return types — a
+     * product's base class can be absent) is still probed by name.
+     */
+    private AotProductConstructor resolveProvider(BeanDefinition bean) {
+        String current = bean.qualifiedName;
+        ClassInfo ci = index.getClassByName(DotName.createSimple(current));
+        while (current != null) {
+            AotProductConstructor provider = AotProductConstructors.forProduct(current);
+            if (provider != null) {
+                return provider;
+            }
+            if (ci == null) {
+                break;
+            }
+            DotName superName = ci.superName();
+            current = superName == null ? null : superName.toString();
+            ci = current == null ? null : index.getClassByName(DotName.createSimple(current));
+        }
+        return null;
     }
 
     List<TypeSpec> configImpls() {
@@ -261,7 +308,19 @@ public final class WireMethodGenerator {
                 } else {
                     wire.addStatement("builder.$L($T.class, $N)", register, beanClass, varName);
                 }
+                // Register an interface key only when exactly one bean implements it (single-bean
+                // lookup by interface / ctor injection). An interface with multiple impls is a
+                // collection-injection strategy (List<HttpParameterResolver>, List<Middleware>)
+                // resolved via getBeans — its key would otherwise be overwritten by the
+                // last-writer-wins register() and hide the multi-impl contract.
+                java.util.Map<String, Integer> ifaceCounts =
+                        com.github.dropguard.summer.core.bean.SharedDependencyResolver
+                                .interfaceImplementationCounts(sortedBeans);
                 for (String iface : bean.interfaceNames) {
+                    Integer count = ifaceCounts.get(iface);
+                    if (count == null || count != 1) {
+                        continue;
+                    }
                     wire.addStatement(
                             "builder.$L($T.class, $N)",
                             register,

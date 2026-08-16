@@ -21,8 +21,4 @@ public record EntityMetadata(String tableName, Set<String> columns, List<FieldMe
         columns = Set.copyOf(columns);
         fields = List.copyOf(fields);
     }
-
-    public boolean hasColumn(String column) {
-        return columns.contains(column);
-    }
 }

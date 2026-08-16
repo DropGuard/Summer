@@ -41,9 +41,8 @@ public final class BeanEnrichment {
             DotName.createSimple("com.github.dropguard.summer.aop.InterceptorBinding");
     private static final DotName INTERCEPTOR_DOT =
             DotName.createSimple("com.github.dropguard.summer.aop.Interceptor");
-
-    private static final DotName CONDITIONAL_ON_BEAN_DOT =
-            DotName.createSimple("com.github.dropguard.summer.core.annotation.ConditionalOnBean");
+    private static final DotName POST_CONSTRUCT_DOT =
+            DotName.createSimple("jakarta.annotation.PostConstruct");
 
     private final IndexView index;
 
@@ -62,8 +61,14 @@ public final class BeanEnrichment {
             if (ci != null) {
                 if (!bean.isFactoryMethod()) {
                     collectConstructorParams(bean, ci);
+                    // @PostConstruct: CDI config-phase-end callback. Products skip it — the
+                    // producer owns its product's initialization.
+                    collectPostConstruct(bean, ci);
                 }
-                collectConditions(bean, ci);
+                // @ConditionalOnBean is collected in Discovery (class beans in registerClass,
+                // @Bean products in createFactoryBean — method-level AND product-class-level,
+                // side by side). Not re-read here: BeanEnrichment only handles constructor params
+                // and @Order.
                 collectOrder(bean, ci);
             }
         }
@@ -91,6 +96,62 @@ public final class BeanEnrichment {
                 bean.order = ifaceOrder.value().asInt();
                 return;
             }
+        }
+    }
+
+    // ── Lifecycle (@PostConstruct) ────────────────────────────────────
+
+    /**
+     * Captures the {@code @PostConstruct} method at discovery time (Jandex), following CDI
+     * semantics: the most specific declaration in the class hierarchy wins (a subclass hides its
+     * superclass's). Fail-fast on contract violations so both engines see a valid bean before any
+     * instantiation.
+     *
+     * <p>Deliberately stricter than CDI on visibility: the method must be {@code public} — the AOT
+     * engine emits a direct call into the generated context, so a package-private or private method
+     * would silently break AOT compilation (CDI's reflection-based engines accept them).
+     */
+    private void collectPostConstruct(BeanDefinition bean, ClassInfo ci) {
+        ClassInfo current = ci;
+        while (current != null) {
+            List<MethodInfo> lifecycle =
+                    current.methods().stream()
+                            .filter(m -> m.hasAnnotation(POST_CONSTRUCT_DOT))
+                            .toList();
+            if (!lifecycle.isEmpty()) {
+                if (lifecycle.size() > 1) {
+                    throw new BeanCreationException(
+                            "Component "
+                                    + bean.qualifiedName
+                                    + " must declare at most one @PostConstruct method, found "
+                                    + lifecycle.size());
+                }
+                MethodInfo method = lifecycle.get(0);
+                validateLifecycleMethod(bean, method);
+                bean.postConstructMethod = method.name();
+                return;
+            }
+            DotName superName = current.superName();
+            current = superName == null ? null : index.getClassByName(superName);
+        }
+    }
+
+    private void validateLifecycleMethod(BeanDefinition bean, MethodInfo method) {
+        String what = "Component " + bean.qualifiedName + " @PostConstruct method " + method.name();
+        if ((method.flags() & 0x0001) == 0) { // not public
+            throw new BeanCreationException(
+                    what
+                            + " must be public — the AOT engine emits a direct call (no"
+                            + " reflection), so a non-public method would break AOT compilation");
+        }
+        if ((method.flags() & 0x0008) != 0) { // static
+            throw new BeanCreationException(what + " must not be static");
+        }
+        if (method.parametersCount() > 0) {
+            throw new BeanCreationException(what + " must not declare parameters");
+        }
+        if (!"void".equals(method.returnType().name().toString())) {
+            throw new BeanCreationException(what + " must return void");
         }
     }
 
@@ -250,15 +311,6 @@ public final class BeanEnrichment {
                     }
                 }
             }
-        }
-    }
-
-    // ── @ConditionalOnBean collection ──────────────────────────────────
-
-    private void collectConditions(BeanDefinition bean, ClassInfo ci) {
-        AnnotationInstance ann = ci.annotation(CONDITIONAL_ON_BEAN_DOT);
-        if (ann != null) {
-            bean.conditionalOnBeanType = ann.value().asClass().name().toString();
         }
     }
 }

@@ -8,10 +8,12 @@ import java.util.ServiceLoader;
 /**
  * Loads every {@link AotProductConstructor} on the classpath (via {@link ServiceLoader}) into a
  * product-type-keyed map consulted by the AOT wire generator. The engine counterpart of {@code
- * RouteRegistrarLoader}: modules opt their {@code @Bean} products into custom AOT construction
- * (e.g. data-jdbc's {@code EntityMetadataRegistrar}). Lives in {@code engine.spi} — the one place
- * outside {@code core.spi} the framework permits ServiceLoader discovery (alongside {@link
- * ContainerEngines}).
+ * RouteRegistrarLoader}: modules opt their {@code @Bean} products into custom AOT assembly — a
+ * construction override (e.g. data-jdbc's {@code EntityMetadataRegistrar}) and/or post-construction
+ * statements (e.g. data-jdbc's {@code JdbcTemplate}). The wire generator resolves a provider along
+ * the product's supertype chain, so a provider registered for a base type also assembles subclass
+ * products. Lives in {@code engine.spi} — the one place outside {@code core.spi} the framework
+ * permits ServiceLoader discovery (alongside {@link ContainerEngines}).
  */
 @Internal
 public final class AotProductConstructors {

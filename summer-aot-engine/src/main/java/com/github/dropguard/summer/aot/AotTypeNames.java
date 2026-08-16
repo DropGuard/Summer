@@ -39,10 +39,32 @@ public final class AotTypeNames {
 
     /**
      * Creates a {@link ClassName} from a qualified name that may contain JVM-internal {@code $}
-     * nested-class separators. Replaces {@code $} with {@code .} so the generated source uses valid
-     * Java syntax.
+     * nested-class separators.
+     *
+     * <p>The split is explicit, never {@link ClassName#bestGuess}: bestGuess infers the package
+     * boundary from the last all-lowercase segment, which misreads a package segment that starts
+     * uppercase as a nested class (e.g. {@code com.x.dup.A.Thing} — package {@code com.x.dup.A},
+     * class {@code Thing} — becomes nested {@code A.Thing} and the generated import fails). The
+     * {@code $} separator is the only reliable nested-class marker, so it is split on first.
      */
     public static ClassName safeClassName(String qualifiedName) {
-        return ClassName.bestGuess(qualifiedName.replace('$', '.'));
+        String enclosing = qualifiedName;
+        String[] nested = new String[0];
+        int dollar = qualifiedName.indexOf('$');
+        if (dollar != -1) {
+            enclosing = qualifiedName.substring(0, dollar);
+            nested = qualifiedName.substring(dollar + 1).split("\\$");
+        }
+        int lastDot = enclosing.lastIndexOf('.');
+        if (lastDot == -1) {
+            return nested.length == 0
+                    ? ClassName.get("", enclosing)
+                    : ClassName.get("", enclosing, nested);
+        }
+        String pkg = enclosing.substring(0, lastDot);
+        String topLevel = enclosing.substring(lastDot + 1);
+        return nested.length == 0
+                ? ClassName.get(pkg, topLevel)
+                : ClassName.get(pkg, topLevel, nested);
     }
 }

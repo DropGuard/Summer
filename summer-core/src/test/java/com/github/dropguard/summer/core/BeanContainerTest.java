@@ -34,7 +34,7 @@ class BeanContainerTest {
     @Test
     void routesAreAnImmutableSnapshot() {
         BeanContainer.Builder builder = new BeanContainer.Builder();
-        RouteInfo route = new RouteInfo("GET", "/x", "com.Ctrl", "get", "void");
+        RouteInfo route = new RouteInfo("GET", "/x", "com.Ctrl", "get");
         builder.routes(List.of(route));
         BeanContainer container = builder.build();
 
@@ -64,4 +64,59 @@ class BeanContainerTest {
             closeCount++;
         }
     }
+
+    @Test
+    void buildSealsSealableBeansInReverseCreationOrder() {
+        SealingBean.SEAL_ORDER.clear();
+        BeanContainer.Builder builder = new BeanContainer.Builder();
+        SealingBean first = new SealingBean("first");
+        SealingBean second = new SealingBean("second");
+        PlainBean plain = new PlainBean();
+        builder.register(SealingBean.class, first);
+        builder.register(SealingBean.class, second);
+        builder.register(PlainBean.class, plain);
+        BeanContainer container = builder.build();
+
+        assertEquals(1, first.sealCount, "Sealable bean created first must be sealed");
+        assertEquals(1, second.sealCount, "Sealable bean created second must be sealed");
+        // Reverse creation order: the later-created bean is sealed first.
+        assertEquals(List.of("second", "first"), SealingBean.SEAL_ORDER);
+        // Non-Sealable beans are untouched and stay usable.
+        assertEquals(plain, container.getBean(PlainBean.class));
+    }
+
+    @Test
+    void sealedBeansRemainUsableAfterBuild() {
+        BeanContainer.Builder builder = new BeanContainer.Builder();
+        SealingBean bean = new SealingBean("bean");
+        builder.register(SealingBean.class, bean);
+        BeanContainer container = builder.build();
+
+        assertEquals(1, bean.sealCount, "Sealable bean must be sealed at build");
+        // Sealing stops assembly-time writes; the bean is still a registered, usable instance.
+        assertEquals(bean, container.getBean(SealingBean.class));
+    }
+
+    /** Records seal order; also used to verify non-Sealable beans are untouched. */
+    static final class SealingBean implements Sealable {
+        static final java.util.List<String> SEAL_ORDER = new java.util.ArrayList<>();
+        private final String name;
+        int sealCount;
+
+        SealingBean(String name) {
+            this.name = name;
+        }
+
+        String name() {
+            return name;
+        }
+
+        @Override
+        public void seal() {
+            sealCount++;
+            SEAL_ORDER.add(name);
+        }
+    }
+
+    static final class PlainBean {}
 }

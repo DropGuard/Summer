@@ -1,5 +1,7 @@
 package com.github.dropguard.summer.data.jdbc.query;
 
+import com.github.dropguard.summer.core.data.Page;
+import com.github.dropguard.summer.core.data.PageRequest;
 import com.github.dropguard.summer.data.jdbc.EntityMetadata;
 import com.github.dropguard.summer.data.jdbc.EntityMetadataRegistry;
 import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
@@ -88,9 +90,10 @@ public final class QueryBuilder<T> {
     /**
      * Brings a related 1:1 / N:1 table into the query. The related entity must be a registered
      * {@code @RowModel}; {@code on} is the join predicate expressed with qualified columns (e.g.
-     * {@code eq("p.id", "issues.project_id")}). Use this only for relationships that multiply the
-     * root at most once — for many-to-many filtering prefer {@code where(exists(...))}, which does
-     * not inflate row counts and keeps pagination correct.
+     * {@code eqCol("p.id", "root.project_id")}). Value-binding criteria (like {@code eq}) are
+     * supported too — their {@code ?} placeholders are bound in ON-clause order. Use this only for
+     * relationships that multiply the root at most once — for many-to-many filtering prefer {@code
+     * where(exists(...))}, which does not inflate row counts and keeps pagination correct.
      *
      * @param related the related {@code @RowModel} entity class
      * @param alias the alias to reference the table's columns by (e.g. {@code "p"}); must be used
@@ -151,9 +154,25 @@ public final class QueryBuilder<T> {
         return this;
     }
 
-    /** Returns all matching rows mapped to the entity type. */
+    /**
+     * Returns the matching rows mapped to the entity type.
+     *
+     * <p>Every {@code list()} call must declare an explicit {@link #limit(int)} (and optionally
+     * {@link #offset(int)}) — the framework cannot assume how many rows the caller wants, so an
+     * unbounded SELECT (which may scan the whole table) is rejected. Use {@link #count()} to learn
+     * how many rows match, then a bounded {@code list().limit(N)} to fetch them.
+     *
+     * @throws IllegalArgumentException when neither {@link #limit(int)} nor {@link #offset(int)}
+     *     was called — an unbounded SELECT may scan the entire table.
+     */
     public List<T> list() {
         validateColumns();
+        if (limit == null && offset == null) {
+            throw new IllegalArgumentException(
+                    "QueryBuilder.list() requires an explicit limit() and/or offset() — an"
+                            + " unbounded SELECT may scan the entire table. Call limit(N) to"
+                            + " declare how many rows you need; use count() to count matches.");
+        }
         return jdbcTemplate.queryForList(buildSelectSql(), entityClass, boundParams());
     }
 
@@ -161,9 +180,9 @@ public final class QueryBuilder<T> {
     @SuppressWarnings("unchecked")
     public T first() {
         validateColumns();
-        List<T> rows =
-                jdbcTemplate.queryForList(
-                        buildSelectSql() + " LIMIT 1", entityClass, boundParams());
+        // Force LIMIT 1 instead of appending it after a caller-set limit, so
+        // .limit(n).first() emits a single LIMIT (never "LIMIT n LIMIT 1").
+        List<T> rows = jdbcTemplate.queryForList(buildSelectSql(1), entityClass, boundParams());
         return rows.isEmpty() ? null : rows.get(0);
     }
 
@@ -174,11 +193,41 @@ public final class QueryBuilder<T> {
         return result == null ? 0L : result;
     }
 
+    /**
+     * Returns the matching rows as a {@link Page}: the requested page window fetched via {@code
+     * OFFSET}/{@code LIMIT}, plus the total match count from {@link #count()} so the caller can
+     * render pagination. The total reflects the filtered result set (never multiplied by a {@code
+     * JOIN}), because {@code exists(...)} filters push relationships into a {@code WHERE EXISTS}
+     * sub-query rather than a row-multiplying join.
+     *
+     * @param pageRequest the zero-based page request (page index + size); its size becomes the
+     *     {@code LIMIT} and {@link PageRequest#offset()} the {@code OFFSET}
+     * @return a {@link Page} with the page content, the total match count, and the requested
+     *     page/size
+     */
+    public Page<T> page(PageRequest pageRequest) {
+        validateColumns();
+        long total = count();
+        List<T> rows = offset(pageRequest.offset()).limit(pageRequest.size()).list();
+        return Page.of(rows, total, pageRequest);
+    }
+
     // ── SQL assembly ─────────────────────────────────────────────────
 
     private static final String ROOT_ALIAS = "root";
 
     private String buildSelectSql() {
+        return assembleSelectSql(limit);
+    }
+
+    /**
+     * Builds SELECT SQL with a forced LIMIT (used by {@link #first()} to avoid "LIMIT n LIMIT 1").
+     */
+    private String buildSelectSql(int forcedLimit) {
+        return assembleSelectSql(forcedLimit);
+    }
+
+    private String assembleSelectSql(Integer effectiveLimit) {
         StringBuilder sql = new StringBuilder("SELECT ");
         if (joins.isEmpty()) {
             sql.append("*");
@@ -189,7 +238,7 @@ public final class QueryBuilder<T> {
         sql.append(" FROM ").append(metadata.tableName()).append(" ").append(ROOT_ALIAS);
         appendJoins(sql);
         appendWhere(sql);
-        appendOrderByLimit(sql);
+        appendOrderByLimit(sql, effectiveLimit);
         return sql.toString();
     }
 
@@ -205,43 +254,45 @@ public final class QueryBuilder<T> {
     }
 
     private void appendJoins(StringBuilder sql) {
-        for (Map.Entry<String, EntityMetadata> e : joins.entrySet()) {
-            // JOIN predicates carry their own ON clause; only those that introduce
-            // a JOIN (not the EXISTS sub-queries) emit a FROM-level join here.
-            EntityMetadata meta = e.getValue();
-            for (Criteria c : where) {
-                if (c instanceof Criteria.JoinPredicate jp && jp.alias().equals(e.getKey())) {
-                    sql.append(" JOIN ")
-                            .append(meta.tableName())
-                            .append(" ")
-                            .append(jp.alias())
-                            .append(" ON ")
-                            .append(jp.on().render().fragment());
-                }
+        // JOIN predicates carry their own ON clause; only those that introduce
+        // a JOIN (not the EXISTS sub-queries) emit a FROM-level join here.
+        // Iterating `where` (not the alias map) keeps JOIN emission order equal
+        // to boundParams()' first pass, so ON bind values align with their `?`
+        // regardless of registration order.
+        for (Criteria c : where) {
+            if (c instanceof Criteria.JoinPredicate jp) {
+                sql.append(" JOIN ")
+                        .append(jp.tableName())
+                        .append(" ")
+                        .append(jp.alias())
+                        .append(" ON ")
+                        .append(jp.render().fragment());
             }
         }
     }
 
     private void appendWhere(StringBuilder sql) {
-        if (where.isEmpty()) {
-            return;
-        }
-        sql.append(" WHERE ");
+        // JoinPredicates are consumed by the JOIN pass above; the WHERE clause
+        // holds only real filters (including EXISTS sub-queries).
         List<String> fragments = new ArrayList<>();
         for (Criteria c : where) {
-            fragments.add(c.render().fragment());
+            if (!(c instanceof Criteria.JoinPredicate)) {
+                fragments.add(c.render().fragment());
+            }
         }
-        sql.append(String.join(" AND ", fragments));
+        if (!fragments.isEmpty()) {
+            sql.append(" WHERE ").append(String.join(" AND ", fragments));
+        }
     }
 
-    private void appendOrderByLimit(StringBuilder sql) {
+    private void appendOrderByLimit(StringBuilder sql, Integer effectiveLimit) {
         if (orderByColumn != null) {
             sql.append(" ORDER BY ")
                     .append(qualifyIfNeeded(orderByColumn))
                     .append(orderDesc ? " DESC" : " ASC");
         }
-        if (limit != null) {
-            sql.append(" LIMIT ").append(limit);
+        if (effectiveLimit != null) {
+            sql.append(" LIMIT ").append(effectiveLimit);
         }
         if (offset != null) {
             sql.append(" OFFSET ").append(offset);
@@ -250,8 +301,18 @@ public final class QueryBuilder<T> {
 
     private Object[] boundParams() {
         List<Object> params = new ArrayList<>();
+        // JOIN ON clauses precede WHERE in the SQL text (FROM ... JOIN ... WHERE),
+        // so collect join-predicate params first to keep `?` alignment even when
+        // where(...) is called before join(...).
         for (Criteria c : where) {
-            params.addAll(c.render().params());
+            if (c instanceof Criteria.JoinPredicate) {
+                params.addAll(c.render().params());
+            }
+        }
+        for (Criteria c : where) {
+            if (!(c instanceof Criteria.JoinPredicate)) {
+                params.addAll(c.render().params());
+            }
         }
         return params.toArray();
     }

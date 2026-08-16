@@ -158,7 +158,20 @@ public final class RouteAdapterGenerator {
 
     /** Resolve parameter type string to TypeName. */
 
-    /** Map ParamBinding to annotation class literal for use in generated code. */
+    /**
+     * Maps a {@link RouteInfo.ParamBinding} to the annotation class literal that identifies that
+     * parameter kind in generated code.
+     *
+     * <p>Returns a {@code $T.class} code block for bindings that are recognised by annotation —
+     * {@code PATH} → {@code PathParam}, {@code QUERY} → {@code QueryParam}. Every other binding
+     * returns {@code null} because those parameters carry no annotation marker: they are resolved
+     * by type or position (e.g. a pageable is matched by its parameter type, a body by position),
+     * and the resolver chain treats {@code null} as "no annotation to match against".
+     *
+     * <p>The block is passed into the generated {@code RouteInfoHandlerParam} constructor, so the
+     * AOT engine resolves parameters through the same {@code HttpParameterResolverChain} the
+     * runtime uses — keeping annotation-driven matching identical across both engines.
+     */
     private static com.palantir.javapoet.CodeBlock annotationType(
             com.github.dropguard.summer.core.bean.RouteInfo.ParamBinding binding) {
         return switch (binding) {
