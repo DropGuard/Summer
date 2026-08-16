@@ -1,9 +1,9 @@
 # Summer Framework
 
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-[![Version](https://img.shields.io/badge/version-999-SNAPSHOT-blue.svg)]()
-[![Java](https://img.shields.io/badge/Java-25+-blue.svg)]()
-[![License](https://img.shields.io/badge/License-MIT-green.svg)]()
+[![Build Status](https://img.shields.io/github/actions/workflow/status/DropGuard/Summer/maven.yml)](https://github.com/DropGuard/Summer/actions/workflows/maven.yml)
+[![Version](https://img.shields.io/badge/version-999-SNAPSHOT-blue.svg)](https://github.com/DropGuard/Summer/releases)
+[![Java](https://img.shields.io/badge/Java-25+-blue.svg)](https://github.com/DropGuard/Summer)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/DropGuard/Summer/blob/main/LICENSE)
 
 > A minimalist JDK-native framework for building CRUD APIs.
 
@@ -288,8 +288,12 @@ Summer is designed for high-concurrency throughput using Java's virtual threads 
 
 2. **Run a Load Test** (using `wrk`):
    ```bash
-   # Simulate 100 concurrent users for 30 seconds using 4 OS threads
-   wrk -t4 -c100 -d30s http://localhost:8080/users/1
+   # Simulate 100 concurrent users for 30 seconds using 4 OS threads.
+   # /health/live is the framework's built-in health route (no auth, no DB),
+   # so it measures pure framework overhead. The showcase's API routes (e.g.
+   # /api/timeline) require a JWT — there is no /users/1 endpoint — so they
+   # are not suitable for an unauthenticated load test.
+   wrk -t4 -c100 -d30s http://localhost:8080/health/live
    ```
 
 3. **Monitor Metrics**:
