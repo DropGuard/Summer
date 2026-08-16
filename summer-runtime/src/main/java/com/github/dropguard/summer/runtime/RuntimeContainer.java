@@ -7,15 +7,11 @@ import com.github.dropguard.summer.core.RuntimeDiMarker;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
 import com.github.dropguard.summer.core.bean.ConfigPropertiesBean;
 import com.github.dropguard.summer.core.bean.MockedBean;
-import com.github.dropguard.summer.core.bean.RouteInfo;
-import com.github.dropguard.summer.core.bean.SharedDependencyResolver;
 import com.github.dropguard.summer.core.config.ConfigBinder;
-import com.github.dropguard.summer.core.spi.RouteRegistrarLoader;
 import com.github.dropguard.summer.core.validation.Validator;
 import com.github.dropguard.summer.engine.BeanDeployment;
+import com.github.dropguard.summer.engine.BuildPipeline;
 import com.github.dropguard.summer.engine.ContainerEngine;
-import com.github.dropguard.summer.engine.Discovery;
-import com.github.dropguard.summer.engine.SharedConditionEvaluator;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -62,28 +58,15 @@ public final class RuntimeContainer implements ContainerEngine {
                 deployment.syntheticBeans().stream()
                         .map(b -> b.qualifiedName)
                         .collect(java.util.stream.Collectors.joining(",")));
-        List<BeanDefinition> candidates = Discovery.discover(deployment);
 
-        Set<String> mockedTypeNames =
-                mocks.stream()
-                        .map(MockedBean::targetTypeName)
-                        .collect(java.util.stream.Collectors.toSet());
-        new SharedConditionEvaluator().evaluate(candidates, mockedTypeNames);
+        // Shared core, stage 1: discovery → conditions (+mock removal) → route collection — the
+        // same single sequence as the AOT entries, so dual-engine parity is structural.
+        List<BeanDefinition> candidates = BuildPipeline.discoverCandidates(deployment, mocks);
 
-        RuntimeConfigBinder binder = new RuntimeConfigBinder();
-        ConfigBinder.BindingContext ctx = ConfigBinder.BindingContext.of(overrides);
-        bindConfiguration(candidates, builder, binder, ctx);
-
-        // ── SPI route registration ────────────────────────────────────────
-        // Load all RouteRegistrar implementations via ServiceLoader (e.g.
-        // summer-runtime-web's WebRouteScanner; absent classpath = pure-DI mode)
-        // and merge the collected routes / exception handlers into the candidate
-        // definitions.
-        RouteRegistrarLoader.Result spiResult = RouteRegistrarLoader.load(candidates);
-        RouteRegistrarLoader.mergeInto(spiResult, candidates);
-
-        // Collect exception handlers (SPI-contributed + already present) into the
-        // synthetic HandlerMetadata bean consumed by the web exception registry.
+        // Runtime-only contribution derived from the surviving candidates: collect exception
+        // handlers (SPI-contributed + already present) into the synthetic HandlerMetadata bean
+        // consumed by the web exception registry. Injected before resolution so beans that
+        // reference it resolve.
         Map<String, List<BeanDefinition.ExceptionHandlerEntry>> handlerMap = new HashMap<>();
         for (BeanDefinition bd : candidates) {
             if (!bd.exceptionHandlerMethods.isEmpty()) {
@@ -102,22 +85,41 @@ public final class RuntimeContainer implements ContainerEngine {
         handlerMetaDef.syntheticInstance = new HandlerMetadata(handlerMap);
         candidates.add(handlerMetaDef);
 
-        SharedDependencyResolver resolver = new SharedDependencyResolver();
-        List<BeanDefinition> sorted = resolver.resolve(candidates, mocks);
+        // Shared core, stage 2: dependency resolution → variable-name dedup → route extraction.
+        BuildPipeline.Resolved resolved = BuildPipeline.resolve(candidates, mocks);
+        List<BeanDefinition> sorted = resolved.sorted();
 
-        Map<String, List<String>> interceptorMap = buildInterceptorMap(candidates);
+        RuntimeConfigBinder binder = new RuntimeConfigBinder();
+        ConfigBinder.BindingContext ctx = ConfigBinder.BindingContext.of(overrides);
+        // Config binding only needs the surviving set and must land before instantiation — it is
+        // independent of route/condition order, so it runs after the shared core.
+        bindConfiguration(sorted, builder, binder, ctx);
+
+        Map<String, List<String>> interceptorMap = buildInterceptorMap(sorted);
         Map<String, Set<String>> bindingMap = new HashMap<>();
-        for (BeanDefinition bd : candidates) {
+        for (BeanDefinition bd : sorted) {
             if (!bd.interceptorBindingAnnotations.isEmpty()) {
                 bindingMap.put(bd.qualifiedName, bd.interceptorBindingAnnotations);
             }
         }
-        BeanInstantiator instantiator = new BeanInstantiator(builder, interceptorMap, bindingMap);
+        BeanInstantiator instantiator =
+                new BeanInstantiator(
+                        builder,
+                        interceptorMap,
+                        bindingMap,
+                        resolved.interfaceImplementationCounts());
 
         for (MockedBean mocked : mocks) {
             builder.register(mocked.targetType(), mocked.instance());
-            for (Class<?> iface : mocked.targetType().getInterfaces()) {
-                builder.register(iface, mocked.instance());
+        }
+        // External beans must be registered BEFORE the sorted definitions are instantiated: a bean
+        // whose constructor needs an external bean resolves it via builder.getBean(type) at
+        // instantiation time, so a late registration would throw NoSuchBeanException. Both mocks
+        // and external beans register only their declared type — no interface keys needed:
+        // BeanContainer.getBean resolves by assignability (type.isInstance scans the registry).
+        for (Object bean : externalBeans) {
+            if (bean != null) {
+                builder.register(bean.getClass(), bean);
             }
         }
         for (BeanDefinition bd : sorted) {
@@ -131,8 +133,7 @@ public final class RuntimeContainer implements ContainerEngine {
                     bd.syntheticInstance != null ? " [synthetic]" : "");
             instantiator.instantiateFromDefinition(bd);
         }
-        List<RouteInfo> allRoutes = candidates.stream().flatMap(bd -> bd.routes.stream()).toList();
-        builder.routes(allRoutes);
+        builder.routes(resolved.routes());
 
         // validators
         for (Object bean : builder.singletons().values()) {
@@ -142,14 +143,10 @@ public final class RuntimeContainer implements ContainerEngine {
             }
         }
 
-        for (Object bean : externalBeans) {
-            if (bean != null) builder.register(bean.getClass(), bean);
-        }
-
         log.info(
                 "[Summer] Built RUNTIME container: {} beans, {} routes",
                 sorted.size(),
-                allRoutes.size());
+                resolved.routes().size());
         return builder.build(Engine.RUNTIME);
     }
 

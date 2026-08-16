@@ -5,18 +5,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import com.github.dropguard.summer.web.Handler;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpMethod;
+import com.github.dropguard.summer.web.HttpRouter;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.Middleware;
 import com.github.dropguard.summer.web.Request;
 import com.github.dropguard.summer.web.http.RadixTreeHttpRouter;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class MiddlewareTest {
 
     @Test
-    void middlewareWrapsResult() {
-        RadixTreeHttpRouter router = new RadixTreeHttpRouter();
+    void middlewareWrapsResult() throws Exception {
         Middleware wrapMiddleware =
                 next ->
                         ctx -> {
@@ -27,14 +28,18 @@ class MiddlewareTest {
                             ctx.text(ctx.status(), "[wrapped] " + content);
                         };
 
-        router.register(
-                HttpMethod.GET,
-                "/test",
-                ctx -> {
-                    Handler original = ctx2 -> ctx2.text(HttpStatus.OK, "data");
-                    Handler wrapped = wrapMiddleware.apply(original);
-                    wrapped.handle(ctx);
-                });
+        RadixTreeHttpRouter router =
+                new RadixTreeHttpRouter(
+                        List.of(
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.GET,
+                                        "/test",
+                                        ctx -> {
+                                            Handler original =
+                                                    ctx2 -> ctx2.text(HttpStatus.OK, "data");
+                                            Handler wrapped = wrapMiddleware.apply(original);
+                                            wrapped.handle(ctx);
+                                        })));
 
         Request req = new Request(HttpMethod.GET, "/test", null, null, null);
         HttpContext ctx = new HttpContext(req);
@@ -43,7 +48,7 @@ class MiddlewareTest {
     }
 
     @Test
-    void multipleMiddlewaresChain() {
+    void multipleMiddlewaresChain() throws Exception {
         Middleware first =
                 next ->
                         ctx -> {

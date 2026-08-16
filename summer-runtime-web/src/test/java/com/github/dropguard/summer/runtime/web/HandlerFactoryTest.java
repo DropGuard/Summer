@@ -58,7 +58,7 @@ class HandlerFactoryTest {
     }
 
     @Test
-    void shouldWrapCheckedExceptionInHandlerInvocationException() throws Exception {
+    void shouldPropagateCheckedExceptionUnwrapped() throws Exception {
         TestController controller = new TestController();
         Method method = TestController.class.getDeclaredMethod("throwChecked");
         HttpParameterResolverChain chain = new HttpParameterResolverChain(List.of());
@@ -67,14 +67,15 @@ class HandlerFactoryTest {
         Request request = new Request(HttpMethod.GET, "/error", null, null, null);
         HttpContext ctx = new HttpContext(request);
 
-        HandlerInvocationException ex =
+        // Handler.handle declares throws Exception: a checked exception from the controller
+        // propagates unwrapped so @ExceptionHandler matching sees the original exception.
+        Exception ex =
                 assertThrows(
-                        HandlerInvocationException.class,
+                        Exception.class,
                         () -> handler.handle(ctx),
-                        "a checked exception cannot propagate through Handler.handle and must be"
-                                + " wrapped in the web-domain failure, not SummerAopException");
-        assertEquals("Handler invocation failed", ex.getMessage());
-        assertInstanceOf(Exception.class, ex.getCause());
+                        "a checked exception propagates unwrapped through Handler.handle");
+        assertEquals("checked exception", ex.getMessage());
+        assertFalse(ex instanceof HandlerInvocationException);
     }
 
     @Test

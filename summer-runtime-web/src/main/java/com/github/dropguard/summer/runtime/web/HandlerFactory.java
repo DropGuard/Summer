@@ -45,15 +45,14 @@ final class HandlerFactory {
             try {
                 method.invoke(instance, args);
             } catch (InvocationTargetException e) {
+                // Handler.handle now declares throws Exception, so the cause propagates unwrapped —
+                // @ExceptionHandler matching sees the original exception (runtime or checked).
+                // Errors pass through untouched (never wrapped in the invocation failure).
                 Throwable cause = e.getTargetException();
-                // RuntimeException causes propagate unwrapped so @ExceptionHandler matching works;
-                // a checked exception cannot propagate through Handler.handle and is wrapped in
-                // the web-domain failure (NOT SummerAopException — invocation has nothing to do
-                // with AOP). Note: the wrap buries the cause, so an @ExceptionHandler for the
-                // checked type does not fire (matching walks the class hierarchy, not causes).
-                throw (cause instanceof RuntimeException re)
-                        ? re
-                        : new HandlerInvocationException("Handler invocation failed", cause);
+                if (cause instanceof Exception ex) {
+                    throw ex;
+                }
+                throw (Error) cause;
             } catch (IllegalAccessException e) {
                 throw new HandlerInvocationException("Cannot access handler method", e);
             }

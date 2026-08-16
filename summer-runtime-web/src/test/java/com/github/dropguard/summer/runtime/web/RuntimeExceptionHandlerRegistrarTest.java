@@ -45,7 +45,7 @@ class RuntimeExceptionHandlerRegistrarTest {
     }
 
     @Test
-    void registersHandlerForValidMetadata() {
+    void registersHandlerForValidMetadata() throws Exception {
         HandlerHost host = new HandlerHost();
         BeanContainer.Builder builder = new BeanContainer.Builder();
         builder.register(HandlerHost.class, host);

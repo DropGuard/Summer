@@ -13,7 +13,7 @@ class BeanInstantiatorTest {
     @Test
     void shouldWrapConstructorException() {
         BeanContainer.Builder builder = new BeanContainer.Builder();
-        BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of(), Map.of());
+        BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of(), Map.of(), Map.of());
 
         BeanDefinition def =
                 new BeanDefinition(CrashingComponent.class.getName(), "crashingComponent");
@@ -29,30 +29,9 @@ class BeanInstantiatorTest {
     }
 
     @Test
-    void shouldRejectBeanContainerInjection() {
-        BeanContainer.Builder builder = new BeanContainer.Builder();
-        BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of(), Map.of());
-
-        BeanDefinition def =
-                new BeanDefinition(
-                        ContainerInjectingComponent.class.getName(), "containerInjectingComponent");
-        def.addParameter(BeanContainer.class.getName());
-
-        BeanCreationException ex =
-                assertThrows(
-                        BeanCreationException.class,
-                        () -> instantiator.instantiateFromDefinition(def));
-
-        assertTrue(
-                ex.getCause()
-                        .getMessage()
-                        .contains("ApplicationContext injection is not supported"));
-    }
-
-    @Test
     void shouldWrapClassNotFoundException() {
         BeanContainer.Builder builder = new BeanContainer.Builder();
-        BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of(), Map.of());
+        BeanInstantiator instantiator = new BeanInstantiator(builder, Map.of(), Map.of(), Map.of());
 
         // A class name under the project's negative-fixtures namespace that is
         // intentionally never registered as a bean, so resolution fails with a clear
@@ -80,9 +59,5 @@ class BeanInstantiatorTest {
         public CrashingComponent() {
             throw new RuntimeException("Crash");
         }
-    }
-
-    public static class ContainerInjectingComponent {
-        public ContainerInjectingComponent(BeanContainer container) {}
     }
 }

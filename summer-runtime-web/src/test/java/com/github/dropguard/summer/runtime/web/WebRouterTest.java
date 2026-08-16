@@ -14,21 +14,19 @@ import com.github.dropguard.summer.web.http.MapRouter;
 import com.github.dropguard.summer.web.http.RadixTreeHttpRouter;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class WebRouterTest {
 
-    private RadixTreeHttpRouter router;
-
-    @BeforeEach
-    void setUp() {
-        router = new RadixTreeHttpRouter();
-    }
-
     @Test
-    void basicGetRoute() {
-        router.register(HttpMethod.GET, "/hello", ctx -> ctx.text(HttpStatus.OK, "world"));
+    void basicGetRoute() throws Exception {
+        RadixTreeHttpRouter router =
+                new RadixTreeHttpRouter(
+                        List.of(
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.GET,
+                                        "/hello",
+                                        ctx -> ctx.text(HttpStatus.OK, "world"))));
         Request req = new Request(HttpMethod.GET, "/hello", null, null, null);
         HttpContext ctx = new HttpContext(req);
         router.route(ctx);
@@ -36,8 +34,14 @@ class WebRouterTest {
     }
 
     @Test
-    void basicPostRoute() {
-        router.register(HttpMethod.POST, "/items", ctx -> ctx.text(HttpStatus.OK, "created"));
+    void basicPostRoute() throws Exception {
+        RadixTreeHttpRouter router =
+                new RadixTreeHttpRouter(
+                        List.of(
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.POST,
+                                        "/items",
+                                        ctx -> ctx.text(HttpStatus.OK, "created"))));
         Request req =
                 new Request(
                         HttpMethod.POST,
@@ -51,14 +55,17 @@ class WebRouterTest {
     }
 
     @Test
-    void pathParameters() {
-        router.register(
-                HttpMethod.GET,
-                "/users/{id}",
-                ctx -> {
-                    String id = ctx.request().pathParam("id");
-                    ctx.text(HttpStatus.OK, "user:" + id);
-                });
+    void pathParameters() throws Exception {
+        RadixTreeHttpRouter router =
+                new RadixTreeHttpRouter(
+                        List.of(
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.GET,
+                                        "/users/{id}",
+                                        ctx -> {
+                                            String id = ctx.request().pathParam("id");
+                                            ctx.text(HttpStatus.OK, "user:" + id);
+                                        })));
         Request req = new Request(HttpMethod.GET, "/users/42", null, null, null);
         HttpContext ctx = new HttpContext(req);
         router.route(ctx);
@@ -66,8 +73,14 @@ class WebRouterTest {
     }
 
     @Test
-    void unmatchedRouteReturnsNull() {
-        router.register(HttpMethod.GET, "/exists", ctx -> ctx.text(HttpStatus.OK, "yes"));
+    void unmatchedRouteReturnsNull() throws Exception {
+        RadixTreeHttpRouter router =
+                new RadixTreeHttpRouter(
+                        List.of(
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.GET,
+                                        "/exists",
+                                        ctx -> ctx.text(HttpStatus.OK, "yes"))));
         Request req = new Request(HttpMethod.GET, "/not-exists", null, null, null);
         HttpContext ctx = new HttpContext(req);
         router.route(ctx);
@@ -75,11 +88,26 @@ class WebRouterTest {
     }
 
     @Test
-    void methodDistinction() {
-        router.register(HttpMethod.GET, "/resource", ctx -> ctx.text(HttpStatus.OK, "get"));
-        router.register(HttpMethod.POST, "/resource", ctx -> ctx.text(HttpStatus.OK, "post"));
-        router.register(HttpMethod.PUT, "/resource", ctx -> ctx.text(HttpStatus.OK, "put"));
-        router.register(HttpMethod.DELETE, "/resource", ctx -> ctx.text(HttpStatus.OK, "delete"));
+    void methodDistinction() throws Exception {
+        RadixTreeHttpRouter router =
+                new RadixTreeHttpRouter(
+                        List.of(
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.GET,
+                                        "/resource",
+                                        ctx -> ctx.text(HttpStatus.OK, "get")),
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.POST,
+                                        "/resource",
+                                        ctx -> ctx.text(HttpStatus.OK, "post")),
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.PUT,
+                                        "/resource",
+                                        ctx -> ctx.text(HttpStatus.OK, "put")),
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.DELETE,
+                                        "/resource",
+                                        ctx -> ctx.text(HttpStatus.OK, "delete"))));
 
         assertEquals("get", bodyOf(router, HttpMethod.GET, "/resource"));
         assertEquals("post", bodyOf(router, HttpMethod.POST, "/resource"));
@@ -88,8 +116,14 @@ class WebRouterTest {
     }
 
     @Test
-    void rootPath() {
-        router.register(HttpMethod.GET, "/", ctx -> ctx.text(HttpStatus.OK, "root"));
+    void rootPath() throws Exception {
+        RadixTreeHttpRouter router =
+                new RadixTreeHttpRouter(
+                        List.of(
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.GET,
+                                        "/",
+                                        ctx -> ctx.text(HttpStatus.OK, "root"))));
         Request req = new Request(HttpMethod.GET, "/", null, null, null);
         HttpContext ctx = new HttpContext(req);
         router.route(ctx);
@@ -97,27 +131,37 @@ class WebRouterTest {
     }
 
     @Test
-    void routeConflictDetection() {
-        router.register(HttpMethod.GET, "/users/{id}", ctx -> ctx.text(HttpStatus.OK, "user"));
+    void routeConflictDetection() throws Exception {
+        // A conflicting second path param on the same route fails during construction — the router
+        // is immutable after build, so the conflict surfaces at the single registration point.
         assertThrows(
                 RouteConflictException.class,
                 () ->
-                        router.register(
-                                HttpMethod.GET,
-                                "/users/{name}",
-                                ctx -> ctx.text(HttpStatus.OK, "conflict")));
+                        new RadixTreeHttpRouter(
+                                List.of(
+                                        new HttpRouter.Builder.Route(
+                                                HttpMethod.GET,
+                                                "/users/{id}",
+                                                ctx -> ctx.text(HttpStatus.OK, "user")),
+                                        new HttpRouter.Builder.Route(
+                                                HttpMethod.GET,
+                                                "/users/{name}",
+                                                ctx -> ctx.text(HttpStatus.OK, "conflict")))));
     }
 
     @Test
-    void multiplePathParams() {
-        router.register(
-                HttpMethod.GET,
-                "/orgs/{orgId}/repos/{repoId}",
-                ctx -> {
-                    String org = ctx.request().pathParam("orgId");
-                    String repo = ctx.request().pathParam("repoId");
-                    ctx.text(HttpStatus.OK, org + "/" + repo);
-                });
+    void multiplePathParams() throws Exception {
+        RadixTreeHttpRouter router =
+                new RadixTreeHttpRouter(
+                        List.of(
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.GET,
+                                        "/orgs/{orgId}/repos/{repoId}",
+                                        ctx -> {
+                                            String org = ctx.request().pathParam("orgId");
+                                            String repo = ctx.request().pathParam("repoId");
+                                            ctx.text(HttpStatus.OK, org + "/" + repo);
+                                        })));
         Request req = new Request(HttpMethod.GET, "/orgs/summer/repos/core", null, null, null);
         HttpContext ctx = new HttpContext(req);
         router.route(ctx);
@@ -125,7 +169,7 @@ class WebRouterTest {
     }
 
     @Test
-    void mapRouterWorks() {
+    void mapRouterWorks() throws Exception {
         MapRouter mapRouter =
                 new MapRouter(
                         List.of(
@@ -153,8 +197,14 @@ class WebRouterTest {
     }
 
     @Test
-    void deeplyNestedPaths() {
-        router.register(HttpMethod.GET, "/a/b/c/d/e/f", ctx -> ctx.text(HttpStatus.OK, "deep"));
+    void deeplyNestedPaths() throws Exception {
+        RadixTreeHttpRouter router =
+                new RadixTreeHttpRouter(
+                        List.of(
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.GET,
+                                        "/a/b/c/d/e/f",
+                                        ctx -> ctx.text(HttpStatus.OK, "deep"))));
         Request req = new Request(HttpMethod.GET, "/a/b/c/d/e/f", null, null, null);
         HttpContext ctx = new HttpContext(req);
         router.route(ctx);
@@ -162,18 +212,24 @@ class WebRouterTest {
     }
 
     @Test
-    void urlEncodedPathParams() {
-        router.register(
-                HttpMethod.GET,
-                "/search/{query}",
-                c -> c.text(HttpStatus.OK, c.request().pathParam("query")));
+    void urlEncodedPathParams() throws Exception {
+        RadixTreeHttpRouter router =
+                new RadixTreeHttpRouter(
+                        List.of(
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.GET,
+                                        "/search/{query}",
+                                        c ->
+                                                c.text(
+                                                        HttpStatus.OK,
+                                                        c.request().pathParam("query")))));
         Request req = new Request(HttpMethod.GET, "/search/hello%20world", null, null, null);
         HttpContext ctx = new HttpContext(req);
         router.route(ctx);
         assertEquals("hello world", new String(ctx.body(), StandardCharsets.UTF_8));
     }
 
-    private String bodyOf(RadixTreeHttpRouter r, HttpMethod method, String path) {
+    private String bodyOf(RadixTreeHttpRouter r, HttpMethod method, String path) throws Exception {
         HttpContext ctx = new HttpContext(new Request(method, path, null, null, null));
         r.route(ctx);
         byte[] body = ctx.body();

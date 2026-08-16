@@ -9,6 +9,7 @@ import com.github.dropguard.summer.core.exception.BeanCreationException;
 import com.github.dropguard.summer.core.exception.NoSuchBeanException;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,14 +41,20 @@ final class BeanInstantiator {
     private final BeanContainer.Builder builder;
     private final Map<String, List<String>> interceptorMap;
     private final Map<Class<?>, Set<Class<? extends Annotation>>> interceptorBindings;
+    // interface name -> number of beans implementing it. Register an interface key only for
+    // single-impl interfaces (supports getBean(iface) / ctor injection); multi-impl interfaces
+    // are collection-injection strategies (List<X>) resolved via getBeans, never by a shared key.
+    private final java.util.Map<String, Integer> ifaceCounts;
 
     BeanInstantiator(
             BeanContainer.Builder builder,
             Map<String, List<String>> interceptorMap,
-            Map<String, Set<String>> interceptorBindingAnnotations) {
+            Map<String, Set<String>> interceptorBindingAnnotations,
+            java.util.Map<String, Integer> ifaceCounts) {
         this.builder = builder;
         this.interceptorMap = interceptorMap;
         this.interceptorBindings = buildInterceptorBindings(interceptorBindingAnnotations);
+        this.ifaceCounts = ifaceCounts;
     }
 
     /**
@@ -100,10 +107,17 @@ final class BeanInstantiator {
             } else {
                 instance = createInstance(bean);
             }
+            // @PostConstruct runs on the raw instance, before the AOP proxy wrap — lifecycle
+            // callbacks are never intercepted (CDI semantics). Products skip it: their producer
+            // owns initialization (and enrichment never records a method for them).
+            invokePostConstruct(bean, instance);
             registerBean(bean, instance);
         } catch (Exception e) {
             if (e instanceof NoSuchBeanException nse) {
                 throw nse;
+            }
+            if (e instanceof BeanCreationException bce) {
+                throw bce;
             }
             throw new BeanCreationException("Failed to instantiate bean: " + bean.qualifiedName, e);
         }
@@ -132,6 +146,32 @@ final class BeanInstantiator {
         return constructor.newInstance(args);
     }
 
+    /**
+     * Invokes the {@code @PostConstruct} method recorded during enrichment (CDI config-phase-end
+     * callback). The method is public and parameterless by enforcement at enrichment time (AOT
+     * parity); {@code getMethod} resolves the most specific declaration in the class hierarchy,
+     * matching the enrichment scan, and virtual dispatch runs any subclass override.
+     */
+    private void invokePostConstruct(BeanDefinition bean, Object instance) {
+        String methodName = bean.postConstructMethod;
+        if (methodName == null) {
+            return;
+        }
+        try {
+            Method method = instance.getClass().getMethod(methodName);
+            method.invoke(instance);
+        } catch (NoSuchMethodException | IllegalAccessException e) {
+            throw new BeanCreationException(
+                    "Failed to invoke @PostConstruct on bean: " + bean.qualifiedName, e);
+        } catch (InvocationTargetException e) {
+            // Unwrap the bean's own failure so the reported cause is the real one, not the
+            // reflection wrapper (the framework's fail-fast convention).
+            throw new BeanCreationException(
+                    "Failed to invoke @PostConstruct on bean: " + bean.qualifiedName,
+                    e.getCause() != null ? e.getCause() : e);
+        }
+    }
+
     private Constructor<?> findSinglePublicConstructor(Class<?> clazz) {
         Constructor<?>[] ctors = clazz.getConstructors();
         if (ctors.length != 1) {
@@ -158,11 +198,9 @@ final class BeanInstantiator {
                 Class<?> elementClass = loadClassForInstantiation(parameter.elementType());
                 args[i] = builder.getBeans(elementClass);
             } else {
-                if (parameter.typeName().equals("com.github.dropguard.summer.core.BeanContainer")) {
-                    throw new BeanCreationException(
-                            "ApplicationContext injection is not supported by the runtime engine."
-                                    + " Use BeanContainer from caller.");
-                }
+                // BeanContainer injection is rejected in SharedDependencyResolver at discovery
+                // time — every BeanDefinition passes through it, so this branch is unreachable
+                // for such a parameter.
                 Class<?> paramType = loadClassForInstantiation(parameter.typeName());
                 args[i] = builder.getBean(paramType);
             }
@@ -191,17 +229,28 @@ final class BeanInstantiator {
             builder.register(clazz, instance);
         }
         // Interface-based AOP: the JDK proxy is registered under every interface (recursively).
-        // No two beans share an interface in a valid build — SharedDependencyResolver rejects the
-        // ambiguity at discovery — so there is no "wins" semantics at registration time.
+        // Multiple beans MAY share an interface (strategy pattern: e.g. CursorPageResolver and
+        // DefaultPageResolver both implement HttpParameterResolver, composed via
+        // HttpParameterResolverChain). BeanContainer.Builder#register is keyed by type, so the
+        // last registration wins on a shared interface key — callers that need all impls must use
+        // getBeans(interface) or the resolver chain, never getBean(interface) for a strategy.
         registerAllInterfaces(clazz, proxy, isProduct);
     }
 
     private void registerAllInterfaces(Class<?> clazz, Object instance, boolean isProduct) {
         for (Class<?> iface : clazz.getInterfaces()) {
-            if (isProduct) {
-                builder.registerProduct(iface, instance);
-            } else {
-                builder.register(iface, instance);
+            // Register the interface key only when exactly one bean implements it (single-bean
+            // lookup by interface / constructor injection by interface). An interface with
+            // multiple impls is a collection-injection strategy (List<HttpParameterResolver>,
+            // List<Middleware>) resolved via getBeans — its key would otherwise be overwritten by
+            // the last-writer-wins register() and hide the multi-impl contract.
+            Integer count = ifaceCounts.get(iface.getName());
+            if (count != null && count == 1) {
+                if (isProduct) {
+                    builder.registerProduct(iface, instance);
+                } else {
+                    builder.register(iface, instance);
+                }
             }
             registerAllInterfaces(iface, instance, isProduct);
         }
