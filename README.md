@@ -32,31 +32,28 @@ Proxy → InterceptorChain → Target Method
 
 Instead of relying on deep container magic, there is no hidden execution layer beyond this model. Summer keeps execution explicit and predictable.
 
-## 🏗 Architecture Overview
 
-```text
-+-------------------+
-|     HTTP Layer    |
-|  Middleware + Router |
-+-------------------+
-          ↓
-+-------------------+
-|   Application     |
-|  IoC + AOP + Tx   |
-+-------------------+
-          ↓
-+-------------------+
-|   Persistence     |
-|  JDBC / Redis     |
-+-------------------+
-          ↓
-+-------------------+
-|   RPC             |
-|  gRPC / WebSocket |
-+-------------------+
-```
+Cross-cutting (AOP proxy chain, @Transactional) intercept every layer above
+the IoC container — they are interceptors, not layers.
 
+## 🚀 Getting Started
 
+Three commands cover the whole lifecycle — scaffold, develop, ship. They are Maven
+goals from `summer-maven-plugin`, so nothing extra to install beyond Maven.
+
+| Step | Command | What it does |
+|---|---|---|
+| 1. Scaffold | `mvn summer:create-app -DartifactId=myapp -DgroupId=com.example` | Generate a new project (inherits `summer-build-parent`, wires AOT + Jandex) |
+| 2. Develop | `mvn summer:dev` | Hot-reload dev loop on `:8080` (TCP proxy + child JVM) |
+| 3. Ship | `mvn package` | AOT build → runnable fat jar (`java -jar`) |
+
+The one-time prerequisite is a `~/.m2/settings.xml` with the `com.github.dropguard`
+plugin group and GitHub Packages credentials — see [Scaffold a project](#scaffold-a-project-recommended)
+below for the exact snippet, and [Dev Mode](#dev-mode-summerdev) for the hot-reload
+details. Run one of the bundled demos (`summer-twitter` / `summer-realworld`) to see
+Summer in practice.
+
+* * *
 
 ## ⚡ Dual DI Engine
 
@@ -88,6 +85,14 @@ summer:
 // Single entry point; engine resolved from configuration.
 SummerApplication.run(args);
 ```
+
+
+## 🛠 Daily Development
+
+The three commands above are the everyday loop. This section holds the
+details behind them for when you need them.
+
+* * *
 
 ### Dev Mode (`summer:dev`)
 
@@ -147,11 +152,20 @@ mvn summer:create-app -DartifactId=myapp -DgroupId=com.example
 `mvn archetype:generate -DarchetypeGroupId=com.github.dropguard
 -DarchetypeArtifactId=summer-archetype` flow.)
 
-### Enabling AOT in your project
+### Enabling AOT (pre-Maven Central)
 
-Artifacts (framework + plugin) are published to **GitHub Packages** under
-`com.github.dropguard`. Add the registry to your `pom.xml` (credentials: a
-GitHub token with `read:packages`, in `settings.xml`):
+> **Temporary:** Summer is not yet on Maven Central, so artifacts are served
+> from GitHub Packages and a project must declare the registry + credentials.
+> Once published to Central, this whole step disappears — dependencies and the
+> plugin resolve normally and the scaffold already wires it for you.
+
+For a hand-written `pom.xml` (no `mvn summer:create-app`), enabling AOT is two
+small declarations:
+
+
+**1. Resolve the framework + plugin from GitHub Packages.** Add the registry to
+your `pom.xml` (credentials: a GitHub token with `read:packages`, in
+`settings.xml`):
 
 ```xml
 <repositories>
@@ -168,10 +182,10 @@ GitHub token with `read:packages`, in `settings.xml`):
 </pluginRepositories>
 ```
 
-**Inherit `summer-build-parent`** (the Quarkus-style convention). It supplies the
-whole AOT toolchain: the Jandex index is bound automatically, and the parent's
-`pluginManagement` provides the plugin version + `generate-aot` execution — so
-enabling AOT is a single declaration, with no goals or phases to write:
+
+**2. Inherit `summer-build-parent`.** It binds the Jandex index and the
+`generate-aot` execution automatically (both are in its `<build><plugins>`), so
+inheriting the parent is the whole AOT setup — no plugin declaration of your own:
 
 ```xml
 <parent>
@@ -179,15 +193,6 @@ enabling AOT is a single declaration, with no goals or phases to write:
     <artifactId>summer-build-parent</artifactId>
     <version>999-SNAPSHOT</version>
 </parent>
-...
-<build>
-    <plugins>
-        <plugin>
-            <groupId>com.github.dropguard</groupId>
-            <artifactId>summer-maven-plugin</artifactId>
-        </plugin>
-    </plugins>
-</build>
 ```
 
 The goal runs at `process-classes`: it generates the AOT context, compiles it into
@@ -196,6 +201,7 @@ The goal runs at `process-classes`: it generates the AOT context, compiles it in
 the registry above is the current distribution channel.)
 
 * * *
+
 ## 🎯 The Hypothesis (What Summer Tries to Prove)
 
 For a typical CRUD application, the core runtime model can be reduced to:
@@ -278,33 +284,32 @@ Once exposed, you can point your Prometheus instance to `/metrics` to begin scra
 
 ## 📈 Performance Benchmarking
 
-Summer is designed for high-concurrency throughput using Java's virtual threads and a byte-level router that minimizes allocations. To see the framework's performance in action:
+Summer is built for high-concurrency throughput using virtual threads and a
+byte-level router that minimizes allocations. The benchmark suite in
+`summer-benchmark` compares two deliberately minimal, identical apps — one on
+Summer (Netty), one on Spring Boot (Tomcat) — isolated in Docker containers
+with identical resource limits (2 CPUs / 512MB) and the same stack (Virtual
+Threads, Jackson).
 
-1. **Start the Showcase App**:
-   ```bash
-   cd summer-twitter
-   mvn exec:java -Dexec.mainClass="com.github.dropguard.summer.twitter.Application"
-   ```
+### Results
 
-2. **Run a Load Test** (using `wrk`):
-   ```bash
-   # Simulate 100 concurrent users for 30 seconds using 4 OS threads.
-   # /health/live is the framework's built-in health route (no auth, no DB),
-   # so it measures pure framework overhead. The showcase's API routes (e.g.
-   # /api/timeline) require a JWT — there is no /users/1 endpoint — so they
-   # are not suitable for an unauthenticated load test.
-   wrk -t4 -c100 -d30s http://localhost:8080/health/live
-   ```
+| Metric | Spring Boot 4.0 (Tomcat) | Summer (Netty) | Improvement |
+|---|---|---|---|
+| Requests/sec (RPS) | 15,030 | 40,604 | **+170%** |
+| Avg Latency (ms) | 6.56 | 2.25 | **-66%** |
+| P95 Latency (ms) | 24.69 | 4.67 | **-81%** |
 
-3. **Monitor Metrics**:
-   While the test is running, open `http://localhost:8080/_system/metrics` in your browser to see real-time stats:
-   - `summer_requests_active`: Current concurrent requests being handled by virtual threads.
-   - `summer_requests_total`: Throughput achieved.
+Full methodology, constraints, and the orchestrator script live in
+`summer-benchmark/` (`python run-benchmarks.py`).
 
 ### Why Summer is Fast
-- **Virtual Threads**: Every request is a lightweight thread; no thread pool exhaustion.
-- **Byte-Level Router**: Routing compares path segments as raw bytes, avoiding String allocation for the path itself. Path parameters still require String creation.
-- **Minimalistic Core**: No deep interceptor chains or complex proxy logic for standard requests.
+- **Virtual Threads**: every request is a lightweight thread; no thread-pool
+  exhaustion under concurrency.
+- **Byte-Level Router**: routing compares path segments as raw bytes, avoiding
+  String allocation for the path itself.
+- **Minimalistic Core**: no deep interceptor chains or proxy logic for standard
+  requests — less work per request is why the RPS and latency numbers above
+  hold.
 
 * * *
 
@@ -404,7 +409,7 @@ behind most modern CRUD frameworks.
 
 It exists to make the invisible visible.
 
-## 🚀 Getting Started
+## 🧪 A Minimal Example
 
 Here is what Summer looks like in practice. Notice the strict constructor injection and the explicit `Request` object parsing.
 
@@ -491,6 +496,7 @@ Summer is inspired by:
 
 *   The middleware execution model of **Gin**
 *   The declarative programming style of **Spring**
+*   The build-time AOT convention and dev-mode ergonomics of **Quarkus**
 
 It is not a Spring replacement.  
 It is not a better Spring.  
