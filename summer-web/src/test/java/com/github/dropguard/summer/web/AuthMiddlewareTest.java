@@ -17,7 +17,7 @@ class AuthMiddlewareTest {
 
         @Test
         @DisplayName("authenticate returns userId -> attribute set, handler called")
-        void authenticateSuccess() {
+        void authenticateSuccess() throws Exception {
             // Given
             AtomicReference<Long> capturedUserId = new AtomicReference<>();
             AtomicBoolean handlerCalled = new AtomicBoolean(false);
@@ -42,7 +42,7 @@ class AuthMiddlewareTest {
 
         @Test
         @DisplayName("authenticate returns 0 -> attribute set (edge case)")
-        void authenticateZeroUserId() {
+        void authenticateZeroUserId() throws Exception {
             // Given
             AtomicReference<Long> capturedUserId = new AtomicReference<>();
 
@@ -69,7 +69,7 @@ class AuthMiddlewareTest {
 
         @Test
         @DisplayName("authenticate returns null -> attribute not set, handler called")
-        void authenticateFailure() {
+        void authenticateFailure() throws Exception {
             // Given
             AtomicReference<Long> capturedUserId = new AtomicReference<>();
             AtomicBoolean handlerCalled = new AtomicBoolean(false);
@@ -99,7 +99,7 @@ class AuthMiddlewareTest {
 
         @Test
         @DisplayName("multiple middlewares execute in order")
-        void multipleMiddlewares() {
+        void multipleMiddlewares() throws Exception {
             // Given
             StringBuilder order = new StringBuilder();
 

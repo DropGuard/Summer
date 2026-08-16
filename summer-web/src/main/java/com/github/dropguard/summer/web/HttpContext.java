@@ -25,7 +25,6 @@ import org.slf4j.LoggerFactory;
  * ready. Controllers must explicitly set response data via the write facade methods; return values
  * from handler methods are ignored.
  *
- * @see Response
  * @see com.github.dropguard.summer.web.server.NettyHttpServerHandler
  */
 public class HttpContext {
@@ -112,6 +111,9 @@ public class HttpContext {
         response.status = status;
         response.resultObject = data;
         response.converter = converter;
+        // Mutually exclusive with text(): a prior text() body must not linger, else the IO layer
+        // serializes the resultObject but status from the text() call reads as a 400+DIO body.
+        response.body = null;
         response.headers.put("Content-Type", converter.getContentType());
     }
 
@@ -120,12 +122,20 @@ public class HttpContext {
         json(HttpStatus.OK, data);
     }
 
-    /** Sets a plain text response. */
+    /** Sets a plain text response. A null body clears any previously written body. */
     public void text(HttpStatus status, String body) {
         response.status = status;
         if (body != null) {
             response.body = body.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        } else {
+            // A null body means "no body" — drop any previously written body so the response is
+            // not silently re-sent with stale content (text(400,null) after text(500,"err") must
+            // send an empty 400, not the stale 500 body).
+            response.body = null;
         }
+        // Mutually exclusive with json(): a prior json() resultObject must not linger, else the
+        // IO layer serializes the old resultObject instead of the new text body.
+        response.resultObject = null;
         response.headers.put("Content-Type", "text/plain");
     }
 

@@ -29,7 +29,7 @@ package com.github.dropguard.summer.web;
  * 	// 3. In handler, check userId
  * 	Long userId = ctx.request().getAttribute(RequestAttributes.USER_ID);
  * 	if (userId == null) {
- * 		ctx.json(401, Errors.tokenMissing());
+ * 		ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
  * 		return;
  * 	}
  * }
@@ -49,13 +49,10 @@ public interface AuthMiddleware extends Middleware {
      * Applies authentication: calls {@link #authenticate(HttpContext)} and stores the result as a
      * request attribute named "userId".
      *
-     * <p>On success it also publishes the authenticated context via {@code RequestContextHolder}
-     * (static {@code ThreadLocal}) so services and AOP interceptors can read the current user
-     * without threading it through parameters. This side effect is intentional — it is how the
-     * framework exposes the authenticated user outside the handler signature.
-     *
-     * <p>If authentication fails (returns null), neither the attribute nor the holder is set. The
-     * handler is responsible for checking and returning 401 if needed.
+     * <p>The request attribute is the one channel (the Gin {@code c.Set} model): handlers and
+     * middleware in the chain read it via {@code ctx.request().getAttribute(RequestAttributes
+     * .USER_ID)}. If authentication fails (returns null), the attribute is not set; the handler is
+     * responsible for checking and returning 401 if needed.
      */
     @Override
     default Handler apply(Handler handler) {
@@ -63,9 +60,6 @@ public interface AuthMiddleware extends Middleware {
             Long userId = authenticate(ctx);
             if (userId != null) {
                 ctx.request().setAttribute(RequestAttributes.USER_ID, userId);
-                // Publish the authenticated context so services and AOP interceptors
-                // can read the current user without it being threaded as a parameter.
-                RequestContextHolder.set(new RequestContext(ctx.request(), userId));
             }
             handler.handle(ctx);
         };

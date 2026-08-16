@@ -36,7 +36,7 @@ class CorsMiddlewareTest {
     }
 
     @Test
-    void shouldSetCorsHeaders() {
+    void shouldSetCorsHeaders() throws Exception {
         CorsConfig config = corsProps("*", "GET, POST", "Content-Type", 3600);
         CorsMiddleware middleware = new CorsMiddleware(config);
 
@@ -58,7 +58,7 @@ class CorsMiddlewareTest {
     }
 
     @Test
-    void shouldHandlePreflightOptionsRequest() {
+    void shouldHandlePreflightOptionsRequest() throws Exception {
         CorsConfig config = corsProps("*", "GET, POST, PUT, DELETE", "Content-Type", 3600);
         CorsMiddleware middleware = new CorsMiddleware(config);
 
@@ -78,7 +78,7 @@ class CorsMiddlewareTest {
     }
 
     @Test
-    void shouldDelegateNonOptionsRequests() {
+    void shouldDelegateNonOptionsRequests() throws Exception {
         CorsConfig config = corsProps("*", "GET", "Content-Type", 3600);
         CorsMiddleware middleware = new CorsMiddleware(config);
 
@@ -98,7 +98,7 @@ class CorsMiddlewareTest {
     }
 
     @Test
-    void shouldReflectRequestOriginForNamedAllowList() {
+    void shouldReflectRequestOriginForNamedAllowList() throws Exception {
         CorsConfig config = corsProps("https://example.com", "GET", "Authorization", 7200);
         CorsMiddleware middleware = new CorsMiddleware(config);
 
@@ -119,7 +119,7 @@ class CorsMiddlewareTest {
     }
 
     @Test
-    void shouldOmitAllowOriginWhenRequestOriginNotAllowed() {
+    void shouldOmitAllowOriginWhenRequestOriginNotAllowed() throws Exception {
         CorsConfig config = corsProps("https://example.com", "GET", "Authorization", 7200);
         CorsMiddleware middleware = new CorsMiddleware(config);
 

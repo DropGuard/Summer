@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.github.dropguard.summer.web.exception.SummerWebException;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -205,5 +206,40 @@ class WebContextTest {
         public void setName(String name) {
             this.name = name;
         }
+    }
+
+    @Test
+    void textWithNullBodyClearsPreviouslyWrittenBody() {
+        Request req = new Request(HttpMethod.GET, "/x", null, null, null);
+        HttpContext ctx = new HttpContext(req);
+
+        ctx.text(HttpStatus.INTERNAL_SERVER_ERROR, "stale error body");
+        // A null body must clear the stale body — text(400, null) sends an empty 400, not the
+        // previously written 500 body.
+        ctx.text(HttpStatus.BAD_REQUEST, null);
+
+        assertEquals(HttpStatus.BAD_REQUEST, ctx.status());
+        assertNull(ctx.body(), "null text body must clear the previously written body");
+    }
+
+    @Test
+    void textAndJsonAreMutuallyExclusiveChannels() {
+        Request req = new Request(HttpMethod.GET, "/x", null, null, null);
+        HttpContext ctx = new HttpContext(req);
+
+        // json() then text(): the IO layer must send the text body, not the stale resultObject.
+        ctx.json(HttpStatus.OK, "dto");
+        ctx.text(HttpStatus.BAD_REQUEST, "plain error");
+        assertNull(ctx.resultObject(), "text() must clear a prior json() resultObject");
+        assertEquals(
+                "plain error",
+                new String(ctx.body(), StandardCharsets.UTF_8),
+                "text() body must be the response after a json() call");
+
+        // text() then json(): the IO layer must serialize the resultObject, not the stale body.
+        ctx.text(HttpStatus.OK, "stale");
+        ctx.json(HttpStatus.OK, "dto2");
+        assertNull(ctx.body(), "json() must clear a prior text() body");
+        assertEquals("dto2", ctx.resultObject(), "json() resultObject must be the response");
     }
 }

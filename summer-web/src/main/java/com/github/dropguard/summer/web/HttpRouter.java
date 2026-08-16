@@ -33,8 +33,9 @@ public interface HttpRouter {
      * Routes an incoming request to the appropriate handler.
      *
      * @param ctx the web context containing the request
+     * @throws Exception propagated from the matched handler (mapped by the exception registry)
      */
-    void route(HttpContext ctx);
+    void route(HttpContext ctx) throws Exception;
 
     /**
      * Builder for HTTP routers. Provides a fluent DSL for defining routes.

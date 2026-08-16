@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 class LoggingMiddlewareTest {
 
     @Test
-    void shouldCallNextHandler() {
+    void shouldCallNextHandler() throws Exception {
         LoggingMiddleware middleware = new LoggingMiddleware();
 
         AtomicBoolean called = new AtomicBoolean(false);
@@ -33,7 +33,7 @@ class LoggingMiddlewareTest {
     }
 
     @Test
-    void shouldPropagateExceptionFromNextHandler() {
+    void shouldPropagateExceptionFromNextHandler() throws Exception {
         LoggingMiddleware middleware = new LoggingMiddleware();
 
         Handler handler =

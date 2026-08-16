@@ -40,14 +40,23 @@ public final class PathMatcher {
         StringBuilder regex = new StringBuilder();
         regex.append("^/?");
         String[] segments = normalized.split("/");
+        boolean firstSegment = true;
         for (int i = 0; i < segments.length; i++) {
             String segment = segments[i];
             if (segment.isEmpty()) continue;
-            if (i > 0 || regex.length() > 2) {
+            if (!firstSegment) {
                 regex.append("/");
             }
+            firstSegment = false;
             if ("**".equals(segment)) {
-                regex.append("(.*)");
+                // Match zero or more path segments. Drop the "/" appended for this segment (the
+                // previous segment's terminator), so a bare prefix matches: "/s/**" accepts "/s"
+                // (zero segments after "s"), "/s/x" (one), etc.
+                if (regex.length() > 0 && regex.charAt(regex.length() - 1) == '/') {
+                    regex.setLength(regex.length() - 1);
+                }
+                regex.append("(?:/.*)?");
+                entry.catchAll = true;
                 break;
             } else if ("*".equals(segment)) {
                 regex.append("([^/]+)");
@@ -92,5 +101,8 @@ public final class PathMatcher {
     public static class RouteEntry {
         public Pattern pattern;
         public List<String> paramNames = new ArrayList<>();
+
+        /** True when the pattern contains a multi-segment wildcard {@code **}. */
+        public boolean catchAll = false;
     }
 }

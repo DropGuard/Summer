@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 class MetricsMiddlewareTest {
 
     @Test
-    void shouldIncrementAndDecrementActiveRequests() {
+    void shouldIncrementAndDecrementActiveRequests() throws Exception {
         MetricsRegistry registry = new MetricsRegistry();
         MetricsMiddleware middleware = new MetricsMiddleware(registry);
 
@@ -35,7 +35,7 @@ class MetricsMiddlewareTest {
     }
 
     @Test
-    void shouldRecordErrorOnStatus500() {
+    void shouldRecordErrorOnStatus500() throws Exception {
         MetricsRegistry registry = new MetricsRegistry();
         MetricsMiddleware middleware = new MetricsMiddleware(registry);
 
@@ -56,7 +56,7 @@ class MetricsMiddlewareTest {
     }
 
     @Test
-    void shouldRecordErrorOnException() {
+    void shouldRecordErrorOnException() throws Exception {
         MetricsRegistry registry = new MetricsRegistry();
         MetricsMiddleware middleware = new MetricsMiddleware(registry);
 

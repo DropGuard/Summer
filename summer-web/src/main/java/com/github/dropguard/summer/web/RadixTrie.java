@@ -13,6 +13,24 @@ import java.util.Map;
  * <p>Supports path parameters ({@code {name}}), single-segment wildcards ({@code *}), and
  * multi-segment wildcards ({@code **}).
  *
+ * <h2>Matching priority (shared contract)</h2>
+ *
+ * <p>Both routers in the framework (this Radix trie and the Map-based router) honour the same
+ * priority order, so the same route table resolves identically regardless of {@code
+ * server.router-type}:
+ *
+ * <ol>
+ *   <li>Exact static segment
+ *   <li>Path parameter ({@code {name}})
+ *   <li>Single-segment wildcard ({@code *})
+ *   <li>Multi-segment wildcard ({@code **}) — <em>last resort</em>, only when no more-specific
+ *       segment matches
+ * </ol>
+ *
+ * A catch-all ({@code **}) never shadows a more specific sibling: {@code /api/users} beats {@code
+ * /api/**}, but {@code /api/users/42} still falls through to {@code /api/**} because the more
+ * specific branches dead-end.
+ *
  * @param <T> the type of handler stored at each node
  */
 @Internal
@@ -122,50 +140,68 @@ public class RadixTrie<T> {
         return path == null || path.length == 0 || (path.length == 1 && path[0] == '/');
     }
 
+    /**
+     * Matches the path against the trie, honouring the documented priority order (exact static &gt;
+     * path parameter &gt; single-segment wildcard ({@code *}) &gt; multi-segment wildcard ({@code
+     * **})).
+     *
+     * <p>A {@code **} node is a <em>last-resort</em> fallback: it is only entered when no
+     * more-specific child (static / param / {@code *}) matches. Because descending into a specific
+     * child can later dead-end, we remember the nearest ancestor catch-all (with a handler) as a
+     * {@code fallback}; if a segment has no specific child, we backtrack to that fallback (and undo
+     * any path parameter that specific descent bound). This is what keeps the two routers (Radix
+     * and Map) behaviourally identical — e.g. {@code /api/users} beats {@code /api/**}, yet {@code
+     * /api/users/42} still falls through to {@code /api/**}.
+     */
     private Node<T> matchPath(byte[] path, Map<String, String> params) {
         Node<T> current = root;
+        Node<T> fallback = null; // nearest ancestor catch-all whose handler is non-null
         int start = 0;
         for (int i = 0; i <= path.length; i++) {
             if (i == path.length || path[i] == '/') {
                 if (i > start) {
-                    if (current.catchAllChild != null) {
-                        current = current.catchAllChild;
-                        break;
+                    // A catch-all at the current node (with a handler) is a viable fallback for
+                    // any deeper segment that fails to match specifically.
+                    if (current.catchAllChild != null && current.catchAllChild.handler != null) {
+                        fallback = current.catchAllChild;
                     }
-                    current = findNext(current, path, start, i, params);
-                    if (current == null) {
-                        return null;
+                    NodeAndParam next = findNext(current, path, start, i, params);
+                    if (next.node() == null) {
+                        // Dead end on a specific child — undo the parameter this descent bound
+                        // and backtrack to the nearest catch-all.
+                        if (next.boundParam() != null) {
+                            params.remove(next.boundParam());
+                        }
+                        return fallback;
                     }
+                    current = next.node();
                 }
                 start = i + 1;
             }
         }
 
-        // If we ended on a node with catchAllChild, use it
-        if (current.catchAllChild != null && current.handler == null) {
-            current = current.catchAllChild;
+        // Path fully consumed by specific segments.
+        if (current.handler != null) {
+            return current;
         }
-        return current;
+        if (current.catchAllChild != null && current.catchAllChild.handler != null) {
+            return current.catchAllChild;
+        }
+        return fallback;
     }
 
     /**
-     * Finds the next node in the trie for the given path segment.
-     *
-     * <p>Matching priority:
-     *
-     * <ol>
-     *   <li>Static children (exact match)
-     *   <li>Path parameter ({@code {name}})
-     *   <li>Single-segment wildcard ({@code *})
-     *   <li>Multi-segment wildcard ({@code **}) - handled by caller
-     * </ol>
+     * Finds the next node in the trie for the given path segment, honouring the priority order
+     * (static &gt; path parameter &gt; single-segment wildcard). The returned record also reports
+     * which path parameter (if any) was bound, so a later dead-end can undo that binding before
+     * backtracking to a catch-all.
      */
-    private Node<T> findNext(
+    private NodeAndParam<T> findNext(
             Node<T> current, byte[] path, int start, int end, Map<String, String> params) {
         // Try static children first --linear scan is faster than HashMap for small N
         for (Node<T> child : current.staticChildren.values()) {
             if (bytesEqual(child.nameBytes, path, start, end)) {
-                return child;
+                return new NodeAndParam<>(child, null);
             }
         }
         // Fall back to parameterized child (e.g., {id})
@@ -175,13 +211,13 @@ public class RadixTrie<T> {
             String paramValue =
                     java.net.URLDecoder.decode(raw, java.nio.charset.StandardCharsets.UTF_8);
             params.put(current.paramName, paramValue);
-            return current.paramChild;
+            return new NodeAndParam<>(current.paramChild, current.paramName);
         }
         // Fall back to single-segment wildcard (*)
         if (current.wildcardChild != null) {
-            return current.wildcardChild;
+            return new NodeAndParam<>(current.wildcardChild, null);
         }
-        return null;
+        return new NodeAndParam<>(null, null);
     }
 
     /**
@@ -231,4 +267,14 @@ public class RadixTrie<T> {
      * @param <T> the handler type
      */
     public record MatchResult<T>(T handler, Map<String, String> params) {}
+
+    /**
+     * Internal result of {@link #findNext}: the next node (or null on no specific match) plus the
+     * name of the path parameter bound by that descent (or null when no parameter was bound).
+     *
+     * @param node the matched child node, or null
+     * @param boundParam the parameter name bound during this descent, or null
+     * @param <T> the handler type
+     */
+    private record NodeAndParam<T>(Node<T> node, String boundParam) {}
 }
