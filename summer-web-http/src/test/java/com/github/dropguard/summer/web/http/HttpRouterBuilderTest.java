@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 class HttpRouterBuilderTest {
 
     @Test
-    void shouldBuildSimpleRoutes() {
+    void shouldBuildSimpleRoutes() throws Exception {
         AtomicReference<String> result = new AtomicReference<>();
 
         HttpRouter router =
@@ -34,7 +34,7 @@ class HttpRouterBuilderTest {
     }
 
     @Test
-    void shouldBuildRoutesWithGroup() {
+    void shouldBuildRoutesWithGroup() throws Exception {
         AtomicReference<String> result = new AtomicReference<>();
 
         HttpRouter router =
@@ -63,7 +63,7 @@ class HttpRouterBuilderTest {
     }
 
     @Test
-    void shouldBuildRoutesWithMount() {
+    void shouldBuildRoutesWithMount() throws Exception {
         AtomicReference<String> result = new AtomicReference<>();
 
         HttpRouter router =
@@ -96,7 +96,7 @@ class HttpRouterBuilderTest {
     }
 
     @Test
-    void shouldSupportNestedGroups() {
+    void shouldSupportNestedGroups() throws Exception {
         AtomicReference<String> result = new AtomicReference<>();
 
         HttpRouter router =
@@ -121,7 +121,7 @@ class HttpRouterBuilderTest {
     }
 
     @Test
-    void shouldApplyGroupMiddleware() {
+    void shouldApplyGroupMiddleware() throws Exception {
         AtomicReference<String> order = new AtomicReference<>("");
 
         Middleware auth =

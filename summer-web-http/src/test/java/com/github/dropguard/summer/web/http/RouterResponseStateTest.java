@@ -8,6 +8,7 @@ import com.github.dropguard.summer.web.HttpMethod;
 import com.github.dropguard.summer.web.HttpRouter;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.Request;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -18,9 +19,14 @@ import org.junit.jupiter.api.Test;
 class RouterResponseStateTest {
 
     @Test
-    void radixRouterMarksMatchedOnHitAndUnsetOnMiss() {
-        RadixTreeHttpRouter router = new RadixTreeHttpRouter();
-        router.register(HttpMethod.GET, "/hello", ctx -> ctx.text(HttpStatus.OK, "world"));
+    void radixRouterMarksMatchedOnHitAndUnsetOnMiss() throws Exception {
+        RadixTreeHttpRouter router =
+                new RadixTreeHttpRouter(
+                        List.of(
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.GET,
+                                        "/hello",
+                                        ctx -> ctx.text(HttpStatus.OK, "world"))));
 
         HttpContext hit = new HttpContext(new Request(HttpMethod.GET, "/hello", null, null, null));
         router.route(hit);
@@ -34,9 +40,12 @@ class RouterResponseStateTest {
     }
 
     @Test
-    void radixRouterMatchedHandlerThatWritesNothingLeavesStatusNull() {
-        RadixTreeHttpRouter router = new RadixTreeHttpRouter();
-        router.register(HttpMethod.GET, "/silent", ctx -> {});
+    void radixRouterMatchedHandlerThatWritesNothingLeavesStatusNull() throws Exception {
+        RadixTreeHttpRouter router =
+                new RadixTreeHttpRouter(
+                        List.of(
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.GET, "/silent", ctx -> {})));
 
         HttpContext ctx = new HttpContext(new Request(HttpMethod.GET, "/silent", null, null, null));
         router.route(ctx);
@@ -47,7 +56,7 @@ class RouterResponseStateTest {
     }
 
     @Test
-    void mapRouterMarksMatchedOnHitAndUnsetOnMiss() {
+    void mapRouterMarksMatchedOnHitAndUnsetOnMiss() throws Exception {
         HttpRouter router =
                 new HttpRouter.Builder(MapRouter::new)
                         .get("/hello", ctx -> ctx.text(HttpStatus.OK, "world"))
@@ -65,7 +74,7 @@ class RouterResponseStateTest {
     }
 
     @Test
-    void mapRouterMatchedHandlerThatWritesNothingLeavesStatusNull() {
+    void mapRouterMatchedHandlerThatWritesNothingLeavesStatusNull() throws Exception {
         HttpRouter router =
                 new HttpRouter.Builder(MapRouter::new).get("/silent", ctx -> {}).build();
 

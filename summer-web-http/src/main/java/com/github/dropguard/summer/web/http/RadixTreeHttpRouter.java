@@ -17,45 +17,34 @@ import java.util.Map;
  * Path segment matching is performed at the byte level to minimize String allocations during
  * routing.
  *
- * <p>This class has a public {@link #register(HttpMethod, String, Handler)} method for route
- * registration, but this method is <strong>not</strong> part of the {@link HttpRouter} interface.
- * Only the {@link HttpRouter.Builder} (framework internals) can call {@code register()}. At
- * runtime, consumers hold an {@link HttpRouter} reference and can only call {@link
- * #route(HttpContext)}.
+ * <p>The route table is fixed at construction time: all routes are supplied via {@link
+ * #RadixTreeHttpRouter(List)} (the {@link HttpRouter.Builder} collects routes and hands them over
+ * in one step), and there is no registration method — once built, a router only serves {@link
+ * #route(HttpContext)}. This makes a built router safe to share across threads: the trie map is
+ * never mutated after construction.
  */
 @Internal
-public class RadixTreeHttpRouter implements HttpRouter {
+public final class RadixTreeHttpRouter implements HttpRouter {
 
-    private final Map<String, RadixTrie<Handler>> tries = new HashMap<>();
-
-    /** Creates an empty RadixTreeHttpRouter. */
-    public RadixTreeHttpRouter() {}
+    private final Map<String, RadixTrie<Handler>> tries;
 
     /**
-     * Creates a RadixTreeHttpRouter and registers the given routes.
+     * Creates a RadixTreeHttpRouter with the given routes, fixed for the router's lifetime.
      *
      * @param routes the routes to register
      */
     public RadixTreeHttpRouter(List<HttpRouter.Builder.Route> routes) {
+        Map<String, RadixTrie<Handler>> built = new HashMap<>();
         for (HttpRouter.Builder.Route route : routes) {
-            register(route.method(), route.path(), route.handler());
+            built.computeIfAbsent(route.method().name(), k -> new RadixTrie<>())
+                    .insert(route.path(), route.handler());
         }
-    }
-
-    /**
-     * Registers a handler for the given HTTP method and path pattern.
-     *
-     * @param method the HTTP method (GET, POST, etc.)
-     * @param path the path pattern (e.g., "/users/{id}")
-     * @param handler the request handler
-     */
-    public void register(HttpMethod method, String path, Handler handler) {
-        tries.computeIfAbsent(method.name(), k -> new RadixTrie<>()).insert(path, handler);
+        this.tries = Map.copyOf(built);
     }
 
     /** Matches a request against the trie and dispatches to the appropriate handler. */
     @Override
-    public void route(HttpContext ctx) {
+    public void route(HttpContext ctx) throws Exception {
         HttpMethod method = ctx.request().getMethod();
         RadixTrie<Handler> trie = tries.get(method.name());
         if (trie == null) {

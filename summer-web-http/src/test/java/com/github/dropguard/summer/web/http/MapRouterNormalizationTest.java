@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 class MapRouterNormalizationTest {
 
     @Test
-    void doubleSlashInPath() {
+    void doubleSlashInPath() throws Exception {
         HttpRouter router =
                 new HttpRouter.Builder(RadixTreeHttpRouter::new)
                         .get(
@@ -34,7 +34,7 @@ class MapRouterNormalizationTest {
     }
 
     @Test
-    void multipleTrailingSlashes() {
+    void multipleTrailingSlashes() throws Exception {
         HttpRouter router =
                 new HttpRouter.Builder(RadixTreeHttpRouter::new)
                         .get("/users", ctx -> ctx.text(HttpStatus.OK, "user-list"))
@@ -44,7 +44,7 @@ class MapRouterNormalizationTest {
     }
 
     @Test
-    void leadingDoubleSlash() {
+    void leadingDoubleSlash() throws Exception {
         HttpRouter router =
                 new HttpRouter.Builder(RadixTreeHttpRouter::new)
                         .get("/api/health", ctx -> ctx.text(HttpStatus.OK, "ok"))
@@ -54,7 +54,7 @@ class MapRouterNormalizationTest {
     }
 
     @Test
-    void trailingSlashMatches() {
+    void trailingSlashMatches() throws Exception {
         HttpRouter router =
                 new HttpRouter.Builder(RadixTreeHttpRouter::new)
                         .get("/users", ctx -> ctx.text(HttpStatus.OK, "user-list"))
@@ -64,7 +64,7 @@ class MapRouterNormalizationTest {
     }
 
     @Test
-    void rootPath() {
+    void rootPath() throws Exception {
         HttpRouter router =
                 new HttpRouter.Builder(RadixTreeHttpRouter::new)
                         .get("/", ctx -> ctx.text(HttpStatus.OK, "home"))
@@ -74,7 +74,7 @@ class MapRouterNormalizationTest {
         assertEquals("home", bodyOf(router, HttpMethod.GET, ""));
     }
 
-    private String bodyOf(HttpRouter router, HttpMethod method, String path) {
+    private String bodyOf(HttpRouter router, HttpMethod method, String path) throws Exception {
         HttpContext ctx = ctx(method, path);
         router.route(ctx);
         byte[] body = ctx.body();

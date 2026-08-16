@@ -7,26 +7,24 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import com.github.dropguard.summer.web.Handler;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpMethod;
+import com.github.dropguard.summer.web.HttpRouter;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.Request;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import org.junit.jupiter.api.BeforeEach;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 public class ByteRouterTest {
 
-    private RadixTreeHttpRouter router;
-
-    @BeforeEach
-    void setUp() {
-        router = new RadixTreeHttpRouter();
-    }
-
     @Test
-    void testStaticRouteMatching() {
+    void testStaticRouteMatching() throws Exception {
         Handler handler = ctx -> ctx.text(HttpStatus.OK, "ok");
-        router.register(HttpMethod.GET, "/api/users", handler);
+        RadixTreeHttpRouter router =
+                new RadixTreeHttpRouter(
+                        List.of(
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.GET, "/api/users", handler)));
 
         HttpContext ctx = createMockContext(HttpMethod.GET, "/api/users");
         router.route(ctx);
@@ -36,9 +34,13 @@ public class ByteRouterTest {
     }
 
     @Test
-    void testPathParameterMatching() {
+    void testPathParameterMatching() throws Exception {
         Handler handler = ctx -> ctx.text(HttpStatus.OK, "user-" + ctx.request().pathParam("id"));
-        router.register(HttpMethod.GET, "/users/{id}", handler);
+        RadixTreeHttpRouter router =
+                new RadixTreeHttpRouter(
+                        List.of(
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.GET, "/users/{id}", handler)));
 
         HttpContext ctx = createMockContext(HttpMethod.GET, "/users/42");
         router.route(ctx);
@@ -47,16 +49,21 @@ public class ByteRouterTest {
     }
 
     @Test
-    void testDeepNestedRoutes() {
-        router.register(
-                HttpMethod.GET,
-                "/api/v1/products/search",
-                ctx -> ctx.text(HttpStatus.OK, "search"));
-        router.register(
-                HttpMethod.POST, "/api/v1/products", ctx -> ctx.text(HttpStatus.OK, "create"));
+    void testDeepNestedRoutes() throws Exception {
+        RadixTreeHttpRouter router =
+                new RadixTreeHttpRouter(
+                        List.of(
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.GET,
+                                        "/api/v1/products/search",
+                                        ctx -> ctx.text(HttpStatus.OK, "search")),
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.POST,
+                                        "/api/v1/products",
+                                        ctx -> ctx.text(HttpStatus.OK, "create"))));
 
-        assertEquals("search", bodyOf(HttpMethod.GET, "/api/v1/products/search"));
-        assertEquals("create", bodyOf(HttpMethod.POST, "/api/v1/products"));
+        assertEquals("search", bodyOf(router, HttpMethod.GET, "/api/v1/products/search"));
+        assertEquals("create", bodyOf(router, HttpMethod.POST, "/api/v1/products"));
 
         HttpContext noMatch = createMockContext(HttpMethod.GET, "/api/v1/products");
         router.route(noMatch);
@@ -64,19 +71,32 @@ public class ByteRouterTest {
     }
 
     @Test
-    void testRootPath() {
-        router.register(HttpMethod.GET, "/", ctx -> ctx.text(HttpStatus.OK, "home"));
-        assertEquals("home", bodyOf(HttpMethod.GET, "/"));
-        assertEquals("home", bodyOf(HttpMethod.GET, ""));
+    void testRootPath() throws Exception {
+        RadixTreeHttpRouter router =
+                new RadixTreeHttpRouter(
+                        List.of(
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.GET,
+                                        "/",
+                                        ctx -> ctx.text(HttpStatus.OK, "home"))));
+        assertEquals("home", bodyOf(router, HttpMethod.GET, "/"));
+        assertEquals("home", bodyOf(router, HttpMethod.GET, ""));
     }
 
     @Test
-    void testTrailingSlash() {
-        router.register(HttpMethod.GET, "/users", ctx -> ctx.text(HttpStatus.OK, "list"));
-        assertEquals("list", bodyOf(HttpMethod.GET, "/users/"));
+    void testTrailingSlash() throws Exception {
+        RadixTreeHttpRouter router =
+                new RadixTreeHttpRouter(
+                        List.of(
+                                new HttpRouter.Builder.Route(
+                                        HttpMethod.GET,
+                                        "/users",
+                                        ctx -> ctx.text(HttpStatus.OK, "list"))));
+        assertEquals("list", bodyOf(router, HttpMethod.GET, "/users/"));
     }
 
-    private String bodyOf(HttpMethod method, String path) {
+    private String bodyOf(RadixTreeHttpRouter router, HttpMethod method, String path)
+            throws Exception {
         HttpContext ctx = createMockContext(method, path);
         router.route(ctx);
         byte[] body = ctx.body();

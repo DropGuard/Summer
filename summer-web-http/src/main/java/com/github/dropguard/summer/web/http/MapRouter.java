@@ -39,13 +39,14 @@ public class MapRouter implements HttpRouter {
             RouteEntry base = PathMatcher.parsePath(route.path());
             entry.pattern = base.pattern;
             entry.paramNames = base.paramNames;
+            entry.catchAll = base.catchAll;
             entry.handler = route.handler();
             this.routes.put(key, entry);
         }
     }
 
     @Override
-    public void route(HttpContext ctx) {
+    public void route(HttpContext ctx) throws Exception {
         HttpMethod method = ctx.request().getMethod();
         String path = PathUtils.normalizePath(ctx.request().getPath());
 
@@ -59,17 +60,46 @@ public class MapRouter implements HttpRouter {
             return;
         }
 
+        // Among the pattern-based routes that match, pick the most specific one. The map iteration
+        // order is undefined, so we do NOT return on the first regex hit — instead we rank the
+        // candidates (path parameter > single-segment wildcard > catch-all) and keep the best,
+        // matching the Radix router's documented priority contract.
+        RouteEntryWithHandler best = null;
+        Map<String, String> bestParams = null;
+        int bestRank = Integer.MIN_VALUE;
         for (Map.Entry<String, RouteEntryWithHandler> route : routes.entrySet()) {
             if (!route.getKey().startsWith(method + " ")) continue;
 
             Map<String, String> params = PathMatcher.matchPattern(route.getValue(), path);
-            if (params != null) {
-                params.forEach(ctx.request()::setPathParam);
-                ctx.markMatched();
-                route.getValue().handler.handle(ctx);
-                return;
+            if (params == null) continue;
+
+            int rank = routeRank(route.getValue());
+            if (rank > bestRank) {
+                bestRank = rank;
+                best = route.getValue();
+                bestParams = params;
             }
         }
+        if (best != null) {
+            bestParams.forEach(ctx.request()::setPathParam);
+            ctx.markMatched();
+            best.handler.handle(ctx);
+        }
+    }
+
+    /**
+     * Priority rank for a matching pattern: higher wins. Path parameter ({@code {name}}) ranks
+     * above the single-segment wildcard ({@code *}), which ranks above the multi-segment catch-all
+     * ({@code **}). This mirrors {@code RadixTrie}'s matching contract.
+     */
+    private static int routeRank(RouteEntry entry) {
+        if (entry.catchAll) {
+            return 1; // ** — last resort
+        }
+        if (!entry.paramNames.isEmpty()) {
+            return 3; // {name}
+        }
+        return 2; // * (no params, not catch-all)
     }
 
     private static class RouteEntryWithHandler extends RouteEntry {
