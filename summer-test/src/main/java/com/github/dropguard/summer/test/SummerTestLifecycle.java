@@ -244,16 +244,30 @@ public final class SummerTestLifecycle {
     }
 
     private static Constructor<?> singleConstructor(Class<?> testClass) {
-        Constructor<?>[] ctors = testClass.getDeclaredConstructors();
-        if (ctors.length != 1) {
-            throw new TestInstantiationException(
-                    "@SummerTest class "
-                            + testClass.getName()
-                            + " must have exactly one constructor. Found: "
-                            + ctors.length);
+        // Search the class and its superclasses: a test class that inherits a shared abstract
+        // base (e.g. a DB-integration base holding JdbcTemplate/repository fields) declares no
+        // constructor of its own, so the injectable constructor lives on the base. Walk up the
+        // hierarchy until we find exactly one declared constructor.
+        Class<?> current = testClass;
+        while (current != null && current != Object.class) {
+            Constructor<?>[] ctors = current.getDeclaredConstructors();
+            if (ctors.length == 1) {
+                ctors[0].setAccessible(true);
+                return ctors[0];
+            }
+            if (ctors.length > 1) {
+                throw new TestInstantiationException(
+                        "@SummerTest class "
+                                + current.getName()
+                                + " must have exactly one constructor. Found: "
+                                + ctors.length);
+            }
+            current = current.getSuperclass();
         }
-        ctors[0].setAccessible(true);
-        return ctors[0];
+        throw new TestInstantiationException(
+                "@SummerTest class "
+                        + testClass.getName()
+                        + " (and its superclasses) declare no usable constructor");
     }
 
     private static List<MockedBean> createMocks(Class<?> testClass) {
@@ -286,7 +300,10 @@ public final class SummerTestLifecycle {
         for (CachedUniverse c : universeCache.values()) {
             try {
                 c.container().close();
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                // A close failure during test teardown must not abort the shutdown hook, but it
+                // is a real leak — log it rather than swallow silently.
+                log.warn("[Summer] Failed to close test container", e);
             }
         }
         universeCache.clear();

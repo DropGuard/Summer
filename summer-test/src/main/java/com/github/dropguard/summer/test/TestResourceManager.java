@@ -68,6 +68,19 @@ public interface TestResourceManager {
         return 0;
     }
 
+    /**
+     * Called before {@link #start()} with the merged properties of every resource that started
+     * earlier (lower {@link #order()}), so a resource can consume the outputs of its predecessors —
+     * e.g. a seed resource reading the JDBC URL produced by the Postgres resource. Mirrors Quarkus'
+     * {@code DevServicesContext.ContextAware}. The default is a no-op for resources that need no
+     * shared context.
+     *
+     * <p>Note: this is <em>not</em> a substitute for {@link #start()} returning config overrides —
+     * those still flow into the DI container. {@code setContext} is the read-side channel for
+     * cross-resource coordination only.
+     */
+    default void setContext(Map<String, String> sharedProperties) {}
+
     /** Field-injection channel for {@link #inject(TestInjector)}. */
     interface TestInjector {
         /** Injects the value into every declared field of the given type on the test instance. */

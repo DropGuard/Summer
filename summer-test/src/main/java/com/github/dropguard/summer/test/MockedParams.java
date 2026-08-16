@@ -28,12 +28,27 @@ public final class MockedParams {
         if (testClass == null) {
             return mocked;
         }
-        Constructor<?>[] ctors = testClass.getDeclaredConstructors();
-        if (ctors.length != 1) {
+        // Walk up the hierarchy like SummerTestLifecycle.singleConstructor: a test class that
+        // inherits a shared abstract base declares no constructor of its own, so any @Mock
+        // parameters live on the base constructor.
+        Class<?> current = testClass;
+        Constructor<?> ctor = null;
+        while (current != null && current != Object.class) {
+            Constructor<?>[] ctors = current.getDeclaredConstructors();
+            if (ctors.length == 1) {
+                ctor = ctors[0];
+                break;
+            }
+            if (ctors.length > 1) {
+                return mocked;
+            }
+            current = current.getSuperclass();
+        }
+        if (ctor == null) {
             return mocked;
         }
-        Annotation[][] paramAnnotations = ctors[0].getParameterAnnotations();
-        Class<?>[] paramTypes = ctors[0].getParameterTypes();
+        Annotation[][] paramAnnotations = ctor.getParameterAnnotations();
+        Class<?>[] paramTypes = ctor.getParameterTypes();
         for (int i = 0; i < paramTypes.length; i++) {
             for (Annotation ann : paramAnnotations[i]) {
                 if (ann instanceof Mock) {

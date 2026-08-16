@@ -12,10 +12,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * Global cache of started {@link TestResourceManager} instances.
  *
  * <p>Each unique (resource class, initArgs) pair is instantiated once and started at most once,
- * sorted by {@link TestResourceManager#order()} (later resources win on key overlap). Properties
- * from {@code start()} flow into the container build as highest-priority config overrides; started
- * instances also serve {@link TestResourceManager#inject(TestInjector)} after a test instance is
- * created.
+ * sorted by {@link TestResourceManager#order()} (later resources start later and win on key
+ * overlap). Properties from {@code start()} flow into the container build as highest-priority
+ * config overrides; started instances also serve {@link TestResourceManager#inject(TestInjector)}
+ * after a test instance is created.
+ *
+ * <p>Resources start in {@code order()} sequence; the merged properties of every earlier resource
+ * are handed to the next via {@link TestResourceManager#setContext(Map)} (the Quarkus {@code
+ * DevServicesContext.ContextAware} model), so a later resource can consume an earlier one's outputs
+ * (e.g. a seed resource reading the JDBC URL produced by the Postgres resource).
  */
 @Internal
 public final class TestResources {
@@ -30,21 +35,21 @@ public final class TestResources {
         if (annotations.length == 0) {
             return Map.of();
         }
-        List<Entry> started = new ArrayList<>();
-        for (com.github.dropguard.summer.test.annotation.TestResource ann : annotations) {
-            started.add(forKey(new ResourceKey(ann.value(), parseInitArgs(ann.initArgs()))));
-        }
+        // Start every resource exactly once, in order() sequence, feeding each one the merged
+        // properties of its predecessors via setContext so a later resource can read an earlier
+        // one's outputs (e.g. a seed resource reading the Postgres resource's JDBC URL).
+        List<Entry> started = startAll(annotations);
         // Deterministic merge: later order() wins on key overlap (matches the start sequence).
         Map<String, Object> merged = new LinkedHashMap<>();
         started.stream()
-                .sorted(Comparator.comparingInt(e -> e.instance.order()))
-                .forEach(e -> merged.putAll(e.properties));
+                .sorted(Comparator.comparingInt(e -> e.instance().order()))
+                .forEach(e -> merged.putAll(e.properties()));
         return Map.copyOf(merged);
     }
 
     /**
      * Runs {@link TestResourceManager#inject(TestInjector)} for every started resource on the
-     * class.
+     * class. Ensures resources are started (idempotently) before injecting.
      */
     static void injectInto(Class<?> testClass, Object testInstance) {
         com.github.dropguard.summer.test.annotation.TestResource[] annotations =
@@ -53,28 +58,71 @@ public final class TestResources {
             return;
         }
         TestInjectorImpl injector = new TestInjectorImpl(testInstance);
-        // Same order() semantics as the property merge below: a later-order resource's field
-        // injection wins on overlap, so the injected values and the container-build overrides
-        // agree instead of splitting (declaration-order injection vs order()-sorted merge).
-        java.util.Arrays.stream(annotations)
-                .map(ann -> forKey(new ResourceKey(ann.value(), parseInitArgs(ann.initArgs()))))
-                .sorted(java.util.Comparator.comparingInt(e -> e.instance.order()))
-                .forEach(e -> e.instance.inject(injector));
+        startAll(annotations).forEach(e -> e.instance().inject(injector));
     }
 
-    private static Entry forKey(ResourceKey key) {
-        return CACHE.computeIfAbsent(key, TestResources::startNew);
+    /** Instantiates + starts each unique resource exactly once, in order(), sharing properties. */
+    private static List<Entry> startAll(
+            com.github.dropguard.summer.test.annotation.TestResource[] annotations) {
+        // Deduplicate by (class, initArgs); each unique resource starts once (cached across test
+        // classes, so a shared resource like Postgres must not restart per test class).
+        List<ResourceKey> keys = new ArrayList<>();
+        for (com.github.dropguard.summer.test.annotation.TestResource ann : annotations) {
+            ResourceKey key = new ResourceKey(ann.value(), parseInitArgs(ann.initArgs()));
+            if (!keys.contains(key)) {
+                keys.add(key);
+            }
+        }
+        List<Entry> entries = new ArrayList<>();
+        for (ResourceKey key : keys) {
+            Entry cached = CACHE.get(key);
+            entries.add(
+                    cached != null
+                            ? cached
+                            : CACHE.computeIfAbsent(key, TestResources::instantiate));
+        }
+        entries.sort(Comparator.comparingInt(e -> e.instance().order()));
+        // Start the not-yet-started resources in order, feeding each the merged properties of its
+        // predecessors (both freshly-started and previously-cached ones).
+        Map<String, String> shared = new LinkedHashMap<>();
+        List<Entry> result = new ArrayList<>();
+        for (int i = 0; i < entries.size(); i++) {
+            Entry entry = entries.get(i);
+            if (entry.started()) {
+                shared.putAll(entry.properties());
+                result.add(entry);
+            } else {
+                entry.instance().setContext(shared);
+                Map<String, String> props = start(entry);
+                shared.putAll(props);
+                Entry startedEntry = new Entry(entry.instance(), props, true);
+                CACHE.put(keys.get(i), startedEntry);
+                result.add(startedEntry);
+            }
+        }
+        return result;
     }
 
-    private static Entry startNew(ResourceKey key) {
+    /** Instantiates a resource without starting it (order() is needed before start). */
+    private static Entry instantiate(ResourceKey key) {
         try {
             TestResourceManager instance = key.clazz.getDeclaredConstructor().newInstance();
             instance.init(key.initArgs);
-            Map<String, String> props = instance.start();
-            return new Entry(instance, Map.copyOf(props));
+            return new Entry(instance, Map.of(), false);
         } catch (Exception e) {
             throw new TestResourceStartupException(
-                    "Failed to start TestResource " + key.clazz.getSimpleName(), e);
+                    "Failed to instantiate TestResource " + key.clazz.getSimpleName(), e);
+        }
+    }
+
+    /** Runs {@link TestResourceManager#start()} and captures its config properties. */
+    private static Map<String, String> start(Entry entry) {
+        try {
+            return Map.copyOf(entry.instance().start());
+        } catch (Exception e) {
+            throw new TestResourceStartupException(
+                    "Failed to start TestResource " + entry.instance().getClass().getSimpleName(),
+                    e);
         }
     }
 
@@ -110,7 +158,7 @@ public final class TestResources {
     static void shutdown() {
         for (Entry entry : CACHE.values()) {
             try {
-                entry.instance.stop();
+                entry.instance().stop();
             } catch (Exception ignored) {
             }
         }
@@ -120,7 +168,8 @@ public final class TestResources {
     private record ResourceKey(
             Class<? extends TestResourceManager> clazz, Map<String, String> initArgs) {}
 
-    private record Entry(TestResourceManager instance, Map<String, String> properties) {}
+    private record Entry(
+            TestResourceManager instance, Map<String, String> properties, boolean started) {}
 
     private static final class TestInjectorImpl implements TestResourceManager.TestInjector {
         private final Object testInstance;
@@ -131,8 +180,7 @@ public final class TestResources {
 
         @Override
         public void injectIntoFields(Object value, Class<?> fieldType) {
-            java.lang.reflect.Field[] fields = testInstance.getClass().getDeclaredFields();
-            for (java.lang.reflect.Field field : fields) {
+            for (java.lang.reflect.Field field : fieldsInHierarchy()) {
                 if (fieldType.isAssignableFrom(field.getType())) {
                     set(field, value);
                 }
@@ -141,14 +189,24 @@ public final class TestResources {
 
         @Override
         public void injectIntoField(Object value, String fieldName, Class<?> fieldType) {
-            try {
-                java.lang.reflect.Field field = testInstance.getClass().getDeclaredField(fieldName);
-                if (fieldType.isAssignableFrom(field.getType())) {
+            for (java.lang.reflect.Field field : fieldsInHierarchy()) {
+                if (field.getName().equals(fieldName)
+                        && fieldType.isAssignableFrom(field.getType())) {
                     set(field, value);
+                    return;
                 }
-            } catch (NoSuchFieldException ignored) {
-                // The field is optional ("when declared") — no field, no injection.
             }
+        }
+
+        /** All declared fields across the test class and its superclasses. */
+        private java.lang.reflect.Field[] fieldsInHierarchy() {
+            java.util.List<java.lang.reflect.Field> all = new java.util.ArrayList<>();
+            Class<?> current = testInstance.getClass();
+            while (current != null && current != Object.class) {
+                java.util.Collections.addAll(all, current.getDeclaredFields());
+                current = current.getSuperclass();
+            }
+            return all.toArray(new java.lang.reflect.Field[0]);
         }
 
         private void set(java.lang.reflect.Field field, Object value) {
