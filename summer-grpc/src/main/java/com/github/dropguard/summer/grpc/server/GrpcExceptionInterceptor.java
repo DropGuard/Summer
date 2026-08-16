@@ -42,6 +42,18 @@ public class GrpcExceptionInterceptor implements ServerInterceptor {
 
         return new ForwardingServerCallListener.SimpleForwardingServerCallListener<>(delegate) {
             @Override
+            public void onMessage(ReqT message) {
+                // Streaming handlers run business logic per message; an exception here must be
+                // translated too, not left to gRPC's bare UNKNOWN fallback (which carries no
+                // SummerGrpcException status). Audit A-LOW-31.
+                try {
+                    super.onMessage(message);
+                } catch (Exception e) {
+                    handleException(call, e);
+                }
+            }
+
+            @Override
             public void onHalfClose() {
                 try {
                     super.onHalfClose();
@@ -53,7 +65,10 @@ public class GrpcExceptionInterceptor implements ServerInterceptor {
     }
 
     private <ReqT, RespT> void handleException(ServerCall<ReqT, RespT> call, Exception e) {
-        // Unwrap reflection InvocationTargetException
+        // Unwrap reflection InvocationTargetException. Deliberately uses the class name rather
+        // than java.lang.reflect.InvocationTargetException instanceof — the archunit
+        // reflection-confinement rule forbids java.lang.reflect outside the runtime layer, so the
+        // string comparison is the reflection-free way to detect the reflective wrapper.
         if (e.getCause() instanceof Exception cause
                 && "java.lang.reflect.InvocationTargetException".equals(e.getClass().getName())) {
             e = cause;

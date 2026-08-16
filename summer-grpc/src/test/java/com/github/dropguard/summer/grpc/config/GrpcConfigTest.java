@@ -13,11 +13,16 @@ import com.github.dropguard.summer.test.annotation.SummerTest;
 class GrpcConfigTest {
 
     private final GrpcServerConfig serverConfig;
-    private final GrpcTlsConfig tlsConfig;
+    private final GrpcServerTlsConfig serverTlsConfig;
+    private final GrpcClientTlsConfig clientTlsConfig;
 
-    GrpcConfigTest(GrpcServerConfig serverConfig, GrpcTlsConfig tlsConfig) {
+    GrpcConfigTest(
+            GrpcServerConfig serverConfig,
+            GrpcServerTlsConfig serverTlsConfig,
+            GrpcClientTlsConfig clientTlsConfig) {
         this.serverConfig = serverConfig;
-        this.tlsConfig = tlsConfig;
+        this.serverTlsConfig = serverTlsConfig;
+        this.clientTlsConfig = clientTlsConfig;
     }
 
     @DualEngine
@@ -27,7 +32,12 @@ class GrpcConfigTest {
     }
 
     @DualEngine
-    void tlsConfigDefaultsToDisabled() {
-        assertFalse(tlsConfig.enabled(), "TLS should default to disabled");
+    void serverTlsConfigDefaultsToDisabled() {
+        assertFalse(serverTlsConfig.enabled(), "server TLS should default to disabled");
+    }
+
+    @DualEngine
+    void clientTlsConfigDefaultsToDisabled() {
+        assertFalse(clientTlsConfig.enabled(), "client TLS should default to disabled");
     }
 }

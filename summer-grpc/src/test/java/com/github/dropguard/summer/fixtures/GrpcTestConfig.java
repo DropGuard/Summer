@@ -45,6 +45,30 @@ public class GrpcTestConfig {
                     .setResponseMarshaller(STRING_MARSHALLER)
                     .build();
 
+    /**
+     * Unary method whose handler throws on {@code onHalfClose} — exercises the interceptor's
+     * exception path.
+     */
+    public static final MethodDescriptor<String, String> UNARY_THROWS_METHOD =
+            MethodDescriptor.<String, String>newBuilder()
+                    .setType(MethodDescriptor.MethodType.UNARY)
+                    .setFullMethodName("TestService/UnaryThrows")
+                    .setRequestMarshaller(STRING_MARSHALLER)
+                    .setResponseMarshaller(STRING_MARSHALLER)
+                    .build();
+
+    /**
+     * Client-streaming method whose handler throws on {@code onMessage} — the audit's "streaming
+     * exceptions run naked" concern.
+     */
+    public static final MethodDescriptor<String, String> STREAMING_THROWS_METHOD =
+            MethodDescriptor.<String, String>newBuilder()
+                    .setType(MethodDescriptor.MethodType.CLIENT_STREAMING)
+                    .setFullMethodName("TestService/StreamingThrows")
+                    .setRequestMarshaller(STRING_MARSHALLER)
+                    .setResponseMarshaller(STRING_MARSHALLER)
+                    .build();
+
     @Bean
     public BindableService dummyService() {
         return new BindableService() {
@@ -66,6 +90,38 @@ public class GrpcTestConfig {
                                         call.close(io.grpc.Status.OK, trailers);
 
                                         return new ServerCall.Listener<String>() {};
+                                    }
+                                })
+                        .addMethod(
+                                UNARY_THROWS_METHOD,
+                                new ServerCallHandler<String, String>() {
+                                    @Override
+                                    public ServerCall.Listener<String> startCall(
+                                            ServerCall<String, String> call, Metadata headers) {
+                                        // gRPC flow control: must request() before listener
+                                        // callbacks (onMessage/onHalfClose) are delivered.
+                                        call.request(1);
+                                        return new ServerCall.Listener<String>() {
+                                            @Override
+                                            public void onHalfClose() {
+                                                throw new IllegalStateException("unary boom");
+                                            }
+                                        };
+                                    }
+                                })
+                        .addMethod(
+                                STREAMING_THROWS_METHOD,
+                                new ServerCallHandler<String, String>() {
+                                    @Override
+                                    public ServerCall.Listener<String> startCall(
+                                            ServerCall<String, String> call, Metadata headers) {
+                                        call.request(1);
+                                        return new ServerCall.Listener<String>() {
+                                            @Override
+                                            public void onMessage(String message) {
+                                                throw new IllegalStateException("streaming boom");
+                                            }
+                                        };
                                     }
                                 })
                         .build();

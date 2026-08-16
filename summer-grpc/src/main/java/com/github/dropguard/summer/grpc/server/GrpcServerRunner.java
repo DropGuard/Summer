@@ -5,7 +5,7 @@ import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.config.ShutdownConfig;
 import com.github.dropguard.summer.grpc.config.GrpcServerConfig;
-import com.github.dropguard.summer.grpc.config.GrpcTlsConfig;
+import com.github.dropguard.summer.grpc.config.GrpcServerTlsConfig;
 import com.github.dropguard.summer.grpc.exception.SummerGrpcException;
 import io.grpc.BindableService;
 import io.grpc.Server;
@@ -28,13 +28,15 @@ public class GrpcServerRunner implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(GrpcServerRunner.class);
 
-    private final GrpcTlsConfig tlsConfig;
+    private final GrpcServerTlsConfig tlsConfig;
     private final GrpcServerConfig serverConfig;
     private final ShutdownConfig shutdownConfig;
     private Server server;
 
     public GrpcServerRunner(
-            GrpcTlsConfig tlsConfig, GrpcServerConfig serverConfig, ShutdownConfig shutdownConfig) {
+            GrpcServerTlsConfig tlsConfig,
+            GrpcServerConfig serverConfig,
+            ShutdownConfig shutdownConfig) {
         this.tlsConfig = tlsConfig;
         this.serverConfig = serverConfig;
         this.shutdownConfig = shutdownConfig;
@@ -63,10 +65,16 @@ public class GrpcServerRunner implements ApplicationRunner {
         // Add GrpcExceptionInterceptor last so it acts as the outermost boundary
         serverBuilder.intercept(new GrpcExceptionInterceptor());
 
-        // Configure TLS if enabled and certificates are provided
-        if (tlsConfig.enabled()
-                && tlsConfig.certChain() != null
-                && tlsConfig.privateKey() != null) {
+        // Configure TLS if enabled. GrpcServerTlsValidator already rejects enabled-without-identity
+        // at binding time; this guard is a second line of defence so a server can never silently
+        // fall back to plaintext when TLS was requested.
+        if (tlsConfig.enabled() != null && tlsConfig.enabled()) {
+            if (tlsConfig.certChain() == null || tlsConfig.privateKey() == null) {
+                throw new SummerGrpcException(
+                        io.grpc.Status.FAILED_PRECONDITION.withDescription(
+                                "grpc.server.tls.enabled is true but cert-chain/private-key are"
+                                        + " missing — refusing to serve plaintext."));
+            }
             File certChainFile = new File(tlsConfig.certChain());
             File privateKeyFile = new File(tlsConfig.privateKey());
             serverBuilder.useTransportSecurity(certChainFile, privateKeyFile);
@@ -127,7 +135,7 @@ public class GrpcServerRunner implements ApplicationRunner {
     /**
      * Convenience for direct/test use: stops the server immediately (zero drain timeout). The
      * container drives the same staging via the shutdown task registered in {@link
-     * #run(BeanContainer)}, bounded by {@code com.github.dropguard.summer.shutdown.timeout-ms}.
+     * #run(BeanContainer)}, bounded by {@code shutdown.timeout-ms}.
      */
     public void stop() {
         shutdown(java.time.Duration.ZERO);

@@ -1,7 +1,9 @@
 grpc:
   server:
     port: 0
-  tls:
-    cert-chain: ""
-    private-key: ""
-    trust-cert: ""
+    tls:
+      cert-chain: ""
+      private-key: ""
+  client:
+    tls:
+      trust-cert: ""
