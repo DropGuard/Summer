@@ -55,3 +55,7 @@ bin/
 
 ### Documentation ###
 .doc/
+
+# Internal audit/review docs — never commit to the public repo
+AUDIT-*.md
+REVIEW-*.md
