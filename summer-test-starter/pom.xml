@@ -7,6 +7,7 @@
         <version>999-SNAPSHOT</version>
     </parent>
     <artifactId>summer-test-starter</artifactId>
+    <packaging>pom</packaging>
     <name>Summer Test Starter</name>
     <description>The user-facing test dependency: one artifact for the whole test toolchain —
         the @SummerTest infrastructure (summer-test) plus the optional database test resources

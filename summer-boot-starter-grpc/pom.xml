@@ -15,8 +15,8 @@
     <name>Summer Boot Starter gRPC</name>
     <description>
         Starter for Summer gRPC support. Depends on the core starter and adds
-        summer-grpc. gRPC is built on top of the Netty runtime the web stack
-        already brings, so no separate server module is needed here.
+        summer-grpc. gRPC brings its own transport (grpc-netty-shaded), so this
+        starter does not pull in the web/HTTP stack or its Netty server.
     </description>
 
     <dependencies>

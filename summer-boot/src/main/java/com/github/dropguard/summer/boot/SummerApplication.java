@@ -5,6 +5,7 @@ import com.github.dropguard.summer.core.Engine;
 import com.github.dropguard.summer.core.ErrorCode;
 import com.github.dropguard.summer.core.config.ConfigBinder;
 import com.github.dropguard.summer.core.config.FrameworkConfig;
+import com.github.dropguard.summer.core.config.ShutdownConfig;
 import com.github.dropguard.summer.core.exception.ConfigurationException;
 import com.github.dropguard.summer.engine.DiEngine;
 import java.util.Map;
@@ -114,6 +115,13 @@ public final class SummerApplication {
             runner.run(context);
         }
 
+        // Single shutdown budget (Quarkus quarkus.shutdown.timeout model): shutdown.timeout-ms is
+        // the total time allowed for the whole teardown — servers draining in-flight requests,
+        // then AutoCloseable beans closing — after which the JVM exits regardless. Captured here so
+        // the hook reads a value, not the container, and a misconfigured timeout fails at startup
+        // rather than silently at exit.
+        long shutdownTimeoutMs = context.getBean(ShutdownConfig.class).timeoutMs();
+
         Runtime.getRuntime()
                 .addShutdownHook(
                         new Thread(
@@ -123,8 +131,8 @@ public final class SummerApplication {
                                     // 503 and the load balancer stops routing before the server
                                     // stops
                                     // accepting. The drain window is then LB-polling-driven,
-                                    // bounded by
-                                    // com.github.dropguard.summer.shutdown.timeout-ms.
+                                    // bounded by the configured shutdown.timeout-ms
+                                    // (see ShutdownConfig).
                                     com.github.dropguard.summer.core.ApplicationState
                                             .beginShutdown();
 
@@ -132,11 +140,8 @@ public final class SummerApplication {
                                     // (servers stop
                                     // accepting, drain in-flight, release resources) in reverse
                                     // order, then
-                                    // closes the remaining AutoCloseable beans. This hook only
-                                    // guards the
-                                    // whole teardown with a JVM-level worst-case timeout so a stuck
-                                    // bean
-                                    // can't hang exit.
+                                    // closes the remaining AutoCloseable beans. This hook waits at
+                                    // most shutdownTimeoutMs so a stuck bean can't hang exit.
                                     log.info("Shutting down BeanContainer...");
                                     java.util.concurrent.ExecutorService shutdownExecutor =
                                             java.util.concurrent.Executors
@@ -154,11 +159,14 @@ public final class SummerApplication {
                                                                         e);
                                                             }
                                                         })
-                                                .get(30, java.util.concurrent.TimeUnit.SECONDS);
+                                                .get(
+                                                        shutdownTimeoutMs,
+                                                        java.util.concurrent.TimeUnit.MILLISECONDS);
                                     } catch (java.util.concurrent.TimeoutException e) {
                                         log.warn(
-                                                "Shutdown grace period (30s) exceeded, forcing"
-                                                        + " exit.");
+                                                "Shutdown timeout ("
+                                                        + shutdownTimeoutMs
+                                                        + "ms) exceeded, forcing exit.");
                                     } catch (Exception e) {
                                         log.error("Error waiting for shutdown", e);
                                     } finally {

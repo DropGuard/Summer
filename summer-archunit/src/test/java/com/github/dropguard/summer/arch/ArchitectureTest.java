@@ -33,9 +33,9 @@ class ArchitectureTest {
         "com.github.dropguard.summer.plugin",
         "com.github.dropguard.summer.data",
         "com.github.dropguard.summer.boot",
-        "com.github.dropguard.summer.web.netty",
+        "com.github.dropguard.summer.web.server",
         "com.github.dropguard.summer.grpc",
-        "com.github.dropguard.summer.validation",
+        "com.github.dropguard.summer.core.validation",
         "com.github.dropguard.summer.aot",
         "com.github.dropguard.summer.test",
         "com.github.dropguard.summer.tck",
@@ -56,9 +56,9 @@ class ArchitectureTest {
         "com.github.dropguard.summer.plugin..",
         "com.github.dropguard.summer.data..",
         "com.github.dropguard.summer.boot..",
-        "com.github.dropguard.summer.web.netty..",
+        "com.github.dropguard.summer.web.server..",
         "com.github.dropguard.summer.grpc..",
-        "com.github.dropguard.summer.validation..",
+        "com.github.dropguard.summer.core.validation..",
         "com.github.dropguard.summer.aot.."
     };
 
@@ -102,10 +102,10 @@ class ArchitectureTest {
                         .definedBy(
                                 "..com.github.dropguard.summer.aop..",
                                 "..com.github.dropguard.summer.tx..",
-                                "..com.github.dropguard.summer.validation..")
+                                "..com.github.dropguard.summer.core.validation..")
                         .layer("Server")
                         .definedBy(
-                                "..com.github.dropguard.summer.web.netty..",
+                                "..com.github.dropguard.summer.web.server..",
                                 "..com.github.dropguard.summer.grpc..")
                         .layer("Test")
                         .definedBy(
@@ -282,12 +282,24 @@ class ArchitectureTest {
     // --- Library bans ---
 
     @Test
-    @DisplayName("No ConcurrentHashMap usage in production code")
+    @DisplayName("No ConcurrentHashMap usage in production code (class-level exceptions)")
     void noConcurrentHashMap() {
+        // Class-level whitelist, granted on a per-class basis after review:
+        //  - GrpcChannelManager: single-connection-pool holder per target, called concurrently
+        //    from client threads. CHM.computeIfAbsent guarantees one channel per key.
+        //  - NettyWebSocketBroadcaster: per-room ChannelGroup map, mutated by concurrent websocket
+        //    threads on join(). CHM.computeIfAbsent guarantees one group per room.
+        // Keep this list minimal — a new class wanting CHM must be reviewed, not silently allowed.
         ArchRule rule =
                 noClasses()
                         .that()
                         .resideInAnyPackage(PRODUCTION)
+                        .and()
+                        .doNotHaveFullyQualifiedName(
+                                "com.github.dropguard.summer.grpc.client.GrpcChannelManager")
+                        .and()
+                        .doNotHaveFullyQualifiedName(
+                                "com.github.dropguard.summer.web.server.NettyWebSocketBroadcaster")
                         .should()
                         .dependOnClassesThat()
                         .haveFullyQualifiedName("java.util.concurrent.ConcurrentHashMap")

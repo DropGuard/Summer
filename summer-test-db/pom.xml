@@ -28,4 +28,16 @@
             <scope>compile</scope>
         </dependency>
     </dependencies>
+
+    <!-- Every bean-bearing module ships a jandex.idx (the runtime engine scans it at startup);
+         this module carries only test resources today, but the index must exist if any of them
+         ever become managed beans — same contract as the other modules. -->
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>io.smallrye</groupId>
+                <artifactId>jandex-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
 </project>

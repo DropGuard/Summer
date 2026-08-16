@@ -22,10 +22,16 @@ public final class LoggingConfigurer {
         if (cl.getResource("logback.xml") != null || cl.getResource("logback-test.xml") != null) {
             return;
         }
-        if (!(LoggerFactory.getILoggerFactory()
-                instanceof ch.qos.logback.classic.LoggerContext ctx)) {
+        // Probe by class name, never instanceof: when logback is absent from the runtime
+        // classpath, instanceof would load the missing class and throw NoClassDefFoundError
+        // instead of returning false. A missing backend is the slf4j NOP contract (the app
+        // boots with a one-time "no providers" warning) — the boot layer must degrade, not
+        // crash, mirroring how Spring Boot's LoggingSystem probes before touching anything.
+        Object factory = LoggerFactory.getILoggerFactory();
+        if (!"ch.qos.logback.classic.LoggerContext".equals(factory.getClass().getName())) {
             return;
         }
+        ch.qos.logback.classic.LoggerContext ctx = (ch.qos.logback.classic.LoggerContext) factory;
         ctx.reset();
         ch.qos.logback.classic.encoder.PatternLayoutEncoder encoder =
                 new ch.qos.logback.classic.encoder.PatternLayoutEncoder();

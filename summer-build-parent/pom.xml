@@ -47,6 +47,22 @@
         </dependencies>
     </dependencyManagement>
 
+    <dependencies>
+        <!-- The framework parent (summer-parent) declares logback-classic test-scoped so nothing
+             leaks into the framework jars; apps inherit that declaration, and nearest-wins
+             dependency mediation lets the explicit test scope shadow summer-boot's compile-scoped
+             transitive logback down to nothing (the app boots with no logging backend and crashes
+             in LoggingConfigurer). dependencyManagement scope cannot override an explicit scope on
+             a direct dependency, so the app parent declares the backend compile-scoped directly —
+             the same dependency, same version (BOM-managed), guaranteed on the app's runtime
+             classpath. The boot layer still owns logging; the framework jars stay clean. -->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <scope>compile</scope>
+        </dependency>
+    </dependencies>
+
     <build>
         <plugins>
             <!-- Bound, not pluginManagement: the Jandex index is a pure build prerequisite for

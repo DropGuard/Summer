@@ -155,6 +155,7 @@
                 <groupId>com.github.dropguard</groupId>
                 <artifactId>summer-test-starter</artifactId>
                 <version>${project.version}</version>
+                <type>pom</type>
             </dependency>
 
             <!-- Redis Dependencies -->
@@ -191,6 +192,14 @@
                 <groupId>jakarta.validation</groupId>
                 <artifactId>jakarta.validation-api</artifactId>
                 <version>3.0.2</version>
+            </dependency>
+
+            <!-- Jakarta Annotations (@PostConstruct lifecycle — the CDI config-phase-end
+                 boundary; annotations only, no implementation) -->
+            <dependency>
+                <groupId>jakarta.annotation</groupId>
+                <artifactId>jakarta.annotation-api</artifactId>
+                <version>3.0.0</version>
             </dependency>
 
             <!-- Jackson for JSON binding -->
@@ -309,6 +318,14 @@
             <dependency>
                 <groupId>io.avaje</groupId>
                 <artifactId>avaje-validator-constraints</artifactId>
+                <version>2.17</version>
+            </dependency>
+            <!-- The annotation processor (avaje-validator-generator) is pinned here too — BOM
+                 bumps to the runtime stay in lockstep with the processor, which summer-parent's
+                 annotationProcessorPaths and summer-web's dependency otherwise hardcoded. -->
+            <dependency>
+                <groupId>io.avaje</groupId>
+                <artifactId>avaje-validator-generator</artifactId>
                 <version>2.17</version>
             </dependency>
 
