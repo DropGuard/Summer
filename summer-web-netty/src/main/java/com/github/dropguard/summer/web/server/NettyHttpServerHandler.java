@@ -46,8 +46,7 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
     /**
      * Per-request slot for the raw Netty artifacts, read by the cached {@link #handlerChain}. Each
      * request runs on a fresh virtual thread (no pooling) and the chain is synchronous, so the
-     * ThreadLocal is safe; set in {@link #processRequest} and cleared in the same finally that
-     * tears down {@code RequestContextHolder}.
+     * ThreadLocal is safe; set in {@link #processRequest} and cleared in the same finally.
      */
     private static final ThreadLocal<RequestSlot> REQUEST_SLOT = new ThreadLocal<>();
 
@@ -106,7 +105,6 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
                 // Tear down the request-scoped context. Runs on a fresh virtual thread
                 // per request (no pooling), so this fully releases the binding.
                 REQUEST_SLOT.remove();
-                com.github.dropguard.summer.web.RequestContextHolder.clear();
             }
 
             if (webCtx.isHandled()) {

@@ -84,13 +84,15 @@ public class NettyServerRunner implements ApplicationRunner {
 
     /**
      * The actual port this server instance bound to. Valid after {@link #run(BeanContainer)} has
-     * started the server; returns -1 before start or after {@link #close()}.
+     * started the server; returns -1 before start.
      *
      * <p>When {@code server.port} is 0 the OS assigns a free ephemeral port, and this returns that
      * resolved value — the correct way for a test to learn which port its container's server is
      * listening on. This is an instance method so a test obtains its runner via {@code
      * context.getBean(NettyServerRunner.class)} and always sees its OWN port, never a sibling IT
-     * class's.
+     * class's. The value is retained after server shutdown (the shutdown task registered in {@link
+     * #run(BeanContainer)}) — it reflects the last bound port, useful for diagnostics after
+     * teardown.
      */
     public int getPort() {
         return actualPort;
@@ -181,7 +183,7 @@ public class NettyServerRunner implements ApplicationRunner {
     /**
      * Convenience for direct/test use: stops the server immediately (zero drain timeout). The
      * container drives the same staging via the shutdown task registered in {@link
-     * #run(BeanContainer)}, bounded by {@code com.github.dropguard.summer.shutdown.timeout-ms}.
+     * #run(BeanContainer)}, bounded by {@code shutdown.timeout-ms}.
      */
     public void stop() {
         shutdown(java.time.Duration.ZERO);

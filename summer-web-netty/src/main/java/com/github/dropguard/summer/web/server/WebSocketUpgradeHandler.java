@@ -43,8 +43,9 @@ class WebSocketUpgradeHandler {
                 .contains(HttpHeaderNames.UPGRADE, HttpHeaderValues.WEBSOCKET, true);
     }
 
-    public boolean handleUpgrade(
-            ChannelHandlerContext nettyCtx, FullHttpRequest nettyReq, HttpContext c) {
+    public void handleUpgrade(
+            ChannelHandlerContext nettyCtx, FullHttpRequest nettyReq, HttpContext c)
+            throws Exception {
         String uri = nettyReq.uri();
         String path = uri;
         int questionMarkIndex = uri.indexOf('?');
@@ -61,12 +62,12 @@ class WebSocketUpgradeHandler {
                     host);
             c.status(HttpStatus.FORBIDDEN);
             c.text(HttpStatus.FORBIDDEN, "Origin not allowed");
-            return false;
+            return;
         }
 
         WsRouter.WsMatch wsMatch = wsRouter.routeWs(path);
         if (wsMatch == null) {
-            return false;
+            return;
         }
 
         java.util.Map<String, String> headers = new java.util.HashMap<>();
@@ -114,6 +115,5 @@ class WebSocketUpgradeHandler {
                                                     wsContext, config.maxWebSocketFrameSize()));
                             nettyCtx.fireChannelRead(retainedReq);
                         });
-        return true;
     }
 }

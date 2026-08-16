@@ -75,13 +75,16 @@ class NettyHttpServerHandlerTest {
 
     @Test
     void matchedHandlerWithoutResponseGets500InsteadOf404() throws Exception {
-        RadixTreeHttpRouter router = new RadixTreeHttpRouter();
-        router.register(
-                com.github.dropguard.summer.web.HttpMethod.GET,
-                "/silent",
-                c -> {
-                    // deferred-write contract violation: matched but no status/body written
-                });
+        RadixTreeHttpRouter router =
+                new RadixTreeHttpRouter(
+                        List.of(
+                                new com.github.dropguard.summer.web.HttpRouter.Builder.Route(
+                                        com.github.dropguard.summer.web.HttpMethod.GET,
+                                        "/silent",
+                                        c -> {
+                                            // deferred-write contract violation: matched but no
+                                            // status/body written
+                                        })));
         handler = new NettyHttpServerHandler(server, null, deps(router));
 
         HttpResponseStatus status = dispatch("/silent");
@@ -94,11 +97,13 @@ class NettyHttpServerHandlerTest {
 
     @Test
     void unmatchedRouteStillGets404() throws Exception {
-        RadixTreeHttpRouter router = new RadixTreeHttpRouter();
-        router.register(
-                com.github.dropguard.summer.web.HttpMethod.GET,
-                "/hello",
-                c -> c.text(HttpStatus.OK, "world"));
+        RadixTreeHttpRouter router =
+                new RadixTreeHttpRouter(
+                        List.of(
+                                new com.github.dropguard.summer.web.HttpRouter.Builder.Route(
+                                        com.github.dropguard.summer.web.HttpMethod.GET,
+                                        "/hello",
+                                        c -> c.text(HttpStatus.OK, "world"))));
         handler = new NettyHttpServerHandler(server, null, deps(router));
 
         HttpResponseStatus status = dispatch("/missing");

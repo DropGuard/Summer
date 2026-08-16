@@ -93,7 +93,16 @@ class NettyHttpServer {
     private int getActualTargetPort() {
         String devPort = System.getenv("SUMMER_DEV_PORT");
         if (devPort != null) {
-            return Integer.parseInt(devPort);
+            try {
+                return Integer.parseInt(devPort);
+            } catch (NumberFormatException e) {
+                // A mis-typed dev-port env var is a config error, not a silent fallback: name the
+                // offending value instead of surfacing a bare NumberFormatException.
+                throw new com.github.dropguard.summer.core.exception.ConfigurationException(
+                        com.github.dropguard.summer.core.ErrorCode.CONFIG_PARSE_ERROR,
+                        "SUMMER_DEV_PORT must be a valid port number, got: '" + devPort + "'",
+                        e);
+            }
         }
         return config.port();
     }
@@ -208,7 +217,11 @@ class NettyHttpServer {
                     Thread.sleep(50);
                 }
             } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                // Interrupted while draining: stop waiting, but clear the flag so the subsequent
+                // event-loop shutdownGracefully().sync() below still blocks normally and releases
+                // the port. A leftover interrupt flag would make sync() fail immediately, leaking
+                // the bound port (back-to-back start => "Address already in use").
+                Thread.interrupted();
             }
             if (activeConnections.get() > 0) {
                 log.warn("{} active requests still open after timeout.", activeConnections.get());

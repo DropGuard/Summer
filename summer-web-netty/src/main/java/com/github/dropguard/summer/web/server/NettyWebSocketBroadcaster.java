@@ -7,19 +7,25 @@ import io.netty.channel.group.ChannelGroup;
 import io.netty.channel.group.DefaultChannelGroup;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import io.netty.util.concurrent.GlobalEventExecutor;
-import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Netty-based WebSocket broadcaster.
  *
  * <p>This is a framework infrastructure bean provided by the runtime-web bridge module's {@code
  * RuntimeWebConfiguration}.
+ *
+ * <p>Thread-safety: {@code roomGroups} is a {@link ConcurrentHashMap} because concurrent websocket
+ * connections may join different rooms at once — CHM.computeIfAbsent guarantees one group per room
+ * and makes the read path lock-free. This is an explicit class-level exception to the project's
+ * usual ConcurrentHashMap ban — see {@code ArchitectureTest#noConcurrentHashMap}.
  */
 @Internal
 public class NettyWebSocketBroadcaster implements WebSocketBroadcaster {
 
     private final ChannelGroup globalGroup = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);
-    private final HashMap<String, ChannelGroup> roomGroups = new HashMap<>();
+    private final Map<String, ChannelGroup> roomGroups = new ConcurrentHashMap<>();
 
     @Override
     public void join(String room, WebSocketContext ctx) {
