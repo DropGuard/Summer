@@ -27,20 +27,6 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>com.github.dropguard</groupId>
-                <artifactId>summer-maven-plugin</artifactId>
-                <version>${summer.framework.version}</version>
-                <executions>
-                    <execution>
-                        <id>generate-aot</id>
-                        <phase>process-classes</phase>
-                        <goals>
-                            <goal>generate-aot</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>3.5.1</version>

@@ -73,24 +73,27 @@
                 <groupId>io.smallrye</groupId>
                 <artifactId>jandex-maven-plugin</artifactId>
             </plugin>
+            <!-- Bound, not pluginManagement: AOT generation is mandatory for every Summer app
+                 (a build-time context generator), so every app gets it with zero declaration —
+                 the same reasoning as Jandex above. An app is a runnable artifact, so the AOT
+                 plugin belongs on the app parent (build-parent), never on summer-parent (which
+                 parents framework libraries that must not run code generation). The version and
+                 execution are declared here directly — unlike Jandex, summer-parent's
+                 pluginManagement does not own this plugin's version, so they cannot be inherited. -->
+            <plugin>
+                <groupId>com.github.dropguard</groupId>
+                <artifactId>summer-maven-plugin</artifactId>
+                <version>${summer.framework.version}</version>
+                <executions>
+                    <execution>
+                        <id>generate-aot</id>
+                        <phase>process-classes</phase>
+                        <goals>
+                            <goal>generate-aot</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
-        <pluginManagement>
-            <plugins>
-                <plugin>
-                    <groupId>com.github.dropguard</groupId>
-                    <artifactId>summer-maven-plugin</artifactId>
-                    <version>${summer.framework.version}</version>
-                    <executions>
-                        <execution>
-                            <id>generate-aot</id>
-                            <phase>process-classes</phase>
-                            <goals>
-                                <goal>generate-aot</goal>
-                            </goals>
-                        </execution>
-                    </executions>
-                </plugin>
-            </plugins>
-        </pluginManagement>
     </build>
 </project>

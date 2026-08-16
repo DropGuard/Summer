@@ -7,13 +7,14 @@
     <!--
       The benchmark is an external tool project (compares Summer against Spring
       Boot), not framework code, so it inherits the application starter-parent
-      rather than the framework reactor parent. That gives it the framework's
-      compiler level (26) and AOT / Jandex build wiring for free, and keeps the
-      benchmark aligned with how the demos are built.
+      (summer-build-parent) rather than the framework reactor parent. That gives it
+      the framework's compiler level and AOT / Jandex build wiring for free — the
+      same convention as the demos — and keeps the benchmark aligned with how apps
+      are built.
     -->
     <parent>
         <groupId>com.github.dropguard</groupId>
-        <artifactId>summer-framework</artifactId>
+        <artifactId>summer-build-parent</artifactId>
         <version>999-SNAPSHOT</version>
         <relativePath/>
     </parent>
@@ -26,5 +27,4 @@
         <module>benchmark-spring-boot</module>
         <module>benchmark-summer</module>
     </modules>
-    <build><plugins><plugin><groupId>io.smallrye</groupId><artifactId>jandex-maven-plugin</artifactId></plugin></plugins></build>
 </project>

@@ -151,12 +151,6 @@
                     <failIfNoTests>true</failIfNoTests>
                 </configuration>
             </plugin>
-            <!-- AOT production build (summer-build-parent supplies version + execution). -->
-            <plugin>
-                <groupId>com.github.dropguard</groupId>
-                <artifactId>summer-maven-plugin</artifactId>
-            </plugin>
-        
         </plugins>
     </build>
 </project>

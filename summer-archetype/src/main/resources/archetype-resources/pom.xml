@@ -44,12 +44,8 @@
 
     <build>
         <plugins>
-            <!-- One-line AOT activation: version + generate-aot execution come from the
-                 build-parent's pluginManagement; the Jandex index is bound by the parent. -->
-            <plugin>
-                <groupId>com.github.dropguard</groupId>
-                <artifactId>summer-maven-plugin</artifactId>
-            </plugin>
+            <!-- AOT generation is bound by summer-build-parent (the Jandex index too), so a
+                 scaffolded app inherits both with zero plugin declarations of its own. -->
             <!-- Fat jar with the app as the entry point, so `mvn package` yields a
                  runnable `java -jar` artifact (same convention as the demos). -->
             <plugin>

@@ -146,13 +146,6 @@
                     </execution>
                 </executions>
             </plugin>
-
-            <!-- AOT production build (summer-build-parent supplies version + execution):
-                 generates the AOT context, compiles it, and flips application.yml to aot. -->
-            <plugin>
-                <groupId>com.github.dropguard</groupId>
-                <artifactId>summer-maven-plugin</artifactId>
-            </plugin>
         </plugins>
     </build>
 </project>
