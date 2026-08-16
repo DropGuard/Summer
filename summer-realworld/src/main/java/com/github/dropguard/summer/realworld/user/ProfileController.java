@@ -47,7 +47,7 @@ public class ProfileController {
             return;
         }
 
-        followService.follow(currentUserId, userOpt.get().getId());
+        followService.follow(currentUserId, userOpt.get().id());
         ctx.json(HttpStatus.OK, createProfileResponse(userOpt.get(), currentUserId));
     }
 
@@ -61,14 +61,14 @@ public class ProfileController {
             return;
         }
 
-        followService.unfollow(currentUserId, userOpt.get().getId());
+        followService.unfollow(currentUserId, userOpt.get().id());
         ctx.json(HttpStatus.OK, createProfileResponse(userOpt.get(), currentUserId));
     }
 
     private UserDtos.ProfileResponse createProfileResponse(User user, Long currentUserId) {
-        boolean following = followService.isFollowing(currentUserId, user.getId());
+        boolean following = followService.isFollowing(currentUserId, user.id());
         return new UserDtos.ProfileResponse(
                 new UserDtos.ProfileResponse.Profile(
-                        user.getUsername(), user.getBio(), user.getImage(), following));
+                        user.username(), user.bio(), user.image(), following));
     }
 }

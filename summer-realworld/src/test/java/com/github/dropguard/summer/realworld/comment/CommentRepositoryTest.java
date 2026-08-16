@@ -2,68 +2,104 @@ package com.github.dropguard.summer.realworld.comment;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
+import com.github.dropguard.summer.realworld.article.ArticleRepository;
+import com.github.dropguard.summer.realworld.TestSeeds;
+import com.github.dropguard.summer.realworld.user.UserRepository;
+import com.github.dropguard.summer.test.annotation.SummerTest;
+import com.github.dropguard.summer.test.annotation.TestResource;
+import com.github.dropguard.summer.test.db.PostgresTestResource;
+import java.time.LocalDateTime;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Integration test for {@link CommentRepository} against real Postgres (Testcontainers).
+ *
+ * <p>Seeds the baseline via {@link com.github.dropguard.summer.realworld.TestSeeds#seedBaseline} (user 1 /
+ * article 1) and declares its own {@code commentRepository}.
+ */
+@SummerTest
+@TestResource(PostgresTestResource.class)
 class CommentRepositoryTest {
 
-    private CommentRepository repo;
+    private final JdbcTemplate jdbcTemplate;
+    private final UserRepository userRepository;
+    private final ArticleRepository articleRepository;
+    private final CommentRepository commentRepository;
+
+    CommentRepositoryTest(
+            JdbcTemplate jdbcTemplate,
+            UserRepository userRepository,
+            ArticleRepository articleRepository,
+            CommentRepository commentRepository) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.userRepository = userRepository;
+        this.articleRepository = articleRepository;
+        this.commentRepository = commentRepository;
+    }
 
     @BeforeEach
-    void setUp() {
-        repo = new CommentRepository();
+    void seedBaseline() {
+        TestSeeds.seedBaseline(jdbcTemplate, userRepository, articleRepository);
+    }
+
+    private static final Long ARTICLE_1 = 1L;
+    private static final Long AUTHOR_1 = 1L;
+
+    private static Comment comment(String body) {
+        LocalDateTime now = LocalDateTime.now();
+        return new Comment(null, body, ARTICLE_1, AUTHOR_1, now, now);
     }
 
     @Test
     void shouldSaveAndFindById() {
-        Comment c = new Comment(null, "body", 1L, 10L, null, null);
-        Comment saved = repo.save(c);
+        Comment saved = commentRepository.save(comment("body"));
 
-        assertNotNull(saved.getId());
-        var found = repo.findById(saved.getId());
+        assertNotNull(saved.id());
+        var found = commentRepository.findById(saved.id());
         assertTrue(found.isPresent());
-        assertEquals("body", found.get().getBody());
+        assertEquals("body", found.get().body());
     }
 
     @Test
     void shouldFindByArticleId() {
-        repo.save(new Comment(null, "c1", 1L, 10L, null, null));
-        repo.save(new Comment(null, "c2", 1L, 20L, null, null));
-        repo.save(new Comment(null, "c3", 2L, 10L, null, null));
+        commentRepository.save(comment("c1"));
+        commentRepository.save(comment("c2"));
+        commentRepository.save(comment("c3"));
 
-        assertEquals(2, repo.findByArticleId(1L).size());
-        assertEquals(1, repo.findByArticleId(2L).size());
+        assertEquals(3, commentRepository.findByArticleId(ARTICLE_1).size());
+        assertEquals(0, commentRepository.findByArticleId(999L).size());
     }
 
     @Test
     void shouldDeleteById() {
-        Comment saved = repo.save(new Comment(null, "x", 1L, 10L, null, null));
-        assertEquals(1, repo.findAll().size());
+        Comment saved = commentRepository.save(comment("x"));
+        assertEquals(1, commentRepository.findAll().size());
 
-        repo.deleteById(saved.getId());
+        commentRepository.deleteById(saved.id());
 
-        assertEquals(0, repo.findAll().size());
+        assertEquals(0, commentRepository.findAll().size());
     }
 
     @Test
     void deleteByArticleIdShouldRemoveOnlyMatchingComments() {
-        repo.save(new Comment(null, "c1", 1L, 10L, null, null));
-        repo.save(new Comment(null, "c2", 1L, 20L, null, null));
-        repo.save(new Comment(null, "c3", 2L, 10L, null, null));
+        commentRepository.save(comment("c1"));
+        commentRepository.save(comment("c2"));
+        commentRepository.save(comment("c3"));
 
-        repo.deleteByArticleId(1L);
+        commentRepository.deleteByArticleId(ARTICLE_1);
 
-        assertEquals(0, repo.findByArticleId(1L).size());
-        assertEquals(1, repo.findByArticleId(2L).size());
-        assertEquals(1, repo.findAll().size());
+        assertEquals(0, commentRepository.findByArticleId(ARTICLE_1).size());
+        assertEquals(0, commentRepository.findAll().size());
     }
 
     @Test
     void deleteByArticleIdShouldBeNoopWhenArticleHasNoComments() {
-        repo.save(new Comment(null, "c", 3L, 10L, null, null));
+        commentRepository.save(comment("c"));
 
-        repo.deleteByArticleId(99L); // no comments for this article
+        commentRepository.deleteByArticleId(999L); // no comments for this article
 
-        assertEquals(1, repo.findAll().size());
+        assertEquals(1, commentRepository.findAll().size());
     }
 }

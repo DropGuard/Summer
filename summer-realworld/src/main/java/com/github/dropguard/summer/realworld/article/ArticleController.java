@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.realworld.article;
 
+import com.github.dropguard.summer.core.data.LimitOffsetPageRequest;
 import com.github.dropguard.summer.realworld.article.ArticleDtos.ArticleData;
 import com.github.dropguard.summer.realworld.article.ArticleDtos.ArticleResponse;
 import com.github.dropguard.summer.realworld.article.ArticleDtos.ArticlesResponse;
@@ -7,7 +8,6 @@ import com.github.dropguard.summer.realworld.article.ArticleDtos.Author;
 import com.github.dropguard.summer.realworld.auth.AuthUtils;
 import com.github.dropguard.summer.realworld.auth.JwtUtil;
 import com.github.dropguard.summer.realworld.common.Errors;
-import com.github.dropguard.summer.realworld.common.LimitOffsetPageable;
 import com.github.dropguard.summer.realworld.user.FollowRepository;
 import com.github.dropguard.summer.realworld.user.User;
 import com.github.dropguard.summer.realworld.user.UserService;
@@ -31,6 +31,7 @@ public class ArticleController {
     private final UserService userService;
     private final FavoriteRepository favoriteRepository;
     private final FollowRepository followRepository;
+    private final ArticleRepository articleRepository;
     private final JwtUtil jwtUtil;
 
     public ArticleController(
@@ -38,16 +39,18 @@ public class ArticleController {
             UserService userService,
             FavoriteRepository favoriteRepository,
             FollowRepository followRepository,
+            ArticleRepository articleRepository,
             JwtUtil jwtUtil) {
         this.articleService = articleService;
         this.userService = userService;
         this.favoriteRepository = favoriteRepository;
         this.followRepository = followRepository;
+        this.articleRepository = articleRepository;
         this.jwtUtil = jwtUtil;
     }
 
     @Get("/articles")
-    public void listArticles(HttpContext ctx, LimitOffsetPageable pageable) {
+    public void listArticles(HttpContext ctx, LimitOffsetPageRequest pageable) {
         String tag = ctx.queryParam("tag");
         String author = ctx.queryParam("author");
         String favorited = ctx.queryParam("favorited");
@@ -59,16 +62,16 @@ public class ArticleController {
             Optional<User> authorOpt = userService.findByUsername(author);
             articles =
                     authorOpt
-                            .map(user -> articleService.findByAuthorId(user.getId()))
+                            .map(user -> articleService.findByAuthorId(user.id()))
                             .orElse(List.of());
         } else if (favorited != null) {
             Optional<User> favUserOpt = userService.findByUsername(favorited);
             if (favUserOpt.isPresent()) {
                 Set<Long> favArticleIds =
-                        favoriteRepository.getArticleIdsFavoritedBy(favUserOpt.get().getId());
+                        favoriteRepository.getArticleIdsFavoritedBy(favUserOpt.get().id());
                 articles =
                         articleService.findAll().stream()
-                                .filter(a -> favArticleIds.contains(a.getId()))
+                                .filter(a -> favArticleIds.contains(a.id()))
                                 .collect(Collectors.toList());
             } else {
                 articles = List.of();
@@ -78,11 +81,13 @@ public class ArticleController {
         }
 
         articles = new ArrayList<>(articles);
-        articles.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
+        articles.sort((a, b) -> b.createdAt().compareTo(a.createdAt()));
 
         Long currentUserId = tryGetCurrentUserId(ctx);
         int total = articles.size();
-        List<Article> paginatedArticles = pageable.paginate(articles);
+        int fromIndex = Math.min(pageable.offset(), articles.size());
+        int toIndex = Math.min(pageable.offset() + pageable.limit(), articles.size());
+        List<Article> paginatedArticles = articles.subList(fromIndex, toIndex);
 
         List<ArticleData> articleResponses =
                 paginatedArticles.stream()
@@ -93,18 +98,20 @@ public class ArticleController {
     }
 
     @Get("/articles/feed")
-    public void feedArticles(HttpContext ctx, LimitOffsetPageable pageable) {
+    public void feedArticles(HttpContext ctx, LimitOffsetPageRequest pageable) {
         Long currentUserId = getCurrentUserId(ctx);
 
         Set<Long> followingIds = followRepository.getFollowing(currentUserId);
         List<Article> articles =
                 articleService.findAll().stream()
-                        .filter(a -> followingIds.contains(a.getAuthorId()))
-                        .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
+                        .filter(a -> followingIds.contains(a.authorId()))
+                        .sorted((a, b) -> b.createdAt().compareTo(a.createdAt()))
                         .collect(Collectors.toList());
 
         int total = articles.size();
-        List<Article> paginatedArticles = pageable.paginate(articles);
+        int fromIndex = Math.min(pageable.offset(), articles.size());
+        int toIndex = Math.min(pageable.offset() + pageable.limit(), articles.size());
+        List<Article> paginatedArticles = articles.subList(fromIndex, toIndex);
 
         List<ArticleData> articleResponses =
                 paginatedArticles.stream()
@@ -155,7 +162,7 @@ public class ArticleController {
         }
 
         Article article = articleOpt.get();
-        if (!article.getAuthorId().equals(currentUserId)) {
+        if (!article.authorId().equals(currentUserId)) {
             ctx.json(HttpStatus.FORBIDDEN, Errors.articleForbidden());
             return;
         }
@@ -195,12 +202,12 @@ public class ArticleController {
         }
 
         Article article = articleOpt.get();
-        if (!article.getAuthorId().equals(currentUserId)) {
+        if (!article.authorId().equals(currentUserId)) {
             ctx.json(HttpStatus.FORBIDDEN, Errors.articleForbidden());
             return;
         }
 
-        articleService.delete(article.getId());
+        articleService.delete(article.id());
         ctx.json(HttpStatus.NO_CONTENT, "");
     }
 
@@ -214,7 +221,7 @@ public class ArticleController {
             return;
         }
 
-        favoriteRepository.favorite(currentUserId, articleOpt.get().getId());
+        favoriteRepository.favorite(currentUserId, articleOpt.get().id());
         ctx.json(
                 HttpStatus.OK,
                 new ArticleResponse(createArticleData(articleOpt.get(), currentUserId, true)));
@@ -230,7 +237,7 @@ public class ArticleController {
             return;
         }
 
-        favoriteRepository.unfavorite(currentUserId, articleOpt.get().getId());
+        favoriteRepository.unfavorite(currentUserId, articleOpt.get().id());
         ctx.json(
                 HttpStatus.OK,
                 new ArticleResponse(createArticleData(articleOpt.get(), currentUserId, true)));
@@ -244,18 +251,18 @@ public class ArticleController {
             Article article, Long currentUserId, boolean includeBody) {
         boolean favorited =
                 currentUserId != null
-                        && favoriteRepository.isFavorited(currentUserId, article.getId());
-        int favoritesCount = favoriteRepository.countByArticleId(article.getId());
-        Author author = createAuthorData(article.getAuthorId(), currentUserId);
+                        && favoriteRepository.isFavorited(currentUserId, article.id());
+        int favoritesCount = favoriteRepository.countByArticleId(article.id());
+        Author author = createAuthorData(article.authorId(), currentUserId);
 
         return new ArticleData(
-                article.getSlug(),
-                article.getTitle(),
-                article.getDescription(),
-                includeBody ? article.getBody() : null,
-                article.getTagList() != null ? article.getTagList() : List.of(),
-                article.getCreatedAt().toString(),
-                article.getUpdatedAt().toString(),
+                article.slug(),
+                article.title(),
+                article.description(),
+                includeBody ? article.body() : null,
+                articleRepository.findTags(article.id()),
+                article.createdAt().toString(),
+                article.updatedAt().toString(),
                 favorited,
                 favoritesCount,
                 author);
@@ -267,7 +274,7 @@ public class ArticleController {
             User author = authorOpt.get();
             boolean following =
                     currentUserId != null && followRepository.isFollowing(currentUserId, authorId);
-            return new Author(author.getUsername(), author.getBio(), author.getImage(), following);
+            return new Author(author.username(), author.bio(), author.image(), following);
         }
         return new Author(null, null, null, false);
     }

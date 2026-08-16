@@ -1,11 +1,13 @@
 package com.github.dropguard.summer.realworld.user;
 
+import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.realworld.common.ConflictException;
 import com.github.dropguard.summer.realworld.common.ValidationException;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import org.mindrot.jbcrypt.BCrypt;
 
+@Component
 public class UserService {
     private final UserRepository userRepository;
 
@@ -33,12 +35,17 @@ public class UserService {
             throw new ConflictException("email", "has already been taken");
         }
 
-        User user = new User();
-        user.setUsername(username);
-        user.setEmail(email);
-        user.setPassword(BCrypt.hashpw(password, BCrypt.gensalt()));
-        user.setCreatedAt(LocalDateTime.now());
-        user.setUpdatedAt(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        User user =
+                new User(
+                        null,
+                        username,
+                        email,
+                        BCrypt.hashpw(password, BCrypt.gensalt()),
+                        null,
+                        null,
+                        now,
+                        now);
         return userRepository.save(user);
     }
 
@@ -56,25 +63,31 @@ public class UserService {
 
     public User update(
             User user, String username, String email, String password, String bio, String image) {
+        String newUsername = user.username();
+        String newEmail = user.email();
+        String newPassword = user.password();
+        String newBio = user.bio();
+        String newImage = user.image();
+
         if (username != null) {
             if (username.isBlank()) {
                 throw new ValidationException("username", "can't be blank");
             }
             Optional<User> existing = userRepository.findByUsername(username);
-            if (existing.isPresent() && !existing.get().getId().equals(user.getId())) {
+            if (existing.isPresent() && !existing.get().id().equals(user.id())) {
                 throw new ConflictException("username", "has already been taken");
             }
-            user.setUsername(username);
+            newUsername = username;
         }
         if (email != null) {
             if (email.isBlank()) {
                 throw new ValidationException("email", "can't be blank");
             }
             Optional<User> existing = userRepository.findByEmail(email);
-            if (existing.isPresent() && !existing.get().getId().equals(user.getId())) {
+            if (existing.isPresent() && !existing.get().id().equals(user.id())) {
                 throw new ConflictException("email", "has already been taken");
             }
-            user.setEmail(email);
+            newEmail = email;
         }
         if (password != null) {
             if (password.isBlank()) {
@@ -83,15 +96,25 @@ public class UserService {
             if (password.length() < 8) {
                 throw new ValidationException("password", "is too short (minimum is 8 characters)");
             }
-            user.setPassword(BCrypt.hashpw(password, BCrypt.gensalt()));
+            newPassword = BCrypt.hashpw(password, BCrypt.gensalt());
         }
         if (bio != null) {
-            user.setBio(bio.isBlank() ? null : bio);
+            newBio = bio.isBlank() ? null : bio;
         }
         if (image != null) {
-            user.setImage(image.isBlank() ? null : image);
+            newImage = image.isBlank() ? null : image;
         }
-        user.setUpdatedAt(LocalDateTime.now());
-        return userRepository.save(user);
+
+        User updated =
+                new User(
+                        user.id(),
+                        newUsername,
+                        newEmail,
+                        newPassword,
+                        newBio,
+                        newImage,
+                        user.createdAt(),
+                        LocalDateTime.now());
+        return userRepository.save(updated);
     }
 }

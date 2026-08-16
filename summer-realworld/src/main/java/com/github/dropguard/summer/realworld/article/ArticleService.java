@@ -1,17 +1,17 @@
 package com.github.dropguard.summer.realworld.article;
 
+import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.realworld.comment.CommentRepository;
 import com.github.dropguard.summer.realworld.common.ValidationException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
 
+@Component
 public class ArticleService {
     private final ArticleRepository articleRepository;
     private final FavoriteRepository favoriteRepository;
     private final CommentRepository commentRepository;
-    private final AtomicLong slugCounter = new AtomicLong(1);
 
     public ArticleService(
             ArticleRepository articleRepository,
@@ -35,17 +35,9 @@ public class ArticleService {
         }
 
         String slug = generateUniqueSlug(title);
-        Article article = new Article();
-        article.setSlug(slug);
-        article.setTitle(title);
-        article.setDescription(description);
-        article.setBody(body);
-        article.setTagList(tagList != null ? tagList : List.of());
-        article.setAuthorId(authorId);
-        article.setCreatedAt(LocalDateTime.now());
-        article.setUpdatedAt(LocalDateTime.now());
-        article.setFavoritesCount(0);
-        return articleRepository.save(article);
+        LocalDateTime now = LocalDateTime.now();
+        Article article = new Article(null, slug, title, description, body, now, now, authorId);
+        return articleRepository.save(article, tagList != null ? tagList : List.of());
     }
 
     public Optional<Article> findBySlug(String slug) {
@@ -70,30 +62,43 @@ public class ArticleService {
 
     public Article update(
             Article article, String title, String description, String body, List<String> tagList) {
+        String newTitle = article.title();
+        String newSlug = article.slug();
+        String newDescription = article.description();
+        String newBody = article.body();
+        List<String> newTagList = tagList;
+
         if (title != null) {
             if (title.isBlank()) {
                 throw new ValidationException("title", "can't be blank");
             }
-            article.setTitle(title);
-            article.setSlug(generateUniqueSlug(title));
+            newTitle = title;
+            newSlug = generateUniqueSlug(title);
         }
         if (description != null) {
             if (description.isBlank()) {
                 throw new ValidationException("description", "can't be blank");
             }
-            article.setDescription(description);
+            newDescription = description;
         }
         if (body != null) {
             if (body.isBlank()) {
                 throw new ValidationException("body", "can't be blank");
             }
-            article.setBody(body);
+            newBody = body;
         }
-        if (tagList != null) {
-            article.setTagList(tagList);
-        }
-        article.setUpdatedAt(LocalDateTime.now());
-        return articleRepository.save(article);
+
+        Article updated =
+                new Article(
+                        article.id(),
+                        newSlug,
+                        newTitle,
+                        newDescription,
+                        newBody,
+                        article.createdAt(),
+                        LocalDateTime.now(),
+                        article.authorId());
+        return articleRepository.save(updated, newTagList);
     }
 
     public void delete(Long id) {
@@ -105,8 +110,9 @@ public class ArticleService {
     private String generateUniqueSlug(String title) {
         String baseSlug = slugify(title);
         String slug = baseSlug;
+        int counter = 1;
         while (articleRepository.findBySlug(slug).isPresent()) {
-            slug = baseSlug + "-" + slugCounter.getAndIncrement();
+            slug = baseSlug + "-" + counter++;
         }
         return slug;
     }

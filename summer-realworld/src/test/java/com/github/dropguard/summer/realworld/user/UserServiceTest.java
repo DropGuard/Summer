@@ -2,18 +2,30 @@ package com.github.dropguard.summer.realworld.user;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
+import com.github.dropguard.summer.test.annotation.SummerTest;
+import com.github.dropguard.summer.test.annotation.TestResource;
+import com.github.dropguard.summer.test.db.PostgresTestResource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/** Integration test for {@link UserService} against real Postgres (Testcontainers). */
+@SummerTest
+@TestResource(PostgresTestResource.class)
 class UserServiceTest {
 
-    private UserService userService;
-    private UserRepository userRepository;
+    private final UserService userService;
+    private final JdbcTemplate jdbcTemplate;
 
+    public UserServiceTest(UserService userService, JdbcTemplate jdbcTemplate) {
+        this.userService = userService;
+        this.jdbcTemplate = jdbcTemplate;
+    }
+
+    /** The {@code @SummerTest} container + Postgres are shared across test methods; clear users. */
     @BeforeEach
-    void setUp() {
-        userRepository = new UserRepository();
-        userService = new UserService(userRepository);
+    void clearUsers() {
+        jdbcTemplate.update("TRUNCATE TABLE users RESTART IDENTITY CASCADE");
     }
 
     @Test
@@ -21,10 +33,16 @@ class UserServiceTest {
         User user = userService.register("testuser", "test@example.com", "password123");
 
         assertNotNull(user);
-        assertEquals("testuser", user.getUsername());
-        assertEquals("test@example.com", user.getEmail());
-        assertNotNull(user.getCreatedAt());
-        assertNotNull(user.getUpdatedAt());
+        assertEquals("testuser", user.username());
+        assertEquals("test@example.com", user.email());
+        assertNotNull(user.createdAt());
+        assertNotNull(user.updatedAt());
+
+        // Re-query the DB to prove the user was actually persisted, not just returned in-memory.
+        var persisted = userService.findByEmail("test@example.com");
+        assertTrue(persisted.isPresent());
+        assertEquals("testuser", persisted.get().username());
+        assertEquals(user.id(), persisted.get().id());
     }
 
     @Test
@@ -52,7 +70,7 @@ class UserServiceTest {
         var found = userService.findByEmail("test@example.com");
 
         assertTrue(found.isPresent());
-        assertEquals("testuser", found.get().getUsername());
+        assertEquals("testuser", found.get().username());
     }
 
     @Test
@@ -62,7 +80,7 @@ class UserServiceTest {
         var found = userService.findByUsername("testuser");
 
         assertTrue(found.isPresent());
-        assertEquals("test@example.com", found.get().getEmail());
+        assertEquals("test@example.com", found.get().email());
     }
 
     @Test
@@ -73,7 +91,7 @@ class UserServiceTest {
                 userService.update(
                         user, null, null, null, "New bio", "https://example.com/image.jpg");
 
-        assertEquals("New bio", updated.getBio());
-        assertEquals("https://example.com/image.jpg", updated.getImage());
+        assertEquals("New bio", updated.bio());
+        assertEquals("https://example.com/image.jpg", updated.image());
     }
 }

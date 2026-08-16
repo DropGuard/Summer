@@ -2,6 +2,7 @@ package com.github.dropguard.summer.realworld.common;
 
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.core.annotation.Replaces;
+import com.github.dropguard.summer.core.data.LimitOffsetPageRequest;
 import com.github.dropguard.summer.web.DefaultPageResolver;
 import com.github.dropguard.summer.web.HandlerParam;
 import com.github.dropguard.summer.web.HttpContext;
@@ -12,7 +13,7 @@ import com.github.dropguard.summer.web.HttpParameterResolver;
 public class RealWorldPageableResolver implements HttpParameterResolver {
     @Override
     public boolean supports(HandlerParam param) {
-        return LimitOffsetPageable.class.isAssignableFrom(param.type());
+        return LimitOffsetPageRequest.class.isAssignableFrom(param.type());
     }
 
     @Override
@@ -30,7 +31,7 @@ public class RealWorldPageableResolver implements HttpParameterResolver {
         } catch (NumberFormatException ignored) {
         }
 
-        return new LimitOffsetPageable(limit, offset);
+        return new LimitOffsetPageRequest(offset, limit);
     }
 
     @Override

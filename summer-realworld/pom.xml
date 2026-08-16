@@ -48,10 +48,11 @@
             <artifactId>summer-runtime</artifactId>
         </dependency>
 
-        <!-- H2 Database (realworld uses an in-memory DB) -->
+        <!-- PostgreSQL database (realworld persists to Postgres) -->
         <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.7.3</version>
         </dependency>
 
         <!-- BCrypt -->
@@ -85,6 +86,31 @@
         <dependency>
             <groupId>com.github.dropguard</groupId>
             <artifactId>summer-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- Real-database integration tests: Postgres via Testcontainers, managed by the
+             framework-owned PostgresTestResource (@TestResource). Versions ride the BOM
+             (summer-build-parent imports summer-dependencies); only postgresql is pinned
+             as a driver by the twitter convention. -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-test-db</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.7.3</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

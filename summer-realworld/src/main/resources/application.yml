@@ -1,7 +1,14 @@
-port: 8080
-idleTimeout: 60000
-maxBodySize: 10485760
-readTimeout: 10000
+server:
+  port: 8080
+  idleTimeout: 60000
+  maxBodySize: 10485760
+  readTimeout: 10000
+
+datasource:
+  url: ${SUMMER_DB_URL:-jdbc:postgresql://localhost:5432/realworld}
+  username: ${SUMMER_DB_USER:-realworld}
+  password: ${SUMMER_DB_PASSWORD:-realworld}
+  driver-class-name: org.postgresql.Driver
 
 jwt:
   secret: ${JWT_SECRET:-change-me-in-production}

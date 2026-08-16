@@ -58,8 +58,7 @@ public class CommentController {
                 ctx.validatedBody(CommentDtos.CreateCommentRequest.class);
         String commentBody = body.comment().body();
 
-        Comment comment =
-                commentService.create(commentBody, articleOpt.get().getId(), currentUserId);
+        Comment comment = commentService.create(commentBody, articleOpt.get().id(), currentUserId);
         ctx.json(HttpStatus.CREATED, new CommentResponse(createCommentData(comment)));
     }
 
@@ -71,7 +70,7 @@ public class CommentController {
             return;
         }
 
-        List<Comment> comments = commentService.findByArticleId(articleOpt.get().getId());
+        List<Comment> comments = commentService.findByArticleId(articleOpt.get().id());
         List<CommentData> commentResponses =
                 comments.stream().map(this::createCommentData).collect(Collectors.toList());
 
@@ -108,7 +107,7 @@ public class CommentController {
         }
 
         Comment comment = commentOpt.get();
-        if (!comment.getAuthorId().equals(currentUserId)) {
+        if (!comment.authorId().equals(currentUserId)) {
             ctx.json(HttpStatus.FORBIDDEN, Errors.commentForbidden());
             return;
         }
@@ -118,17 +117,17 @@ public class CommentController {
     }
 
     private CommentData createCommentData(Comment comment) {
-        Optional<User> authorOpt = userService.findById(comment.getAuthorId());
+        Optional<User> authorOpt = userService.findById(comment.authorId());
         Author author =
                 authorOpt
-                        .map(u -> new Author(u.getUsername(), u.getBio(), u.getImage(), false))
+                        .map(u -> new Author(u.username(), u.bio(), u.image(), false))
                         .orElse(new Author(null, null, null, false));
 
         return new CommentData(
-                comment.getId(),
-                comment.getCreatedAt().toString(),
-                comment.getUpdatedAt().toString(),
-                comment.getBody(),
+                comment.id(),
+                comment.createdAt().toString(),
+                comment.updatedAt().toString(),
+                comment.body(),
                 author);
     }
 

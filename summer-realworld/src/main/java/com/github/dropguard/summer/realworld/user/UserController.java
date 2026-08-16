@@ -48,7 +48,7 @@ public class UserController {
         }
 
         Optional<User> userOpt = userService.findByEmail(u.email());
-        if (userOpt.isEmpty() || !BCrypt.checkpw(u.password(), userOpt.get().getPassword())) {
+        if (userOpt.isEmpty() || !BCrypt.checkpw(u.password(), userOpt.get().password())) {
             rateLimiter.recordFailure(u.email());
             ctx.json(HttpStatus.UNAUTHORIZED, Errors.credentials());
             return;
@@ -126,33 +126,30 @@ public class UserController {
 
         String newAccess =
                 jwtUtil.generateAccessToken(
-                        userOpt.get().getId(),
-                        userOpt.get().getUsername(),
-                        userOpt.get().getEmail());
-        String newRefresh = jwtUtil.generateRefreshToken(userOpt.get().getId());
+                        userOpt.get().id(), userOpt.get().username(), userOpt.get().email());
+        String newRefresh = jwtUtil.generateRefreshToken(userOpt.get().id());
         ctx.json(
                 HttpStatus.OK,
                 new UserDtos.UserResponse(
                         new UserDtos.UserResponse.User(
-                                userOpt.get().getEmail(),
+                                userOpt.get().email(),
                                 newAccess,
-                                userOpt.get().getUsername(),
-                                userOpt.get().getBio(),
-                                userOpt.get().getImage(),
+                                userOpt.get().username(),
+                                userOpt.get().bio(),
+                                userOpt.get().image(),
                                 newRefresh)));
     }
 
     private UserDtos.UserResponse createUserResponse(User user) {
-        String accessToken =
-                jwtUtil.generateAccessToken(user.getId(), user.getUsername(), user.getEmail());
-        String refreshToken = jwtUtil.generateRefreshToken(user.getId());
+        String accessToken = jwtUtil.generateAccessToken(user.id(), user.username(), user.email());
+        String refreshToken = jwtUtil.generateRefreshToken(user.id());
         return new UserDtos.UserResponse(
                 new UserDtos.UserResponse.User(
-                        user.getEmail(),
+                        user.email(),
                         accessToken,
-                        user.getUsername(),
-                        user.getBio(),
-                        user.getImage(),
+                        user.username(),
+                        user.bio(),
+                        user.image(),
                         refreshToken));
     }
 

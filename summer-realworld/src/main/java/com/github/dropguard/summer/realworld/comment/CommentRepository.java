@@ -1,45 +1,75 @@
 package com.github.dropguard.summer.realworld.comment;
 
-import java.util.ArrayList;
+import com.github.dropguard.summer.core.Component;
+import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
+@Component
 public class CommentRepository {
-    private final Map<Long, Comment> comments = new ConcurrentHashMap<>();
-    private final AtomicLong idGenerator = new AtomicLong(1);
+    private final JdbcTemplate jdbcTemplate;
+
+    private static final String COLUMNS = "id, body, article_id, author_id, created_at, updated_at";
+
+    public CommentRepository(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
 
     public Comment save(Comment comment) {
-        if (comment.getId() == null) {
-            comment.setId(idGenerator.getAndIncrement());
+        if (comment.id() == null) {
+            Long id =
+                    jdbcTemplate.queryForObject(
+                            "INSERT INTO comments (body, article_id, author_id, created_at,"
+                                    + " updated_at) VALUES (?, ?, ?, ?, ?) RETURNING id",
+                            Long.class,
+                            comment.body(),
+                            comment.articleId(),
+                            comment.authorId(),
+                            comment.createdAt(),
+                            comment.updatedAt());
+            return new Comment(
+                    id,
+                    comment.body(),
+                    comment.articleId(),
+                    comment.authorId(),
+                    comment.createdAt(),
+                    comment.updatedAt());
         }
-        comments.put(comment.getId(), comment);
+        jdbcTemplate.update(
+                "UPDATE comments SET body = ?, article_id = ?, author_id = ?, created_at = ?,"
+                        + " updated_at = ? WHERE id = ?",
+                comment.body(),
+                comment.articleId(),
+                comment.authorId(),
+                comment.createdAt(),
+                comment.updatedAt(),
+                comment.id());
         return comment;
     }
 
     public Optional<Comment> findById(Long id) {
-        return Optional.ofNullable(comments.get(id));
+        return Optional.ofNullable(
+                jdbcTemplate.queryForObject(
+                        "SELECT " + COLUMNS + " FROM comments WHERE id = ?", Comment.class, id));
     }
 
     public List<Comment> findByArticleId(Long articleId) {
-        return comments.values().stream()
-                .filter(comment -> comment.getArticleId().equals(articleId))
-                .collect(Collectors.toList());
+        return jdbcTemplate.queryForList(
+                "SELECT " + COLUMNS + " FROM comments WHERE article_id = ? ORDER BY created_at ASC",
+                Comment.class,
+                articleId);
     }
 
     public List<Comment> findAll() {
-        return new ArrayList<>(comments.values());
+        return jdbcTemplate.queryForList("SELECT " + COLUMNS + " FROM comments", Comment.class);
     }
 
     public void deleteById(Long id) {
-        comments.remove(id);
+        jdbcTemplate.update("DELETE FROM comments WHERE id = ?", id);
     }
 
     /** Remove all comments for an article — called when the article is deleted. */
     public void deleteByArticleId(Long articleId) {
-        comments.values().removeIf(comment -> comment.getArticleId().equals(articleId));
+        jdbcTemplate.update("DELETE FROM comments WHERE article_id = ?", articleId);
     }
 }

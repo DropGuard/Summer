@@ -2,72 +2,92 @@ package com.github.dropguard.summer.realworld.article;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
+import com.github.dropguard.summer.realworld.user.UserRepository;
+import com.github.dropguard.summer.realworld.TestSeeds;
+import com.github.dropguard.summer.test.annotation.SummerTest;
+import com.github.dropguard.summer.test.annotation.TestResource;
+import com.github.dropguard.summer.test.db.PostgresTestResource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Integration test for {@link FavoriteRepository} against real Postgres (Testcontainers).
+ *
+ * <p>Seeds the baseline via {@link com.github.dropguard.summer.realworld.TestSeeds#seedBaseline} (user 1 /
+ * article 1) and declares its own {@code favoriteRepository}.
+ */
+@SummerTest
+@TestResource(PostgresTestResource.class)
 class FavoriteRepositoryTest {
 
-    private FavoriteRepository repo;
+    private final JdbcTemplate jdbcTemplate;
+    private final UserRepository userRepository;
+    private final ArticleRepository articleRepository;
+    private final FavoriteRepository favoriteRepository;
+
+    FavoriteRepositoryTest(
+            JdbcTemplate jdbcTemplate,
+            UserRepository userRepository,
+            ArticleRepository articleRepository,
+            FavoriteRepository favoriteRepository) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.userRepository = userRepository;
+        this.articleRepository = articleRepository;
+        this.favoriteRepository = favoriteRepository;
+    }
 
     @BeforeEach
-    void setUp() {
-        repo = new FavoriteRepository();
+    void seedBaseline() {
+        TestSeeds.seedBaseline(jdbcTemplate, userRepository, articleRepository);
     }
+
+    private static final Long USER_1 = 1L;
+    private static final Long ARTICLE_1 = 1L;
 
     @Test
     void shouldFavoriteAndCheckStatus() {
-        repo.favorite(1L, 10L);
+        favoriteRepository.favorite(USER_1, ARTICLE_1);
 
-        assertTrue(repo.isFavorited(1L, 10L));
-        assertFalse(repo.isFavorited(2L, 10L));
+        assertTrue(favoriteRepository.isFavorited(USER_1, ARTICLE_1));
+        assertFalse(favoriteRepository.isFavorited(USER_1, 999L));
     }
 
     @Test
     void shouldUnfavorite() {
-        repo.favorite(1L, 10L);
-        assertTrue(repo.isFavorited(1L, 10L));
+        favoriteRepository.favorite(USER_1, ARTICLE_1);
+        assertTrue(favoriteRepository.isFavorited(USER_1, ARTICLE_1));
 
-        repo.unfavorite(1L, 10L);
+        favoriteRepository.unfavorite(USER_1, ARTICLE_1);
 
-        assertFalse(repo.isFavorited(1L, 10L));
+        assertFalse(favoriteRepository.isFavorited(USER_1, ARTICLE_1));
     }
 
     @Test
     void shouldCountByArticleId() {
-        repo.favorite(1L, 10L);
-        repo.favorite(2L, 10L);
-        repo.favorite(3L, 20L);
+        favoriteRepository.favorite(USER_1, ARTICLE_1);
 
-        assertEquals(2, repo.countByArticleId(10L));
-        assertEquals(1, repo.countByArticleId(20L));
-        assertEquals(0, repo.countByArticleId(99L));
+        assertEquals(1, favoriteRepository.countByArticleId(ARTICLE_1));
+        assertEquals(0, favoriteRepository.countByArticleId(999L));
     }
 
     @Test
     void shouldGetArticleIdsFavoritedByUser() {
-        repo.favorite(1L, 10L);
-        repo.favorite(1L, 20L);
-        repo.favorite(2L, 10L);
+        favoriteRepository.favorite(USER_1, ARTICLE_1);
 
-        var ids = repo.getArticleIdsFavoritedBy(1L);
+        var ids = favoriteRepository.getArticleIdsFavoritedBy(USER_1);
 
-        assertEquals(2, ids.size());
-        assertTrue(ids.contains(10L));
-        assertTrue(ids.contains(20L));
+        assertEquals(1, ids.size());
+        assertTrue(ids.contains(ARTICLE_1));
     }
 
     @Test
     void deleteByArticleIdShouldRemoveAllFavoritesForArticle() {
-        repo.favorite(1L, 10L);
-        repo.favorite(2L, 10L);
-        repo.favorite(1L, 20L);
+        favoriteRepository.favorite(USER_1, ARTICLE_1);
 
-        repo.deleteByArticleId(10L);
+        favoriteRepository.deleteByArticleId(ARTICLE_1);
 
-        assertFalse(repo.isFavorited(1L, 10L));
-        assertFalse(repo.isFavorited(2L, 10L));
-        assertTrue(repo.isFavorited(1L, 20L)); // survives
-        assertEquals(0, repo.countByArticleId(10L));
-        assertEquals(1, repo.countByArticleId(20L));
+        assertFalse(favoriteRepository.isFavorited(USER_1, ARTICLE_1));
+        assertEquals(0, favoriteRepository.countByArticleId(ARTICLE_1));
     }
 }

@@ -1,6 +1,7 @@
 package com.github.dropguard.summer.realworld.tag;
 
 import com.github.dropguard.summer.realworld.article.Article;
+import com.github.dropguard.summer.realworld.article.ArticleRepository;
 import com.github.dropguard.summer.realworld.article.ArticleService;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpStatus;
@@ -13,9 +14,11 @@ import java.util.stream.Collectors;
 @RestController("/api")
 public class TagController {
     private final ArticleService articleService;
+    private final ArticleRepository articleRepository;
 
-    public TagController(ArticleService articleService) {
+    public TagController(ArticleService articleService, ArticleRepository articleRepository) {
         this.articleService = articleService;
+        this.articleRepository = articleRepository;
     }
 
     @Get("/tags")
@@ -23,8 +26,8 @@ public class TagController {
         List<Article> articles = articleService.findAll();
         Set<String> tags =
                 articles.stream()
-                        .filter(article -> article.getTagList() != null)
-                        .flatMap(article -> article.getTagList().stream())
+                        .filter(article -> !articleRepository.findTags(article.id()).isEmpty())
+                        .flatMap(article -> articleRepository.findTags(article.id()).stream())
                         .collect(Collectors.toSet());
 
         ctx.json(HttpStatus.OK, new TagsResponse(tags));
