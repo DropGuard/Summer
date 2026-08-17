@@ -46,6 +46,7 @@
              from the local repository, so `mvn clean install` must install it (and its parent
              summer-parent, which nothing else installs). -->
         <module>summer-parent</module>
+        <module>summer-dependencies</module>
         <module>summer-build-parent</module>
         <module>summer-core</module>
         <module>summer-web</module>
@@ -59,7 +60,6 @@
                 <module>summer-runtime</module>
                 <module>summer-runtime-web</module>
         <module>summer-engine</module>
-        <module>summer-dependencies</module>
         <module>summer-aot-engine</module>
         <module>summer-boot-starter</module>
         <module>summer-boot-starter-web</module>

@@ -38,7 +38,6 @@
         <dependency>
             <groupId>com.github.dropguard</groupId>
             <artifactId>summer-runtime-web</artifactId>
-            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>com.github.dropguard</groupId>

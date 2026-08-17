@@ -31,8 +31,8 @@ import org.slf4j.LoggerFactory;
  *
  * <p>The templates are read from the {@code summer-archetype} artifact on the plugin classpath
  * (single source of truth — the archetype IT builds and verifies the very same files). The
- * generated project inherits {@code summer-build-parent} and declares the AOT plugin bare, so it
- * builds AOT out of the box.
+ * generated project inherits {@code summer-build-parent}, which binds both the Jandex index and the
+ * AOT plugin — so a scaffolded app builds AOT out of the box with zero plugin declarations.
  */
 @Mojo(name = "create-app", requiresProject = false, threadSafe = true)
 public class CreateAppMojo extends AbstractMojo {

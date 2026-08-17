@@ -11,15 +11,15 @@ import org.junit.jupiter.api.io.TempDir;
 /**
  * The {@code create-app} goal scaffolds a project from the summer-archetype templates (read off the
  * plugin classpath — single source of truth with the archetype, whose IT builds the same files).
- * This test asserts the scaffold shape: the build-parent pom, the bare AOT plugin declaration, and
- * the package-substituted sources.
+ * This test asserts the scaffold shape: the build-parent pom, no AOT plugin declaration of its own
+ * (summer-build-parent binds it), and the package-substituted sources.
  */
 class CreateAppMojoTest {
 
     @TempDir Path tempDir;
 
     @Test
-    void scaffoldsAotReadyProject() throws Exception {
+    void scaffoldsZeroDeclarationAotProject() throws Exception {
         CreateAppMojo mojo = new CreateAppMojo();
         setField(mojo, "groupId", "com.example");
         setField(mojo, "artifactId", "myapp");
@@ -31,14 +31,15 @@ class CreateAppMojoTest {
 
         Path project = tempDir.resolve("myapp");
 
-        // The pom inherits the build-parent and declares the plugin bare (no executions —
-        // version + execution come from the parent's pluginManagement).
+        // The pom inherits the build-parent and declares no AOT plugin of its own — the parent's
+        // <build><plugins> binds both the Jandex index and the generate-aot execution, so a
+        // scaffolded app gets AOT with zero plugin declarations (the "zero-declaration" contract).
         String pom = Files.readString(project.resolve("pom.xml"));
         assertTrue(
                 pom.contains("summer-build-parent"), "generated pom must inherit the build parent");
-        assertTrue(
+        assertFalse(
                 pom.contains("<artifactId>summer-maven-plugin</artifactId>"),
-                "generated pom must declare the AOT plugin");
+                "generated pom must NOT declare the AOT plugin (summer-build-parent binds it)");
         assertFalse(
                 pom.contains("<goal>generate-aot</goal>"),
                 "the plugin execution must come from the parent, not the generated pom");

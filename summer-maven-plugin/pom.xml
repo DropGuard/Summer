@@ -94,6 +94,18 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- Summer Boot (test - the invoker IT's aot-app needs the boot runtime on the local
+             repository when it runs; declaring it here forces Maven to build+install summer-boot
+             BEFORE this plugin's invoker IT executes, in a clean reactor. Without this, a clean
+             `mvn clean install` (CI/act) hits "Could not find artifact summer-boot" because the
+             module is only in the reactor after this plugin. -->
+        <dependency>
+            <groupId>com.github.dropguard</groupId>
+            <artifactId>summer-boot</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Summer Web (test - for annotation fixtures) -->
         <dependency>
             <groupId>com.github.dropguard</groupId>
