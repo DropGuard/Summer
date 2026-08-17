@@ -43,9 +43,9 @@ goals from `summer-maven-plugin`, so nothing extra to install beyond Maven.
 
 | Step | Command | What it does |
 |---|---|---|
-| 1. Scaffold | `mvn summer:create-app -DartifactId=myapp -DgroupId=com.example` | Generate a new project (inherits `summer-build-parent`, wires AOT + Jandex) |
-| 2. Develop | `mvn summer:dev` | Hot-reload dev loop on `:8080` (TCP proxy + child JVM) |
-| 3. Ship | `mvn package` | AOT build → runnable fat jar (`java -jar`) |
+| 1. Scaffold | `summer create myapp` | Generate a new project (inherits `summer-build-parent`, wires AOT + Jandex) |
+| 2. Develop | `summer dev` | Hot-reload dev loop on `:8080` (TCP proxy + child JVM) |
+| 3. Ship | `summer build` | AOT build → runnable fat jar (`java -jar`) |
 
 The one-time prerequisite is a `~/.m2/settings.xml` with the `com.github.dropguard`
 plugin group and GitHub Packages credentials — see [Scaffold a project](#scaffold-a-project-recommended)
@@ -122,36 +122,38 @@ mvn summer:dev
 
 ### Scaffold a project (recommended)
 
-One-time setup in `~/.m2/settings.xml` — register the plugin group (so `summer:`
-resolves to the plugin) and the GitHub Packages credentials:
+Summer projects are best created using the official `summer` CLI. The CLI is incredibly fast and embeds the project templates directly into the binary.
+
+**1. Install the CLI:**
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/DropGuard/summer-cli/main/install.sh | bash
+```
+
+**2. Configure GitHub Packages (Temporary requirement):**
+Because the framework artifacts are currently hosted on GitHub Packages (pre-Maven Central), you MUST declare your GitHub credentials in your global `~/.m2/settings.xml` so Maven can download the framework JARs.
 
 ```xml
 <settings>
-  <pluginGroups>
-    <pluginGroup>com.github.dropguard</pluginGroup>
-  </pluginGroups>
   <servers>
     <server>
       <id>github</id>
       <username>YOUR_GITHUB_USERNAME</username>
-      <password>YOUR_GITHUB_TOKEN</password>
+      <password>YOUR_GITHUB_TOKEN</password> <!-- Needs read:packages scope -->
     </server>
   </servers>
 </settings>
 ```
 
-Then scaffold with a short command (the generated project inherits
-`summer-build-parent`, declares the AOT plugin, and resolves artifacts from
-GitHub Packages — nothing to hand-write):
-
+**3. Generate and Run:**
 ```bash
-mvn summer:create-app -DartifactId=myapp -DgroupId=com.example
+# Instantly generate the project
+summer create my-first-api --group-id com.example
+
+# Start the dev server (automatically fetches dependencies via Maven)
+cd my-first-api
+summer dev
 ```
-
-(The same templates are available through the standard
-`mvn archetype:generate -DarchetypeGroupId=com.github.dropguard
--DarchetypeArtifactId=summer-archetype` flow.)
-
 ### Enabling AOT (pre-Maven Central)
 
 > **Temporary:** Summer is not yet on Maven Central, so artifacts are served
@@ -159,7 +161,7 @@ mvn summer:create-app -DartifactId=myapp -DgroupId=com.example
 > Once published to Central, this whole step disappears — dependencies and the
 > plugin resolve normally and the scaffold already wires it for you.
 
-For a hand-written `pom.xml` (no `mvn summer:create-app`), enabling AOT is two
+For a hand-written `pom.xml`, enabling AOT is two
 small declarations:
 
 
