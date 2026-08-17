@@ -3,12 +3,12 @@ package com.github.dropguard.summer.arch;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
-import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.junit.AnalyzeClasses;
+import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.library.Architectures;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 
 /**
  * Architecture rules for Summer framework.
@@ -21,6 +21,9 @@ import org.junit.jupiter.api.Test;
  *   <li>No ClassGraph / CGLIB / ByteBuddy dependencies
  * </ul>
  */
+@AnalyzeClasses(
+        packages = "com.github.dropguard.summer",
+        importOptions = {ImportOption.DoNotIncludeTests.class, ProductionOnlyImportOption.class})
 class ArchitectureTest {
 
     private static final String[] PACKAGES = {
@@ -62,18 +65,11 @@ class ArchitectureTest {
         "com.github.dropguard.summer.aot.."
     };
 
-    private static JavaClasses classes;
-
-    @BeforeAll
-    static void importClasses() {
-        classes = new ClassFileImporter().importPackages(PACKAGES);
-    }
-
     // --- Layered Architecture ---
 
-    @Test
+    @ArchTest
     @DisplayName("Layered architecture: dependencies flow downward only")
-    void layeredArchitecture() {
+    void layeredArchitecture(JavaClasses classes) {
         // @formatter:off
         Architectures.LayeredArchitecture rule =
                 Architectures.layeredArchitecture()
@@ -82,6 +78,12 @@ class ArchitectureTest {
                         .ignoreDependency("com.github.dropguard.summer.benchmark..", "..")
                         .ignoreDependency("..", "com.github.dropguard.summer.realworld..")
                         .ignoreDependency("..", "com.github.dropguard.summer.benchmark..")
+                        .ignoreDependency("..com.github.dropguard.summer.fixtures..", "..")
+                        .ignoreDependency("..", "..com.github.dropguard.summer.fixtures..")
+                        .ignoreDependency("..com.github.dropguard.summer.twitter..", "..")
+                        .ignoreDependency("..", "..com.github.dropguard.summer.twitter..")
+                        .ignoreDependency("..com.github.dropguard.summer.issue_tracker..", "..")
+                        .ignoreDependency("..", "..com.github.dropguard.summer.issue_tracker..")
 
                         // layer definitions
                         .layer("Core")
@@ -136,9 +138,9 @@ class ArchitectureTest {
 
     // --- Core Design Principles ---
 
-    @Test
+    @ArchTest
     @DisplayName("No circular dependencies between packages")
-    void noCircularDependencies() {
+    void noCircularDependencies(JavaClasses classes) {
         ArchRule rule =
                 com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices()
                         .matching("com.github.dropguard.summer.(*)")
@@ -147,13 +149,19 @@ class ArchitectureTest {
                         .ignoreDependency("com.github.dropguard.summer.realworld..", "..")
                         .ignoreDependency("com.github.dropguard.summer.benchmark..", "..")
                         .ignoreDependency("..", "com.github.dropguard.summer.realworld..")
-                        .ignoreDependency("..", "com.github.dropguard.summer.benchmark..");
+                        .ignoreDependency("..", "com.github.dropguard.summer.benchmark..")
+                        .ignoreDependency("..com.github.dropguard.summer.fixtures..", "..")
+                        .ignoreDependency("..", "..com.github.dropguard.summer.fixtures..")
+                        .ignoreDependency("..com.github.dropguard.summer.twitter..", "..")
+                        .ignoreDependency("..", "..com.github.dropguard.summer.twitter..")
+                        .ignoreDependency("..com.github.dropguard.summer.issue_tracker..", "..")
+                        .ignoreDependency("..", "..com.github.dropguard.summer.issue_tracker..");
         rule.check(classes);
     }
 
-    @Test
+    @ArchTest
     @DisplayName("No ClassGraph dependency")
-    void noClassGraphDependency() {
+    void noClassGraphDependency(JavaClasses classes) {
         ArchRule rule =
                 noClasses()
                         .should()
@@ -163,9 +171,9 @@ class ArchitectureTest {
         rule.check(classes);
     }
 
-    @Test
+    @ArchTest
     @DisplayName("No CGLIB dependency")
-    void noCglibDependency() {
+    void noCglibDependency(JavaClasses classes) {
         ArchRule rule =
                 noClasses()
                         .should()
@@ -175,9 +183,9 @@ class ArchitectureTest {
         rule.check(classes);
     }
 
-    @Test
+    @ArchTest
     @DisplayName("No ByteBuddy dependency")
-    void noByteBuddyDependency() {
+    void noByteBuddyDependency(JavaClasses classes) {
         ArchRule rule =
                 noClasses()
                         .should()
@@ -189,9 +197,9 @@ class ArchitectureTest {
 
     // --- @Replaces usage rules ---
 
-    @Test
+    @ArchTest
     @DisplayName("AOT engine must not depend on the runtime engine")
-    void aotMustNotDependOnRuntime() {
+    void aotMustNotDependOnRuntime(JavaClasses classes) {
         ArchRule rule =
                 noClasses()
                         .that()
@@ -202,9 +210,9 @@ class ArchitectureTest {
         rule.check(classes);
     }
 
-    @Test
+    @ArchTest
     @DisplayName("Runtime engine must not depend on the AOT engine")
-    void runtimeMustNotDependOnAot() {
+    void runtimeMustNotDependOnAot(JavaClasses classes) {
         ArchRule rule =
                 noClasses()
                         .that()
@@ -215,9 +223,9 @@ class ArchitectureTest {
         rule.check(classes);
     }
 
-    @Test
+    @ArchTest
     @DisplayName("Runtime engine must not depend on the web module (except the runtime-web bridge)")
-    void runtimeMustNotDependOnWeb() {
+    void runtimeMustNotDependOnWeb(JavaClasses classes) {
         // The 2.1 decoupling: summer-runtime is a pure DI engine. All web awareness
         // lives in the runtime-web bridge module (com.github.dropguard.summer.runtime.web),
         // which may depend on summer-web.
@@ -233,9 +241,9 @@ class ArchitectureTest {
         rule.check(classes);
     }
 
-    @Test
+    @ArchTest
     @DisplayName("@Replaces must be on @Configuration in framework packages (not plain @Component)")
-    void replacesRequiresConfigurationInFramework() {
+    void replacesRequiresConfigurationInFramework(JavaClasses classes) {
         ArchRule rule =
                 com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes()
                         .that()
@@ -251,9 +259,9 @@ class ArchitectureTest {
 
     // --- Framework component restrictions ---
 
-    @Test
+    @ArchTest
     @DisplayName("Framework code must use @Configuration + @Bean, not @Component")
-    void frameworkCodeMustUseConfigurationNotComponent() {
+    void frameworkCodeMustUseConfigurationNotComponent(JavaClasses classes) {
         // Exclude annotation packages (meta-annotations like @RestController,
         // are @Component by design) and specific marker beans
         String[] annotationPackages = {
@@ -281,15 +289,16 @@ class ArchitectureTest {
 
     // --- Library bans ---
 
-    @Test
+    @ArchTest
     @DisplayName("No ConcurrentHashMap usage in production code (class-level exceptions)")
-    void noConcurrentHashMap() {
+    void noConcurrentHashMap(JavaClasses classes) {
         // Class-level whitelist, granted on a per-class basis after review:
         //  - GrpcChannelManager: single-connection-pool holder per target, called concurrently
         //    from client threads. CHM.computeIfAbsent guarantees one channel per key.
         //  - NettyWebSocketBroadcaster: per-room ChannelGroup map, mutated by concurrent websocket
         //    threads on join(). CHM.computeIfAbsent guarantees one group per room.
-        // Keep this list minimal — a new class wanting CHM must be reviewed, not silently allowed.
+        // Keep this list minimal — a new class wanting CHM must be reviewed,
+        // not silently allowed.
         ArchRule rule =
                 noClasses()
                         .that()
@@ -307,9 +316,9 @@ class ArchitectureTest {
         rule.check(classes);
     }
 
-    @Test
+    @ArchTest
     @DisplayName("No LinkedHashMap usage in production code")
-    void noLinkedHashMap() {
+    void noLinkedHashMap(JavaClasses classes) {
         ArchRule rule =
                 noClasses()
                         .that()
@@ -321,9 +330,9 @@ class ArchitectureTest {
         rule.check(classes);
     }
 
-    @Test
+    @ArchTest
     @DisplayName("No ServiceLoader usage in production code")
-    void noServiceLoaderInProduction() {
+    void noServiceLoaderInProduction(JavaClasses classes) {
         // ServiceLoader discovery is permitted only at the framework's SPI discovery points:
         // core.spi (RouteRegistrarLoader), engine.spi (AotProductConstructors), and
         // ContainerEngines (the engine-layer ServiceLoader seam for ContainerEngine). Everywhere
@@ -347,9 +356,9 @@ class ArchitectureTest {
 
     // --- DTO Record constraints ---
 
-    @Test
+    @ArchTest
     @DisplayName("@ConfigMapping must be on interface types")
-    void configMappingRequiresInterface() {
+    void configMappingRequiresInterface(JavaClasses classes) {
         ArchRule rule =
                 com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes()
                         .that()
@@ -360,9 +369,9 @@ class ArchitectureTest {
         rule.check(classes);
     }
 
-    @Test
+    @ArchTest
     @DisplayName("@RowModel must be on Record classes")
-    void rowModelRequiresRecord() {
+    void rowModelRequiresRecord(JavaClasses classes) {
         ArchRule rule =
                 com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes()
                         .that()

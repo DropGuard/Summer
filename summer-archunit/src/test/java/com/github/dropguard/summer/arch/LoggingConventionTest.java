@@ -3,11 +3,10 @@ package com.github.dropguard.summer.arch;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
-import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
-import org.junit.jupiter.api.BeforeAll;
+import com.tngtech.archunit.junit.AnalyzeClasses;
+import com.tngtech.archunit.junit.ArchTest;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 
 /**
  * Logging convention for the Summer framework.
@@ -22,6 +21,9 @@ import org.junit.jupiter.api.Test;
  * System.out} by design — a deliberate, class-scoped carve-out (ArchUnit predicates cannot target a
  * single line, only a class).
  */
+@AnalyzeClasses(
+        packages = "com.github.dropguard.summer",
+        importOptions = {ImportOption.DoNotIncludeTests.class, ProductionOnlyImportOption.class})
 class LoggingConventionTest {
 
     // Framework packages only — demos (summer-issue-tracker/realworld/twitter)
@@ -45,21 +47,11 @@ class LoggingConventionTest {
         "com.github.dropguard.summer.arch"
     };
 
-    private static JavaClasses classes;
-
-    @BeforeAll
-    static void importClasses() {
-        classes =
-                new ClassFileImporter()
-                        .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                        .importPackages(PACKAGES);
-    }
-
-    @Test
+    @ArchTest
     @DisplayName(
             "No direct console writes (System.out / System.err / printStackTrace) outside"
                     + " SummerApplication")
-    void noConsoleWrites() {
+    void noConsoleWrites(JavaClasses classes) {
         // @formatter:off
         noClasses()
                 .that()

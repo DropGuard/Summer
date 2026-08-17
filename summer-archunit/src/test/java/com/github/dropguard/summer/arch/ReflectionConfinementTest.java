@@ -5,13 +5,12 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import com.tngtech.archunit.base.DescribedPredicate;
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.domain.JavaMethodCall;
-import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
+import com.tngtech.archunit.junit.AnalyzeClasses;
+import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 import java.util.Set;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 
 /**
  * Ensures reflective API usage is confined to its legitimate owners.
@@ -50,17 +49,10 @@ import org.junit.jupiter.api.Test;
  * AOT path at (near) zero reflection: a stray cross-module {@code forName} fails the build instead
  * of silently leaking.
  */
+@AnalyzeClasses(
+        packages = "com.github.dropguard.summer",
+        importOptions = {ImportOption.DoNotIncludeTests.class, ProductionOnlyImportOption.class})
 class ReflectionConfinementTest {
-
-    private static JavaClasses classes;
-
-    @BeforeAll
-    static void importClasses() {
-        classes =
-                new ClassFileImporter()
-                        .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
-                        .importPackages("com.github.dropguard.summer..");
-    }
 
     private static final Set<String> CLASS_BANNED =
             Set.of(
@@ -79,10 +71,9 @@ class ReflectionConfinementTest {
                     "forName",
                     "newInstance");
 
-    @Test
+    @ArchTest
     @DisplayName("Reflection is confined to summer-runtime")
-    void reflectionConfinedToRuntime() {
-
+    void reflectionConfinedToRuntime(JavaClasses classes) {
         DescribedPredicate<JavaMethodCall> callBannedClassMethods =
                 new DescribedPredicate<>("call banned java.lang.Class reflective methods") {
                     @Override
@@ -120,9 +111,9 @@ class ReflectionConfinementTest {
      * loading). Any other module — above all the AOT module, which is designed to stay
      * reflection-free — is banned from loading classes by name.
      */
-    @Test
+    @ArchTest
     @DisplayName("Class.forName is confined to its legitimate owners")
-    void classLoadingConfined() {
+    void classLoadingConfined(JavaClasses classes) {
         // @formatter:off
         ArchRule rule =
                 noClasses()
