@@ -50,7 +50,7 @@ goals from `summer-maven-plugin`, so nothing extra to install beyond Maven.
 The one-time prerequisite is a `~/.m2/settings.xml` with the `com.github.dropguard`
 plugin group and GitHub Packages credentials — see [Scaffold a project](#scaffold-a-project-recommended)
 below for the exact snippet, and [Dev Mode](#dev-mode-summerdev) for the hot-reload
-details. Run one of the bundled demos (`summer-twitter` / `summer-realworld`) to see
+details. Run one of the bundled demos (`summer-twitter` / `summer-realworld` / `summer-issue-tracker`) to see
 Summer in practice.
 
 * * *
@@ -481,7 +481,7 @@ public class GlobalErrorHandler {
 }
 ```
 
-For a fully working, runnable sample—featuring domain models, nested repositories, and database transaction management—run one of the demo applications bundled within this repository (`summer-twitter` showcase or `summer-realworld`):
+For a fully working, runnable sample—featuring domain models, nested repositories, and database transaction management—run one of the demo applications bundled within this repository (`summer-twitter` showcase, `summer-realworld`, or `summer-issue-tracker`):
 
 ```bash
 cd summer-twitter
