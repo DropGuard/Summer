@@ -130,6 +130,11 @@ Summer projects are best created using the official `summer` CLI. The CLI is inc
 curl -fsSL https://raw.githubusercontent.com/DropGuard/summer-cli/main/install.sh | bash
 ```
 
+```powershell
+# Windows (Run as Administrator)
+Invoke-WebRequest -Uri "https://github.com/DropGuard/summer-cli/releases/latest/download/summer-windows-amd64.exe" -OutFile "$env:SystemRoot\system32\summer.exe"
+```
+
 **2. Configure GitHub Packages (Temporary requirement):**
 Because the framework artifacts are currently hosted on GitHub Packages (pre-Maven Central), you MUST declare your GitHub credentials in your global `~/.m2/settings.xml` so Maven can download the framework JARs.
 
@@ -317,7 +322,7 @@ Full methodology, constraints, and the orchestrator script live in
 
 ## ❌ Intentionally Unsupported (Non-Goals)
 
-Summer is an experiment in reduction — not expansion. If a feature is not listed above, it is intentionally unsupported.
+Summer is an experiment in reduction — not expansion. If a feature is not listed in the **Supported Features** section, it is intentionally unsupported.
 
 *   Field injection (`@Inject`, `@Autowired`, `@Value`) & Setter injection (use constructor injection exclusively)
 *   Circular dependency resolution
