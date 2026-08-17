@@ -1,7 +1,7 @@
 # Summer Framework
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/DropGuard/Summer/maven.yml)](https://github.com/DropGuard/Summer/actions/workflows/maven.yml)
-[![Version](https://img.shields.io/badge/version-999-SNAPSHOT-blue.svg)](https://github.com/DropGuard/Summer/releases)
+[![Version](https://img.shields.io/badge/version-999--SNAPSHOT-blue.svg)](https://github.com/DropGuard/Summer/releases)
 [![Java](https://img.shields.io/badge/Java-25+-blue.svg)](https://github.com/DropGuard/Summer)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/DropGuard/Summer/blob/main/LICENSE)
 
