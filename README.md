@@ -135,6 +135,8 @@ curl -fsSL https://raw.githubusercontent.com/DropGuard/summer-cli/main/install.s
 Invoke-WebRequest -Uri "https://github.com/DropGuard/summer-cli/releases/latest/download/summer-windows-amd64.exe" -OutFile "$env:SystemRoot\system32\summer.exe"
 ```
 
+**Uninstallation:** Because the CLI is a clean, single-file binary, uninstalling is as simple as deleting the executable (`sudo rm /usr/local/bin/summer` on Unix, or `Remove-Item "$env:SystemRoot\system32\summer.exe"` on Windows).
+
 **2. Configure GitHub Packages (Temporary requirement):**
 Because the framework artifacts are currently hosted on GitHub Packages (pre-Maven Central), you MUST declare your GitHub credentials in your global `~/.m2/settings.xml` so Maven can download the framework JARs.
 
