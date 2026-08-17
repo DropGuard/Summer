@@ -126,22 +126,14 @@ public final class SummerApplication {
                 .addShutdownHook(
                         new Thread(
                                 () -> {
-                                    // Signal shutdown first so the readiness probe (/health/ready)
-                                    // returns
-                                    // 503 and the load balancer stops routing before the server
-                                    // stops
-                                    // accepting. The drain window is then LB-polling-driven,
-                                    // bounded by the configured shutdown.timeout-ms
-                                    // (see ShutdownConfig).
-                                    com.github.dropguard.summer.core.ApplicationState
-                                            .beginShutdown();
-
-                                    // BeanContainer.close() runs each registered shutdown task
-                                    // (servers stop
-                                    // accepting, drain in-flight, release resources) in reverse
-                                    // order, then
-                                    // closes the remaining AutoCloseable beans. This hook waits at
-                                    // most shutdownTimeoutMs so a stuck bean can't hang exit.
+                                    // The shutdown signal (readiness probe -> 503, so the load
+                                    // balancer stops routing) is owned by BeanContainer.close():
+                                    // it fires ApplicationState.beginShutdown() first, then drains
+                                    // servers and closes beans in order. This hook only triggers
+                                    // that close flow — it never touches application state
+                                    // directly, so any path (hook, explicit close(), test) stays
+                                    // consistent. It waits at most shutdownTimeoutMs so a stuck
+                                    // bean can't hang exit.
                                     log.info("Shutting down BeanContainer...");
                                     java.util.concurrent.ExecutorService shutdownExecutor =
                                             java.util.concurrent.Executors

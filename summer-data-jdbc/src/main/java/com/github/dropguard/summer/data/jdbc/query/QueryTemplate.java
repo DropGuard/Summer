@@ -56,7 +56,9 @@ public class QueryTemplate {
      *     "issue_id"})
      * @param fkValues the set of parent keys to load children for (the parents' ids)
      * @return a map from foreign-key value to the children whose {@code fkColumn} equals it; keys
-     *     with no children are absent (callers may default to an empty list)
+     *     with no children are absent (callers may default to an empty list). The map does not
+     *     guarantee iteration order (a plain {@link java.util.HashMap}); order-sensitive callers
+     *     must sort explicitly.
      * @throws IllegalArgumentException when {@code fkColumn} is not a known column of {@code
      *     childClass}
      */
@@ -84,7 +86,7 @@ public class QueryTemplate {
                         + String.join(",", java.util.Collections.nCopies(fkValues.size(), "?"))
                         + ")";
         List<C> children = jdbcTemplate.queryForList(sql, childClass, fkValues.toArray());
-        Map<Object, List<C>> grouped = new java.util.LinkedHashMap<>();
+        Map<Object, List<C>> grouped = new java.util.HashMap<>();
         for (C child : children) {
             Object key = foreignKeyValue(childMeta, fkColumn, child);
             grouped.computeIfAbsent(key, k -> new java.util.ArrayList<>()).add(child);

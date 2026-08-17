@@ -173,6 +173,15 @@ public final class BeanContainer implements AutoCloseable {
             }
             closed = true;
         }
+        // Phase 0: signal shutdown first so the readiness probe (/health/ready) returns
+        // 503 and the load balancer stops routing before the servers stop accepting.
+        // The drain window is then LB-polling-driven, bounded by the configured
+        // shutdown.timeout-ms (see ShutdownConfig). This is the application's own close
+        // flow — the signal is the container's responsibility, so any caller (the JVM
+        // shutdown hook, an explicit close(), a test) triggers it exactly once and the
+        // readiness probe never reads a half-torn-down state.
+        ApplicationState.beginShutdown();
+
         // Phase 1: input drivers (servers) tear down first, each via its own
         // registered task (stop accepting, drain in-flight, release resources),
         // in reverse registration order — so external traffic stops before
