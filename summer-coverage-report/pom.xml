@@ -14,6 +14,11 @@
     <name>Summer Coverage Report</name>
     <description>Aggregates JaCoCo coverage reports from all modules</description>
 
+    <properties>
+        <maven.deploy.skip>true</maven.deploy.skip>
+        <skipPublishing>true</skipPublishing>
+    </properties>
+
     <dependencies>
         <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-core</artifactId></dependency>
         <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-web</artifactId></dependency>
