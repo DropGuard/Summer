@@ -18,6 +18,9 @@ public class LoginRateLimiter {
     static final int MAX_ATTEMPTS = 5;
     static final long WINDOW_SECONDS = 15 * 60;
 
+    /** Upper bound on tracked emails — prevents unbounded memory growth (a DoS vector). */
+    private static final int MAX_ENTRIES = 10_000;
+
     private final ConcurrentHashMap<String, FailureRecord> attempts = new ConcurrentHashMap<>();
 
     record FailureRecord(int count, long windowStart) {}
@@ -43,6 +46,12 @@ public class LoginRateLimiter {
                     }
                     return new FailureRecord(existing.count() + 1, existing.windowStart());
                 });
+        // Bound the map: once it grows past MAX_ENTRIES, drop expired entries. This
+        // mirrors the twitter app's rate limiter and keeps an unauthenticated flood of
+        // distinct emails from exhausting heap memory.
+        if (attempts.size() > MAX_ENTRIES) {
+            attempts.entrySet().removeIf(e -> isExpired(e.getValue()));
+        }
     }
 
     /** Reset the counter after a successful login. */
