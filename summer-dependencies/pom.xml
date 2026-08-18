@@ -4,9 +4,14 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>io.github.dropguard</groupId>
+    <parent>
+        <groupId>io.github.dropguard</groupId>
+        <artifactId>summer-parent</artifactId>
+        <version>0.1.0</version>
+        <relativePath>../summer-parent/pom.xml</relativePath>
+    </parent>
+
     <artifactId>summer-dependencies</artifactId>
-    <version>0.1.0</version>
     <packaging>pom</packaging>
 
     <!-- This is a BOM (packaging=pom) with no Java sources, so the spotless
