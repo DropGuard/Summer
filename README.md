@@ -200,7 +200,7 @@ inheriting the parent is the whole AOT setup — no plugin declaration of your o
 <parent>
     <groupId>com.github.dropguard</groupId>
     <artifactId>summer-build-parent</artifactId>
-    <version>999-SNAPSHOT</version>
+    <version>0.1.0</version>
 </parent>
 ```
 
