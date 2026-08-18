@@ -47,11 +47,7 @@ goals from `summer-maven-plugin`, so nothing extra to install beyond Maven.
 | 2. Develop | `summer dev` | Hot-reload dev loop on `:8080` (TCP proxy + child JVM) |
 | 3. Ship | `summer build` | AOT build → runnable fat jar (`java -jar`) |
 
-The one-time prerequisite is a `~/.m2/settings.xml` with the `com.github.dropguard`
-plugin group and GitHub Packages credentials — see [Scaffold a project](#scaffold-a-project-recommended)
-below for the exact snippet, and [Dev Mode](#dev-mode-summerdev) for the hot-reload
-details. Run one of the bundled demos (`summer-twitter` / `summer-realworld` / `summer-issue-tracker`) to see
-Summer in practice.
+Summer is published to Maven Central under `io.github.dropguard`, so no special repository configuration is required. Run one of the bundled demos (`summer-twitter` / `summer-realworld` / `summer-issue-tracker`) to see Summer in practice.
 
 * * *
 
@@ -117,8 +113,8 @@ mvn summer:dev
   restart needed for config tweaks (the log shows the changed files, the new
   backend port, and the reload time).
 - **Main class**: auto-detected from the Jandex index, or set
-  `<com.github.dropguard.summer.mainClass>` in your `pom.xml`.
-- **Port**: `<com.github.dropguard.summer.dev.port>` (default `8080`).
+  `<summer.mainClass>` in your `pom.xml`.
+- **Port**: `<summer.dev.port>` (default `8080`).
 
 ### Scaffold a project (recommended)
 
@@ -137,22 +133,7 @@ Invoke-WebRequest -Uri "https://github.com/DropGuard/summer-cli/releases/latest/
 
 **Uninstallation:** Because the CLI is a clean, single-file binary, uninstalling is as simple as deleting the executable (`sudo rm /usr/local/bin/summer` on Unix, or `Remove-Item "$env:SystemRoot\system32\summer.exe"` on Windows).
 
-**2. Configure GitHub Packages (Temporary requirement):**
-Because the framework artifacts are currently hosted on GitHub Packages (pre-Maven Central), you MUST declare your GitHub credentials in your global `~/.m2/settings.xml` so Maven can download the framework JARs.
-
-```xml
-<settings>
-  <servers>
-    <server>
-      <id>github</id>
-      <username>YOUR_GITHUB_USERNAME</username>
-      <password>YOUR_GITHUB_TOKEN</password> <!-- Needs read:packages scope -->
-    </server>
-  </servers>
-</settings>
-```
-
-**3. Generate and Run:**
+**2. Generate and Run:**
 ```bash
 # Instantly generate the project
 summer create my-first-api --group-id com.example
@@ -161,44 +142,14 @@ summer create my-first-api --group-id com.example
 cd my-first-api
 summer dev
 ```
-### Enabling AOT (pre-Maven Central)
 
-> **Temporary:** Summer is not yet on Maven Central, so artifacts are served
-> from GitHub Packages and a project must declare the registry + credentials.
-> Once published to Central, this whole step disappears — dependencies and the
-> plugin resolve normally and the scaffold already wires it for you.
+### Enabling AOT
 
-For a hand-written `pom.xml`, enabling AOT is two
-small declarations:
-
-
-**1. Resolve the framework + plugin from GitHub Packages.** Add the registry to
-your `pom.xml` (credentials: a GitHub token with `read:packages`, in
-`settings.xml`):
-
-```xml
-<repositories>
-    <repository>
-        <id>github</id>
-        <url>https://maven.pkg.github.com/DropGuard/Summer</url>
-    </repository>
-</repositories>
-<pluginRepositories>
-    <pluginRepository>
-        <id>github</id>
-        <url>https://maven.pkg.github.com/DropGuard/Summer</url>
-    </pluginRepository>
-</pluginRepositories>
-```
-
-
-**2. Inherit `summer-build-parent`.** It binds the Jandex index and the
-`generate-aot` execution automatically (both are in its `<build><plugins>`), so
-inheriting the parent is the whole AOT setup — no plugin declaration of your own:
+For a hand-written `pom.xml`, enabling AOT is as simple as inheriting `summer-build-parent`. It binds the Jandex index and the `generate-aot` execution automatically (both are in its `<build><plugins>`), so inheriting the parent is the whole AOT setup — no plugin declaration of your own:
 
 ```xml
 <parent>
-    <groupId>com.github.dropguard</groupId>
+    <groupId>io.github.dropguard</groupId>
     <artifactId>summer-build-parent</artifactId>
     <version>0.1.0</version>
 </parent>
@@ -206,8 +157,7 @@ inheriting the parent is the whole AOT setup — no plugin declaration of your o
 
 The goal runs at `process-classes`: it generates the AOT context, compiles it into
 `target/classes`, and rewrites `application.yml` to `summer.engine: aot`. See
-`summer-realworld` for a complete example. (Maven Central publishing is deferred;
-the registry above is the current distribution channel.)
+`summer-realworld` for a complete example.
 
 * * *
 

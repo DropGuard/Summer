@@ -29,6 +29,27 @@
 
     <name>Summer Parent</name>
     <description>Mandatory build contract for Summer projects — AOT pipeline, Jandex indexing, compiler settings</description>
+    <url>https://github.com/DropGuard/Summer</url>
+
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>DropGuard</name>
+            <url>https://github.com/DropGuard</url>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:https://github.com/DropGuard/Summer.git</connection>
+        <developerConnection>scm:git:git@github.com:DropGuard/Summer.git</developerConnection>
+        <url>https://github.com/DropGuard/Summer</url>
+    </scm>
 
     <dependencyManagement>
         <dependencies>
@@ -240,14 +261,68 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
-    <distributionManagement>
-        <!-- summer-parent is top-level (no parent of its own) and does not inherit the
-             framework root's distributionManagement; without this its deploy fails. Same
-             registry as the root. -->
-        <repository>
-            <id>github</id>
-            <name>GitHub Packages</name>
-            <url>https://maven.pkg.github.com/DropGuard/Summer</url>
-        </repository>
-    </distributionManagement>
+    <profiles>
+        <profile>
+            <id>release</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>3.3.1</version>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.11.2</version>
+                        <configuration>
+                            <doclint>none</doclint>
+                            <quiet>true</quiet>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.7</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>0.7.0</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <publishingServerId>central</publishingServerId>
+                            <autoPublish>true</autoPublish>
+                            <waitUntil>published</waitUntil>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

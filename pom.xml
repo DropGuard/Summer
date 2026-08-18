@@ -18,6 +18,20 @@
     <description>A minimal, chain-oriented micro framework for building CRUD APIs on modern JDK</description>
     <url>https://github.com/DropGuard/Summer</url>
 
+    <licenses>
+        <license>
+            <name>MIT License</name>
+            <url>https://opensource.org/licenses/MIT</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>DropGuard</name>
+            <url>https://github.com/DropGuard</url>
+        </developer>
+    </developers>
+
     <properties>
         <jacoco.version>0.8.15</jacoco.version>
     </properties>
@@ -135,16 +149,4 @@
             </plugin>
         </plugins>
     </build>
-
-    <distributionManagement>
-        <!-- GitHub Packages registry (maven.pkg.github.com keeps one repository for releases
-             and snapshots alike). Deploy needs a GITHUB_TOKEN with packages:write on
-             DropGuard/Summer, wired into settings.xml under the 'github' server id. Maven
-             Central is intentionally deferred: the framework is not published there yet. -->
-        <repository>
-            <id>github</id>
-            <name>GitHub Packages</name>
-            <url>https://maven.pkg.github.com/DropGuard/Summer</url>
-        </repository>
-    </distributionManagement>
 </project>

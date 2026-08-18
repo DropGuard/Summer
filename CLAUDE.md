@@ -32,22 +32,15 @@ Canonical command list lives in **AGENTS.md → COMMANDS** (one source of truth)
 - Revisit when: (a) tool-agnosticism arrives (Gradle support — the CLI becomes a cross-tool entry
   point), or (b) a real demand signal.
 
-## Publish runbook (GitHub Packages)
+## Publish runbook (Maven Central)
 
-- **Milestone release (Quarkus-style, no manual version edits)**: `mvn release:prepare` sweeps the
-  constant SNAPSHOT version to the release version across all submodules (`autoVersionSubmodules`),
-  tags `v<version>`, and pushes — the tag push fires `.github/workflows/publish.yml` →
-  `mvn -B deploy -DskipTests` (all modules). Development keeps the SNAPSHOT constant; no
-  per-change version bumps, no manual sweep.
-- Tag `v*` fires `.github/workflows/publish.yml` → `mvn -B deploy -DskipTests` (all modules).
-- gh token needs `read:packages` + `delete:packages` to list/clean partial deploys.
-- **Known failure mode**: deploy is module-by-module; a mid-reactor deploy failure leaves a partial
-  0.x set on the registry, and re-deploying the same version fails with 409 Conflict (versions are
-  immutable). Recovery: delete the partial packages (`gh api -X DELETE /user/packages/maven/<name>`),
-  re-tag, re-push. **Decision (2026-08-08): no deploy preflight** — the missing-distributionManagement
-  class is fixed (root + summer-parent + summer-dependencies all declare it) and the recovery is
-  documented + fast; a static check would guard a low-probability future regression at the cost of
-  workflow complexity.
+- **Milestone release**: Tag `v*` fires `.github/workflows/publish.yml` → `mvn -B clean deploy -P release -DskipTests`.
+- All artifacts are automatically signed with GPG and published to Sonatype Central Portal (`central.sonatype.com`).
+- Secrets required in GitHub repository:
+  - `MAVEN_CENTRAL_USERNAME`: Sonatype Central Portal API user
+  - `MAVEN_CENTRAL_TOKEN`: Sonatype Central Portal API token
+  - `GPG_PRIVATE_KEY`: ASCII-armored PGP private key
+  - `GPG_PASSPHRASE`: PGP key passphrase
 
 ## Current Work / Pending
 
