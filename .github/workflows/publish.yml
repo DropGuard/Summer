@@ -23,10 +23,17 @@ jobs:
           server-password: MAVEN_CENTRAL_TOKEN
 
       - name: Import GPG Key
+        id: import-gpg
         uses: crazy-max/ghaction-import-gpg@v6
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Publish GPG Public Key to Keyservers
+        run: |
+          gpg --keyserver hkps://keyserver.ubuntu.com --send-keys ${{ steps.import-gpg.outputs.fingerprint }} || true
+          gpg --keyserver hkps://keys.openpgp.org --send-keys ${{ steps.import-gpg.outputs.fingerprint }} || true
+          gpg --keyserver hkps://pgp.mit.edu --send-keys ${{ steps.import-gpg.outputs.fingerprint }} || true
 
       - name: Build and Publish to Maven Central
         run: mvn -B clean deploy -P release -DskipTests
