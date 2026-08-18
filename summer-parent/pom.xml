@@ -22,7 +22,7 @@
          There are NO <modules> — this is pure build contract.
     =================================================================== -->
 
-    <groupId>com.github.dropguard</groupId>
+    <groupId>io.github.dropguard</groupId>
     <artifactId>summer-parent</artifactId>
     <version>0.1.0</version>
     <packaging>pom</packaging>

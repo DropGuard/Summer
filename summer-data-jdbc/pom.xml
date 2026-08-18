@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
     
     <parent>
-        <groupId>com.github.dropguard</groupId>
+        <groupId>io.github.dropguard</groupId>
         <artifactId>summer-framework</artifactId>
         <version>0.1.0</version>
     </parent>
@@ -16,7 +16,7 @@
     
     <dependencies>
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-core</artifactId>
         </dependency>
 
@@ -27,14 +27,14 @@
         
         <!-- We integrate with summer-tx for transaction management -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-tx</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <!-- Summer Engine (AotProductConstructor SPI: AOT construction of EntityMetadataRegistrar) -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-engine</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -47,7 +47,7 @@
 
         <!-- Testing -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-test</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>

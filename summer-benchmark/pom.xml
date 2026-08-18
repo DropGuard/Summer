@@ -13,7 +13,7 @@
       are built.
     -->
     <parent>
-        <groupId>com.github.dropguard</groupId>
+        <groupId>io.github.dropguard</groupId>
         <artifactId>summer-build-parent</artifactId>
         <version>0.1.0</version>
         <relativePath/>

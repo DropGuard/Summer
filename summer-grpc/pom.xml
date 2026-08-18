@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
-        <groupId>com.github.dropguard</groupId>
+        <groupId>io.github.dropguard</groupId>
         <artifactId>summer-framework</artifactId>
         <version>0.1.0</version>
     </parent>
@@ -15,7 +15,7 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-core</artifactId>
         </dependency>
 
@@ -43,20 +43,20 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-test</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
         <!-- Dual-engine coverage: the gRPC stack must behave identically on both engines. -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-aot-engine</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-runtime</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>

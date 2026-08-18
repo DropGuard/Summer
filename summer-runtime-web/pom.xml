@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.github.dropguard</groupId>
+        <groupId>io.github.dropguard</groupId>
         <artifactId>summer-framework</artifactId>
         <version>0.1.0</version>
     </parent>
@@ -17,35 +17,35 @@
     <dependencies>
         <!-- Summer Core -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-core</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <!-- Summer Web (HttpParameterResolver, annotations, web types) -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-web</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <!-- Summer AOP (for ProxyFactory and MethodInterceptor) -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-aop</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <!-- Summer Runtime (pure DI engine; HandlerMetadata lives there) -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-runtime</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <!-- Summer Web HTTP (for router implementations in tests) -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-web-http</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
@@ -53,7 +53,7 @@
 
         <!-- Shared test fixtures -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-tck-fixtures</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>

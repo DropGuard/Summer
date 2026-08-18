@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.github.dropguard</groupId>
+        <groupId>io.github.dropguard</groupId>
         <artifactId>summer-framework</artifactId>
         <version>0.1.0</version>
     </parent>
@@ -17,14 +17,14 @@
     <dependencies>
         <!-- Summer Web (Middleware, @GlobalMiddleware, Handler, HttpContext) -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-web</artifactId>
         </dependency>
 
         <!-- runtime: supplies the @ConfigMapping interface binder used by tests that bind
              config interfaces via ConfigBinder (interface binding lives only in runtime). -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-runtime</artifactId>
             <scope>test</scope>
         </dependency>

@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.github.dropguard</groupId>
+        <groupId>io.github.dropguard</groupId>
         <artifactId>summer-framework</artifactId>
         <version>0.1.0</version>
     </parent>
@@ -17,7 +17,7 @@
     <dependencies>
         <!-- Summer Web -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-web</artifactId>
         </dependency>
 

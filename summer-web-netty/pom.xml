@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.github.dropguard</groupId>
+        <groupId>io.github.dropguard</groupId>
         <artifactId>summer-framework</artifactId>
         <version>0.1.0</version>
     </parent>
@@ -17,12 +17,12 @@
     <dependencies>
         <!-- Summer Web (interfaces) -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-web</artifactId>
         </dependency>
         <!-- Summer Web HTTP (implementations) -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-web-http</artifactId>
         </dependency>
 
@@ -44,27 +44,27 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-test</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
         <!-- AOT engine: @DualEngine WebSocket tests build the AOT leg's whole universe. -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-aot-engine</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
         <!-- Runtime web bridge: test apps rely on RuntimeWebConfiguration to register routes -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-runtime-web</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-web-websocket</artifactId>
         </dependency>
     </dependencies>

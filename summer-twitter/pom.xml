@@ -12,7 +12,7 @@
       parent is NOT part of the framework reactor.
     -->
     <parent>
-        <groupId>com.github.dropguard</groupId>
+        <groupId>io.github.dropguard</groupId>
         <artifactId>summer-build-parent</artifactId>
         <version>0.1.0</version>
         <relativePath/>
@@ -28,27 +28,27 @@
     <dependencies>
         <!-- Summer starters: core is pulled in transitively by each. -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-boot-starter-web</artifactId>
             <type>pom</type>
         </dependency>
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-boot-starter-data-jdbc</artifactId>
             <type>pom</type>
         </dependency>
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-boot-starter-data-redis</artifactId>
             <type>pom</type>
         </dependency>
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-boot-starter-websocket</artifactId>
             <type>pom</type>
         </dependency>
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-boot-starter-grpc</artifactId>
             <type>pom</type>
         </dependency>
@@ -106,7 +106,7 @@
              database test resources, and the transitives (testcontainers for the demo's own
              containers). The demo consumes the framework the way a real user does. -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-test-starter</artifactId>
             <type>pom</type>
             <scope>test</scope>

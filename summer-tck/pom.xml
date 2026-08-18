@@ -4,7 +4,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <parent>
         <artifactId>summer-framework</artifactId>
-        <groupId>com.github.dropguard</groupId>
+        <groupId>io.github.dropguard</groupId>
         <version>0.1.0</version>
     </parent>
     <modelVersion>4.0.0</modelVersion>
@@ -17,31 +17,31 @@
         <!-- All Summer deps are compile-scoped in this test-only module
              so the AOT plugin can discover beans via Jandex -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-tck-fixtures</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-tck-invisible-fixtures</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-test</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-core</artifactId></dependency>
-        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-runtime</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-engine</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-aop</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-web</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-runtime-web</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-web-http</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-web-websocket</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-boot</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-tx</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-grpc</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-data-jdbc</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-data-redis</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-web-netty</artifactId><version>${project.version}</version></dependency>
-        <dependency><groupId>com.github.dropguard</groupId><artifactId>summer-aot-engine</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-test</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-core</artifactId></dependency>
+        <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-runtime</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-engine</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-aop</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-web</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-runtime-web</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-web-http</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-web-websocket</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-boot</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-tx</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-grpc</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-data-jdbc</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-data-redis</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-web-netty</artifactId><version>${project.version}</version></dependency>
+        <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-aot-engine</artifactId><version>${project.version}</version></dependency>
         <dependency><groupId>com.h2database</groupId><artifactId>h2</artifactId></dependency>
         <dependency><groupId>com.zaxxer</groupId><artifactId>HikariCP</artifactId></dependency>
         <dependency><groupId>io.grpc</groupId><artifactId>grpc-stub</artifactId></dependency>

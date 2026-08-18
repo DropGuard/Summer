@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.github.dropguard</groupId>
+        <groupId>io.github.dropguard</groupId>
         <artifactId>summer-framework</artifactId>
         <version>0.1.0</version>
     </parent>
@@ -25,21 +25,21 @@
         </dependency>
         <!-- Summer Web (Middleware class referenced in public API) -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-web</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <!-- Summer Runtime (for RuntimeDiEngine) -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-runtime</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <!-- Summer AOP (for ProxyFactory and MethodInterceptor) -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-aop</artifactId>
             <version>${project.version}</version>
         </dependency>

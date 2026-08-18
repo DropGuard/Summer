@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.github.dropguard</groupId>
+        <groupId>io.github.dropguard</groupId>
         <artifactId>summer-benchmark</artifactId>
         <version>0.1.0</version>
     </parent>
@@ -18,7 +18,7 @@
         <!-- Use the web starter (pulls in core + HTTP stack + JSON) instead of the
              raw framework modules. -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-boot-starter-web</artifactId>
             <type>pom</type>
         </dependency>

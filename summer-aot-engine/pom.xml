@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.github.dropguard</groupId>
+        <groupId>io.github.dropguard</groupId>
         <artifactId>summer-framework</artifactId>
         <version>0.1.0</version>
     </parent>
@@ -29,21 +29,21 @@
 
         <!-- Summer Core (annotations, BeanContainer, exceptions, reflection-free config binding) -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-core</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <!-- Summer Engine (shared discovery pipeline + ContainerEngine SPI) -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-engine</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <!-- Summer AOP (for interceptor analysis) -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-aop</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -59,13 +59,13 @@
              CrossModuleDiscoveryTest). Keeps fixture classes in one place
              instead of duplicated inline in this module's test tree. -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-tck-fixtures</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-tck-invisible-fixtures</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
@@ -73,7 +73,7 @@
         <!-- Runtime web bridge (test scope): its WebRouteScanner is the ServiceLoader-discovered
              RouteRegistrar implementation the SPI collector needs on the test classpath -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-runtime-web</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
@@ -81,12 +81,12 @@
         <!-- @SummerTest/@DualEngine test infrastructure (brings the runtime engine for the RUNTIME leg).
              Test scope: the engine module's main must not leak JUnit/Mockito onto consumers. -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-test</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-test-db</artifactId>
             <scope>test</scope>
         </dependency>
@@ -95,7 +95,7 @@
              fully-qualified name — the AOT generator needs the JDBC type-mapping contract.
              This is NOT redundant classpath supply like the removed summer-web dep. -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-data-jdbc</artifactId>
             <version>${project.version}</version>
         </dependency>

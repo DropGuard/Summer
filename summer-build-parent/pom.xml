@@ -20,7 +20,7 @@
     -->
 
     <parent>
-        <groupId>com.github.dropguard</groupId>
+        <groupId>io.github.dropguard</groupId>
         <artifactId>summer-parent</artifactId>
         <version>0.1.0</version>
         <!-- summer-parent is a reactor sibling (since 2026-08-08): resolve it by path, not from
@@ -38,7 +38,7 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>com.github.dropguard</groupId>
+                <groupId>io.github.dropguard</groupId>
                 <artifactId>summer-dependencies</artifactId>
                 <version>${summer.framework.version}</version>
                 <type>pom</type>
@@ -81,7 +81,7 @@
                  execution are declared here directly — unlike Jandex, summer-parent's
                  pluginManagement does not own this plugin's version, so they cannot be inherited. -->
             <plugin>
-                <groupId>com.github.dropguard</groupId>
+                <groupId>io.github.dropguard</groupId>
                 <artifactId>summer-maven-plugin</artifactId>
                 <version>${summer.framework.version}</version>
                 <executions>

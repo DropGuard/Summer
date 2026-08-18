@@ -13,7 +13,7 @@
       change can never silently break (or mask) the demo.
     -->
     <parent>
-        <groupId>com.github.dropguard</groupId>
+        <groupId>io.github.dropguard</groupId>
         <artifactId>summer-build-parent</artifactId>
         <version>0.1.0</version>
         <relativePath/>
@@ -22,7 +22,7 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>com.github.dropguard</groupId>
+                <groupId>io.github.dropguard</groupId>
                 <artifactId>summer-dependencies</artifactId>
                 <version>${summer.framework.version}</version>
                 <type>pom</type>
@@ -42,12 +42,12 @@
         <!-- Summer starters: core (DI/AOP/tx/logging) is pulled in transitively by
              these two; web adds the HTTP stack + JSON, data-jdbc adds persistence. -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-boot-starter-web</artifactId>
             <type>pom</type>
         </dependency>
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-boot-starter-data-jdbc</artifactId>
             <type>pom</type>
         </dependency>
@@ -82,7 +82,7 @@
              infrastructure, the database test resources, and the transitives (testcontainers for
              the demo's own containers). The demo consumes the framework the way a real user does. -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-test-starter</artifactId>
             <type>pom</type>
             <scope>test</scope>

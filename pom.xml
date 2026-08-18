@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.github.dropguard</groupId>
+        <groupId>io.github.dropguard</groupId>
         <artifactId>summer-parent</artifactId>
         <version>0.1.0</version>
         <relativePath>summer-parent/pom.xml</relativePath>
@@ -16,7 +16,7 @@
 
     <name>Summer Framework</name>
     <description>A minimal, chain-oriented micro framework for building CRUD APIs on modern JDK</description>
-    <url>https://github.com/your-username/summer</url>
+    <url>https://github.com/DropGuard/Summer</url>
 
     <properties>
         <jacoco.version>0.8.15</jacoco.version>
@@ -32,7 +32,7 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>com.github.dropguard</groupId>
+                <groupId>io.github.dropguard</groupId>
                 <artifactId>summer-dependencies</artifactId>
                 <version>${project.version}</version>
                 <type>pom</type>
@@ -85,7 +85,7 @@
         <pluginManagement>
             <plugins>
                 <plugin>
-                    <groupId>com.github.dropguard</groupId>
+                    <groupId>io.github.dropguard</groupId>
                     <artifactId>summer-maven-plugin</artifactId>
                     <version>${project.version}</version>
                     <executions>

@@ -12,7 +12,7 @@
       parent is NOT part of the framework reactor.
     -->
     <parent>
-        <groupId>com.github.dropguard</groupId>
+        <groupId>io.github.dropguard</groupId>
         <artifactId>summer-build-parent</artifactId>
         <version>0.1.0</version>
         <relativePath/>
@@ -28,12 +28,12 @@
     <dependencies>
         <!-- Summer starters: core pulled in transitively; web + JDBC persistence. -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-boot-starter-web</artifactId>
             <type>pom</type>
         </dependency>
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-boot-starter-data-jdbc</artifactId>
             <type>pom</type>
         </dependency>
@@ -44,7 +44,7 @@
              override the compile-scoped transitive dep (starter → boot → runtime), stripping
              the DI engine from the production classpath and breaking the shaded jar. -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-runtime</artifactId>
         </dependency>
 
@@ -84,7 +84,7 @@
         <!-- Testing: summer-test transitively supplies JUnit, Mockito, and the runtime
              interface binder, so they are not declared here. -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-test</artifactId>
             <scope>test</scope>
         </dependency>
@@ -93,7 +93,7 @@
              (summer-build-parent imports summer-dependencies); only postgresql is pinned
              as a driver by the twitter convention. -->
         <dependency>
-            <groupId>com.github.dropguard</groupId>
+            <groupId>io.github.dropguard</groupId>
             <artifactId>summer-test-db</artifactId>
             <scope>test</scope>
         </dependency>
