@@ -1,7 +1,7 @@
 # Summer Framework
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/DropGuard/Summer/maven.yml)](https://github.com/DropGuard/Summer/actions/workflows/maven.yml)
-[![Version](https://img.shields.io/badge/version-999--SNAPSHOT-blue.svg)](https://github.com/DropGuard/Summer/releases)
+[![Maven Central](https://img.shields.io/badge/Maven%20Central-v0.1.0-blue.svg)](https://central.sonatype.com/artifact/io.github.dropguard/summer-parent)
 [![Java](https://img.shields.io/badge/Java-25+-blue.svg)](https://github.com/DropGuard/Summer)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/DropGuard/Summer/blob/main/LICENSE)
 
@@ -209,6 +209,7 @@ Summer intentionally enforces strict architectural constraints. If something req
 *   WebSocket support
 *   Virtual thread-based HTTP request handling (Project Loom)
 *   Global exception middleware
+*   Server-Sent Events (`SseStream` / SSE) & HTTP Chunked responses (`ChunkedResponse`)
 *   Prometheus-compatible metrics (`MetricsMiddleware`, `summer-web-middleware`)
 
 * * *
