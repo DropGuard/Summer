@@ -25,6 +25,13 @@ public final class RequestAttributes {
     public static final AttributeKey<Throwable> LAST_EXCEPTION =
             new AttributeKey<>("last_exception");
 
+    /** Attribute key for the low-level chunked HTTP response. */
+    public static final AttributeKey<ChunkedResponse> CHUNKED_RESPONSE =
+            new AttributeKey<>("chunked_response");
+
+    /** Attribute key for the Server-Sent Events (SSE) stream. */
+    public static final AttributeKey<SseStream> SSE_STREAM = new AttributeKey<>("sse_stream");
+
     /**
      * A typed key for a request attribute.
      *

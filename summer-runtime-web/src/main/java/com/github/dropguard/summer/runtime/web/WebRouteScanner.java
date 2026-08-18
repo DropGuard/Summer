@@ -201,7 +201,10 @@ public class WebRouteScanner implements RouteRegistrar {
                                 paramType,
                                 validated));
             } else if (com.github.dropguard.summer.web.ScrollRequest.class.isAssignableFrom(
-                    paramType)) {
+                            paramType)
+                    || paramType == com.github.dropguard.summer.web.SseStream.class
+                    || paramType == com.github.dropguard.summer.web.ChunkedResponse.class
+                    || paramType == com.github.dropguard.summer.web.Request.class) {
                 params.add(
                         new RouteRegistry.ParamInfo(
                                 paramName,

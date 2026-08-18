@@ -98,4 +98,21 @@ public class RoutingFixtureController {
     public void onIo(java.io.IOException ex, HttpContext ctx) {
         ctx.text(HttpStatus.BAD_REQUEST, "io_caught:" + ex.getMessage());
     }
+
+    @Get("/chat/stream")
+    public void chatStream(HttpContext ctx, com.github.dropguard.summer.web.SseStream sse) {
+        sse.send("token:1");
+        sse.send("delta", "token:2");
+        sse.send("[DONE]");
+        sse.close();
+    }
+
+    @Get("/export/chunked")
+    public void exportChunked(
+            HttpContext ctx, com.github.dropguard.summer.web.ChunkedResponse chunked) {
+        chunked.contentType("text/plain");
+        chunked.write("chunk-A\n");
+        chunked.write("chunk-B\n");
+        chunked.close();
+    }
 }

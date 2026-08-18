@@ -90,6 +90,11 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
             ChannelHandlerContext ctx, FullHttpRequest nettyReq, boolean keepAlive) {
         try {
             Request request = NettyRequestAdapter.adapt(nettyReq);
+            NettyChunkedResponse chunked = new NettyChunkedResponse(ctx, keepAlive);
+            NettySseStream sse = new NettySseStream(chunked);
+            request.setAttribute(
+                    com.github.dropguard.summer.web.RequestAttributes.CHUNKED_RESPONSE, chunked);
+            request.setAttribute(com.github.dropguard.summer.web.RequestAttributes.SSE_STREAM, sse);
             HttpContext webCtx = new HttpContext(request, deps.jsonConverter());
 
             if (request.getMethod() == HttpMethod.UNKNOWN) {
