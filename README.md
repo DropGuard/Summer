@@ -8,17 +8,16 @@
 > A minimalist JDK-native framework for building CRUD APIs.
 
 Summer is a clarity-first reconstruction of the minimal runtime model behind CRUD services.
-> The essential mechanics behind most CRUD-oriented services do not require thousands of classes, deep inheritance hierarchies, or complex startup lifecycles.
 
-This project is a clarity-first re-implementation of the minimal core used in most CRUD services.
+> The essential mechanics behind most CRUD-oriented services do not require thousands of classes, deep inheritance hierarchies, or complex startup lifecycles.
 
 * * *
 
-## ✨ Philosophy: Explicit Execution Over Implicit Magic
+## ✨ The Execution Pipeline
 
 Summer is built around one core idea:
 
-> Runtime behavior is modeled as an explicitly visible chain.
+> Web request processing and method invocation are modeled as explicitly visible execution chains.
 
 **HTTP Execution:**
 ```text
@@ -33,13 +32,46 @@ Proxy → InterceptorChain → Target Method
 Instead of relying on deep container magic, there is no hidden execution layer beyond this model. Summer keeps execution explicit and predictable.
 
 
-Cross-cutting (AOP proxy chain, @Transactional) intercept every layer above
+Cross-cutting concerns (AOP proxy chain, @Transactional) intercept every layer above
 the IoC container — they are interceptors, not layers.
+
+## 🔧 Philosophy & Design Principles
+
+**Explicit Execution Over Implicit Magic.**
+
+
+Summer intentionally enforces strict architectural constraints. If something requires implicit behavior to work, it likely does not belong in Summer:
+
+1. **Clarity over convenience.** (No hidden initialization phases).
+2. **Constructor injection only.** Fail-fast on ambiguity. No circular dependency resolution.
+3. **Interface-first AOP (JDK dynamic proxy).** No subclass-based proxying (CGLIB).
+4. **Stateless by default, Context by necessity.** All components (`@Component`) are instantiated as singletons. Request state flows explicitly as method arguments (`HttpContext`). However, for cross-cutting infrastructural state like Database Transactions, Summer leverages safe `ThreadLocals` backed by ephemeral Virtual Threads to prevent method signature pollution.
+5. **Composition over Inheritance.** Small interfaces are preferred over abstract base classes. Summer avoids deep inheritance hierarchies.
+6. **Minimal feature surface.** Summer core is intentionally minimal and does not bundle validation or security. Validation is provided via optional modules.
+7. **Code as Configuration / Code as Documentation.** Summer avoids externalizing every possible tweak into YAML or JSON. Moving all runtime logic into configuration files fragments the application's intent and makes it harder to trace. Instead, Summer encourages utilizing fluent builders and explicit code to configure server parameters (like timeouts). This keeps logic cohesive and ensures that the configuration is as readable and version-controlled as the rest of the application.
+8. **JDK 25 baseline.**
+
+
+
+### 🎯 The Hypothesis (What Summer Tries to Prove)
+
+For a typical CRUD application, the core runtime model can be reduced to:
+
+1. Constructor-based dependency injection
+2. A small HTTP routing layer
+3. Interface-based method interception
+4. A minimal transaction boundary (REQUIRED only)
+5. Explicit middleware execution
+
+No automatic configuration layers. No subclass-based proxying. No complex `BeanPostProcessor` / `InitializingBean` lifecycle hook mazes. No classpath-driven magic.
+
+* * *
+
+* * *
 
 ## 🚀 Getting Started
 
-Three commands cover the whole lifecycle — scaffold, develop, ship. They are Maven
-goals from `summer-maven-plugin`, so nothing extra to install beyond Maven.
+Three commands cover the whole lifecycle — scaffold, develop, ship. You can use the official `summer` CLI to run them instantly:
 
 | Step | Command | What it does |
 |---|---|---|
@@ -47,7 +79,17 @@ goals from `summer-maven-plugin`, so nothing extra to install beyond Maven.
 | 2. Develop | `summer dev` | Hot-reload dev loop on `:8080` (TCP proxy + child JVM) |
 | 3. Ship | `summer build` | AOT build → runnable fat jar (`java -jar`) |
 
-Summer is published to Maven Central under `io.github.dropguard`, so no special repository configuration is required. Run one of the bundled demos (`summer-twitter` / `summer-realworld` / `summer-issue-tracker`) to see Summer in practice.
+Summer is published to Maven Central. A typical project inherits the `summer-build-parent` (see **Enabling AOT** below) and includes the web starter:
+
+```xml
+<dependency>
+    <groupId>io.github.dropguard</groupId>
+    <artifactId>summer-boot-starter-web</artifactId>
+    <version>0.1.0</version>
+</dependency>
+```
+
+Run one of the bundled demos (`summer-twitter` / `summer-realworld` / `summer-issue-tracker`) to see Summer in practice.
 
 * * *
 
@@ -85,12 +127,12 @@ SummerApplication.run(args);
 
 ## 🛠 Daily Development
 
-The three commands above are the everyday loop. This section holds the
+The `summer create`, `summer dev`, and `summer build` commands (introduced in the Getting Started section) form the everyday loop. This section holds the
 details behind them for when you need them.
 
 * * *
 
-### Dev Mode (`summer:dev`)
+### Dev Mode (`summer dev` / `mvn summer:dev`)
 
 Hot-reload development loop: a TCP proxy listens on port `8080` and forwards
 traffic to your app running in a child JVM. On a source change it kills the child
@@ -98,6 +140,10 @@ traffic to your app running in a child JVM. On a source change it kills the chil
 is held until the fresh backend is ready ("lazy compile"):
 
 ```bash
+# Using the CLI
+summer dev
+
+# Or using pure Maven
 mvn summer:dev
 ```
 
@@ -161,35 +207,6 @@ The goal runs at `process-classes`: it generates the AOT context, compiles it in
 
 * * *
 
-## 🎯 The Hypothesis (What Summer Tries to Prove)
-
-For a typical CRUD application, the core runtime model can be reduced to:
-
-1. Constructor-based dependency injection
-2. A small HTTP routing layer
-3. Interface-based method interception
-4. A minimal transaction boundary (REQUIRED only)
-5. Explicit middleware execution
-
-No automatic configuration layers. No subclass-based proxying. No complex `BeanPostProcessor` / `InitializingBean` lifecycle hook mazes. No classpath-driven magic.
-
-* * *
-
-## 🔧 Design Principles & Constraints
-
-Summer intentionally enforces strict architectural constraints. If something requires implicit behavior to work, it likely does not belong in Summer:
-
-1. **Clarity over convenience.** (No hidden initialization phases).
-2. **Constructor injection only.** Fail-fast on ambiguity. No circular dependency resolution.
-3. **Interface-first AOP (JDK dynamic proxy).** No subclass-based proxying (CGLIB).
-4. **Stateless by default, Context by necessity.** All components (`@Component`) are instantiated as singletons. Request state flows explicitly as method arguments (`HttpContext`). However, for cross-cutting infrastructural state like Database Transactions, Summer leverages safe `ThreadLocals` backed by ephemeral Virtual Threads to prevent method signature pollution.
-5. **Composition over Inheritance.** Small interfaces are preferred over abstract base classes. Summer avoids deep inheritance hierarchies.
-6. **Minimal feature surface.** Summer core is intentionally minimal and does not bundle validation or security. Validation is provided via optional modules.
-7. **Code as Configuration / Code as Documentation.** Summer avoids externalizing every possible tweak into YAML or JSON. Moving all runtime logic into configuration files fragments the application's intent and makes it harder to trace. Instead, Summer encourages utilizing fluent builders and explicit code to configure server parameters (like timeouts). This keeps logic cohesive and ensures that the configuration is as readable and version-controlled as the rest of the application.
-8. **JDK 25 baseline.**
-
-* * *
-
 ## 📦 Supported Features (v0.1)
 
 *   Singleton IoC container
@@ -244,32 +261,23 @@ Once exposed, you can point your Prometheus instance to `/metrics` to begin scra
 
 ## 📈 Performance Benchmarking
 
-Summer is built for high-concurrency throughput using virtual threads and a
-byte-level router that minimizes allocations. The benchmark suite in
-`summer-benchmark` compares two deliberately minimal, identical apps — one on
-Summer (Netty), one on Spring Boot (Tomcat) — isolated in Docker containers
-with identical resource limits (2 CPUs / 512MB) and the same stack (Virtual
-Threads, Jackson).
+Summer is built for high-concurrency throughput using virtual threads and a byte-level router. The benchmark suite in `summer-benchmark` compares two deliberately minimal, identical CRUD apps — one on Summer (Netty + AOT), one on Spring Boot 3.4.x (Tomcat) — both utilizing Java 21 Virtual Threads and Jackson.
 
-### Results
+### Micro-Benchmark Results (Docker Compose)
 
-| Metric | Spring Boot 4.0 (Tomcat) | Summer (Netty) | Improvement |
-|---|---|---|---|
-| Requests/sec (RPS) | 15,030 | 40,604 | **+170%** |
-| Avg Latency (ms) | 6.56 | 2.25 | **-66%** |
-| P95 Latency (ms) | 24.69 | 4.67 | **-81%** |
+| Metric | Spring Boot (Tomcat, Virtual Threads) | Summer Framework (Netty, AOT) |
+|---|---|---|
+| **Requests/sec (RPS)** | ~20,000 - 22,000 | ~18,000 - 20,000 |
+| **Avg Latency (ms)** | ~4.5 - 5.0 | ~5.0 - 7.0 |
+| **P95 Latency (ms)** | ~6.5 - 9.8 | ~48.0 - 55.0 |
 
-Full methodology, constraints, and the orchestrator script live in
-`summer-benchmark/` (`python run-benchmarks.py`).
+> **Note on The Loom Trade-off & Performance Philosophy:** 
+> In raw CRUD micro-benchmarks, Spring Boot (Tomcat) slightly edges out Summer. This is a deliberate architectural trade-off. Tomcat's legacy thread-per-request blocking model is a native fit for Loom's Virtual Threads, operating with zero thread-hopping. Summer runs on Netty (an asynchronous Reactor model), but to provide a flawless, synchronous Developer Experience (DX) without the misery of reactive callbacks, Summer explicitly bridges Netty's EventLoop to a new Virtual Thread per request. We gladly pay this slight "thread-handoff tax" (impedance mismatch) to keep the API clean.
+> 
+> Furthermore, Summer refuses to compromise its core philosophy just to win benchmarks. Traditional frameworks rely on massive AOP interceptors, deep reflection chains, and dense DI contexts. While modern JVM JIT compilers can eventually optimize away much of this runtime penalty, developers still pay a heavy "abstraction tax" elsewhere: excruciatingly slow startups, bloated memory footprints, 200-line stack traces, and unpredictable "magic" behaviors. Summer’s AOT-compiled, zero-reflection execution model eliminates this tax entirely. You get top-tier throughput combined with absolute operational predictability and extreme cognitive simplicity.
 
-### Why Summer is Fast
-- **Virtual Threads**: every request is a lightweight thread; no thread-pool
-  exhaustion under concurrency.
-- **Byte-Level Router**: routing compares path segments as raw bytes, avoiding
-  String allocation for the path itself.
-- **Minimalistic Core**: no deep interceptor chains or proxy logic for standard
-  requests — less work per request is why the RPS and latency numbers above
-  hold.
+Full methodology, constraints, and the orchestrator script live in `summer-benchmark/` (`python run-benchmarks.py`).
+
 
 * * *
 
@@ -383,11 +391,17 @@ public class UserRepository {
         // DB Access
         return new User(id, "Alice");
     }
+
+    public User save(User user) {
+        // DB Insert
+        return user;
+    }
 }
 
 // 2. Service
 public interface UserService {
     User getUser(String id);
+    User createUser(User user);
 }
 
 @Component
@@ -403,6 +417,12 @@ public class UserServiceImpl implements UserService {
     @Override
     public User getUser(String id) {
         return repository.findById(id);
+    }
+
+    @Transactional
+    @Override
+    public User createUser(User user) {
+        return repository.save(user);
     }
 }
 
