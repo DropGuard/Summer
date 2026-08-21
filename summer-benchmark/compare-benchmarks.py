@@ -17,7 +17,9 @@ def parse_summary(profile):
         'rps': metrics['http_reqs']['rate'],
         'total': metrics['http_reqs']['count'],
         'avgLatency': metrics['http_req_duration']['avg'],
-        'p95Latency': metrics['http_req_duration']['p(95)']
+        'p50Latency': metrics['http_req_duration'].get('med', 0),
+        'p95Latency': metrics['http_req_duration']['p(95)'],
+        'p99Latency': metrics['http_req_duration'].get('p(99)', 0)
     }
 
 def main():
@@ -50,7 +52,9 @@ def main():
         ('Requests/sec (RPS)', 'rps', "{:.2f}"),
         ('Total Requests', 'total', "{:.0f}"),
         ('Avg Latency (ms)', 'avgLatency', "{:.2f}"),
-        ('P95 Latency (ms)', 'p95Latency', "{:.2f}")
+        ('P50 Latency (ms)', 'p50Latency', "{:.2f}"),
+        ('P95 Latency (ms)', 'p95Latency', "{:.2f}"),
+        ('P99 Latency (ms)', 'p99Latency', "{:.2f}")
     ]
     
     report_lines = [
