@@ -304,7 +304,6 @@ class ArchitectureTest {
         rule.check(classes);
     }
 
-
     @ArchTest
     @DisplayName("No ConcurrentHashMap usage in production code (class-level exceptions)")
     void noConcurrentHashMap(JavaClasses classes) {

@@ -26,9 +26,11 @@ public class SimpleJdbcTransactionManager implements TransactionManager {
         try (Connection connection = dataSource.getConnection()) {
             connection.setAutoCommit(false);
             Connection wrapped = new TransactionAwareConnectionWrapper(connection);
-            
+
             try {
-                T result = ScopedValue.where(ScopedValueTransactionContext.CONNECTION, wrapped).call(() -> action.doInTransaction());
+                T result =
+                        ScopedValue.where(ScopedValueTransactionContext.CONNECTION, wrapped)
+                                .call(() -> action.doInTransaction());
                 connection.commit();
                 return result;
             } catch (Throwable t) {

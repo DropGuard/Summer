@@ -1,13 +1,11 @@
 package com.github.dropguard.summer.data.jdbc.tx;
 
-import com.github.dropguard.summer.tx.SummerTransactionException;
-import org.junit.jupiter.api.Test;
-
-import javax.sql.DataSource;
-import java.sql.Connection;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
+
+import java.sql.Connection;
+import javax.sql.DataSource;
+import org.junit.jupiter.api.Test;
 
 class SimpleJdbcTransactionManagerTest {
 
@@ -19,11 +17,12 @@ class SimpleJdbcTransactionManagerTest {
 
         SimpleJdbcTransactionManager manager = new SimpleJdbcTransactionManager(dataSource);
 
-        manager.executeInTransaction(() -> {
-            assertTrue(ScopedValueTransactionContext.CONNECTION.isBound());
-            assertNotNull(ScopedValueTransactionContext.CONNECTION.get());
-            return null;
-        });
+        manager.executeInTransaction(
+                () -> {
+                    assertTrue(ScopedValueTransactionContext.CONNECTION.isBound());
+                    assertNotNull(ScopedValueTransactionContext.CONNECTION.get());
+                    return null;
+                });
 
         assertFalse(ScopedValueTransactionContext.CONNECTION.isBound());
         verify(connection).setAutoCommit(false);

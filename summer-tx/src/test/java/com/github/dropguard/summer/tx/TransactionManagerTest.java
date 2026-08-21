@@ -1,7 +1,8 @@
 package com.github.dropguard.summer.tx;
 
-import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.junit.jupiter.api.Test;
 
 class TransactionManagerTest {
     @Test

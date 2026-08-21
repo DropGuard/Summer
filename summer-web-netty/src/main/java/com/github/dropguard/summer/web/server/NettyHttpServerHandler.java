@@ -108,10 +108,12 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
                 return;
             }
 
-            ScopedValue.where(REQUEST_SLOT, new RequestSlot(ctx, nettyReq)).call(() -> {
-                handlerChain.handle(webCtx);
-                return null;
-            });
+            ScopedValue.where(REQUEST_SLOT, new RequestSlot(ctx, nettyReq))
+                    .call(
+                            () -> {
+                                handlerChain.handle(webCtx);
+                                return null;
+                            });
 
             if (webCtx.isHandled()) {
                 return;

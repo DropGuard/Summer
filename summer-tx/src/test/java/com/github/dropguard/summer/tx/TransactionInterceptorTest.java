@@ -1,13 +1,12 @@
 package com.github.dropguard.summer.tx;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 import com.github.dropguard.summer.aop.InterceptedMethod;
 import com.github.dropguard.summer.aop.InterceptorChain;
-import org.junit.jupiter.api.Test;
-
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.Test;
 
 class TransactionInterceptorTest {
 
@@ -17,12 +16,15 @@ class TransactionInterceptorTest {
         TransactionInterceptor interceptor = new TransactionInterceptor(manager);
         TestService target = new TestServiceImpl();
         InterceptedMethod method = new InterceptedMethod("nonTransactionalMethod", Set.of());
-        TestInterceptorChain chain = new TestInterceptorChain(target, method, target::nonTransactionalMethod);
+        TestInterceptorChain chain =
+                new TestInterceptorChain(target, method, target::nonTransactionalMethod);
 
         Object result = interceptor.intercept(chain);
 
         assertEquals("result", result);
-        assertFalse(manager.executed.get(), "TransactionManager should not be called for non-transactional method");
+        assertFalse(
+                manager.executed.get(),
+                "TransactionManager should not be called for non-transactional method");
     }
 
     @Test
@@ -30,30 +32,41 @@ class TransactionInterceptorTest {
         TestTransactionManager manager = new TestTransactionManager();
         TransactionInterceptor interceptor = new TransactionInterceptor(manager);
         TestService target = new TestServiceImpl();
-        InterceptedMethod method = new InterceptedMethod("transactionalMethod", Set.of(Transactional.class));
-        TestInterceptorChain chain = new TestInterceptorChain(target, method, target::transactionalMethod);
+        InterceptedMethod method =
+                new InterceptedMethod("transactionalMethod", Set.of(Transactional.class));
+        TestInterceptorChain chain =
+                new TestInterceptorChain(target, method, target::transactionalMethod);
 
         Object result = interceptor.intercept(chain);
 
         assertEquals("result", result);
-        assertTrue(manager.executed.get(), "TransactionManager should be called for transactional method");
+        assertTrue(
+                manager.executed.get(),
+                "TransactionManager should be called for transactional method");
     }
 
     public interface TestService {
         @Transactional
         String transactionalMethod();
+
         String nonTransactionalMethod();
     }
 
     public static class TestServiceImpl implements TestService {
         @Override
-        public String transactionalMethod() { return "result"; }
+        public String transactionalMethod() {
+            return "result";
+        }
+
         @Override
-        public String nonTransactionalMethod() { return "result"; }
+        public String nonTransactionalMethod() {
+            return "result";
+        }
     }
 
     private static class TestTransactionManager implements TransactionManager {
         final AtomicBoolean executed = new AtomicBoolean(false);
+
         @Override
         public <T> T executeInTransaction(TransactionCallback<T> action) throws Throwable {
             executed.set(true);
@@ -66,17 +79,35 @@ class TransactionInterceptorTest {
         private final InterceptedMethod methodMetadata;
         private final TargetInvoker invoker;
 
-        TestInterceptorChain(Object target, InterceptedMethod methodMetadata, TargetInvoker invoker) {
+        TestInterceptorChain(
+                Object target, InterceptedMethod methodMetadata, TargetInvoker invoker) {
             this.target = target;
             this.methodMetadata = methodMetadata;
             this.invoker = invoker;
         }
 
-        @Override public Object getTarget() { return target; }
-        @Override public InterceptedMethod method() { return methodMetadata; }
-        @Override public Object[] getArguments() { return new Object[0]; }
-        @Override public Object proceed() throws Throwable { return invoker.invoke(); }
+        @Override
+        public Object getTarget() {
+            return target;
+        }
+
+        @Override
+        public InterceptedMethod method() {
+            return methodMetadata;
+        }
+
+        @Override
+        public Object[] getArguments() {
+            return new Object[0];
+        }
+
+        @Override
+        public Object proceed() throws Throwable {
+            return invoker.invoke();
+        }
     }
 
-    interface TargetInvoker { Object invoke() throws Throwable; }
+    interface TargetInvoker {
+        Object invoke() throws Throwable;
+    }
 }
