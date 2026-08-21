@@ -288,6 +288,22 @@ class ArchitectureTest {
     }
 
     // --- Library bans ---
+    @ArchTest
+    @DisplayName("Netty allocators must not be used outside EventLoop boundary classes")
+    void restrictNettyAllocatorUsage(JavaClasses classes) {
+        ArchRule rule =
+                noClasses()
+                        .that()
+                        .resideInAnyPackage(PRODUCTION)
+                        .and()
+                        .doNotHaveSimpleName("NettyHttpServerHandler")
+                        .should()
+                        .dependOnClassesThat()
+                        .haveFullyQualifiedName("io.netty.buffer.ByteBufAllocator")
+                        .allowEmptyShould(true);
+        rule.check(classes);
+    }
+
 
     @ArchTest
     @DisplayName("No ConcurrentHashMap usage in production code (class-level exceptions)")
