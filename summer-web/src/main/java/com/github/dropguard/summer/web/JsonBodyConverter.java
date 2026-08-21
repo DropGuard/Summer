@@ -30,7 +30,7 @@ public class JsonBodyConverter implements BodyConverter {
                             // framework): pretty-printed output and explicit nulls keep field
                             // presence stable for clients. These intentionally differ from the
                             // compact NON_NULL defaults of SummerObjectMapper.
-                            m.configure(SerializationFeature.INDENT_OUTPUT, true);
+                            m.configure(SerializationFeature.INDENT_OUTPUT, false);
                             m.setSerializationInclusion(JsonInclude.Include.ALWAYS);
 
                             // Custom serializers only — SummerObjectMapper.create() already

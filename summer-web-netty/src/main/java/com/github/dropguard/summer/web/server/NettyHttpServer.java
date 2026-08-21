@@ -14,6 +14,9 @@ import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.EventLoopGroup;
+import io.netty.channel.epoll.Epoll;
+import io.netty.channel.epoll.EpollEventLoopGroup;
+import io.netty.channel.epoll.EpollServerSocketChannel;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -118,13 +121,23 @@ class NettyHttpServer {
     }
 
     public void start() {
-        bossGroup = new NioEventLoopGroup(1); // 1 thread to accept connections
-        workerGroup = new NioEventLoopGroup(); // defaults to CPU cores * 2 for I/O
+        boolean useEpoll = Epoll.isAvailable();
+        bossGroup =
+                useEpoll
+                        ? new EpollEventLoopGroup(1)
+                        : new NioEventLoopGroup(1); // 1 thread to accept connections
+        workerGroup =
+                useEpoll
+                        ? new EpollEventLoopGroup()
+                        : new NioEventLoopGroup(); // defaults to CPU cores * 2 for I/O
 
         try {
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
-                    .channel(NioServerSocketChannel.class)
+                    .channel(
+                            useEpoll
+                                    ? EpollServerSocketChannel.class
+                                    : NioServerSocketChannel.class)
                     .childHandler(
                             new ChannelInitializer<SocketChannel>() {
                                 @Override

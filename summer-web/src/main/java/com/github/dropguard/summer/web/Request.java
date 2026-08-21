@@ -125,7 +125,17 @@ public class Request {
 
     @SuppressWarnings("unchecked")
     public <T> T getAttribute(RequestAttributes.AttributeKey<T> key) {
-        return (T) attributes.get(key.name());
+        Object val = attributes.get(key.name());
+        if (val instanceof java.util.function.Supplier<?> supplier) {
+            val = supplier.get();
+            attributes.put(key.name(), val);
+        }
+        return (T) val;
+    }
+
+    public <T> void setLazyAttribute(
+            RequestAttributes.AttributeKey<T> key, java.util.function.Supplier<T> supplier) {
+        attributes.put(key.name(), supplier);
     }
 
     /**

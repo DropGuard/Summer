@@ -90,11 +90,16 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
             ChannelHandlerContext ctx, FullHttpRequest nettyReq, boolean keepAlive) {
         try {
             Request request = NettyRequestAdapter.adapt(nettyReq);
-            NettyChunkedResponse chunked = new NettyChunkedResponse(ctx, keepAlive);
-            NettySseStream sse = new NettySseStream(chunked);
-            request.setAttribute(
-                    com.github.dropguard.summer.web.RequestAttributes.CHUNKED_RESPONSE, chunked);
-            request.setAttribute(com.github.dropguard.summer.web.RequestAttributes.SSE_STREAM, sse);
+            request.setLazyAttribute(
+                    com.github.dropguard.summer.web.RequestAttributes.CHUNKED_RESPONSE,
+                    () -> new NettyChunkedResponse(ctx, keepAlive));
+            request.setLazyAttribute(
+                    com.github.dropguard.summer.web.RequestAttributes.SSE_STREAM,
+                    () ->
+                            new NettySseStream(
+                                    request.getAttribute(
+                                            com.github.dropguard.summer.web.RequestAttributes
+                                                    .CHUNKED_RESPONSE)));
             HttpContext webCtx = new HttpContext(request, deps.jsonConverter());
 
             if (request.getMethod() == HttpMethod.UNKNOWN) {
@@ -239,16 +244,15 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
             HttpContext webCtx,
             HttpResponseStatus status,
             boolean keepAlive) {
-        io.netty.buffer.ByteBuf buf = ctx.alloc().directBuffer();
-        try (io.netty.buffer.ByteBufOutputStream out =
-                new io.netty.buffer.ByteBufOutputStream(buf)) {
-            webCtx.converter().writeToStream(webCtx.resultObject(), out);
+        byte[] bytes;
+        try {
+            bytes = webCtx.converter().write(webCtx.resultObject());
         } catch (Exception e) {
-            buf.release();
             log.error("Serialization error", e);
             sendErrorResponse(ctx, keepAlive);
             return null;
         }
+        io.netty.buffer.ByteBuf buf = Unpooled.wrappedBuffer(bytes);
         return new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status, buf);
     }
 
