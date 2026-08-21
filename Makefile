@@ -52,10 +52,10 @@ benchmark:
 	python summer-benchmark/run-benchmarks.py
 
 fmt:
-	mvn spotless:apply -pl '!summer-dependencies,!summer-starter-parent'
+	mvn spotless:apply -pl '!summer-dependencies,!summer-build-parent'
 
 check:
-	mvn spotless:check -pl '!summer-dependencies,!summer-starter-parent'
+	mvn spotless:check -pl '!summer-dependencies,!summer-build-parent'
 
 pre-commit: fmt check clean test
 
