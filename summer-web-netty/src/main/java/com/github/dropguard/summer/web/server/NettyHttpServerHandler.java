@@ -46,9 +46,9 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
     /**
      * Per-request slot for the raw Netty artifacts, read by the cached {@link #handlerChain}. Each
      * request runs on a fresh virtual thread (no pooling) and the chain is synchronous, so the
-     * ThreadLocal is safe; set in {@link #processRequest} and cleared in the same finally.
+     * ScopedValue is inherently safe; bound dynamically in {@link #processRequest}.
      */
-    private static final ThreadLocal<RequestSlot> REQUEST_SLOT = new ThreadLocal<>();
+    private static final ScopedValue<RequestSlot> REQUEST_SLOT = ScopedValue.newInstance();
 
     private record RequestSlot(ChannelHandlerContext ctx, FullHttpRequest nettyReq) {}
 
@@ -108,14 +108,10 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
                 return;
             }
 
-            REQUEST_SLOT.set(new RequestSlot(ctx, nettyReq));
-            try {
+            ScopedValue.where(REQUEST_SLOT, new RequestSlot(ctx, nettyReq)).call(() -> {
                 handlerChain.handle(webCtx);
-            } finally {
-                // Tear down the request-scoped context. Runs on a fresh virtual thread
-                // per request (no pooling), so this fully releases the binding.
-                REQUEST_SLOT.remove();
-            }
+                return null;
+            });
 
             if (webCtx.isHandled()) {
                 return;

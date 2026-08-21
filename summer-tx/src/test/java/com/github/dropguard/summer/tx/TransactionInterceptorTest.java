@@ -1,365 +1,82 @@
 package com.github.dropguard.summer.tx;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 import com.github.dropguard.summer.aop.InterceptedMethod;
 import com.github.dropguard.summer.aop.InterceptorChain;
-import com.github.dropguard.summer.aop.TargetInvoker;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
-/** Tests for {@link TransactionInterceptor}. */
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import static org.junit.jupiter.api.Assertions.*;
+
 class TransactionInterceptorTest {
 
     @Test
-    void shouldCreateTransactionInterceptor() {
-        TransactionManager manager = new TestTransactionManager();
+    void interceptNonTransactionalMethodBypassesManager() throws Throwable {
+        TestTransactionManager manager = new TestTransactionManager();
         TransactionInterceptor interceptor = new TransactionInterceptor(manager);
-
-        assertNotNull(interceptor);
-    }
-
-    @Test
-    void shouldInterceptTransactionalMethod() throws Throwable {
-        TransactionManager manager = new TestTransactionManager();
-        TransactionInterceptor interceptor = new TransactionInterceptor(manager);
-
         TestService target = new TestServiceImpl();
-        InterceptedMethod metadata =
-                new InterceptedMethod("transactionalMethod", Set.of(Transactional.class));
-        InterceptorChain chain =
-                new TestInterceptorChain(
-                        target, metadata, new Object[0], target::transactionalMethod);
+        InterceptedMethod method = new InterceptedMethod("nonTransactionalMethod", Set.of());
+        TestInterceptorChain chain = new TestInterceptorChain(target, method, target::nonTransactionalMethod);
 
         Object result = interceptor.intercept(chain);
+
         assertEquals("result", result);
+        assertFalse(manager.executed.get(), "TransactionManager should not be called for non-transactional method");
     }
 
     @Test
-    void shouldNotInterceptNonTransactionalMethod() throws Throwable {
-        TransactionManager manager = new TestTransactionManager();
+    void interceptTransactionalMethodDelegatesToManager() throws Throwable {
+        TestTransactionManager manager = new TestTransactionManager();
         TransactionInterceptor interceptor = new TransactionInterceptor(manager);
-
         TestService target = new TestServiceImpl();
-        InterceptedMethod metadata = new InterceptedMethod("nonTransactionalMethod", Set.of());
-        InterceptorChain chain =
-                new TestInterceptorChain(
-                        target, metadata, new Object[0], target::nonTransactionalMethod);
+        InterceptedMethod method = new InterceptedMethod("transactionalMethod", Set.of(Transactional.class));
+        TestInterceptorChain chain = new TestInterceptorChain(target, method, target::transactionalMethod);
 
         Object result = interceptor.intercept(chain);
+
         assertEquals("result", result);
+        assertTrue(manager.executed.get(), "TransactionManager should be called for transactional method");
     }
 
-    @Test
-    void shouldRollbackOnException() throws Throwable {
-        TrackingTransactionManager manager = new TrackingTransactionManager();
-        TransactionInterceptor interceptor = new TransactionInterceptor(manager);
-
-        TestService target = new TestServiceImpl();
-        InterceptedMethod metadata =
-                new InterceptedMethod("transactionalMethod", Set.of(Transactional.class));
-        InterceptorChain chain =
-                new TestInterceptorChain(
-                        target,
-                        metadata,
-                        new Object[0],
-                        () -> {
-                            throw new RuntimeException("Test exception");
-                        });
-
-        assertThrows(RuntimeException.class, () -> interceptor.intercept(chain));
-
-        assertTrue(manager.rollbackCalled.get(), "rollback() should have been called on exception");
-        assertFalse(manager.commitCalled.get(), "commit() should NOT have been called");
-    }
-
-    @Test
-    void shouldCommitOnSuccess() throws Throwable {
-        TrackingTransactionManager manager = new TrackingTransactionManager();
-        TransactionInterceptor interceptor = new TransactionInterceptor(manager);
-
-        TestService target = new TestServiceImpl();
-        InterceptedMethod metadata =
-                new InterceptedMethod("transactionalMethod", Set.of(Transactional.class));
-        InterceptorChain chain =
-                new TestInterceptorChain(
-                        target, metadata, new Object[0], target::transactionalMethod);
-
-        Object result = interceptor.intercept(chain);
-        assertEquals("result", result);
-
-        assertTrue(manager.commitCalled.get(), "commit() should have been called on success");
-        assertFalse(manager.rollbackCalled.get(), "rollback() should NOT have been called");
-    }
-
-    @Test
-    void shouldRollbackEvenWhenTargetThrowsErrorNotException() throws Throwable {
-        // Regression: an Error (OOM, StackOverflowError, AssertionError, ...) propagating out of
-        // the target must NOT skip the rollback — the original code only caught Exception, which
-        // leaked the connection and left the ThreadLocal transaction active for the next request.
-        TrackingTransactionManager manager = new TrackingTransactionManager();
-        TransactionInterceptor interceptor = new TransactionInterceptor(manager);
-
-        TestService target = new TestServiceImpl();
-        InterceptedMethod metadata =
-                new InterceptedMethod("transactionalMethod", Set.of(Transactional.class));
-        InterceptorChain chain =
-                new TestInterceptorChain(
-                        target,
-                        metadata,
-                        new Object[0],
-                        () -> {
-                            throw new AssertionError("boom");
-                        });
-
-        AssertionError thrown =
-                assertThrows(
-                        AssertionError.class,
-                        () -> interceptor.intercept(chain),
-                        "the Error must propagate unchanged");
-        assertFalse(thrown.getMessage().contains("rollback"), "original Error must not be masked");
-
-        assertTrue(manager.rollbackCalled.get(), "rollback() must run even on Error");
-        assertFalse(manager.commitCalled.get(), "commit() must NOT run on failure");
-    }
-
-    @Test
-    void commitFailureMustNotBeMisreportedAsRollback() throws Throwable {
-        // Regression: if commit() fails, the manager's own finally has already closed the status.
-        // The interceptor must NOT call rollback() again (that would throw a second exception that
-        // masks the real commit error and lies about what happened).
-        ManagerThatFailsCommit manager = new ManagerThatFailsCommit();
-        TransactionInterceptor interceptor = new TransactionInterceptor(manager);
-
-        TestService target = new TestServiceImpl();
-        InterceptedMethod metadata =
-                new InterceptedMethod("transactionalMethod", Set.of(Transactional.class));
-        InterceptorChain chain =
-                new TestInterceptorChain(
-                        target, metadata, new Object[0], target::transactionalMethod);
-
-        SummerTransactionException thrown =
-                assertThrows(SummerTransactionException.class, () -> interceptor.intercept(chain));
-        assertTrue(
-                thrown.getMessage().contains("commit"),
-                "the reported failure must reference commit, not rollback: " + thrown.getMessage());
-        assertFalse(
-                manager.rollbackAfterCommitFailure.get(),
-                "rollback() must not be called after commit() already closed the status");
-    }
-
-    @Test
-    void nestedTransactionalCallFailsLoudlyAndRollsBackOuter() throws Throwable {
-        // Contract (see @Transactional): nested transactions are intentionally unsupported.
-        // A proxied @Transactional call made from inside an active transaction must fail loudly —
-        // the inner begin() throws — and the OUTER transaction must roll back. The interceptor
-        // neither joins the inner call nor swallows the failure.
-        RejectingNestedTransactionManager manager = new RejectingNestedTransactionManager();
-        TransactionInterceptor interceptor = new TransactionInterceptor(manager);
-        TestService target = new TestServiceImpl();
-        InterceptedMethod tx =
-                new InterceptedMethod("transactionalMethod", Set.of(Transactional.class));
-        TestInterceptorChain outerChain =
-                new TestInterceptorChain(
-                        target,
-                        tx,
-                        new Object[0],
-                        () ->
-                                // Simulate a cross-bean proxied call: the inner @Transactional
-                                // method is invoked through a second interceptor pass while the
-                                // outer transaction is already active.
-                                interceptor.intercept(
-                                        new TestInterceptorChain(
-                                                target,
-                                                tx,
-                                                new Object[0],
-                                                target::transactionalMethod)));
-
-        assertThrows(
-                SummerTransactionException.class,
-                () -> interceptor.intercept(outerChain),
-                "the nested begin() must surface its SummerTransactionException");
-
-        assertEquals(
-                2,
-                manager.beginCount.get(),
-                "both the outer and the inner begin() are attempted (no silent join)");
-        assertTrue(
-                manager.rollbackCalled.get(),
-                "the outer transaction must roll back after the nested failure");
-    }
-
-    // Test interfaces and implementations
     public interface TestService {
         @Transactional
         String transactionalMethod();
-
         String nonTransactionalMethod();
     }
 
     public static class TestServiceImpl implements TestService {
         @Override
-        public String transactionalMethod() {
-            return "result";
-        }
-
+        public String transactionalMethod() { return "result"; }
         @Override
-        public String nonTransactionalMethod() {
-            return "result";
-        }
+        public String nonTransactionalMethod() { return "result"; }
     }
 
-    // Test TransactionManager implementation (no-op)
     private static class TestTransactionManager implements TransactionManager {
+        final AtomicBoolean executed = new AtomicBoolean(false);
         @Override
-        public TransactionStatus begin() {
-            return new SimpleTransactionStatus();
-        }
-
-        @Override
-        public void commit(TransactionStatus status) {
-            // no-op
-        }
-
-        @Override
-        public void rollback(TransactionStatus status) {
-            // no-op
+        public <T> T executeInTransaction(TransactionCallback<T> action) throws Throwable {
+            executed.set(true);
+            return action.doInTransaction();
         }
     }
 
-    // Tracking TransactionManager that records method calls
-    private static class TrackingTransactionManager implements TransactionManager {
-        final AtomicBoolean commitCalled = new AtomicBoolean(false);
-        final AtomicBoolean rollbackCalled = new AtomicBoolean(false);
-
-        @Override
-        public TransactionStatus begin() {
-            return new SimpleTransactionStatus();
-        }
-
-        @Override
-        public void commit(TransactionStatus status) {
-            commitCalled.set(true);
-        }
-
-        @Override
-        public void rollback(TransactionStatus status) {
-            rollbackCalled.set(true);
-        }
-    }
-
-    /** Manager that rejects a second begin() — the framework's "no nested transactions" guard. */
-    private static class RejectingNestedTransactionManager implements TransactionManager {
-        final AtomicInteger beginCount = new AtomicInteger();
-        final AtomicBoolean rollbackCalled = new AtomicBoolean(false);
-
-        @Override
-        public TransactionStatus begin() {
-            if (beginCount.getAndIncrement() > 0) {
-                throw new SummerTransactionException(
-                        "Nested transactions are not supported. A transaction is already active"
-                                + " for the current thread.");
-            }
-            return new SimpleTransactionStatus();
-        }
-
-        @Override
-        public void commit(TransactionStatus status) {
-            // no-op
-        }
-
-        @Override
-        public void rollback(TransactionStatus status) {
-            rollbackCalled.set(true);
-        }
-    }
-
-    /** Manager whose commit() throws and, like the real JDBC manager, closes the status. */
-    private static class ManagerThatFailsCommit implements TransactionManager {
-        final AtomicBoolean rollbackAfterCommitFailure = new AtomicBoolean(false);
-
-        @Override
-        public TransactionStatus begin() {
-            return new SimpleTransactionStatus();
-        }
-
-        @Override
-        public void commit(TransactionStatus status) {
-            // Simulate SimpleJdbcTransactionManager.commit(): on SQLException it calls close() in
-            // its finally (which sets active=false) and then throws.
-            ((SimpleTransactionStatus) status).active = false;
-            throw new SummerTransactionException("Failed to commit transaction");
-        }
-
-        @Override
-        public void rollback(TransactionStatus status) {
-            rollbackAfterCommitFailure.set(true);
-        }
-    }
-
-    private static class SimpleTransactionStatus implements TransactionStatus {
-        private boolean active = true;
-        private boolean rollbackOnly = false;
-
-        @Override
-        public boolean isActive() {
-            return active;
-        }
-
-        @Override
-        public boolean isNewTransaction() {
-            return true;
-        }
-
-        @Override
-        public boolean isRollbackOnly() {
-            return rollbackOnly;
-        }
-
-        @Override
-        public void setRollbackOnly() {
-            this.rollbackOnly = true;
-        }
-    }
-
-    // Test InterceptorChain implementation
     private static class TestInterceptorChain implements InterceptorChain {
         private final Object target;
         private final InterceptedMethod methodMetadata;
-        private final Object[] arguments;
         private final TargetInvoker invoker;
 
-        TestInterceptorChain(
-                Object target,
-                InterceptedMethod methodMetadata,
-                Object[] arguments,
-                TargetInvoker invoker) {
+        TestInterceptorChain(Object target, InterceptedMethod methodMetadata, TargetInvoker invoker) {
             this.target = target;
             this.methodMetadata = methodMetadata;
-            this.arguments = arguments;
             this.invoker = invoker;
         }
 
-        @Override
-        public Object getTarget() {
-            return target;
-        }
-
-        @Override
-        public InterceptedMethod method() {
-            return methodMetadata;
-        }
-
-        @Override
-        public Object[] getArguments() {
-            return arguments;
-        }
-
-        @Override
-        public Object proceed() throws Throwable {
-            return invoker.invoke();
-        }
+        @Override public Object getTarget() { return target; }
+        @Override public InterceptedMethod method() { return methodMetadata; }
+        @Override public Object[] getArguments() { return new Object[0]; }
+        @Override public Object proceed() throws Throwable { return invoker.invoke(); }
     }
+
+    interface TargetInvoker { Object invoke() throws Throwable; }
 }

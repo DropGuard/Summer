@@ -3,7 +3,7 @@ package com.github.dropguard.summer.data.jdbc;
 import com.github.dropguard.summer.core.FrozenState;
 import com.github.dropguard.summer.core.Sealable;
 import com.github.dropguard.summer.core.exception.DataAccessException;
-import com.github.dropguard.summer.data.jdbc.tx.ThreadLocalTransactionContext;
+import com.github.dropguard.summer.data.jdbc.tx.ScopedValueTransactionContext;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -52,7 +52,7 @@ public class JdbcTemplate implements Sealable {
      * {@code @Transactional} semantics.
      */
     public Connection getConnection() throws SQLException {
-        Connection txConnection = ThreadLocalTransactionContext.getCurrentConnection();
+        Connection txConnection = ScopedValueTransactionContext.getCurrentConnection();
         if (txConnection != null) {
             return txConnection;
         }
