@@ -107,7 +107,25 @@ public class SummerMojo extends AbstractMojo {
                             .collect(java.util.stream.Collectors.joining(",")));
             // The shared assembly core (discovery → conditions → routes → resolve → name dedup),
             // identical to the test-time AOT compiler's sequence — one implementation, one order.
-            List<BeanDefinition> sorted = BuildPipeline.resolve(deployment, List.of()).sorted();
+            List<java.net.URL> urls = new java.util.ArrayList<>();
+            urls.add(outputDirectory.toURI().toURL());
+            for (Object obj : project.getArtifacts()) {
+                org.apache.maven.artifact.Artifact a = (org.apache.maven.artifact.Artifact) obj;
+                if (a.getFile() != null) {
+                    urls.add(a.getFile().toURI().toURL());
+                }
+            }
+            ClassLoader originalClassLoader = Thread.currentThread().getContextClassLoader();
+            ClassLoader projectClassLoader =
+                    new java.net.URLClassLoader(
+                            urls.toArray(new java.net.URL[0]), originalClassLoader);
+            Thread.currentThread().setContextClassLoader(projectClassLoader);
+            List<BeanDefinition> sorted;
+            try {
+                sorted = BuildPipeline.resolve(deployment, List.of()).sorted();
+            } finally {
+                Thread.currentThread().setContextClassLoader(originalClassLoader);
+            }
             // Fail-fast for @Bean products with non-public return types (the generated code
             // references them cross-package); the test-time compiler enforces the same check.
             AotEngine.rejectNonPublicProducts(deployment, sorted);
