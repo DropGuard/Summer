@@ -120,7 +120,6 @@
                                 <goal>jandex</goal>
                             </goals>
                             <configuration>
-                                <classesDir>${project.build.outputDirectory}</classesDir>
                                 <indexDir>${project.build.outputDirectory}/META-INF</indexDir>
                                 <indexName>jandex.idx</indexName>
                                 <processDefaultFileSet>true</processDefaultFileSet>
