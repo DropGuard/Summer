@@ -193,3 +193,24 @@ Three tiers, from highest to lowest level:
 - DTO records use `@jakarta.validation.constraints.NotBlank`, `@Email`, etc.
 - All three demos (issue-tracker, realworld, twitter) are migrated to this pattern.
 
+
+## RELEASE PROCESS
+
+Summer uses the `maven-release-plugin` for automated versioning and tagging.
+During development, the version should always be a `-SNAPSHOT` (e.g., `0.3.0-SNAPSHOT` or `999-SNAPSHOT`).
+
+Do **NOT** manually edit `<version>` tags or use `mvn versions:set` to set a hardcoded release version (e.g., `0.2.0`).
+
+To release a new version:
+```bash
+# 1. Prepare the release (removes SNAPSHOT, commits, tags, bumps to next SNAPSHOT)
+mvn release:prepare
+
+# 2. Perform the release (builds and deploys to Maven Central via CI/CD)
+mvn release:perform
+```
+If the project is stuck on a hardcoded version (e.g., `0.2.0`), restore it to the SNAPSHOT track first:
+```bash
+mvn versions:set -DnewVersion=0.3.0-SNAPSHOT
+mvn versions:commit
+```

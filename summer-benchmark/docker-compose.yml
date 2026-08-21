@@ -3,7 +3,7 @@ services:
     image: eclipse-temurin:26-jre-alpine
     command: java --enable-preview -XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:+AlwaysPreTouch -jar /app/spring-boot-baseline-1.0.0-SNAPSHOT.jar
     volumes:
-      - ./benchmark-spring-boot/target:/app
+      - ./baseline-spring-boot/target:/app
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/_system/health > /dev/null"]
       interval: 3s
@@ -38,9 +38,9 @@ services:
 
   summer:
     image: eclipse-temurin:26-jre-alpine
-    command: java --enable-preview -XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:+AlwaysPreTouch -jar /app/benchmark-summer-0.1.0.jar
+    command: java --enable-preview -XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:+AlwaysPreTouch -jar /app/benchmark-summer-0.2.0.jar
     volumes:
-      - ./benchmark-summer/target:/app
+      - ./target-summer/target:/app
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health/live > /dev/null"]
       interval: 3s
@@ -71,4 +71,109 @@ services:
       - summer
     depends_on:
       summer:
+        condition: service_healthy
+
+  gin:
+    build:
+      context: ./baseline-gin
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health/live > /dev/null"]
+      interval: 3s
+      timeout: 2s
+      retries: 15
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 512M
+    profiles:
+      - gin
+
+  k6-gin:
+    image: grafana/k6
+    entrypoint:
+      - sh
+      - -c
+      - |
+        echo 'Warmup...'
+        k6 run -e TARGET_URL=http://gin:8080/users -e VUS=10 -e DURATION=10s /scripts/load-test.js
+        echo 'Benchmark...'
+        k6 run --summary-export=/scripts/summary-gin.json -e TARGET_URL=http://gin:8080/users -e VUS=100 -e DURATION=10s /scripts/load-test.js
+    volumes:
+      - ./k6-scripts:/scripts
+    profiles:
+      - gin
+    depends_on:
+      gin:
+        condition: service_healthy
+
+  nextjs:
+    build:
+      context: ./baseline-nextjs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health/live > /dev/null"]
+      interval: 3s
+      timeout: 2s
+      retries: 15
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 512M
+    profiles:
+      - nextjs
+
+  k6-nextjs:
+    image: grafana/k6
+    entrypoint:
+      - sh
+      - -c
+      - |
+        echo 'Warmup...'
+        k6 run -e TARGET_URL=http://nextjs:3000/api/users -e VUS=10 -e DURATION=10s /scripts/load-test.js
+        echo 'Benchmark...'
+        k6 run --summary-export=/scripts/summary-nextjs.json -e TARGET_URL=http://nextjs:3000/api/users -e VUS=100 -e DURATION=10s /scripts/load-test.js
+    volumes:
+      - ./k6-scripts:/scripts
+    profiles:
+      - nextjs
+    depends_on:
+      nextjs:
+        condition: service_healthy
+
+  fastify:
+    build:
+      context: ./baseline-fastify
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health/live > /dev/null"]
+      interval: 3s
+      timeout: 2s
+      retries: 15
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 512M
+    profiles:
+      - fastify
+
+  k6-fastify:
+    image: grafana/k6
+    entrypoint:
+      - sh
+      - -c
+      - |
+        echo 'Warmup...'
+        k6 run -e TARGET_URL=http://fastify:3000/users -e VUS=10 -e DURATION=10s /scripts/load-test.js
+        echo 'Benchmark...'
+        k6 run --summary-export=/scripts/summary-fastify.json -e TARGET_URL=http://fastify:3000/users -e VUS=100 -e DURATION=10s /scripts/load-test.js
+    volumes:
+      - ./k6-scripts:/scripts
+    profiles:
+      - fastify
+    depends_on:
+      fastify:
         condition: service_healthy

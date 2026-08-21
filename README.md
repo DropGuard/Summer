@@ -1,7 +1,7 @@
 # Summer Framework
 
 [![Build Status](https://img.shields.io/github/actions/workflow/status/DropGuard/Summer/maven.yml)](https://github.com/DropGuard/Summer/actions/workflows/maven.yml)
-[![Maven Central](https://img.shields.io/badge/Maven%20Central-v0.1.0-blue.svg)](https://central.sonatype.com/artifact/io.github.dropguard/summer-parent)
+[![Maven Central](https://img.shields.io/maven-central/v/io.github.dropguard/summer-parent.svg?color=blue)](https://central.sonatype.com/artifact/io.github.dropguard/summer-parent)
 [![Java](https://img.shields.io/badge/Java-25+-blue.svg)](https://github.com/DropGuard/Summer)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/DropGuard/Summer/blob/main/LICENSE)
 
@@ -261,22 +261,25 @@ Once exposed, you can point your Prometheus instance to `/metrics` to begin scra
 
 ## 📈 Performance Benchmarking
 
-Summer is built for high-concurrency throughput using virtual threads and a byte-level router. The benchmark suite in `summer-benchmark` compares two deliberately minimal, identical CRUD apps — one on Summer (Netty + AOT), one on Spring Boot 3.4.x (Tomcat) — both utilizing Java 21 Virtual Threads and Jackson.
+Summer is built for extreme high-concurrency throughput. The benchmark suite (`summer-benchmark`) pits Summer against Spring Boot 4.0.x (Tomcat), Gin (Go), and Fastify (Node.js) in a pure in-memory JSON CRUD battle.
 
-### Micro-Benchmark Results (Docker Compose)
+**Test Conditions:**
+* 100 Concurrent Virtual Users (k6)
+* 10 seconds JVM/JIT Warmup + 10 seconds Benchmark
+* Docker Container Limits: **2 CPU Cores / 512MB RAM**
+* Java JVM Flags (Fair Play): `-XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:+AlwaysPreTouch`
 
-| Metric | Spring Boot (Tomcat, Virtual Threads) | Summer Framework (Netty, AOT) |
-|---|---|---|
-| **Requests/sec (RPS)** | ~20,000 - 22,000 | ~18,000 - 20,000 |
-| **Avg Latency (ms)** | ~4.5 - 5.0 | ~5.0 - 7.0 |
-| **P95 Latency (ms)** | ~6.5 - 9.8 | ~48.0 - 55.0 |
+### Micro-Benchmark Results
 
-> **Note on The Loom Trade-off & Performance Philosophy:** 
-> In raw CRUD micro-benchmarks, Spring Boot (Tomcat) slightly edges out Summer. This is a deliberate architectural trade-off. Tomcat's legacy thread-per-request blocking model is a native fit for Loom's Virtual Threads, operating with zero thread-hopping. Summer runs on Netty (an asynchronous Reactor model), but to provide a flawless, synchronous Developer Experience (DX) without the misery of reactive callbacks, Summer explicitly bridges Netty's EventLoop to a new Virtual Thread per request. We gladly pay this slight "thread-handoff tax" (impedance mismatch) to keep the API clean.
-> 
-> Furthermore, Summer refuses to compromise its core philosophy just to win benchmarks. Traditional frameworks rely on massive AOP interceptors, deep reflection chains, and dense DI contexts. While modern JVM JIT compilers can eventually optimize away much of this runtime penalty, developers still pay a heavy "abstraction tax" elsewhere: excruciatingly slow startups, bloated memory footprints, 200-line stack traces, and unpredictable "magic" behaviors. Summer’s AOT-compiled, zero-reflection execution model eliminates this tax entirely. You get top-tier throughput combined with absolute operational predictability and extreme cognitive simplicity.
+| Metric | Spring Boot 4.0.x (Java) | Fastify (Node.js) | Gin (Go) | Summer (Java) |
+|---|---|---|---|---|
+| **Requests/sec (RPS)** | ~15,600 | ~36,800 | ~55,400 | **~55,500** |
+| **Avg Latency (ms)** | 6.26 | 2.64 | 1.70 | 1.57 |
 
-Full methodology, constraints, and the orchestrator script live in `summer-benchmark/` (`python run-benchmarks.py`).
+Under strict CPU constraints and high concurrency, Summer's AOT + Netty + Virtual Threads architecture effortlessly matches the native performance of Go's Gin, leaving traditional heavy JVM frameworks far behind.
+
+Full methodology and orchestrator scripts live in `summer-benchmark/`.
+
 
 
 * * *

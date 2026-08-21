@@ -102,6 +102,7 @@ public final class SummerApplication {
     }
 
     private BeanContainer doStart(String[] args) throws Exception {
+        long startTime = System.currentTimeMillis();
         // The ordered list of middleware classes declared via apply(...) is passed
         // as a boot-time external bean (keyed by the plain List type) so the web
         // server runner can apply them in declaration order. Middleware beans
@@ -166,7 +167,11 @@ public final class SummerApplication {
                                     }
                                 }));
 
-        log.info("Summer application started.");
+        long elapsed = System.currentTimeMillis() - startTime;
+        log.info(
+                "Started Summer application in {} ms (JVM uptime: {} ms).",
+                elapsed,
+                java.lang.management.ManagementFactory.getRuntimeMXBean().getUptime());
         return context;
     }
 }

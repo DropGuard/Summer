@@ -55,21 +55,29 @@ public final class DiEngine {
      *     {@code SummerApplication.apply(...)}); never exposed to tests
      */
     public static BeanContainer create(Engine engine, Object... externalBeans) {
+        long startTime = System.currentTimeMillis();
+        BeanContainer container;
         if (engine == Engine.AOT) {
             log.info("[Summer] Building container via AOT engine");
-            return invokeBuild(
-                    AOT_CLASS,
-                    ErrorCode.CONFIG_AOT_CONTEXT_NOT_FOUND,
-                    "AOT Context missing. Please ensure 'summer-maven-plugin' is configured for"
-                            + " production builds.",
-                    externalBeans);
+            container =
+                    invokeBuild(
+                            AOT_CLASS,
+                            ErrorCode.CONFIG_AOT_CONTEXT_NOT_FOUND,
+                            "AOT Context missing. Please ensure 'summer-maven-plugin' is configured"
+                                    + " for production builds.",
+                            externalBeans);
+        } else {
+            log.info("[Summer] Building container via RUNTIME engine");
+            container =
+                    invokeBuild(
+                            RUNTIME_CLASS,
+                            ErrorCode.CONFIG_RUNTIME_NOT_ON_CLASSPATH,
+                            "Runtime engine not found: " + RUNTIME_CLASS,
+                            externalBeans);
         }
-        log.info("[Summer] Building container via RUNTIME engine");
-        return invokeBuild(
-                RUNTIME_CLASS,
-                ErrorCode.CONFIG_RUNTIME_NOT_ON_CLASSPATH,
-                "Runtime engine not found: " + RUNTIME_CLASS,
-                externalBeans);
+        long elapsed = System.currentTimeMillis() - startTime;
+        log.info("[Summer] Built {} container in {} ms", engine, elapsed);
+        return container;
     }
 
     /**

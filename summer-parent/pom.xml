@@ -76,7 +76,7 @@
           <version>. Demo projects and the reactor both set this; when the reactor
           advances this property the demos follow without touching their own <version>.
         -->
-        <summer.framework.version>0.1.0</summer.framework.version>
+        <summer.framework.version>0.2.0</summer.framework.version>
     </properties>
 
     <build>

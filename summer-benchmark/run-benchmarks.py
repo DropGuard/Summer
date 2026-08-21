@@ -1,7 +1,6 @@
 import sys
 import subprocess
 from pathlib import Path
-import time
 
 ROOT_DIR = Path(__file__).resolve().parent
 
@@ -23,14 +22,9 @@ def bench(profile):
     print(f"\n========================================")
     print(f" Running Benchmark Profile: {profile}")
     print(f"========================================")
-    
-    # 1. Start containers and run benchmark (k6 container will abort-on-container-exit)
     run(f"docker compose --profile {profile} up --build --abort-on-container-exit", cwd=ROOT_DIR)
-    
-    # 2. Teardown
     run(f"docker compose --profile {profile} down --remove-orphans", cwd=ROOT_DIR)
     
-    # 3. Verify results exist
     summary_file = ROOT_DIR / 'k6-scripts' / f'summary-{profile}.json'
     if not summary_file.exists():
         print(f"Benchmark failed: {summary_file} not generated")
@@ -43,6 +37,8 @@ def main():
     
     bench('spring-boot')
     bench('summer')
+    bench('gin')
+    bench('nextjs')
 
     print("\nAll benchmarks finished. Generating comparison report...")
     run("python compare-benchmarks.py", cwd=ROOT_DIR)

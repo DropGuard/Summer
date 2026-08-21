@@ -24,7 +24,7 @@
     <name>Summer Benchmark</name>
 
     <modules>
-        <module>benchmark-spring-boot</module>
-        <module>benchmark-summer</module>
+        <module>baseline-spring-boot</module>
+        <module>target-summer</module>
     </modules>
 </project>
