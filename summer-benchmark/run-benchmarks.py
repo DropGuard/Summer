@@ -16,7 +16,7 @@ def build_projects():
     print("========================================")
     print(" Compiling Benchmark Projects")
     print("========================================")
-    run("make build", cwd=ROOT_DIR.parent)
+    run("make install", cwd=ROOT_DIR.parent)
     print("Compilation successful.\n")
 
 def bench(profile):
