@@ -110,7 +110,6 @@ public class UserServiceImpl implements UserService {
         this.repository = repository;
     }
     
-    @Transactional
     @Override
     public User getUser(String id) {
         return repository.findById(id);
@@ -152,7 +151,6 @@ public class UserController {
 public class GlobalErrorHandler {
     @ExceptionHandler(UserNotFoundException.class)
     public void handleNotFound(UserNotFoundException e, HttpContext ctx) {
-        ctx.status(HttpStatus.NOT_FOUND);
         ctx.json(HttpStatus.NOT_FOUND, new ErrorResponse("Not Found", e.getMessage()));
     }
 }
@@ -161,8 +159,7 @@ public class GlobalErrorHandler {
 For a fully working, runnable sample—featuring domain models, nested repositories, and database transaction management—run one of the demo applications bundled within this repository (`summer-twitter` showcase, `summer-realworld`, or `summer-issue-tracker`):
 
 ```bash
-cd samples/summer-twitter
-mvn exec:java -Dexec.mainClass="com.github.dropguard.summer.twitter.Application"
+mvn -f samples/summer-twitter/pom.xml exec:java
 ```
 
 * * *
@@ -254,7 +251,7 @@ Summer intentionally enforces strict architectural constraints. If something req
 1. **Clarity over convenience.** (No hidden initialization phases).
 2. **Constructor injection only.** Fail-fast on ambiguity. No circular dependency resolution.
 3. **Interface-first AOP (JDK dynamic proxy).** No subclass-based proxying (CGLIB).
-4. **Stateless by default, Context by necessity.** All components (`@Component`) are instantiated as singletons. Request state flows explicitly as method arguments (`HttpContext`). However, for cross-cutting infrastructural state like Database Transactions, Summer leverages Java 21's `ScopedValue` API (JEP 446) running on ephemeral Virtual Threads to prevent method signature pollution without the memory leak risks of `ThreadLocal`.
+4. **Stateless by default, Context by necessity.** All components (`@Component`) are instantiated as singletons. Request state flows explicitly as method arguments (`HttpContext`). However, for cross-cutting infrastructural state like Database Transactions, Summer leverages the `ScopedValue` API running on ephemeral Virtual Threads to prevent method signature pollution without the memory leak risks of `ThreadLocal`.
 5. **Composition over Inheritance.** Small interfaces are preferred over abstract base classes. Summer avoids deep inheritance hierarchies.
 6. **Minimal feature surface.** Summer core is intentionally minimal and does not bundle validation or security. Validation is provided via optional modules.
 7. **Code as Configuration / Code as Documentation.** Summer avoids externalizing every possible tweak into YAML or JSON. Moving all runtime logic into configuration files fragments the application's intent and makes it harder to trace. Instead, Summer encourages utilizing fluent builders and explicit code to configure server parameters (like timeouts). This keeps logic cohesive and ensures that the configuration is as readable and version-controlled as the rest of the application.
@@ -433,6 +430,6 @@ Summer was not built in a vacuum. It stands on the shoulders of giants and is de
 
 * **Spring Framework**: For defining what modern Java enterprise development looks like. The elegant annotation-driven programming model (Inversion of Control, AOP, `@Component`) that Java developers know and love was mainstreamed by Spring. Summer proudly adopts this familiar developer experience while replacing its heavy runtime reflection with compile-time AOT.
 * **Gin (Go)**: For proving that a micro-framework doesn't need to be massive to be powerful. Gin's philosophy of explicit routing, minimal overhead, and straightforward developer experience heavily inspired Summer's design. Summer is, in many ways, an attempt to write Go-like Web APIs in modern Java.
-* **Micronaut & Quarkus**: For pioneering the Ahead-of-Time (AOT) compilation and reflection-free DI movement in the Java ecosystem. They proved that Java doesn't have to be slow to start or memory-hungry. Summer builds upon this movement with its own bespoke, ultra-lightweight AOT engine tailored exclusively for Java 21+ Virtual Threads.
+* **Micronaut & Quarkus**: For pioneering the Ahead-of-Time (AOT) compilation and reflection-free DI movement in the Java ecosystem. They proved that Java doesn't have to be slow to start or memory-hungry. Summer builds upon this movement with its own bespoke, ultra-lightweight AOT engine tailored exclusively for Java Virtual Threads.
 
 > *It is not a Spring replacement. It is not a better Spring. It is a narrower one.*

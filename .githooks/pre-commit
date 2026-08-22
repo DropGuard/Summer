@@ -1,22 +1,16 @@
 #!/bin/sh
 # Summer Framework Pre-Commit Hook
+# Gate: rejects commit if any staged Java file is not Spotless-clean.
+# Developer runs `mvn spotless:apply` manually, then re-stages.
 
-echo "[Summer Pre-Commit] 🔍 Running Spotless code formatting..."
+echo "[Summer Pre-Commit] Checking code formatting..."
 
-# Run Spotless (only formats, does not stage)
-if ! mvn spotless:apply; then
-    echo "[Summer Pre-Commit] ❌ Spotless formatting failed. Commit aborted."
+if ! mvn spotless:check -q; then
+    echo ""
+    echo "[Summer Pre-Commit] Formatting violations detected."
+    echo "  Run:  mvn spotless:apply"
+    echo "  Then: git add the reformatted files and commit again."
     exit 1
 fi
 
-# Find all Java files that are currently staged and re-add them in case Spotless modified them
-STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.java$')
-if [ -n "$STAGED_FILES" ]; then
-    for FILE in $STAGED_FILES; do
-        if [ -f "$FILE" ]; then
-            git add "$FILE"
-        fi
-    done
-fi
-
-echo "[Summer Pre-Commit] ✅ Formatting complete! Proceeding with commit."
+echo "[Summer Pre-Commit] Formatting OK."

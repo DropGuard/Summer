@@ -100,7 +100,6 @@ Test              summer-test, summer-tck, summer-archunit
 - ~~Catch `Throwable`~~ — catch specific types. Broad `catch (Exception e)` is tolerated but discouraged.
 - ~~Empty catch blocks~~ — at minimum log the exception.
 - ~~`System.out`/`System.err`/`Throwable.printStackTrace()` in framework code~~ (ArchUnit enforced, `LoggingConventionTest`) — route through SLF4J. Sole exception: `SummerApplication`'s startup banner (class-scoped carve-out). Demos/fixtures are out of scope and may print.
-- ~~`@SuppressWarnings("unchecked")`~~ — justify in comment (23 occurrences as of 2026-08-06).
 - ~~Returning null from methods~~ — prefer `Optional` or throw.
 - ~~`Thread.sleep()` for synchronization~~ — use proper coordination.
 
@@ -114,7 +113,7 @@ mvn test -pl summer-core -am -Dtest="ClassName"  # Single test class
 mvn spotless:apply            # Format all Java code
 mvn spotless:check            # Format check (CI gate)
 mvn test -pl summer-archunit  # Architecture tests
-mvn compile exec:java -pl summer-twitter -am  # Run showcase app
+mvn compile exec:java -f samples/summer-twitter/pom.xml  # Run showcase app
 mvn install -DskipTests       # Install all jars locally, skip tests
 ```
 
@@ -198,9 +197,9 @@ Three tiers, from highest to lowest level:
 ## RELEASE PROCESS
 
 Summer uses the `maven-release-plugin` for automated versioning and tagging.
-During development, the version should always be a `-SNAPSHOT` (e.g., `0.3.0-SNAPSHOT` or `999-SNAPSHOT`).
+During development, the version should always be a `-SNAPSHOT` (e.g., `0.3.1-SNAPSHOT` or `999-SNAPSHOT`).
 
-Do **NOT** manually edit `<version>` tags or use `mvn versions:set` to set a hardcoded release version (e.g., `0.2.0`).
+Do **NOT** manually edit `<version>` tags or use `mvn versions:set` to set a hardcoded release version (e.g., `0.3.0`).
 
 To release a new version:
 ```bash
@@ -210,8 +209,8 @@ mvn release:prepare
 # 2. Perform the release (builds and deploys to Maven Central via CI/CD)
 mvn release:perform
 ```
-If the project is stuck on a hardcoded version (e.g., `0.2.0`), restore it to the SNAPSHOT track first:
+If the project is stuck on a hardcoded version (e.g., `0.3.0`), restore it to the SNAPSHOT track first:
 ```bash
-mvn versions:set -DnewVersion=0.3.0-SNAPSHOT
+mvn versions:set -DnewVersion=0.3.1-SNAPSHOT
 mvn versions:commit
 ```
