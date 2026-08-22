@@ -68,6 +68,7 @@
         <module>summer-web-netty</module>
         <module>summer-web-middleware</module>
         <module>summer-web-websocket</module>
+        <module>summer-web-avaje-jsonb</module>
         <module>summer-boot</module>
         <module>summer-aop</module>
         <module>summer-tx</module>

@@ -21,6 +21,7 @@
         <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-web-netty</artifactId></dependency>
         <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-web-middleware</artifactId></dependency>
         <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-web-websocket</artifactId></dependency>
+        <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-web-avaje-jsonb</artifactId></dependency>
         <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-boot</artifactId></dependency>
         <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-aop</artifactId></dependency>
         <dependency><groupId>io.github.dropguard</groupId><artifactId>summer-tx</artifactId></dependency>
