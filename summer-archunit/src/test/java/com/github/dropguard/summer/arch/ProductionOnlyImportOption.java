@@ -11,6 +11,7 @@ public class ProductionOnlyImportOption implements ImportOption {
                 && !path.contains("/summer-realworld/")
                 && !path.contains("/summer-twitter/")
                 && !path.contains("/summer-issue-tracker/")
+                && !path.contains("/samples/")
                 && !path.contains("/summer-benchmark/")
                 && !path.contains("/summer-archunit-clean/"); // just in case
     }

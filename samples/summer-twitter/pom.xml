@@ -12,21 +12,20 @@
       parent is NOT part of the framework reactor.
     -->
     <parent>
-        <groupId>io.github.dropguard</groupId>
-        <artifactId>summer-build-parent</artifactId>
+        <groupId>com.github.dropguard.summer.samples</groupId>
+        <artifactId>summer-samples</artifactId>
         <version>0.3.0</version>
-        <relativePath/>
     </parent>
 
-    <groupId>com.github.dropguard.summer.realworld</groupId>
-    <artifactId>summer-realworld</artifactId>
+    <groupId>com.github.dropguard.summer.twitter</groupId>
+    <artifactId>summer-twitter</artifactId>
     <version>0.3.0</version>
     <packaging>jar</packaging>
-    <name>Summer RealWorld</name>
-    <description>RealWorld example application demonstrating the Summer framework</description>
+    <name>Summer Twitter</name>
+    <description>Summer Framework showcase application: A micro Twitter clone</description>
 
     <dependencies>
-        <!-- Summer starters: core pulled in transitively; web + JDBC persistence. -->
+        <!-- Summer starters: core is pulled in transitively by each. -->
         <dependency>
             <groupId>io.github.dropguard</groupId>
             <artifactId>summer-boot-starter-web</artifactId>
@@ -37,18 +36,23 @@
             <artifactId>summer-boot-starter-data-jdbc</artifactId>
             <type>pom</type>
         </dependency>
-
-        <!-- runtime: supplies the @ConfigMapping interface binder used by tests that bind
-             config interfaces via ConfigBinder (interface binding lives only in runtime). -->
-        <!-- summer-runtime must NOT be declared test-scoped here: the direct test dep would
-             override the compile-scoped transitive dep (starter → boot → runtime), stripping
-             the DI engine from the production classpath and breaking the shaded jar. -->
         <dependency>
             <groupId>io.github.dropguard</groupId>
-            <artifactId>summer-runtime</artifactId>
+            <artifactId>summer-boot-starter-data-redis</artifactId>
+            <type>pom</type>
+        </dependency>
+        <dependency>
+            <groupId>io.github.dropguard</groupId>
+            <artifactId>summer-boot-starter-websocket</artifactId>
+            <type>pom</type>
+        </dependency>
+        <dependency>
+            <groupId>io.github.dropguard</groupId>
+            <artifactId>summer-boot-starter-grpc</artifactId>
+            <type>pom</type>
         </dependency>
 
-        <!-- PostgreSQL database (realworld persists to Postgres) -->
+        <!-- PostgreSQL Database -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
@@ -81,20 +85,15 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Testing: summer-test transitively supplies JUnit, Mockito, and the runtime
-             interface binder, so they are not declared here. -->
+        <!-- Testing -->
         <dependency>
-            <groupId>io.github.dropguard</groupId>
-            <artifactId>summer-test</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- Real-database integration tests: Postgres via Testcontainers, managed by the
-             framework-owned PostgresTestResource (@TestResource). Versions ride the BOM
-             (summer-build-parent imports summer-dependencies); only postgresql is pinned
-             as a driver by the twitter convention. -->
         <dependency>
-            <groupId>io.github.dropguard</groupId>
-            <artifactId>summer-test-db</artifactId>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -102,27 +101,25 @@
             <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- The user-facing test entry: one dependency for the @SummerTest infrastructure, the
+             database test resources, and the transitives (testcontainers for the demo's own
+             containers). The demo consumes the framework the way a real user does. -->
         <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <version>42.7.3</version>
+            <groupId>io.github.dropguard</groupId>
+            <artifactId>summer-test-starter</artifactId>
+            <type>pom</type>
             <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
-        <finalName>summer-realworld</finalName>
+        <finalName>summer-twitter</finalName>
         <plugins>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>com.github.dropguard.summer.realworld.Application</mainClass>
+                    <mainClass>com.github.dropguard.summer.twitter.Application</mainClass>
                 </configuration>
             </plugin>
             <plugin>
@@ -138,13 +135,20 @@
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.github.dropguard.summer.realworld.Application</mainClass>
+                                    <mainClass>com.github.dropguard.summer.twitter.Application</mainClass>
                                 </transformer>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <!-- IT-bearing: zero executed tests fails the build (the silent-skip guard). -->
+                    <failIfNoTests>true</failIfNoTests>
+                </configuration>
             </plugin>
         </plugins>
     </build>

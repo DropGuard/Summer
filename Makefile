@@ -46,7 +46,7 @@ run:
 	mvn compile exec:java -pl summer-example -am
 
 realworld:
-	mvn compile exec:java -f summer-realworld/pom.xml
+	mvn compile exec:java -f samples/summer-realworld/pom.xml
 
 benchmark:
 	python summer-benchmark/run-benchmarks.py

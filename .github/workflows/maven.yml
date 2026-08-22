@@ -41,13 +41,7 @@ jobs:
       # declaration silently skipped every IT).
       run: mvn clean install --batch-mode
 
-    - name: Build and integration-test AOT demos (summer-realworld, summer-twitter)
-      # Both demos bind summer-maven-plugin: this proves the plugin generates + compiles the
-      # AOT context for a full-stack app (realworld: web + jdbc; twitter: + redis + grpc +
-      # websocket) and flips application.yml to aot. verify (not package -DskipTests): the demos
-      # are NOT in the root reactor, so their failsafe ITs only run here — the old -DskipTests
-      # silently skipped every demo IT (the app-level E2E never executed).
-      run: |
-        mvn -f summer-realworld/pom.xml verify --batch-mode
-        mvn -f summer-twitter/pom.xml verify --batch-mode
-        mvn -f summer-issue-tracker/pom.xml verify --batch-mode
+    - name: Build and integration-test AOT demos (samples aggregator)
+      # Demos bind summer-maven-plugin: this proves the plugin generates + compiles the
+      # AOT context for full-stack apps and flips application.yml to aot.
+      run: mvn -f samples/pom.xml verify --batch-mode

@@ -30,9 +30,10 @@ summer-framework/
 ├── summer-tck-fixtures/   # Shared test fixtures
 ├── summer-tck-invisible-fixtures/  # Whole-universe-invisible narrow fixtures (no jandex.idx)
 ├── summer-archunit/       # Architecture constraint tests
-├── summer-realworld/      # RealWorld clone (hurl e2e)
-├── summer-issue-tracker/  # Issue tracker demo (PG)
-├── summer-twitter/        # Twitter clone (PG + Redis)
+├── samples/               # Demo applications aggregator
+│   ├── summer-realworld/      # RealWorld clone (hurl e2e)
+│   ├── summer-issue-tracker/  # Issue tracker demo (PG)
+│   └── summer-twitter/        # Twitter clone (PG + Redis)
 └── summer-benchmark/      # k6 load tests (Summer vs Spring Boot)
 ```
 
@@ -53,8 +54,8 @@ summer-framework/
 | Test container builder | `summer-test/.../test/TestContainer.java` |
 | Dual-engine TCK tests | `summer-tck/src/test/java/com/github/dropguard/summer/tck/` |
 | Architecture rules | `summer-archunit/src/test/java/com/github/dropguard/summer/arch/` |
-| Showcase app | `summer-twitter/src/main/java/com/github/dropguard/summer/twitter/` |
-| RealWorld app | `summer-realworld/src/main/java/com/github/dropguard/summer/realworld/` |
+| Showcase app | `samples/summer-twitter/src/main/java/com/github/dropguard/summer/twitter/` |
+| RealWorld app | `samples/summer-realworld/src/main/java/com/github/dropguard/summer/realworld/` |
 
 ## LAYERS & ACCESS RULES
 

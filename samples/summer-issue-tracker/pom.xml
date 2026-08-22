@@ -13,10 +13,9 @@
       change can never silently break (or mask) the demo.
     -->
     <parent>
-        <groupId>io.github.dropguard</groupId>
-        <artifactId>summer-build-parent</artifactId>
+        <groupId>com.github.dropguard.summer.samples</groupId>
+        <artifactId>summer-samples</artifactId>
         <version>0.3.0</version>
-        <relativePath/>
     </parent>
 
     <dependencyManagement>

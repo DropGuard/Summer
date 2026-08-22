@@ -467,7 +467,7 @@ public class GlobalErrorHandler {
 For a fully working, runnable sample—featuring domain models, nested repositories, and database transaction management—run one of the demo applications bundled within this repository (`summer-twitter` showcase, `summer-realworld`, or `summer-issue-tracker`):
 
 ```bash
-cd summer-twitter
+cd samples/summer-twitter
 mvn exec:java -Dexec.mainClass="com.github.dropguard.summer.twitter.Application"
 ```
 
