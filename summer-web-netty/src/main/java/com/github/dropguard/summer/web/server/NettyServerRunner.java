@@ -44,6 +44,7 @@ public class NettyServerRunner implements ApplicationRunner {
     private final RouterRegistry routerRegistry;
     private final ServerConfig config;
     private final ShutdownConfig shutdownConfig;
+    private final com.github.dropguard.summer.web.BodyConverter bodyConverter;
     private NettyHttpServer runningServer;
     // Port is a property of THIS server instance, not JVM-global state. Each
     // container owns its own runner, so the bound port is read through the
@@ -52,10 +53,14 @@ public class NettyServerRunner implements ApplicationRunner {
     private int actualPort = -1;
 
     public NettyServerRunner(
-            RouterRegistry routerRegistry, ServerConfig config, ShutdownConfig shutdownConfig) {
+            RouterRegistry routerRegistry,
+            ServerConfig config,
+            ShutdownConfig shutdownConfig,
+            com.github.dropguard.summer.web.BodyConverter bodyConverter) {
         this.routerRegistry = routerRegistry;
         this.config = config;
         this.shutdownConfig = shutdownConfig;
+        this.bodyConverter = bodyConverter;
     }
 
     @Override
@@ -74,7 +79,8 @@ public class NettyServerRunner implements ApplicationRunner {
                         httpRouter,
                         wsRouter,
                         exceptionRegistry,
-                        globalMiddlewares);
+                        globalMiddlewares,
+                        bodyConverter);
         runningServer.start();
         this.actualPort = runningServer.getPort();
 

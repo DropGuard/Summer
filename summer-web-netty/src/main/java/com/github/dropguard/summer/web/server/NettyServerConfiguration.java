@@ -4,6 +4,7 @@ import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.annotation.Bean;
 import com.github.dropguard.summer.core.annotation.Configuration;
 import com.github.dropguard.summer.core.config.ShutdownConfig;
+import com.github.dropguard.summer.web.BodyConverter;
 import com.github.dropguard.summer.web.RouterRegistry;
 import com.github.dropguard.summer.web.ServerConfig;
 
@@ -18,8 +19,11 @@ public class NettyServerConfiguration {
 
     @Bean
     public NettyServerRunner nettyServerRunner(
-            RouterRegistry routerRegistry, ServerConfig config, ShutdownConfig shutdownConfig) {
-        return new NettyServerRunner(routerRegistry, config, shutdownConfig);
+            RouterRegistry routerRegistry,
+            ServerConfig config,
+            ShutdownConfig shutdownConfig,
+            BodyConverter bodyConverter) {
+        return new NettyServerRunner(routerRegistry, config, shutdownConfig, bodyConverter);
     }
 
     @Bean

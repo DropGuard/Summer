@@ -46,7 +46,7 @@ class RadixTrieTest {
         RadixTrie<String> trie = new RadixTrie<>();
         trie.insert("/users", "user-list");
 
-        RadixTrie.MatchResult<String> result = trie.match("/users".getBytes());
+        RadixTrie.MatchResult<String> result = trie.match("/users");
         assertNotNull(result);
         assertEquals("user-list", result.handler());
         assertTrue(result.params().isEmpty());
@@ -57,7 +57,7 @@ class RadixTrieTest {
         RadixTrie<String> trie = new RadixTrie<>();
         trie.insert("/api/v1/users", "v1-users");
 
-        RadixTrie.MatchResult<String> result = trie.match("/api/v1/users".getBytes());
+        RadixTrie.MatchResult<String> result = trie.match("/api/v1/users");
         assertNotNull(result);
         assertEquals("v1-users", result.handler());
     }
@@ -67,7 +67,7 @@ class RadixTrieTest {
         RadixTrie<String> trie = new RadixTrie<>();
         trie.insert("/users", "user-list");
 
-        assertNull(trie.match("/posts".getBytes()));
+        assertNull(trie.match("/posts"));
     }
 
     // --- Path parameters ---
@@ -77,7 +77,7 @@ class RadixTrieTest {
         RadixTrie<String> trie = new RadixTrie<>();
         trie.insert("/users/{id}", "user-detail");
 
-        RadixTrie.MatchResult<String> result = trie.match("/users/42".getBytes());
+        RadixTrie.MatchResult<String> result = trie.match("/users/42");
         assertNotNull(result);
         assertEquals("user-detail", result.handler());
         assertEquals("42", result.params().get("id"));
@@ -88,7 +88,7 @@ class RadixTrieTest {
         RadixTrie<String> trie = new RadixTrie<>();
         trie.insert("/users/{userId}/posts/{postId}", "user-post");
 
-        RadixTrie.MatchResult<String> result = trie.match("/users/10/posts/20".getBytes());
+        RadixTrie.MatchResult<String> result = trie.match("/users/10/posts/20");
         assertNotNull(result);
         assertEquals("user-post", result.handler());
         assertEquals("10", result.params().get("userId"));
@@ -100,7 +100,7 @@ class RadixTrieTest {
         RadixTrie<String> trie = new RadixTrie<>();
         trie.insert("/{tenant}/users", "tenant-users");
 
-        RadixTrie.MatchResult<String> result = trie.match("/acme/users".getBytes());
+        RadixTrie.MatchResult<String> result = trie.match("/acme/users");
         assertNotNull(result);
         assertEquals("tenant-users", result.handler());
         assertEquals("acme", result.params().get("tenant"));
@@ -111,7 +111,7 @@ class RadixTrieTest {
         RadixTrie<String> trie = new RadixTrie<>();
         trie.insert("/files/{name}", "file-detail");
 
-        RadixTrie.MatchResult<String> result = trie.match("/files/report.pdf".getBytes());
+        RadixTrie.MatchResult<String> result = trie.match("/files/report.pdf");
         assertNotNull(result);
         assertEquals("file-detail", result.handler());
         assertEquals("report.pdf", result.params().get("name"));
@@ -124,7 +124,7 @@ class RadixTrieTest {
         RadixTrie<String> trie = new RadixTrie<>();
         trie.insert("/files/*", "any-file");
 
-        RadixTrie.MatchResult<String> result = trie.match("/files/report.pdf".getBytes());
+        RadixTrie.MatchResult<String> result = trie.match("/files/report.pdf");
         assertNotNull(result);
         assertEquals("any-file", result.handler());
     }
@@ -134,7 +134,7 @@ class RadixTrieTest {
         RadixTrie<String> trie = new RadixTrie<>();
         trie.insert("/static/**", "static-files");
 
-        RadixTrie.MatchResult<String> result = trie.match("/static/css/style.css".getBytes());
+        RadixTrie.MatchResult<String> result = trie.match("/static/css/style.css");
         assertNotNull(result);
         assertEquals("static-files", result.handler());
     }
@@ -144,7 +144,7 @@ class RadixTrieTest {
         RadixTrie<String> trie = new RadixTrie<>();
         trie.insert("/**", "catch-all");
 
-        RadixTrie.MatchResult<String> result = trie.match("/anything/at/all".getBytes());
+        RadixTrie.MatchResult<String> result = trie.match("/anything/at/all");
         assertNotNull(result);
         assertEquals("catch-all", result.handler());
     }
@@ -156,7 +156,7 @@ class RadixTrieTest {
         RadixTrie<String> trie = new RadixTrie<>();
         trie.insert("/", "root");
 
-        RadixTrie.MatchResult<String> result = trie.match("/".getBytes());
+        RadixTrie.MatchResult<String> result = trie.match("/");
         assertNotNull(result);
         assertEquals("root", result.handler());
         assertTrue(result.params().isEmpty());
@@ -167,7 +167,7 @@ class RadixTrieTest {
         RadixTrie<String> trie = new RadixTrie<>();
         trie.insert("/", "root");
 
-        RadixTrie.MatchResult<String> result = trie.match(new byte[0]);
+        RadixTrie.MatchResult<String> result = trie.match("");
         assertNotNull(result);
         assertEquals("root", result.handler());
     }
@@ -187,7 +187,7 @@ class RadixTrieTest {
         RadixTrie<String> trie = new RadixTrie<>();
         trie.insert("/users", "user-list");
 
-        assertNull(trie.match("/".getBytes()));
+        assertNull(trie.match("/"));
     }
 
     // --- Priority (static > param > wildcard) ---
@@ -198,7 +198,7 @@ class RadixTrieTest {
         trie.insert("/users/me", "current-user");
         trie.insert("/users/{id}", "user-by-id");
 
-        RadixTrie.MatchResult<String> result = trie.match("/users/me".getBytes());
+        RadixTrie.MatchResult<String> result = trie.match("/users/me");
         assertNotNull(result);
         assertEquals("current-user", result.handler());
     }
@@ -209,7 +209,7 @@ class RadixTrieTest {
         trie.insert("/users/{id}", "user-by-id");
         trie.insert("/users/*", "any-user");
 
-        RadixTrie.MatchResult<String> result = trie.match("/users/42".getBytes());
+        RadixTrie.MatchResult<String> result = trie.match("/users/42");
         assertNotNull(result);
         assertEquals("user-by-id", result.handler());
         assertEquals("42", result.params().get("id"));
@@ -235,10 +235,10 @@ class RadixTrieTest {
         trie.insert("/posts", "post-list");
         trie.insert("/posts/{id}", "post-detail");
 
-        assertEquals("user-list", trie.match("/users".getBytes()).handler());
-        assertEquals("user-detail", trie.match("/users/1".getBytes()).handler());
-        assertEquals("post-list", trie.match("/posts".getBytes()).handler());
-        assertEquals("post-detail", trie.match("/posts/1".getBytes()).handler());
+        assertEquals("user-list", trie.match("/users").handler());
+        assertEquals("user-detail", trie.match("/users/1").handler());
+        assertEquals("post-list", trie.match("/posts").handler());
+        assertEquals("post-detail", trie.match("/posts/1").handler());
     }
 
     @Test
@@ -246,7 +246,7 @@ class RadixTrieTest {
         RadixTrie<String> trie = new RadixTrie<>();
         trie.insert("/a/b/c/d/e", "deep");
 
-        RadixTrie.MatchResult<String> result = trie.match("/a/b/c/d/e".getBytes());
+        RadixTrie.MatchResult<String> result = trie.match("/a/b/c/d/e");
         assertNotNull(result);
         assertEquals("deep", result.handler());
     }
@@ -257,7 +257,7 @@ class RadixTrieTest {
         trie.insert("/users/{id}", "user-detail");
 
         // /users should not match /users/{id}
-        assertNull(trie.match("/users".getBytes()));
+        assertNull(trie.match("/users"));
     }
 
     @Test
@@ -266,7 +266,7 @@ class RadixTrieTest {
         trie.insert("/users", "user-list");
 
         // /users/extra should not match /users
-        assertNull(trie.match("/users/extra".getBytes()));
+        assertNull(trie.match("/users/extra"));
     }
 
     // --- Edge cases (Hardcore tests added) ---
@@ -292,7 +292,7 @@ class RadixTrieTest {
 
         // The path "/api" exactly matches the parent node.
         // Since the parent node has no handler, it should fallback to the ** child.
-        RadixTrie.MatchResult<String> result = trie.match("/api".getBytes());
+        RadixTrie.MatchResult<String> result = trie.match("/api");
         assertNotNull(result);
         assertEquals("api-catch-all", result.handler());
     }
@@ -304,7 +304,7 @@ class RadixTrieTest {
         trie.insert("/api/**", "api-catch-all");
 
         // Should prefer exact handler over catch-all fallback
-        RadixTrie.MatchResult<String> result = trie.match("/api".getBytes());
+        RadixTrie.MatchResult<String> result = trie.match("/api");
         assertNotNull(result);
         assertEquals("api-exact", result.handler());
     }

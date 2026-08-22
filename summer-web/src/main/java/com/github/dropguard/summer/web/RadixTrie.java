@@ -1,14 +1,17 @@
 package com.github.dropguard.summer.web;
 
 import com.github.dropguard.summer.core.Internal;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 /**
  * Generic Radix Tree (Trie) for high-performance path matching.
  *
- * <p>Path segment matching is performed at the byte level to minimize String allocations. Path
- * parameter extraction still requires String creation.
+ * <p>Path segment matching is performed directly on the path String with character-index slices to
+ * eliminate heap allocations during routing.
  *
  * <p>Supports path parameters ({@code {name}}), single-segment wildcards ({@code *}), and
  * multi-segment wildcards ({@code **}).
@@ -36,7 +39,7 @@ import java.util.Map;
 @Internal
 public class RadixTrie<T> {
 
-    private final Node<T> root = new Node<>();
+    private final Node<T> root = new Node<>("");
 
     /**
      * Inserts a handler for the given path pattern.
@@ -60,23 +63,26 @@ public class RadixTrie<T> {
     }
 
     /**
-     * Matches a request path against the trie.
+     * Matches a request path against the trie using character slices (zero allocation).
      *
-     * @param path the raw path bytes
+     * @param path the request path String
      * @return the match result containing handler and path parameters, or null
      */
-    public MatchResult<T> match(byte[] path) {
+    public MatchResult<T> match(String path) {
         if (isRootPath(path)) {
-            return root.handler != null ? new MatchResult<>(root.handler, Map.of()) : null;
+            return root.handler != null
+                    ? new MatchResult<>(root.handler, Collections.emptyMap())
+                    : null;
         }
 
-        Map<String, String> params = new HashMap<>();
-        Node<T> current = matchPath(path, params);
-        if (current == null || current.handler == null) {
+        NodeAndParam<T> result = matchPath(path);
+        if (result.node() == null || result.node().handler == null) {
             return null;
         }
 
-        return new MatchResult<>(current.handler, params);
+        return new MatchResult<>(
+                result.node().handler,
+                result.params() != null ? result.params() : Collections.emptyMap());
     }
 
     private Node<T> findNode(String path) {
@@ -113,12 +119,12 @@ public class RadixTrie<T> {
     private Node<T> navigateSegment(Node<T> current, String segment, String path) {
         if ("**".equals(segment)) {
             if (current.catchAllChild == null) {
-                current.catchAllChild = new Node<>();
+                current.catchAllChild = new Node<>("**");
             }
             return current.catchAllChild;
         } else if ("*".equals(segment)) {
             if (current.wildcardChild == null) {
-                current.wildcardChild = new Node<>();
+                current.wildcardChild = new Node<>("*");
             }
             return current.wildcardChild;
         } else if (segment.startsWith("{") && segment.endsWith("}")) {
@@ -127,17 +133,17 @@ public class RadixTrie<T> {
                 throw new com.github.dropguard.summer.web.exception.RouteConflictException(path);
             }
             if (current.paramChild == null) {
-                current.paramChild = new Node<>();
+                current.paramChild = new Node<>(segment);
                 current.paramName = paramName;
             }
             return current.paramChild;
         } else {
-            return current.staticChildren.computeIfAbsent(segment, k -> new Node<>(k));
+            return current.staticChildren.computeIfAbsent(segment, Node::new);
         }
     }
 
-    private boolean isRootPath(byte[] path) {
-        return path == null || path.length == 0 || (path.length == 1 && path[0] == '/');
+    private boolean isRootPath(String path) {
+        return path == null || path.isEmpty() || "/".equals(path);
     }
 
     /**
@@ -149,31 +155,32 @@ public class RadixTrie<T> {
      * more-specific child (static / param / {@code *}) matches. Because descending into a specific
      * child can later dead-end, we remember the nearest ancestor catch-all (with a handler) as a
      * {@code fallback}; if a segment has no specific child, we backtrack to that fallback (and undo
-     * any path parameter that specific descent bound). This is what keeps the two routers (Radix
-     * and Map) behaviourally identical — e.g. {@code /api/users} beats {@code /api/**}, yet {@code
-     * /api/users/42} still falls through to {@code /api/**}.
+     * any path parameter that specific descent bound).
      */
-    private Node<T> matchPath(byte[] path, Map<String, String> params) {
+    private NodeAndParam<T> matchPath(String path) {
         Node<T> current = root;
         Node<T> fallback = null; // nearest ancestor catch-all whose handler is non-null
+        Map<String, String> params = null;
         int start = 0;
-        for (int i = 0; i <= path.length; i++) {
-            if (i == path.length || path[i] == '/') {
+        int len = path.length();
+        for (int i = 0; i <= len; i++) {
+            if (i == len || path.charAt(i) == '/') {
                 if (i > start) {
                     // A catch-all at the current node (with a handler) is a viable fallback for
                     // any deeper segment that fails to match specifically.
                     if (current.catchAllChild != null && current.catchAllChild.handler != null) {
                         fallback = current.catchAllChild;
                     }
-                    NodeAndParam next = findNext(current, path, start, i, params);
+                    NodeAndParam<T> next = findNext(current, path, start, i, params);
                     if (next.node() == null) {
                         // Dead end on a specific child — undo the parameter this descent bound
                         // and backtrack to the nearest catch-all.
-                        if (next.boundParam() != null) {
+                        if (next.boundParam() != null && params != null) {
                             params.remove(next.boundParam());
                         }
-                        return fallback;
+                        return new NodeAndParam<>(fallback, null, params);
                     }
+                    params = next.params();
                     current = next.node();
                 }
                 start = i + 1;
@@ -182,12 +189,12 @@ public class RadixTrie<T> {
 
         // Path fully consumed by specific segments.
         if (current.handler != null) {
-            return current;
+            return new NodeAndParam<>(current, null, params);
         }
         if (current.catchAllChild != null && current.catchAllChild.handler != null) {
-            return current.catchAllChild;
+            return new NodeAndParam<>(current.catchAllChild, null, params);
         }
-        return fallback;
+        return new NodeAndParam<>(fallback, null, params);
     }
 
     /**
@@ -197,39 +204,34 @@ public class RadixTrie<T> {
      * backtracking to a catch-all.
      */
     private NodeAndParam<T> findNext(
-            Node<T> current, byte[] path, int start, int end, Map<String, String> params) {
-        // Try static children first --linear scan is faster than HashMap for small N
+            Node<T> current, String path, int start, int end, Map<String, String> params) {
+        // Try static children first -- linear scan with zero-allocation regionMatches
         for (Node<T> child : current.staticChildren.values()) {
-            if (bytesEqual(child.nameBytes, path, start, end)) {
-                return new NodeAndParam<>(child, null);
+            if (matchesSegment(child.name, path, start, end)) {
+                return new NodeAndParam<>(child, null, params);
             }
         }
         // Fall back to parameterized child (e.g., {id})
         if (current.paramChild != null) {
-            String raw =
-                    new String(path, start, end - start, java.nio.charset.StandardCharsets.UTF_8);
-            String paramValue =
-                    java.net.URLDecoder.decode(raw, java.nio.charset.StandardCharsets.UTF_8);
+            String raw = path.substring(start, end);
+            String paramValue = URLDecoder.decode(raw, StandardCharsets.UTF_8);
+            if (params == null) {
+                params = new HashMap<>(4);
+            }
             params.put(current.paramName, paramValue);
-            return new NodeAndParam<>(current.paramChild, current.paramName);
+            return new NodeAndParam<>(current.paramChild, current.paramName, params);
         }
         // Fall back to single-segment wildcard (*)
         if (current.wildcardChild != null) {
-            return new NodeAndParam<>(current.wildcardChild, null);
+            return new NodeAndParam<>(current.wildcardChild, null, params);
         }
-        return new NodeAndParam<>(null, null);
+        return new NodeAndParam<>(null, null, params);
     }
 
-    /**
-     * Compares a node's name bytes against a segment of the path bytes. This avoids creating String
-     * objects for comparison.
-     */
-    private boolean bytesEqual(byte[] segment, byte[] path, int start, int end) {
-        if (segment.length != (end - start)) return false;
-        for (int i = 0; i < segment.length; i++) {
-            if (segment[i] != path[start + i]) return false;
-        }
-        return true;
+    /** Compares a node's name against a segment of the path without allocating substrings. */
+    private boolean matchesSegment(String name, String path, int start, int end) {
+        if (name.length() != (end - start)) return false;
+        return path.regionMatches(start, name, 0, name.length());
     }
 
     private String[] tokenize(String path) {
@@ -242,7 +244,7 @@ public class RadixTrie<T> {
     }
 
     private static class Node<T> {
-        final byte[] nameBytes;
+        final String name;
         Map<String, Node<T>> staticChildren = new HashMap<>();
         Node<T> paramChild = null;
         String paramName = null;
@@ -250,12 +252,8 @@ public class RadixTrie<T> {
         Node<T> catchAllChild = null; // ** matches rest of path
         T handler = null;
 
-        Node() {
-            this.nameBytes = new byte[0];
-        }
-
         Node(String name) {
-            this.nameBytes = name.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            this.name = name;
         }
     }
 
@@ -270,11 +268,13 @@ public class RadixTrie<T> {
 
     /**
      * Internal result of {@link #findNext}: the next node (or null on no specific match) plus the
-     * name of the path parameter bound by that descent (or null when no parameter was bound).
+     * name of the path parameter bound by that descent (or null when no parameter was bound) and
+     * the parameter map.
      *
      * @param node the matched child node, or null
      * @param boundParam the parameter name bound during this descent, or null
+     * @param params the lazily-created parameter map
      * @param <T> the handler type
      */
-    private record NodeAndParam<T>(Node<T> node, String boundParam) {}
+    private record NodeAndParam<T>(Node<T> node, String boundParam, Map<String, String> params) {}
 }

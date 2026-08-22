@@ -10,24 +10,19 @@ import org.slf4j.LoggerFactory;
 public class Request {
     private static final Logger log = LoggerFactory.getLogger(Request.class);
 
+    private static final byte[] EMPTY_BODY = new byte[0];
+
     private final HttpMethod method;
     private final String path;
-    private final byte[] rawPathBytes;
     private final String query;
-    private final byte[] body;
+    private byte[] body;
+    private java.util.function.Supplier<byte[]> lazyBody;
     private final String contentType;
     private final Map<String, String> headers;
-    private final Map<String, Object> attributes = new HashMap<>();
+    private Map<String, Object> attributes;
 
     public Request(HttpMethod method, String path, String query, String contentType, byte[] body) {
-        this(
-                method,
-                path,
-                query,
-                contentType,
-                body,
-                new HashMap<>(),
-                path.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        this(method, path, query, contentType, body, null);
     }
 
     public Request(
@@ -36,15 +31,33 @@ public class Request {
             String query,
             String contentType,
             byte[] body,
-            Map<String, String> headers,
-            byte[] rawPathBytes) {
+            Map<String, String> headers) {
         this.method = method;
         this.path = path;
-        this.rawPathBytes = rawPathBytes;
         this.query = query;
-        this.body = body != null ? body : new byte[0];
+        this.body = body != null ? body : EMPTY_BODY;
         this.contentType = contentType;
-        this.headers = headers != null ? headers : new HashMap<>();
+        this.headers = headers != null ? headers : Collections.emptyMap();
+    }
+
+    /**
+     * Lazy-body constructor: the body byte array is not materialized until {@link #getBody()} is
+     * first called. This avoids a per-request heap allocation for HTTP methods that never read the
+     * body (GET, DELETE, HEAD).
+     */
+    public Request(
+            HttpMethod method,
+            String path,
+            String query,
+            String contentType,
+            java.util.function.Supplier<byte[]> lazyBody,
+            Map<String, String> headers) {
+        this.method = method;
+        this.path = path;
+        this.query = query;
+        this.lazyBody = lazyBody;
+        this.contentType = contentType;
+        this.headers = headers != null ? headers : Collections.emptyMap();
     }
 
     public HttpMethod getMethod() {
@@ -55,25 +68,16 @@ public class Request {
         return path;
     }
 
-    /**
-     * The raw (undecoded) request path bytes, for zero-allocation radix-trie matching.
-     *
-     * <p>{@code @Internal}: an engine-level optimization channel used by {@code
-     * RadixTreeHttpRouter} to match against the exact bytes on the wire — the public API surface is
-     * {@link #path()} (decoded {@code String}). Kept public because the router lives in a different
-     * module/package. The returned array is a reference to internal state and must not be mutated.
-     */
-    @com.github.dropguard.summer.core.Internal
-    public byte[] getRawPathBytes() {
-        return rawPathBytes;
-    }
-
     public String getQuery() {
         return query;
     }
 
     public byte[] getBody() {
-        return body;
+        if (body == null && lazyBody != null) {
+            body = lazyBody.get();
+            lazyBody = null; // release the Supplier (and its ByteBuf closure) after first read
+        }
+        return body != null ? body : EMPTY_BODY;
     }
 
     public String getContentType() {
@@ -81,6 +85,13 @@ public class Request {
     }
 
     public String getHeader(String name) {
+        if (name == null) {
+            return null;
+        }
+        String val = headers.get(name);
+        if (val != null) {
+            return val;
+        }
         return headers.get(name.toLowerCase());
     }
 
@@ -116,15 +127,24 @@ public class Request {
     }
 
     public <T> void setAttribute(RequestAttributes.AttributeKey<T> key, T value) {
+        if (attributes == null) {
+            attributes = new HashMap<>(4);
+        }
         attributes.put(key.name(), value);
     }
 
     public void setPathParam(String name, String value) {
+        if (attributes == null) {
+            attributes = new HashMap<>(4);
+        }
         attributes.put(name, value);
     }
 
     @SuppressWarnings("unchecked")
     public <T> T getAttribute(RequestAttributes.AttributeKey<T> key) {
+        if (attributes == null) {
+            return null;
+        }
         Object val = attributes.get(key.name());
         if (val instanceof java.util.function.Supplier<?> supplier) {
             val = supplier.get();
@@ -135,6 +155,9 @@ public class Request {
 
     public <T> void setLazyAttribute(
             RequestAttributes.AttributeKey<T> key, java.util.function.Supplier<T> supplier) {
+        if (attributes == null) {
+            attributes = new HashMap<>(4);
+        }
         attributes.put(key.name(), supplier);
     }
 
@@ -144,7 +167,9 @@ public class Request {
      * unmodifiable wrapper, so callers cannot corrupt internal state.
      */
     public Map<String, Object> getAttributes() {
-        return Collections.unmodifiableMap(attributes);
+        return attributes != null
+                ? Collections.unmodifiableMap(attributes)
+                : Collections.emptyMap();
     }
 
     // Query parameters — lazily parsed and cached
@@ -201,7 +226,11 @@ public class Request {
      * prevent XSS. For JSON responses, Jackson handles escaping automatically.
      */
     public String pathParam(String name) {
-        return (String) attributes.get(name);
+        if (attributes == null) {
+            return null;
+        }
+        Object val = attributes.get(name);
+        return val != null ? val.toString() : null;
     }
 
     /**

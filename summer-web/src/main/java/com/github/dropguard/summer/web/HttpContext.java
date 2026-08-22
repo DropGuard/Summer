@@ -34,22 +34,29 @@ public class HttpContext {
     private static final io.avaje.validation.Validator AVALIDATOR =
             io.avaje.validation.Validator.builder().build();
 
+    private static final BodyParser DEFAULT_JSON_PARSER =
+            new BodyParser(new JsonBodyConverter(), AVALIDATOR);
+
     private final Request request;
     private final Response response = new Response();
     private final BodyParser bodyParser;
     private ResponseState responseState = ResponseState.UNSET;
 
     public HttpContext(Request request) {
-        this(request, new JsonBodyConverter());
+        this(request, DEFAULT_JSON_PARSER);
     }
 
     public HttpContext(Request request, BodyConverter jsonConverter) {
-        this(request, new BodyParser(jsonConverter, AVALIDATOR));
+        this(
+                request,
+                jsonConverter instanceof JsonBodyConverter
+                        ? DEFAULT_JSON_PARSER
+                        : new BodyParser(jsonConverter, AVALIDATOR));
     }
 
     public HttpContext(Request request, BodyParser bodyParser) {
         this.request = request;
-        this.bodyParser = bodyParser;
+        this.bodyParser = bodyParser != null ? bodyParser : DEFAULT_JSON_PARSER;
     }
 
     // --- Read facade ---
@@ -75,7 +82,7 @@ public class HttpContext {
     }
 
     public Map<String, String> headers() {
-        return java.util.Collections.unmodifiableMap(response.headers);
+        return java.util.Collections.unmodifiableMap(response.headers());
     }
 
     public Object resultObject() {
@@ -96,9 +103,15 @@ public class HttpContext {
         return this;
     }
 
-    /** Sets a response header. */
+    /** Sets a response header (chainable). */
+    public HttpContext header(String name, String value) {
+        response.setHeader(name, value);
+        return this;
+    }
+
+    /** Sets a response header (chainable alias for {@link #header(String, String)}). */
     public HttpContext setHeader(String name, String value) {
-        response.headers.put(name, value);
+        response.setHeader(name, value);
         return this;
     }
 
@@ -114,7 +127,7 @@ public class HttpContext {
         // Mutually exclusive with text(): a prior text() body must not linger, else the IO layer
         // serializes the resultObject but status from the text() call reads as a 400+DIO body.
         response.body = null;
-        response.headers.put("Content-Type", converter.getContentType());
+        response.setHeader("Content-Type", converter.getContentType());
     }
 
     /** Sets a 200 OK JSON response. */
@@ -136,7 +149,7 @@ public class HttpContext {
         // Mutually exclusive with json(): a prior json() resultObject must not linger, else the
         // IO layer serializes the old resultObject instead of the new text body.
         response.resultObject = null;
-        response.headers.put("Content-Type", "text/plain");
+        response.setHeader("Content-Type", "text/plain");
     }
 
     /**
@@ -202,6 +215,10 @@ public class HttpContext {
         return request.getMethod();
     }
 
+    public String getHeader(String name) {
+        return request.getHeader(name);
+    }
+
     public String header(String name) {
         return request.getHeader(name);
     }
@@ -220,5 +237,40 @@ public class HttpContext {
 
     public <T> T validatedBody(Class<T> type) {
         return bodyParser.parseAndValidate(request.getBody(), request.getContentType(), type);
+    }
+
+    /**
+     * Flushes the buffered HTTP response to the specified {@link ResponseSink}.
+     *
+     * <p>Applies default status fallback (404 for unmatched, 500 for matched but no status written)
+     * and delegates payload dispatching to the transport sink.
+     */
+    public void flushTo(ResponseSink sink) {
+        if (responseState == ResponseState.HANDLED) {
+            return;
+        }
+
+        if (response.status == null) {
+            if (responseState == ResponseState.MATCHED) {
+                log.error(
+                        "Handler for {} {} matched but wrote no response — the handler must"
+                                + " set a status (ctx.status/text/json/ok).",
+                        request.getMethod(),
+                        request.getPath());
+                text(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error");
+            } else {
+                text(HttpStatus.NOT_FOUND, "Not Found");
+            }
+        }
+
+        Map<String, String> headers = response.headers();
+
+        if (response.resultObject != null && response.converter != null) {
+            sink.sendObject(response.status, headers, response.resultObject, response.converter);
+        } else if (response.body != null && response.body.length > 0) {
+            sink.sendBytes(response.status, headers, response.body);
+        } else {
+            sink.sendEmpty(response.status, headers);
+        }
     }
 }

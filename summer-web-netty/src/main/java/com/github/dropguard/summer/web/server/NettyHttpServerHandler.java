@@ -20,7 +20,6 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.timeout.IdleStateEvent;
-import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -104,7 +103,7 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
 
             if (request.getMethod() == HttpMethod.UNKNOWN) {
                 webCtx.text(HttpStatus.METHOD_NOT_ALLOWED, "Method Not Allowed");
-                sendResponse(ctx, webCtx, keepAlive);
+                webCtx.flushTo(new NettyResponseSink(ctx, keepAlive));
                 return;
             }
 
@@ -115,27 +114,7 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
                                 return null;
                             });
 
-            if (webCtx.isHandled()) {
-                return;
-            }
-
-            if (webCtx.status() == null) {
-                if (webCtx.responseState() == HttpContext.ResponseState.MATCHED) {
-                    // A route matched but its handler never wrote a response — a violation of the
-                    // deferred-write contract (Gin-style handlers must set a status). Loud
-                    // server-side error; the client gets a generic 500, NOT a misleading 404.
-                    log.error(
-                            "Handler for {} {} matched but wrote no response — the handler must"
-                                    + " set a status (ctx.status/text/json/ok).",
-                            request.getMethod(),
-                            request.getPath());
-                    webCtx.text(HttpStatus.INTERNAL_SERVER_ERROR, "Internal Server Error");
-                } else {
-                    webCtx.text(HttpStatus.NOT_FOUND, "Not Found");
-                }
-            }
-
-            sendResponse(ctx, webCtx, keepAlive);
+            webCtx.flushTo(new NettyResponseSink(ctx, keepAlive));
 
         } catch (Exception e) {
             log.error("Fatal framework error", e);
@@ -143,11 +122,6 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
         }
     }
 
-    /**
-     * Composes the middleware chain around {@link #dispatch} once. The dispatch reads per-request
-     * Netty state from {@link #REQUEST_SLOT}, so this single chain serves every request with zero
-     * per-request allocation (the previous code re-wrapped all N middlewares per request).
-     */
     private Handler buildHandlerChain() {
         Handler handler = this::dispatch;
         for (Middleware middleware : deps.middlewares()) {
@@ -197,61 +171,6 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
             c.error(e);
             log.error("Request failed: {}", c.request().getPath(), e);
         }
-    }
-
-    private void sendResponse(ChannelHandlerContext ctx, HttpContext webCtx, boolean keepAlive) {
-        HttpResponseStatus status = HttpResponseStatus.valueOf(webCtx.status().code());
-
-        FullHttpResponse nettyResp;
-        if (webCtx.resultObject() != null && webCtx.converter() != null) {
-            nettyResp = serializeResponse(ctx, webCtx, status, keepAlive);
-            if (nettyResp == null) {
-                return; // Error response already sent
-            }
-        } else if (webCtx.body() != null && webCtx.body().length > 0) {
-            nettyResp =
-                    new DefaultFullHttpResponse(
-                            HttpVersion.HTTP_1_1, status, Unpooled.wrappedBuffer(webCtx.body()));
-        } else {
-            nettyResp = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status);
-        }
-
-        // Apply headers
-        for (Map.Entry<String, String> entry : webCtx.headers().entrySet()) {
-            nettyResp.headers().set(entry.getKey(), entry.getValue());
-        }
-
-        if (keepAlive) {
-            if (!nettyResp.headers().contains(HttpHeaderNames.CONTENT_LENGTH)) {
-                nettyResp
-                        .headers()
-                        .setInt(
-                                HttpHeaderNames.CONTENT_LENGTH,
-                                nettyResp.content().readableBytes());
-            }
-            nettyResp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
-            ctx.writeAndFlush(nettyResp);
-        } else {
-            nettyResp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
-            ctx.writeAndFlush(nettyResp).addListener(ChannelFutureListener.CLOSE);
-        }
-    }
-
-    private FullHttpResponse serializeResponse(
-            ChannelHandlerContext ctx,
-            HttpContext webCtx,
-            HttpResponseStatus status,
-            boolean keepAlive) {
-        byte[] bytes;
-        try {
-            bytes = webCtx.converter().write(webCtx.resultObject());
-        } catch (Exception e) {
-            log.error("Serialization error", e);
-            sendErrorResponse(ctx, keepAlive);
-            return null;
-        }
-        io.netty.buffer.ByteBuf buf = Unpooled.wrappedBuffer(bytes);
-        return new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status, buf);
     }
 
     private FullHttpResponse sendErrorResponse(ChannelHandlerContext ctx, boolean keepAlive) {

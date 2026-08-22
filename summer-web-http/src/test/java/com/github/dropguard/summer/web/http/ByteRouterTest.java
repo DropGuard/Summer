@@ -104,16 +104,8 @@ public class ByteRouterTest {
     }
 
     private HttpContext createMockContext(HttpMethod method, String path) {
-        byte[] pathBytes = path.getBytes(StandardCharsets.UTF_8);
         Request request =
-                new Request(
-                        method,
-                        path,
-                        "",
-                        "application/json",
-                        new byte[0],
-                        new HashMap<>(),
-                        pathBytes);
+                new Request(method, path, "", "application/json", new byte[0], new HashMap<>());
         return new HttpContext(request);
     }
 }

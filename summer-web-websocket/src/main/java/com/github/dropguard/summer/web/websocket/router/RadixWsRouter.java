@@ -37,8 +37,7 @@ public class RadixWsRouter implements WsRouter {
 
     @Override
     public WsMatch routeWs(String pathStr) {
-        byte[] path = pathStr.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        RadixTrie.MatchResult<WebSocketHandler> result = trie.match(path);
+        RadixTrie.MatchResult<WebSocketHandler> result = trie.match(pathStr);
         if (result == null) {
             return null;
         }

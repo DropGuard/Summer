@@ -6,16 +6,13 @@ import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpMethod;
 import com.github.dropguard.summer.web.HttpRouter;
 import com.github.dropguard.summer.web.RadixTrie;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 /**
  * High-performance router implementation using a Radix Tree (Trie).
  *
  * <p>This implementation uses one {@link RadixTrie} per HTTP method for efficient path matching.
- * Path segment matching is performed at the byte level to minimize String allocations during
- * routing.
+ * Path segment matching is performed with zero-allocation character slices on the path String.
  *
  * <p>The route table is fixed at construction time: all routes are supplied via {@link
  * #RadixTreeHttpRouter(List)} (the {@link HttpRouter.Builder} collects routes and hands them over
@@ -26,7 +23,9 @@ import java.util.Map;
 @Internal
 public final class RadixTreeHttpRouter implements HttpRouter {
 
-    private final Map<String, RadixTrie<Handler>> tries;
+    @SuppressWarnings("unchecked")
+    private final RadixTrie<Handler>[] triesByMethod =
+            (RadixTrie<Handler>[]) new RadixTrie<?>[HttpMethod.values().length];
 
     /**
      * Creates a RadixTreeHttpRouter with the given routes, fixed for the router's lifetime.
@@ -34,30 +33,43 @@ public final class RadixTreeHttpRouter implements HttpRouter {
      * @param routes the routes to register
      */
     public RadixTreeHttpRouter(List<HttpRouter.Builder.Route> routes) {
-        Map<String, RadixTrie<Handler>> built = new HashMap<>();
         for (HttpRouter.Builder.Route route : routes) {
-            built.computeIfAbsent(route.method().name(), k -> new RadixTrie<>())
-                    .insert(route.path(), route.handler());
+            HttpMethod method = route.method();
+            if (method != null) {
+                int idx = method.ordinal();
+                if (triesByMethod[idx] == null) {
+                    triesByMethod[idx] = new RadixTrie<>();
+                }
+                triesByMethod[idx].insert(route.path(), route.handler());
+            }
         }
-        this.tries = Map.copyOf(built);
     }
 
     /** Matches a request against the trie and dispatches to the appropriate handler. */
     @Override
     public void route(HttpContext ctx) throws Exception {
         HttpMethod method = ctx.request().getMethod();
-        RadixTrie<Handler> trie = tries.get(method.name());
+        if (method == null) {
+            return;
+        }
+        int idx = method.ordinal();
+        if (idx >= triesByMethod.length) {
+            return;
+        }
+        RadixTrie<Handler> trie = triesByMethod[idx];
         if (trie == null) {
             return;
         }
 
-        byte[] path = ctx.request().getRawPathBytes();
+        String path = ctx.request().getPath();
         RadixTrie.MatchResult<Handler> result = trie.match(path);
         if (result == null) {
             return;
         }
 
-        result.params().forEach(ctx.request()::setPathParam);
+        if (!result.params().isEmpty()) {
+            result.params().forEach(ctx.request()::setPathParam);
+        }
         // Mark the match so the server layer can distinguish "no route" (404) from
         // "handler wrote no response" (500) — see HttpContext.markMatched().
         ctx.markMatched();

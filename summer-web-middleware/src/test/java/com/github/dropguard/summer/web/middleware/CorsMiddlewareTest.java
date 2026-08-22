@@ -177,15 +177,7 @@ class CorsMiddlewareTest {
             if (host != null) {
                 headers.put("host", host);
             }
-            Request req =
-                    new Request(
-                            method,
-                            path,
-                            null,
-                            null,
-                            new byte[0],
-                            headers,
-                            path.getBytes(StandardCharsets.UTF_8));
+            Request req = new Request(method, path, null, null, new byte[0], headers);
             return new HttpContext(req);
         }
     }

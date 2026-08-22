@@ -1,10 +1,8 @@
 package com.github.dropguard.summer.web.server;
 
 import com.github.dropguard.summer.core.BeanContainer;
-import com.github.dropguard.summer.core.exception.NoSuchBeanException;
 import com.github.dropguard.summer.web.BodyConverter;
 import com.github.dropguard.summer.web.HttpRouter;
-import com.github.dropguard.summer.web.JsonBodyConverter;
 import com.github.dropguard.summer.web.Middleware;
 import com.github.dropguard.summer.web.ServerConfig;
 import com.github.dropguard.summer.web.ServerOriginChecker;
@@ -54,13 +52,9 @@ class NettyHttpServer {
             HttpRouter httpRouter,
             WsRouter wsRouter,
             com.github.dropguard.summer.web.ExceptionRegistry exceptionRegistry,
-            java.util.List<com.github.dropguard.summer.web.Middleware> globalMiddlewares) {
+            java.util.List<com.github.dropguard.summer.web.Middleware> globalMiddlewares,
+            BodyConverter bodyConverter) {
         List<Middleware> middlewares = new java.util.ArrayList<>(globalMiddlewares);
-
-        BodyConverter jsonConverter = findOptionalBean(context, BodyConverter.class);
-        if (jsonConverter == null) {
-            jsonConverter = new JsonBodyConverter();
-        }
 
         List<com.github.dropguard.summer.web.websocket.WebSocketInterceptor> wsInterceptors =
                 context.getBeans(
@@ -68,25 +62,17 @@ class NettyHttpServer {
         ServerOriginChecker serverOriginChecker = context.getBean(ServerOriginChecker.class);
         WebSocketUpgradeHandler wsUpgradeHandler =
                 new WebSocketUpgradeHandler(
-                        wsRouter, config, serverOriginChecker, wsInterceptors, jsonConverter);
+                        wsRouter, config, serverOriginChecker, wsInterceptors, bodyConverter);
         return new NettyHttpServer(
                 config,
                 new WebServerDependencies(
                         httpRouter,
                         wsRouter,
                         middlewares,
-                        jsonConverter,
+                        bodyConverter,
                         exceptionRegistry,
                         wsInterceptors,
                         wsUpgradeHandler));
-    }
-
-    private static <T> T findOptionalBean(BeanContainer context, Class<T> type) {
-        try {
-            return context.getBean(type);
-        } catch (NoSuchBeanException e) {
-            return null;
-        }
     }
 
     public AtomicInteger getActiveConnections() {

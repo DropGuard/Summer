@@ -2,8 +2,9 @@ package com.github.dropguard.summer.web.server;
 
 import com.github.dropguard.summer.web.HttpMethod;
 import com.github.dropguard.summer.web.Request;
+import io.netty.buffer.ByteBuf;
 import io.netty.handler.codec.http.FullHttpRequest;
-import java.util.HashMap;
+import io.netty.handler.codec.http.HttpHeaderNames;
 import java.util.Map;
 
 class NettyRequestAdapter {
@@ -23,18 +24,24 @@ class NettyRequestAdapter {
 
         String method = nettyReq.method().name();
 
-        Map<String, String> headers = new HashMap<>();
-        for (Map.Entry<String, String> entry : nettyReq.headers()) {
-            headers.put(entry.getKey().toLowerCase(), entry.getValue());
-        }
+        // Zero-copy: delegate header lookups to Netty's case-insensitive HttpHeaders
+        // instead of eagerly copying every header into a new HashMap per request.
+        Map<String, String> headers = new NettyHeadersMap(nettyReq.headers());
 
-        String contentType = headers.get("content-type");
+        String contentType = nettyReq.headers().get(HttpHeaderNames.CONTENT_TYPE);
 
-        byte[] body = null;
+        // Lazy body: defer the byte[] copy until getBody() is actually called.
+        // GET and DELETE requests never read the body, so this avoids a wasted allocation
+        // for ~50% of requests in a typical CRUD workload.
+        java.util.function.Supplier<byte[]> lazyBody = null;
         if (nettyReq.content().isReadable()) {
-            int length = nettyReq.content().readableBytes();
-            body = new byte[length];
-            nettyReq.content().readBytes(body);
+            ByteBuf content = nettyReq.content();
+            lazyBody =
+                    () -> {
+                        byte[] bytes = new byte[content.readableBytes()];
+                        content.getBytes(content.readerIndex(), bytes);
+                        return bytes;
+                    };
         }
 
         HttpMethod httpMethod;
@@ -44,13 +51,6 @@ class NettyRequestAdapter {
             httpMethod = HttpMethod.UNKNOWN;
         }
 
-        return new Request(
-                httpMethod,
-                path,
-                query,
-                contentType,
-                body,
-                headers,
-                path.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        return new Request(httpMethod, path, query, contentType, lazyBody, headers);
     }
 }

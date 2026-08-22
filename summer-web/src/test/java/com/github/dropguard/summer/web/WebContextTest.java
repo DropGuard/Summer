@@ -187,8 +187,7 @@ class WebContextTest {
     }
 
     private Request createRequest(HttpMethod method, String path, Map<String, String> headers) {
-        return new Request(
-                method, path, null, "application/json", new byte[0], headers, path.getBytes());
+        return new Request(method, path, null, "application/json", new byte[0], headers);
     }
 
     private Request createRequestWithQuery(HttpMethod method, String path, String query) {
