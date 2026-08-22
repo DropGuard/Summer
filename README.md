@@ -69,27 +69,64 @@ No automatic configuration layers. No subclass-based proxying. No complex `BeanP
 
 * * *
 
-## 🚀 Getting Started
+## 🚀 Quick Start
 
-Three commands cover the whole lifecycle — scaffold, develop, ship. You can use the official `summer` CLI to run them instantly:
+### 1. Install the CLI
 
-| Step | Command | What it does |
-|---|---|---|
-| 1. Scaffold | `summer create myapp` | Generate a new project (inherits `summer-build-parent`, wires AOT + Jandex) |
-| 2. Develop | `summer dev` | Hot-reload dev loop on `:8080` (TCP proxy + child JVM) |
-| 3. Ship | `summer build` | AOT build → runnable fat jar (`java -jar`) |
+Summer projects are best managed using the official `summer` single-binary CLI:
 
-Summer is published to Maven Central. A typical project inherits the `summer-build-parent` (see **Enabling AOT** below) and includes the web starter:
+```bash
+# macOS / Linux
+curl -fsSL https://raw.githubusercontent.com/DropGuard/summer-cli/main/install.sh | bash
 
-```xml
-<dependency>
-    <groupId>io.github.dropguard</groupId>
-    <artifactId>summer-boot-starter-web</artifactId>
-    <version>0.1.0</version>
-</dependency>
+# Windows (Run as Administrator)
+Invoke-WebRequest -Uri "https://github.com/DropGuard/summer-cli/releases/latest/download/summer-windows-amd64.exe" -OutFile "$env:SystemRoot\system32\summer.exe"
 ```
 
-Run one of the bundled demos (`summer-twitter` / `summer-realworld` / `summer-issue-tracker`) to see Summer in practice.
+### 2. Scaffold & Run
+
+Generate and start a new project in seconds:
+
+```bash
+# Generate project (wires summer-build-parent & starter-web)
+summer create myapp --group-id com.example
+
+# Start hot-reload dev server on :8080
+cd myapp
+summer dev
+```
+
+### 3. The Everyday Workflow
+
+| Step | CLI Command | Pure Maven Alternative | What it does |
+|---|---|---|---|
+| **1. Scaffold** | `summer create myapp` | (See manual POM below) | Scaffolds a new project with AOT + Jandex preconfigured |
+| **2. Develop** | `summer dev` | `mvn summer:dev` | Hot-reload dev loop on `:8080` (TCP proxy + eager-kill & lazy-reboot) |
+| **3. Test** | — | `mvn test` | Runs unit tests & dual-engine TCK suite |
+| **4. Ship** | `summer build` | `mvn package` | Generates AOT constructor wiring → runnable fat jar (`java -jar`) |
+
+---
+
+### Manual Maven Setup (Optional)
+
+If you prefer configuring Maven manually without the CLI, inherit `summer-build-parent` and add `summer-boot-starter-web`:
+
+```xml
+<parent>
+    <groupId>io.github.dropguard</groupId>
+    <artifactId>summer-build-parent</artifactId>
+    <version>${summer.version}</version>
+</parent>
+
+<dependencies>
+    <dependency>
+        <groupId>io.github.dropguard</groupId>
+        <artifactId>summer-boot-starter-web</artifactId>
+    </dependency>
+</dependencies>
+```
+
+> 💡 **Tip:** Inheriting `summer-build-parent` automatically configures Jandex indexing, BOM dependency versions, and the build-time AOT plugin (`generate-aot` bound to `process-classes`). See [**A Minimal Example**](#-a-minimal-example) below for sample code.
 
 * * *
 
@@ -124,90 +161,9 @@ summer:
 SummerApplication.run(args);
 ```
 
-
-## 🛠 Daily Development
-
-The `summer create`, `summer dev`, and `summer build` commands (introduced in the Getting Started section) form the everyday loop. This section holds the
-details behind them for when you need them.
-
 * * *
 
-### Dev Mode (`summer dev` / `mvn summer:dev`)
-
-Hot-reload development loop: a TCP proxy listens on port `8080` and forwards
-traffic to your app running in a child JVM. On a source change it kills the child
-("eager kill"), recompiles the changed files, and lazily reboots — the next request
-is held until the fresh backend is ready ("lazy compile"):
-
-```bash
-# Using the CLI
-summer dev
-
-# Or using pure Maven
-mvn summer:dev
-```
-
-- **Classpath**: the app runs on the **test classpath** (same choice as Quarkus dev
-  mode), so test-scoped dependencies are available while developing.
-- **Engine**: defaults to the Runtime engine (the dev engine) per `application.yml`;
-  pin either engine with `mvn summer:dev -Dsummer.engine=aot` — the override is
-  forwarded to the child JVM as the `SUMMER_ENGINE` environment variable.
-- **Reload**: edit a file under `src/main/java` — the watcher kills the child
-  immediately, breaking any in-flight keep-alive pipe; the next request triggers a
-  recompile and reboot. Changes under `src/main/resources` (e.g. `application.yml`)
-  are copied into the output dir and restart the child the same way — no manual
-  restart needed for config tweaks (the log shows the changed files, the new
-  backend port, and the reload time).
-- **Main class**: auto-detected from the Jandex index, or set
-  `<summer.mainClass>` in your `pom.xml`.
-- **Port**: `<summer.dev.port>` (default `8080`).
-
-### Scaffold a project (recommended)
-
-Summer projects are best created using the official `summer` CLI. The CLI is incredibly fast and embeds the project templates directly into the binary.
-
-**1. Install the CLI:**
-```bash
-# macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/DropGuard/summer-cli/main/install.sh | bash
-```
-
-```powershell
-# Windows (Run as Administrator)
-Invoke-WebRequest -Uri "https://github.com/DropGuard/summer-cli/releases/latest/download/summer-windows-amd64.exe" -OutFile "$env:SystemRoot\system32\summer.exe"
-```
-
-**Uninstallation:** Because the CLI is a clean, single-file binary, uninstalling is as simple as deleting the executable (`sudo rm /usr/local/bin/summer` on Unix, or `Remove-Item "$env:SystemRoot\system32\summer.exe"` on Windows).
-
-**2. Generate and Run:**
-```bash
-# Instantly generate the project
-summer create my-first-api --group-id com.example
-
-# Start the dev server (automatically fetches dependencies via Maven)
-cd my-first-api
-summer dev
-```
-
-### Enabling AOT
-
-For a hand-written `pom.xml`, enabling AOT is as simple as inheriting `summer-build-parent`. It binds the Jandex index and the `generate-aot` execution automatically (both are in its `<build><plugins>`), so inheriting the parent is the whole AOT setup — no plugin declaration of your own:
-
-```xml
-<parent>
-    <groupId>io.github.dropguard</groupId>
-    <artifactId>summer-build-parent</artifactId>
-    <version>0.1.0</version>
-</parent>
-```
-
-The goal runs at `process-classes`: it generates the AOT context, compiles it into
-`target/classes`, and rewrites `application.yml` to `summer.engine: aot`. See
-`summer-realworld` for a complete example.
-
-* * *
-
-## 📦 Supported Features (v0.1)
+## 📦 Supported Features
 
 *   Singleton IoC container
 *   Constructor injection (records seamlessly supported)
