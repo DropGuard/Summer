@@ -45,7 +45,7 @@ Summer intentionally enforces strict architectural constraints. If something req
 1. **Clarity over convenience.** (No hidden initialization phases).
 2. **Constructor injection only.** Fail-fast on ambiguity. No circular dependency resolution.
 3. **Interface-first AOP (JDK dynamic proxy).** No subclass-based proxying (CGLIB).
-4. **Stateless by default, Context by necessity.** All components (`@Component`) are instantiated as singletons. Request state flows explicitly as method arguments (`HttpContext`). However, for cross-cutting infrastructural state like Database Transactions, Summer leverages safe `ThreadLocals` backed by ephemeral Virtual Threads to prevent method signature pollution.
+4. **Stateless by default, Context by necessity.** All components (`@Component`) are instantiated as singletons. Request state flows explicitly as method arguments (`HttpContext`). However, for cross-cutting infrastructural state like Database Transactions, Summer leverages Java 21's `ScopedValue` API (JEP 446) running on ephemeral Virtual Threads to prevent method signature pollution without the memory leak risks of `ThreadLocal`.
 5. **Composition over Inheritance.** Small interfaces are preferred over abstract base classes. Summer avoids deep inheritance hierarchies.
 6. **Minimal feature surface.** Summer core is intentionally minimal and does not bundle validation or security. Validation is provided via optional modules.
 7. **Code as Configuration / Code as Documentation.** Summer avoids externalizing every possible tweak into YAML or JSON. Moving all runtime logic into configuration files fragments the application's intent and makes it harder to trace. Instead, Summer encourages utilizing fluent builders and explicit code to configure server parameters (like timeouts). This keeps logic cohesive and ensures that the configuration is as readable and version-controlled as the rest of the application.
@@ -261,24 +261,23 @@ Once exposed, you can point your Prometheus instance to `/metrics` to begin scra
 
 ## 📈 Performance Benchmarking
 
-Summer is built for extreme high-concurrency throughput. The benchmark suite (`summer-benchmark`) pits Summer against Spring Boot 4.0.x (Tomcat), Gin (Go), and Fastify (Node.js) in a pure in-memory JSON CRUD battle.
+Summer is built for extreme high-concurrency throughput. The benchmark suite pits Summer against Spring Boot 4.0.x (Tomcat), Gin (Go), and Fastify (Node.js) in a pure in-memory JSON CRUD battle.
 
 **Test Conditions:**
 * 100 Concurrent Virtual Users (k6)
-* 10 seconds JVM/JIT Warmup + 10 seconds Benchmark
+* 20 seconds JVM/JIT Warmup + 10 seconds Benchmark
 * Docker Container Limits: **2 CPU Cores / 512MB RAM**
-* Java JVM Flags (Fair Play): `-XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:+AlwaysPreTouch`
+* Java JVM Flags: `-XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:+AlwaysPreTouch`
 
 ### Micro-Benchmark Results
 
-| Metric | Spring Boot 4.0.x (Java) | Fastify (Node.js) | Gin (Go) | Summer (Java) |
-|---|---|---|---|---|
-| **Requests/sec (RPS)** | ~15,600 | ~36,800 | ~55,400 | **~55,500** |
-| **Avg Latency (ms)** | 6.26 | 2.64 | 1.70 | 1.57 |
-
-Under strict CPU constraints and high concurrency, Summer's AOT + Netty + Virtual Threads architecture effortlessly matches the native performance of Go's Gin, leaving traditional heavy JVM frameworks far behind.
-
-Full methodology and orchestrator scripts live in `summer-benchmark/`.
+| Metric | Spring Boot (Java) | Summer (Jackson) | Summer (Avaje-JSONB) | Gin (Go) | Fastify (Node.js) |
+|---|---|---|---|---|---|
+| **Requests/sec (RPS)** | 33,265 | 55,680 | **60,134** | 63,032 | 41,715 |
+| **Avg Latency (ms)** | 2.92 | 1.59 | **1.47** | 1.51 | 2.34 |
+| **P50 Latency (ms)** | 2.45 | 0.79 | **0.74** | 1.28 | 2.18 |
+| **P95 Latency (ms)** | 5.44 | 4.53 | **4.27** | 3.58 | 3.83 |
+| **P99 Latency (ms)** | 13.04 | 19.57 | **15.41** | 4.80 | 5.18 |
 
 
 
@@ -335,9 +334,10 @@ Summer uses JDK dynamic proxies only. If a bean annotated with AOP-related annot
 
 This keeps the core predictable and avoids subclass-based proxy complexity. Explicit behavior via contracts is always preferred over implicitly intercepting hidden class methods.
 
-> **⚠️ CAUTION: The AOP Trap**
+> **💡 TIP: Preventing the AOP "Self-Invocation" Trap**
 >
-> Because Summer uses standard JDK dynamic proxies, **internal method calls** (e.g., `this.doSomething()`) will bypass the proxy and the interceptors. If you need transaction management, ensure the method is called through its interface from another bean.
+> Because Summer uses standard JDK dynamic proxies, internal method calls (`this.doSomething()`) bypass the proxy and interceptors. Instead of using heavy bytecode manipulation (like CGLIB) to force interceptions, Summer embraces **Architecture as Code**. 
+> Projects initialized via `summer-cli` automatically include a pre-configured **ArchUnit** test suite. This test acts as a strict guardrail, instantly failing the build if it detects self-invocation of any AOP-annotated methods (e.g. `@Transactional`) and guiding developers to properly extract the method to a separate component.
 
 ## 🛡️ Security & Middleware
 
@@ -484,3 +484,11 @@ Summer is inspired by:
 It is not a Spring replacement.  
 It is not a better Spring.  
 It is a narrower one.
+
+## Acknowledgements & Homage
+
+Summer was not built in a vacuum. It stands on the shoulders of giants and is deeply inspired by the design philosophies of several pioneering projects:
+
+* **Spring Framework**: For defining what modern Java enterprise development looks like. The elegant annotation-driven programming model (Inversion of Control, AOP, `@Component`) that Java developers know and love was mainstreamed by Spring. Summer proudly adopts this familiar developer experience while replacing its heavy runtime reflection with compile-time AOT.
+* **Gin (Go)**: For proving that a micro-framework doesn't need to be massive to be powerful. Gin's philosophy of explicit routing, minimal overhead, and straightforward developer experience heavily inspired Summer's design. Summer is, in many ways, an attempt to write Go-like Web APIs in modern Java.
+* **Micronaut & Quarkus**: For pioneering the Ahead-of-Time (AOT) compilation and reflection-free DI movement in the Java ecosystem. They proved that Java doesn't have to be slow to start or memory-hungry. Summer builds upon this movement with its own bespoke, ultra-lightweight AOT engine tailored exclusively for Java 21+ Virtual Threads.

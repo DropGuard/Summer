@@ -26,5 +26,6 @@
     <modules>
         <module>baseline-spring-boot</module>
         <module>target-summer</module>
+        <module>target-summer-jsonb</module>
     </modules>
 </project>

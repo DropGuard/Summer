@@ -25,9 +25,10 @@ def parse_summary(profile):
 def main():
     profiles = {
         'spring-boot': 'Spring Boot (Java)',
-        'summer': 'Summer (Java)',
+        'summer': 'Summer (Jackson)',
+        'summer-jsonb': 'Summer (Avaje-JSONB)',
         'gin': 'Gin (Go)',
-        'fastify': 'Fastify (Node.js)', 'nextjs': 'Next.js (Node.js)'
+        'fastify': 'Fastify (Node.js)'
     }
     
     results = {}
