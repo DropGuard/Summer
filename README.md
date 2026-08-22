@@ -44,9 +44,9 @@ summer dev
 
 | Step | CLI Command | Pure Maven Alternative | What it does |
 |---|---|---|---|
-| **1. Scaffold** | `summer create myapp` | (See manual POM below) | Scaffolds a new project with AOT + Jandex preconfigured |
+| **1. Scaffold** | `summer create myapp` | (See manual POM below) | Scaffolds a new project with AOT, Jandex, and ArchUnit guardrails |
 | **2. Develop** | `summer dev` | `mvn summer:dev` | Hot-reload dev loop on `:8080` (TCP proxy + eager-kill & lazy-reboot) |
-| **3. Test** | — | `mvn test` | Runs unit tests & dual-engine TCK suite |
+| **3. Test** | — | `mvn test` | Runs application tests |
 | **4. Ship** | `summer build` | `mvn package` | Generates AOT constructor wiring → runnable fat jar (`java -jar`) |
 
 ---
@@ -70,7 +70,7 @@ If you prefer configuring Maven manually without the CLI, inherit `summer-build-
 </dependencies>
 ```
 
-> **Tip:** Inheriting `summer-build-parent` automatically configures Jandex indexing, BOM dependency versions, and the build-time AOT plugin (`generate-aot` bound to `process-classes`). See [**A Minimal Example**](#a-minimal-example) below for sample code.
+> **Tip:** Inheriting `summer-build-parent` automatically configures Jandex indexing, BOM dependency versions, and the build-time AOT plugin (`generate-aot` bound to `process-classes`). Projects scaffolded via `summer create` also include pre-configured ArchUnit guardrails (e.g., catching AOP self-invocation traps) out of the box. See [**A Minimal Example**](#a-minimal-example) below for sample code.
 
 * * *
 
@@ -298,6 +298,27 @@ No automatic configuration layers. No subclass-based proxying. No complex `BeanP
 
 * * *
 
+## Intentionally Unsupported (Non-Goals)
+
+Summer is an experiment in reduction — not expansion. If a feature is not listed in the **Supported Features** section, it is intentionally unsupported.
+
+*   Field injection (`@Inject`, `@Autowired`, `@Value`) & Setter injection (use constructor injection exclusively)
+*   Circular dependency resolution
+*   Class-based proxying (CGLIB)
+*   Prototype scope (Singleton only)
+*   Multi-threaded application startup (context initialization is single-threaded by design)
+*   Distributed/XA transactions
+*   Nested transactions (REQUIRED only — a `@Transactional` call inside an active transaction
+    fails loudly with `SummerTransactionException`)
+*   Classpath-based guessing (e.g., "if DataSource is on classpath, auto-configure JdbcTemplate"). Explicit engine selection with `@ConditionalOnBean` is supported — components may follow the active engine via marker beans.
+*   Bean post-processor ecosystem & complex lifecycle hooks
+*   Security module
+*   Built-in thread pool / executor service (use virtual threads or bring your own)
+*   Framework-level custom ClassLoader Hot-Reload (rely on JVM hotswap instead)
+*   Ecosystem compatibility (Spring Data, Actuator, Starters, etc.)
+
+* * *
+
 ## Observability & Metrics
 
 Summer provides a lightweight observability suite through the `MetricsRegistry` and `MetricsMiddleware`. It tracks concurrent requests, total throughput, error counts, and system uptime.
@@ -323,27 +344,6 @@ public class SystemController {
 ```
 
 Once exposed, you can point your Prometheus instance to `/metrics` to begin scraping.
-
-* * *
-
-## Intentionally Unsupported (Non-Goals)
-
-Summer is an experiment in reduction — not expansion. If a feature is not listed in the **Supported Features** section, it is intentionally unsupported.
-
-*   Field injection (`@Inject`, `@Autowired`, `@Value`) & Setter injection (use constructor injection exclusively)
-*   Circular dependency resolution
-*   Class-based proxying (CGLIB)
-*   Prototype scope (Singleton only)
-*   Multi-threaded application startup (context initialization is single-threaded by design)
-*   Distributed/XA transactions
-*   Nested transactions (REQUIRED only — a `@Transactional` call inside an active transaction
-    fails loudly with `SummerTransactionException`)
-*   Classpath-based guessing (e.g., "if DataSource is on classpath, auto-configure JdbcTemplate"). Explicit engine selection with `@ConditionalOnBean` is supported — components may follow the active engine via marker beans.
-*   Bean post-processor ecosystem & complex lifecycle hooks
-*   Security module
-*   Built-in thread pool / executor service (use virtual threads or bring your own)
-*   Framework-level custom ClassLoader Hot-Reload (rely on JVM hotswap instead)
-*   Ecosystem compatibility (Spring Data, Actuator, Starters, etc.)
 
 * * *
 
@@ -427,18 +427,6 @@ It exists to make the invisible visible.
 
 * * *
 
-## Inspired By
-
-Summer is inspired by:
-
-*   The middleware execution model of **Gin**
-*   The declarative programming style of **Spring**
-*   The build-time AOT convention and dev-mode ergonomics of **Quarkus**
-
-It is not a Spring replacement.  
-It is not a better Spring.  
-It is a narrower one.
-
 ## Acknowledgements & Homage
 
 Summer was not built in a vacuum. It stands on the shoulders of giants and is deeply inspired by the design philosophies of several pioneering projects:
@@ -446,3 +434,5 @@ Summer was not built in a vacuum. It stands on the shoulders of giants and is de
 * **Spring Framework**: For defining what modern Java enterprise development looks like. The elegant annotation-driven programming model (Inversion of Control, AOP, `@Component`) that Java developers know and love was mainstreamed by Spring. Summer proudly adopts this familiar developer experience while replacing its heavy runtime reflection with compile-time AOT.
 * **Gin (Go)**: For proving that a micro-framework doesn't need to be massive to be powerful. Gin's philosophy of explicit routing, minimal overhead, and straightforward developer experience heavily inspired Summer's design. Summer is, in many ways, an attempt to write Go-like Web APIs in modern Java.
 * **Micronaut & Quarkus**: For pioneering the Ahead-of-Time (AOT) compilation and reflection-free DI movement in the Java ecosystem. They proved that Java doesn't have to be slow to start or memory-hungry. Summer builds upon this movement with its own bespoke, ultra-lightweight AOT engine tailored exclusively for Java 21+ Virtual Threads.
+
+> *It is not a Spring replacement. It is not a better Spring. It is a narrower one.*
