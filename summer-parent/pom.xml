@@ -24,7 +24,7 @@
 
     <groupId>io.github.dropguard</groupId>
     <artifactId>summer-parent</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
     <packaging>pom</packaging>
 
     <name>Summer Parent</name>
@@ -81,7 +81,7 @@
           <version>. Demo projects and the reactor both set this; when the reactor
           advances this property the demos follow without touching their own <version>.
         -->
-        <summer.framework.version>0.2.0</summer.framework.version>
+        <summer.framework.version>0.3.0</summer.framework.version>
     </properties>
 
     <build>

@@ -6,7 +6,7 @@
     <parent>
         <groupId>io.github.dropguard</groupId>
         <artifactId>summer-build-parent</artifactId>
-        <version>0.2.0</version>
+        <version>0.3.0</version>
         <!-- Resolve the build-parent by path rather than only from the local repository: the
              invoker runs this IT during `mvn clean install`, where the reactor may not have
              installed summer-build-parent yet (it is module 19/35, after this plugin at 18/35).
