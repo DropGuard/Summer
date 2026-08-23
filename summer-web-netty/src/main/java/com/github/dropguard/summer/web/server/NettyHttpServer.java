@@ -228,13 +228,19 @@ class NettyHttpServer {
         }
         // 3. Shutdown Netty event loops — await so the bound port is actually
         // released (otherwise a back-to-back server start hits "Address already in
-        // use").
+        // use"). Use quietPeriod=0: in-flight requests are already drained in stage
+        // 2 (or skipped when timeout is zero), so there is no new task backlog to
+        // wait out — a non-zero quiet period would just stall shutdown by netty's
+        // default 2s per group with no pending work. This is what makes test
+        // teardown fast (dozens of containers closing in sequence were previously
+        // stalling the JVM for ~2s each, adding 30s+ of exit time). A non-zero
+        // timeout still bounds how long we wait for the groups to terminate.
         try {
             if (bossGroup != null) {
-                bossGroup.shutdownGracefully().sync();
+                bossGroup.shutdownGracefully(0, 5, java.util.concurrent.TimeUnit.SECONDS).sync();
             }
             if (workerGroup != null) {
-                workerGroup.shutdownGracefully().sync();
+                workerGroup.shutdownGracefully(0, 5, java.util.concurrent.TimeUnit.SECONDS).sync();
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
