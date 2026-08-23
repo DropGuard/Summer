@@ -171,18 +171,18 @@ Summer is built for extreme high-concurrency throughput. The benchmark suite pit
 **Test Conditions:**
 * 100 Concurrent Virtual Users (k6)
 * 20 seconds JVM/JIT Warmup + 10 seconds Benchmark
-* Docker Container Limits: **2 CPU Cores / 512MB RAM**
+* Docker Container Limits: **2 CPU Cores / 512MB RAM** (with CPU core pinning: server on cores 0,1; k6 on cores 2,3)
 * Java JVM Flags: `-XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:+AlwaysPreTouch`
 
 ### Micro-Benchmark Results
 
 | Metric | Spring Boot (Java) | Summer (Jackson) | Summer (Avaje-JSONB) | Gin (Go) | Fastify (Node.js) |
 |---|---|---|---|---|---|
-| **Requests/sec (RPS)** | 33,265 | 55,680 | **60,134** | 63,032 | 41,715 |
-| **Avg Latency (ms)** | 2.92 | 1.59 | **1.47** | 1.51 | 2.34 |
-| **P50 Latency (ms)** | 2.45 | 0.79 | **0.74** | 1.28 | 2.18 |
-| **P95 Latency (ms)** | 5.44 | 4.53 | **4.27** | 3.58 | 3.83 |
-| **P99 Latency (ms)** | 13.04 | 19.57 | **15.41** | 4.80 | 5.18 |
+| **Requests/sec (RPS)** | 23,087 | 25,600 | **25,691** | 26,187 | 24,591 |
+| **Avg Latency (ms)** | 4.26 | 3.85 | **3.84** | 3.77 | 4.01 |
+| **P50 Latency (ms)** | 3.41 | 3.04 | **3.03** | 2.98 | 3.16 |
+| **P95 Latency (ms)** | 11.27 | 10.07 | **10.18** | 9.89 | 10.76 |
+| **P99 Latency (ms)** | 16.93 | 15.97 | **15.95** | 15.82 | 16.55 |
 
 * * *
 

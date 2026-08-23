@@ -37,11 +37,12 @@ def main():
     
     bench('spring-boot')
     bench('summer')
+    bench('summer-jsonb')
     bench('gin')
-    bench('nextjs')
+    bench('fastify')
 
     print("\nAll benchmarks finished. Generating comparison report...")
-    run("python compare-benchmarks.py", cwd=ROOT_DIR)
+    run("python3 compare-benchmarks.py", cwd=ROOT_DIR)
 
 if __name__ == "__main__":
     main()
