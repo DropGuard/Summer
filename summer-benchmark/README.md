@@ -1,48 +1,50 @@
 # Summer Benchmark Suite
 
-This module contains the strict, containerized load testing suite for the Summer framework, comparing its raw HTTP parsing, routing, and serialization performance against the industry standard: **Spring Boot (Tomcat)**.
+This module contains the reproducible, cross-language containerized load testing suite comparing Summer against industry-standard web frameworks across runtimes:
+- **Spring Boot 3 (Java / Tomcat Virtual Threads)**
+- **Summer (Java / Netty + Jackson)**
+- **Summer (Java / Netty + Avaje-JSONB)**
+- **Gin (Go / net/http goroutines)**
+- **Fastify (Node.js / V8 cluster workers)**
 
-## Project Structure
+## Strict Methodology & Constraints
 
-- `benchmark-common`: Shared POJOs (`User`) and mock services (`UserService` using `ConcurrentHashMap`).
-- `benchmark-spring-boot`: Spring Boot 3 baseline application.
-- `benchmark-summer`: Summer framework application running on Netty.
-- `k6-scripts`: Load testing scripts for use with Grafana k6.
-- `docker-compose.yml`: Defines the isolated, resource-constrained container environments.
-- `run-benchmarks.py`: The Python orchestrator script that automatically builds, runs, tests, and cleans up the benchmark environments.
+To ensure an accurate, fair, and production-representative comparison, the benchmarks run under four strict constraints:
 
-## Architecture & Constraints
+1. **CPU Core Pinning (Physical Core Isolation)**:
+   - Target services run with `cpuset: "0,1"` (pinned to physical cores 0 and 1).
+   - The Grafana k6 runner runs isolated with `cpuset: "2,3"` (pinned to physical cores 2 and 3).
+   - This ensures the load generator and the target server never steal CPU cycles or trigger cross-core cache thrashing.
+2. **Containerized Resource Limits**:
+   - Every service is strictly hard-capped to **2 CPUs** and **512MB RAM**, accurately simulating a constrained Kubernetes Pod.
+3. **Realistic 4-Step CRUD Lifecycle**:
+   - Not a synthetic "Hello World" benchmark. Every iteration executes a complete user lifecycle:
+     `POST /users` (Create) $\to$ `GET /users/{id}` (Read) $\to$ `PUT /users/{id}` (Update) $\to$ `DELETE /users/{id}` (Delete).
+   - Exercises HTTP parsing, routing trees, JSON serialization/deserialization, concurrent Map mutation, and virtual thread scheduling.
+4. **Zero Client GC Distortion (`discardResponseBodies: true`)**:
+   - k6 is configured with `discardResponseBodies: true` to discard response payloads immediately upon HTTP 200 verification.
+   - Prevents k6's internal JavaScript heap from accumulating millions of string allocations at 26k+ RPS, eliminating client-side GC pauses and ensuring latency measurements (P50/P95/P99) purely reflect server-side performance.
 
-To ensure an absolutely fair and production-like comparison, this benchmark suite runs completely isolated inside Docker containers rather than on bare metal.
+## Latest Benchmark Results (2 CPU / 512MB RAM)
 
-**Strict Constraints applied via `docker-compose`:**
-1. **Identical Base Image**: Both frameworks use `eclipse-temurin:26-jre-alpine` (a highly stripped-down Linux environment using `musl` libc).
-2. **Resource Limits**: Both containers are strictly hard-capped to **2 CPUs** and **512MB RAM**. This deliberately simulates a typical constrained Kubernetes Pod, testing how each framework handles garbage collection pressure and thread contention under limits.
-3. **Variable Control**:
-    - Both use **Virtual Threads** (Java 26).
-    - Both use **Jackson** for JSON serialization.
-    - No external I/O (Database/Redis) is used; state is stored in a `ConcurrentHashMap` to strictly measure *framework overhead* rather than database speed.
+| Metric | Spring Boot (Java) | Summer (Jackson) | Summer (Avaje-JSONB) | Gin (Go) | Fastify (Node.js) |
+|---|---|---|---|---|---|
+| **Requests/sec (RPS)** | 24,684.11 | **26,361.89** | 26,245.67 | 26,744.70 | 22,912.88 |
+| **Total Requests (10s)** | 247,152 | **263,824** | 262,916 | 267,792 | 229,352 |
+| **Avg Latency (ms)** | 3.98 | **3.74** | 3.76 | 3.69 | 4.30 |
+| **P50 Latency (ms)** | 3.15 | **2.95** | 2.96 | 2.89 | 3.34 |
+| **P95 Latency (ms)** | 10.60 | **10.00** | 9.98 | 9.88 | 11.76 |
+| **P99 Latency (ms)** | 16.07 | 15.67 | **15.41** | 15.55 | 18.32 |
 
 ## Running the Benchmark
 
-### 1. Requirements
-- Java 26 (installed on the host for compilation)
-- Maven
-- Docker & Docker Compose
-- Python 3
-
-### 2. Execution
-
-Simply execute the orchestrator script from the `summer-benchmark` root directory:
+Execute the automated runner script:
 
 ```bash
-python run-benchmarks.py
+./run_all_benchmarks.sh
 ```
 
 **What the script does:**
-1. Compiles all Maven modules natively on your host machine.
-2. Uses Docker Compose to bring up the Spring Boot target and a fresh Grafana k6 instance.
-3. Runs the load test (warmup + 10s benchmark), exports the summary, and gracefully destroys the containers.
-4. Waits 3 seconds to let Docker networks settle.
-5. Repeats the exact same process from scratch for Summer.
-6. Parses the resulting JSON files and generates a beautiful markdown comparison report (`benchmark-results.md`).
+1. Compiles the latest Summer benchmark JARs natively via Maven (`mvn clean package`).
+2. Iterates through all 5 framework profiles using Docker Compose (20s warmup + 10s benchmark with CPU core pinning).
+3. Parses resulting JSON summaries and automatically generates/updates `benchmark-results.md`.

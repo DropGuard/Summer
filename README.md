@@ -397,6 +397,20 @@ These are just functions. No container hooks required.
 
 * * *
 
+## Performance Benchmark
+
+Summer includes an isolated, cross-language benchmark suite running under strict CPU core pinning (`cpuset: "0,1"` for services, `cpuset: "2,3"` for the k6 load generator) and hard resource limits (2 CPU / 512MB RAM). Every iteration executes a full 4-step CRUD lifecycle (`POST` $\to$ `GET` $\to$ `PUT` $\to$ `DELETE`):
+
+| Metric | Spring Boot (Java) | Summer (Jackson) | Summer (Avaje-JSONB) | Gin (Go) | Fastify (Node.js) |
+|---|---|---|---|---|---|
+| **Requests/sec (RPS)** | 24,684.11 | **26,361.89** | 26,245.67 | 26,744.70 | 22,912.88 |
+| **P50 Latency (ms)** | 3.15 | **2.95** | 2.96 | 2.89 | 3.34 |
+| **P99 Latency (ms)** | 16.07 | 15.67 | **15.41** | 15.55 | 18.32 |
+
+> See [**summer-benchmark**](summer-benchmark/README.md) for full methodology, client GC mitigation details, and reproduction steps.
+
+* * *
+
 ## When to use Summer vs Spring
 
 **When to use Summer:**
