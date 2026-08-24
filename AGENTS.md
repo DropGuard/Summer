@@ -196,21 +196,30 @@ Three tiers, from highest to lowest level:
 
 ## RELEASE PROCESS
 
-Summer uses the `maven-release-plugin` for automated versioning and tagging.
-During development, the version should always be a `-SNAPSHOT` (e.g., `0.3.1-SNAPSHOT` or `999-SNAPSHOT`).
+Summer uses automated tag-driven CI/CD deployment to Maven Central via GitHub Actions (`publish.yml`).
+During development, the version on `main` is always a `-SNAPSHOT` (e.g., `0.3.2-SNAPSHOT`).
 
-Do **NOT** manually edit `<version>` tags or use `mvn versions:set` to set a hardcoded release version (e.g., `0.3.0`).
-
-To release a new version:
+To release a new version (standard Maven `versions:set` workflow):
 ```bash
-# 1. Prepare the release (removes SNAPSHOT, commits, tags, bumps to next SNAPSHOT)
-mvn release:prepare
+# 1. Update versions across framework, samples, and benchmark modules
+mvn -f summer-parent/pom.xml versions:set -DnewVersion=0.3.2 -DgenerateBackupPoms=false
+mvn -f samples/pom.xml versions:set -DnewVersion=0.3.2 -DgenerateBackupPoms=false
+mvn -f summer-benchmark/pom.xml versions:set -DnewVersion=0.3.2 -DgenerateBackupPoms=false
 
-# 2. Perform the release (builds and deploys to Maven Central via CI/CD)
-mvn release:perform
+# 2. Check code formatting
+mvn spotless:check
+
+# 3. Commit and tag release
+git commit -am "chore: bump version to 0.3.2"
+git tag v0.3.2
+
+# 4. Bump main to next development snapshot
+mvn -f summer-parent/pom.xml versions:set -DnewVersion=0.3.3-SNAPSHOT -DgenerateBackupPoms=false
+mvn -f samples/pom.xml versions:set -DnewVersion=0.3.3-SNAPSHOT -DgenerateBackupPoms=false
+mvn -f summer-benchmark/pom.xml versions:set -DnewVersion=0.3.3-SNAPSHOT -DgenerateBackupPoms=false
+git commit -am "chore: bump development version to 0.3.3-SNAPSHOT"
+
+# 5. Push main and tag to trigger automated publish workflow
+git push origin main && git push origin v0.3.2
 ```
-If the project is stuck on a hardcoded version (e.g., `0.3.0`), restore it to the SNAPSHOT track first:
-```bash
-mvn versions:set -DnewVersion=0.3.1-SNAPSHOT
-mvn versions:commit
-```
+Pushing the `v*` tag automatically triggers the GitHub Actions `publish.yml` workflow, which handles Java 25 compilation, GPG signing, Maven Central staging/publishing, and GitHub Release notes generation.
