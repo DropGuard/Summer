@@ -27,14 +27,14 @@ To ensure an accurate, fair, and production-representative comparison, the bench
 
 ## Latest Benchmark Results (2 CPU / 512MB RAM)
 
-| Metric | Spring Boot (Java) | Summer (Jackson) | Summer (Avaje-JSONB) | Gin (Go) | Fastify (Node.js) |
+| Metric | Spring Boot (Java / Jackson) | Summer (Java / Jackson) | Summer (Java / Avaje) | Gin (Go / Stdlib) | Fastify (Node.js / V8) |
 |---|---|---|---|---|---|
-| **Requests/sec (RPS)** | 24,684.11 | **26,361.89** | 26,245.67 | 26,744.70 | 22,912.88 |
-| **Total Requests (10s)** | 247,152 | **263,824** | 262,916 | 267,792 | 229,352 |
-| **Avg Latency (ms)** | 3.98 | **3.74** | 3.76 | 3.69 | 4.30 |
-| **P50 Latency (ms)** | 3.15 | **2.95** | 2.96 | 2.89 | 3.34 |
-| **P95 Latency (ms)** | 10.60 | **10.00** | 9.98 | 9.88 | 11.76 |
-| **P99 Latency (ms)** | 16.07 | 15.67 | **15.41** | 15.55 | 18.32 |
+| **Requests/sec (RPS)** | 33,640.66 | **52,242.69** | **52,465.47** | 40,670.69 | 38,069.28 |
+| **Total Requests (10s)** | 336,944 | **522,824** | **524,840** | 406,852 | 381,116 |
+| **Avg Latency (ms)** | 2.90 | **1.86** | **1.85** | 2.39 | 2.55 |
+| **P50 Latency (ms)** | 2.33 | **1.31** | **1.30** | 1.59 | 1.93 |
+| **P95 Latency (ms)** | 6.45 | **5.34** | **5.25** | 7.12 | 6.67 |
+| **P99 Latency (ms)** | 10.61 | **9.40** | **9.59** | 11.82 | 11.39 |
 
 ## Running the Benchmark
 

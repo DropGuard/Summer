@@ -1,7 +1,7 @@
 services:
   spring-boot:
     image: eclipse-temurin:26-jre-alpine
-    command: java --enable-preview -XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:+AlwaysPreTouch -jar /app/spring-boot-baseline-1.0.0-SNAPSHOT.jar
+    command: java --enable-preview -XX:InitialRAMPercentage=50.0 -XX:MaxRAMPercentage=50.0 -XX:+AlwaysPreTouch -jar /app/spring-boot-baseline-1.0.0-SNAPSHOT.jar
     volumes:
       - ./baseline-spring-boot/target:/app
     healthcheck:
@@ -21,7 +21,7 @@ services:
 
   k6-spring-boot:
     image: grafana/k6
-    cpuset: "2,3"
+    cpuset: "2,3,4,5"
     entrypoint:
       - sh
       - -c
@@ -40,7 +40,7 @@ services:
 
   summer:
     image: eclipse-temurin:26-jre-alpine
-    command: java --enable-preview -XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:+AlwaysPreTouch -jar /app/benchmark-summer-0.3.2-SNAPSHOT.jar
+    command: java --enable-preview -XX:InitialRAMPercentage=50.0 -XX:MaxRAMPercentage=50.0 -XX:+AlwaysPreTouch -jar /app/benchmark-summer-0.3.2-SNAPSHOT.jar
     volumes:
       - ./target-summer/target:/app
     healthcheck:
@@ -60,7 +60,7 @@ services:
 
   k6-summer:
     image: grafana/k6
-    cpuset: "2,3"
+    cpuset: "2,3,4,5"
     entrypoint:
       - sh
       - -c
@@ -79,7 +79,7 @@ services:
 
   summer-jsonb:
     image: eclipse-temurin:26-jre-alpine
-    command: java --enable-preview -XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:+AlwaysPreTouch -jar /app/benchmark-summer-jsonb-0.3.2-SNAPSHOT.jar
+    command: java --enable-preview -XX:InitialRAMPercentage=50.0 -XX:MaxRAMPercentage=50.0 -XX:+AlwaysPreTouch -jar /app/benchmark-summer-jsonb-0.3.2-SNAPSHOT.jar
     volumes:
       - ./target-summer-jsonb/target:/app
     healthcheck:
@@ -99,7 +99,7 @@ services:
 
   k6-summer-jsonb:
     image: grafana/k6
-    cpuset: "2,3"
+    cpuset: "2,3,4,5"
     entrypoint:
       - sh
       - -c
@@ -136,7 +136,7 @@ services:
 
   k6-gin:
     image: grafana/k6
-    cpuset: "2,3"
+    cpuset: "2,3,4,5"
     entrypoint:
       - sh
       - -c
@@ -173,7 +173,7 @@ services:
 
   k6-fastify:
     image: grafana/k6
-    cpuset: "2,3"
+    cpuset: "2,3,4,5"
     entrypoint:
       - sh
       - -c

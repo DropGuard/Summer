@@ -166,23 +166,19 @@ mvn -f samples/summer-twitter/pom.xml exec:java
 
 ## Performance Benchmarking
 
-Summer is built for extreme high-concurrency throughput. The benchmark suite pits Summer against Spring Boot 4.0.x (Tomcat), Gin (Go), and Fastify (Node.js) in a pure in-memory JSON CRUD battle.
+Summer is built for extreme high-concurrency throughput. The benchmark suite pits Summer against Spring Boot 3 (Tomcat Virtual Threads), Gin (Go), and Fastify (Node.js) in a pure in-memory JSON CRUD battle running inside isolated Docker containers (2 CPU Cores / 512MB RAM, physical core pinning with server on cores 0,1 and k6 on cores 2,3,4,5).
 
-**Test Conditions:**
-* 100 Concurrent Virtual Users (k6)
-* 20 seconds JVM/JIT Warmup + 10 seconds Benchmark
-* Docker Container Limits: **2 CPU Cores / 512MB RAM** (with CPU core pinning: server on cores 0,1; k6 on cores 2,3)
-* Java JVM Flags: `-XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:+AlwaysPreTouch`
+### Micro-Benchmark Results (2 CPU / 512MB RAM)
 
-### Micro-Benchmark Results
-
-| Metric | Spring Boot (Java) | Summer (Jackson) | Summer (Avaje-JSONB) | Gin (Go) | Fastify (Node.js) |
+| Metric | Spring Boot (Java / Jackson) | Summer (Java / Jackson) | Summer (Java / Avaje) | Gin (Go / Stdlib) | Fastify (Node.js / V8) |
 |---|---|---|---|---|---|
-| **Requests/sec (RPS)** | 23,087 | 25,600 | **25,691** | 26,187 | 24,591 |
-| **Avg Latency (ms)** | 4.26 | 3.85 | **3.84** | 3.77 | 4.01 |
-| **P50 Latency (ms)** | 3.41 | 3.04 | **3.03** | 2.98 | 3.16 |
-| **P95 Latency (ms)** | 11.27 | 10.07 | **10.18** | 9.89 | 10.76 |
-| **P99 Latency (ms)** | 16.93 | 15.97 | **15.95** | 15.82 | 16.55 |
+| **Requests/sec (RPS)** | 33,640.66 | **52,242.69** | **52,465.47** | 40,670.69 | 38,069.28 |
+| **Avg Latency (ms)** | 2.90 | **1.86** | **1.85** | 2.39 | 2.55 |
+| **P50 Latency (ms)** | 2.33 | **1.31** | **1.30** | 1.59 | 1.93 |
+| **P95 Latency (ms)** | 6.45 | **5.34** | **5.25** | 7.12 | 6.67 |
+| **P99 Latency (ms)** | 10.61 | **9.40** | **9.59** | 11.82 | 11.39 |
+
+> See [**summer-benchmark**](summer-benchmark/README.md) for full methodology, client GC mitigation details, and reproduction steps.
 
 * * *
 
@@ -394,20 +390,6 @@ Authentication and authorization are expected to be implemented at the HTTP boun
 *   Error mapping
 
 These are just functions. No container hooks required.
-
-* * *
-
-## Performance Benchmark
-
-Summer includes an isolated, cross-language benchmark suite running under strict CPU core pinning (`cpuset: "0,1"` for services, `cpuset: "2,3"` for the k6 load generator) and hard resource limits (2 CPU / 512MB RAM). Every iteration executes a full 4-step CRUD lifecycle (`POST` $\to$ `GET` $\to$ `PUT` $\to$ `DELETE`):
-
-| Metric | Spring Boot (Java) | Summer (Jackson) | Summer (Avaje-JSONB) | Gin (Go) | Fastify (Node.js) |
-|---|---|---|---|---|---|
-| **Requests/sec (RPS)** | 24,684.11 | **26,361.89** | 26,245.67 | 26,744.70 | 22,912.88 |
-| **P50 Latency (ms)** | 3.15 | **2.95** | 2.96 | 2.89 | 3.34 |
-| **P99 Latency (ms)** | 16.07 | 15.67 | **15.41** | 15.55 | 18.32 |
-
-> See [**summer-benchmark**](summer-benchmark/README.md) for full methodology, client GC mitigation details, and reproduction steps.
 
 * * *
 
