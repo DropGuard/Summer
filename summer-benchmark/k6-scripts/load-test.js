@@ -5,6 +5,7 @@ export const options = {
     vus: __ENV.VUS ? parseInt(__ENV.VUS) : 100,
     duration: __ENV.DURATION || '10s',
     gracefulStop: '0s',
+    discardResponseBodies: true,
     summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
 };
 
