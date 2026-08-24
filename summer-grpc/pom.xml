@@ -6,7 +6,7 @@
     <parent>
         <groupId>io.github.dropguard</groupId>
         <artifactId>summer-framework</artifactId>
-        <version>0.3.1-SNAPSHOT</version>
+        <version>0.3.1</version>
     </parent>
 
     <artifactId>summer-grpc</artifactId>

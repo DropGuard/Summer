@@ -22,14 +22,14 @@
     <parent>
         <groupId>io.github.dropguard</groupId>
         <artifactId>summer-parent</artifactId>
-        <version>0.3.1-SNAPSHOT</version>
+        <version>0.3.1</version>
         <!-- summer-parent is a reactor sibling (since 2026-08-08): resolve it by path, not from
              the repository, so the parent chain works in a fresh build before any install. -->
         <relativePath>../summer-parent/pom.xml</relativePath>
     </parent>
 
     <artifactId>summer-build-parent</artifactId>
-    <version>0.3.1-SNAPSHOT</version>
+    <version>0.3.1</version>
     <packaging>pom</packaging>
 
     <name>Summer Build Parent</name>
