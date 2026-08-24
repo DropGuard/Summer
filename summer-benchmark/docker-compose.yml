@@ -40,7 +40,7 @@ services:
 
   summer:
     image: eclipse-temurin:26-jre-alpine
-    command: java --enable-preview -XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:+AlwaysPreTouch -jar /app/benchmark-summer-0.3.1.jar
+    command: java --enable-preview -XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:+AlwaysPreTouch -jar /app/benchmark-summer-0.3.2-SNAPSHOT.jar
     volumes:
       - ./target-summer/target:/app
     healthcheck:
@@ -79,7 +79,7 @@ services:
 
   summer-jsonb:
     image: eclipse-temurin:26-jre-alpine
-    command: java --enable-preview -XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:+AlwaysPreTouch -jar /app/benchmark-summer-jsonb-0.3.1.jar
+    command: java --enable-preview -XX:InitialRAMPercentage=75.0 -XX:MaxRAMPercentage=75.0 -XX:+AlwaysPreTouch -jar /app/benchmark-summer-jsonb-0.3.2-SNAPSHOT.jar
     volumes:
       - ./target-summer-jsonb/target:/app
     healthcheck:
