@@ -212,11 +212,6 @@
                 <artifactId>grpc-stub</artifactId>
                 <version>1.73.0</version>
             </dependency>
-            <dependency>
-                <groupId>javax.annotation</groupId>
-                <artifactId>javax.annotation-api</artifactId>
-                <version>1.3.2</version>
-            </dependency>
 
             <!-- Jakarta Bean Validation (annotations — avaje-validator is the impl) -->
             <dependency>
@@ -357,7 +352,7 @@
             <dependency>
                 <groupId>io.avaje</groupId>
                 <artifactId>avaje-validator-generator</artifactId>
-                <version>2.17</version>
+                <version>${avaje-validator.version}</version>
             </dependency>
 
             <!-- Avaje JSONB -->
@@ -386,7 +381,21 @@
             <dependency>
                 <groupId>ch.qos.logback</groupId>
                 <artifactId>logback-classic</artifactId>
-                <version>1.5.18</version>
+                <version>${logback.version}</version>
+            </dependency>
+
+            <!-- PostgreSQL JDBC driver -->
+            <dependency>
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>${postgresql.version}</version>
+            </dependency>
+
+            <!-- Protobuf runtime (grpc-protobuf generated code needs it at runtime) -->
+            <dependency>
+                <groupId>com.google.protobuf</groupId>
+                <artifactId>protobuf-java</artifactId>
+                <version>${protobuf-java.version}</version>
             </dependency>
 
             <!-- Jandex -->

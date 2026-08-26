@@ -80,6 +80,12 @@ Test              summer-test, summer-tck, summer-archunit
 
 - **Constructor injection only** — no field/setter injection. Fail-fast on ambiguity.
 - **Interface-based AOP** — JDK dynamic proxy only. No CGLIB. Internal `this.method()` calls bypass proxy.
+- **AOP lookup contract ("one bean, one form")** — an AOP-bound bean exists in the lookup plane
+  ONLY as its proxy (under its unique interface keys AND as the value of its concrete-class key;
+  the proxy is not assignable to the concrete class, so `getBean(ConcreteClass)` fails loudly with
+  `NoSuchBeanException` — declare dependencies on interfaces). Collection injection is homogeneous:
+  one entry per bean, always the proxy. Lifecycle never routes through lookup (`@PostConstruct`
+  pre-wrap on the raw target; close/seal forward through the proxy).
 - **Records for config/data** — `@ConfigMapping` interfaces and `@RowModel` records for typed config/data.
 - **Dual DI engine** — RUNTIME (reflection, dev) or AOT (compile-time wire(), prod). Switched via `-Dsummer.engine`. Both engines share the `Discovery`/`BeanEnrichment`/`SharedConditionEvaluator` pipeline in `summer-engine`.
 - **Virtual threads** — HTTP dispatch on `Thread.startVirtualThread`. `HttpContext`/`Request` not thread-safe.
@@ -119,6 +125,13 @@ mvn install -DskipTests       # Install all jars locally, skip tests
 
 ## NOTES
 
+- **Stale artifacts & report reading (build-credibility rules)** — javac never deletes from
+  `target/classes` and surefire keeps previous reports when compilation fails, so: after changing
+  a public signature (constructor/method param types), build that module chain with `mvn clean`;
+  and never read a surefire report without the matching `BUILD SUCCESS/FAILURE` line — a stale
+  "all green" report next to a failed build is the classic false signal. The AOT mojo wipes and
+  regenerates its sources every run and removes last run's generated classes via
+  `target/aot-generated-classes.txt`; `mvn clean` remains the sledgehammer.
 - JDK 25 baseline (`--sun-misc-unsafe-memory-access=allow` for Netty/AOT).
 - No Maven wrapper — CI uses `setup-java` which auto-installs Maven.
 - `summer-parent/pom.xml` is the **mandatory build contract** (not optional): it binds Jandex

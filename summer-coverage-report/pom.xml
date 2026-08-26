@@ -11,6 +11,10 @@
     <packaging>pom</packaging>
 
     <artifactId>summer-coverage-report</artifactId>
+    <properties>
+        <!-- internal module: never published to Maven Central -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+    </properties>
     <name>Summer Coverage Report</name>
     <description>Aggregates JaCoCo coverage reports from all modules</description>
 

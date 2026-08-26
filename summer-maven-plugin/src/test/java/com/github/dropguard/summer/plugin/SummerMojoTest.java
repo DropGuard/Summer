@@ -78,6 +78,59 @@ class SummerMojoTest {
                 "application.yml must be flipped to the AOT engine: " + yml);
     }
 
+    /**
+     * The staleness contract: a bean deleted between builds leaves its compiled {@code
+     * $$AotProxy}-style class in {@code target/classes} (javac never deletes), where it would be
+     * packaged into the jar. The manifest written by run N names those outputs, so run N+1 must
+     * remove them — including nested {@code Foo$1} siblings — and then rewrite the manifest to name
+     * ITS OWN outputs.
+     */
+    @Test
+    void staleGeneratedClassesAreRemovedAndManifestIsRewritten() throws Exception {
+        File basedir = Files.createTempDirectory("summer-mojo-test-stale").toFile();
+        File classes = new File(basedir, "target/classes");
+        prepareFixture(classes);
+
+        // Simulate a bean that existed in a previous build but was deleted from the sources:
+        // its compiled output lingers in target/classes, and the previous run's manifest lists it.
+        File staleDir = new File(classes, "com/example/gone");
+        staleDir.mkdirs();
+        File staleClass = new File(staleDir, "OldBean$$AotProxy.class");
+        File staleNested = new File(staleDir, "OldBean$$AotProxy$1.class");
+        Files.write(staleClass.toPath(), new byte[] {1});
+        Files.write(staleNested.toPath(), new byte[] {1});
+        File manifest = new File(basedir, "target/aot-generated-classes.txt");
+        Files.writeString(manifest.toPath(), "com/example/gone/OldBean$$AotProxy\n", UTF_8);
+
+        MavenProject project = new MavenProject();
+        project.setGroupId("com.example");
+        project.setArtifactId("fixture-app");
+        project.setVersion("1.0");
+        project.setPackaging("jar");
+        project.setFile(new File(basedir, "pom.xml"));
+        Build build = new Build();
+        build.setDirectory(new File(basedir, "target").getAbsolutePath());
+        build.setOutputDirectory(classes.getAbsolutePath());
+        project.setBuild(build);
+        project.getArtifacts().add(coreArtifact());
+
+        SummerMojo mojo = new SummerMojo();
+        setField(mojo, "project", project);
+        setField(mojo, "outputDirectory", classes);
+        mojo.execute();
+
+        assertTrue(!staleClass.exists(), "stale class must be removed by the next run");
+        assertTrue(!staleNested.exists(), "stale nested class must be removed by the next run");
+
+        String rewritten = new String(Files.readAllBytes(manifest.toPath()), UTF_8);
+        assertTrue(
+                rewritten.contains("com/github/dropguard/summer/aot/generated/GeneratedAotContext"),
+                "manifest must be rewritten to name this run's own outputs: " + rewritten);
+        assertTrue(
+                !rewritten.contains("com/example/gone/OldBean"),
+                "manifest must no longer list the removed class: " + rewritten);
+    }
+
     /** Copies the fixture bean, writes its Jandex index, and seeds an application.yml. */
     private void prepareFixture(File classes) throws Exception {
         classes.mkdirs();

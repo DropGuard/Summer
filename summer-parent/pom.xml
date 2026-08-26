@@ -14,9 +14,13 @@
 
          This POM provides the single source of truth for the build pipeline:
            compile         → jandex:jandex          (indexes beans)
-           process-classes → summer:generate-aot     (generates AOT context)
            test            → surefire:test           (with Unsafe access)
            verify          → failsafe:verify         (IT, opt-in per module)
+
+         generate-aot is NOT bound here: it is an APPLICATION-level step (the generated
+         $$Context needs the whole bean graph, not one library's), so application POMs
+         declare it — summer-build-parent binds it at process-classes for the demos.
+         Framework modules only carry their jandex.idx for app-side discovery.
 
          The framework reactor and every demo inherit from here.
          There are NO <modules> — this is pure build contract.
@@ -59,7 +63,7 @@
             <dependency>
                 <groupId>io.avaje</groupId>
                 <artifactId>avaje-validator-generator</artifactId>
-                <version>2.17</version>
+                <version>${avaje-validator.version}</version>
             </dependency>
             <dependency>
                 <groupId>io.avaje</groupId>
@@ -70,6 +74,12 @@
     </dependencyManagement>
 
     <properties>
+        <!-- Versions referenced in BOTH this POM and the summer-dependencies BOM (which
+             inherits these properties). One bump site, no dual maintenance. -->
+        <avaje-validator.version>2.17</avaje-validator.version>
+        <logback.version>1.5.18</logback.version>
+        <postgresql.version>42.7.3</postgresql.version>
+        <protobuf-java.version>3.25.5</protobuf-java.version>
         <java.version>25</java.version>
         <maven.compiler.release>${java.version}</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -224,7 +234,8 @@
 
         <!-- ================================================================
              Active plugins: MANDATORY for every project.
-             compiler + jandex + summer-maven-plugin run on every build.
+             compiler + jandex run on every framework-module build; modules that
+             are applications additionally declare summer:generate-aot themselves.
              ================================================================ -->
         <plugins>
             <plugin>
@@ -261,7 +272,7 @@
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>1.5.18</version>
+            <version>${logback.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

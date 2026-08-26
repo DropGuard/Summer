@@ -2,7 +2,7 @@ server:
   port: 0
   idleTimeout: 60000
   maxBodySize: 10485760
-  readTimeout: 10000
+  requestReceiveTimeout: 10000
 
 jwt:
   secret: test-secret-for-unit-tests-only-256-bit

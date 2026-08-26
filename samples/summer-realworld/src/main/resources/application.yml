@@ -2,7 +2,7 @@ server:
   port: 8080
   idleTimeout: 60000
   maxBodySize: 10485760
-  readTimeout: 10000
+  requestReceiveTimeout: 10000
 
 datasource:
   url: ${SUMMER_DB_URL:-jdbc:postgresql://localhost:5432/realworld}

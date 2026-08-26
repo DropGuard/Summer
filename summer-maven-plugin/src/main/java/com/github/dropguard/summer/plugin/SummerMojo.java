@@ -1,7 +1,5 @@
 package com.github.dropguard.summer.plugin;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.dataformat.yaml.YAMLMapper;
 import com.github.dropguard.summer.aot.AotContextGenerator;
 import com.github.dropguard.summer.aot.AotEngine;
 import com.github.dropguard.summer.aot.AotProxyGenerator;
@@ -15,13 +13,12 @@ import com.github.dropguard.summer.engine.BuildPipeline;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.AbstractMojo;
@@ -56,9 +53,6 @@ public class SummerMojo extends AbstractMojo {
 
     private static final Logger log = LoggerFactory.getLogger(SummerMojo.class);
 
-    /** YAML binding for {@link #flipEngineToAot()}; jackson-dataformat-yaml is on the classpath. */
-    private static final ObjectMapper YAML_MAPPER = new YAMLMapper();
-
     /** Tracks which generation step was in progress, for failure diagnostics. */
     private String currentBean;
 
@@ -88,10 +82,16 @@ public class SummerMojo extends AbstractMojo {
         File generatedDir = null;
         try {
             generatedDir = prepareGeneratedDir();
+            cleanupStaleGeneratedClasses();
             CompositeIndex index = loadIndexes();
             if (index.getKnownClasses().isEmpty()) {
-                log.info("[Summer] No Jandex index found, skipping");
-                return;
+                // Silent skip here would package a jar whose config still says RUNTIME while the
+                // build claims AOT generation ran. Fail loudly instead — this means the jandex
+                // goal never produced an index (goal ordering) or the module has no classes.
+                throw new MojoExecutionException(
+                        "[Summer] No Jandex index found for AOT generation. Ensure"
+                                + " jandex:index runs before summer:aot (see summer-build-parent"
+                                + " bindings) and that the module compiles at least one class.");
             }
 
             log.info("[Summer] Starting AOT code generation");
@@ -116,15 +116,20 @@ public class SummerMojo extends AbstractMojo {
                 }
             }
             ClassLoader originalClassLoader = Thread.currentThread().getContextClassLoader();
-            ClassLoader projectClassLoader =
-                    new java.net.URLClassLoader(
-                            urls.toArray(new java.net.URL[0]), originalClassLoader);
-            Thread.currentThread().setContextClassLoader(projectClassLoader);
             List<BeanDefinition> sorted;
-            try {
-                sorted = BuildPipeline.resolve(deployment, List.of()).sorted();
-            } finally {
-                Thread.currentThread().setContextClassLoader(originalClassLoader);
+            // Bridges the PROJECT's artifacts into the thread context so ServiceLoader (route
+            // registrar SPI, converters) can discover implementations that live on project
+            // dependencies — they are invisible to the plugin's own classpath. Closed after use
+            // to release jar handles (daemon-style Maven processes would otherwise pin them).
+            try (java.net.URLClassLoader projectClassLoader =
+                    new java.net.URLClassLoader(
+                            urls.toArray(new java.net.URL[0]), originalClassLoader)) {
+                Thread.currentThread().setContextClassLoader(projectClassLoader);
+                try {
+                    sorted = BuildPipeline.resolve(deployment, List.of()).sorted();
+                } finally {
+                    Thread.currentThread().setContextClassLoader(originalClassLoader);
+                }
             }
             // Fail-fast for @Bean products with non-public return types (the generated code
             // references them cross-package); the test-time compiler enforces the same check.
@@ -142,6 +147,9 @@ public class SummerMojo extends AbstractMojo {
                 new RouteAdapterGenerator().generate(sorted, generatedDir);
             }
 
+            // Written BEFORE compiling: a compile failure then still leaves an accurate
+            // manifest, so the next successful run removes exactly what this run produced.
+            writeGeneratedClassesManifest(generatedDir);
             compileGeneratedSources(generatedDir);
 
             flipEngineToAot();
@@ -177,6 +185,84 @@ public class SummerMojo extends AbstractMojo {
         }
         dir.mkdirs();
         return dir;
+    }
+
+    // ── Stale generated-class cleanup ───────────────────────────────────
+    //
+    // Generation wipes and rewrites the generated SOURCES every run, but javac only ever adds
+    // to target/classes: when a bean is deleted or renamed, the previous run's compiled
+    // $$Context/$$AotProxy/$$ConfigImpl classes survive there and get packaged into the jar.
+    // The manifest written by the previous run names exactly those outputs, so the next run
+    // can remove them before regenerating. `mvn clean` removes the manifest with target/ —
+    // the two mechanisms never disagree.
+
+    private File manifestFile() {
+        return new File(new File(project.getBasedir(), "target"), "aot-generated-classes.txt");
+    }
+
+    /** Deletes the class files (plus nested {@code Foo$*} siblings) listed by the last run. */
+    private void cleanupStaleGeneratedClasses() throws IOException {
+        File manifest = manifestFile();
+        if (!manifest.exists()) {
+            return;
+        }
+        List<String> entries =
+                Files.readAllLines(manifest.toPath()).stream()
+                        .map(String::trim)
+                        .filter(line -> !line.isEmpty() && !line.startsWith("#"))
+                        .toList();
+        int removed = 0;
+        for (String entry : entries) {
+            Path classFile = outputDirectory.toPath().resolve(entry + ".class");
+            if (Files.deleteIfExists(classFile)) {
+                removed++;
+            }
+            Path parent = classFile.getParent();
+            String base = classFile.getFileName().toString();
+            base = base.substring(0, base.length() - ".class".length());
+            if (parent != null && Files.isDirectory(parent)) {
+                try (var stream = Files.list(parent)) {
+                    for (Path sibling : stream.toList()) {
+                        String name = sibling.getFileName().toString();
+                        if (name.startsWith(base + "$")
+                                && name.endsWith(".class")
+                                && Files.deleteIfExists(sibling)) {
+                            removed++;
+                        }
+                    }
+                }
+            }
+        }
+        if (removed > 0) {
+            log.info(
+                    "[Summer] Removed {} stale generated class(es) from a previous build", removed);
+        }
+    }
+
+    /** Records the class paths this run's generated sources will compile to. */
+    private void writeGeneratedClassesManifest(File generatedDir) throws IOException {
+        List<String> entries = new ArrayList<>();
+        try (var stream = Files.walk(generatedDir.toPath())) {
+            stream.filter(p -> p.toString().endsWith(".java"))
+                    .forEach(
+                            p -> {
+                                String rel = generatedDir.toPath().relativize(p).toString();
+                                entries.add(
+                                        rel.substring(0, rel.length() - ".java".length())
+                                                .replace('\\', '/'));
+                            });
+        }
+        java.util.Collections.sort(entries);
+        StringBuilder sb =
+                new StringBuilder(
+                        "# Compiled class paths (relative to target/classes) produced by the"
+                                + " generate-aot run that wrote this file.\n"
+                                + "# Deleted at the start of the next generate-aot run; rewritten"
+                                + " after every successful generation.\n");
+        for (String entry : entries) {
+            sb.append(entry).append('\n');
+        }
+        Files.writeString(manifestFile().toPath(), sb.toString(), StandardCharsets.UTF_8);
     }
 
     private void compileGeneratedSources(File generatedDir) throws Exception {
@@ -220,33 +306,79 @@ public class SummerMojo extends AbstractMojo {
         }
     }
 
-    /** Ensures the packaged {@code application.yml} selects the AOT engine. */
+    private static final String FLIP_MARKER =
+            "# summer.engine set by summer-maven-plugin (AOT production build)";
+
+    /**
+     * Ensures the packaged {@code application.yml} selects the AOT engine — via a byte-preserving
+     * TEXT edit. The previous implementation round-tripped the file through Jackson, which silently
+     * destroyed comments and reordered keys in the shipped artifact. Only the {@code engine} line
+     * is ever touched; everything else stays byte-for-byte.
+     */
     private void flipEngineToAot() throws IOException {
         File classesDir = new File(outputDirectory.getAbsolutePath());
         File yml = new File(classesDir, "application.yml");
         classesDir.mkdirs();
 
-        Map<String, Object> root;
-        if (yml.exists()) {
-            try (InputStream in = Files.newInputStream(yml.toPath())) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> loaded = YAML_MAPPER.readValue(in, Map.class);
-                root = loaded;
+        if (!yml.exists()) {
+            String content = FLIP_MARKER + "\nsummer:\n  engine: aot\n";
+            Files.writeString(yml.toPath(), content);
+            log.info("[Summer] Created application.yml with summer.engine: aot");
+            return;
+        }
+
+        List<String> lines = Files.readAllLines(yml.toPath());
+
+        // Locate the top-level `summer:` block (column-0 key).
+        int summerIdx = -1;
+        for (int i = 0; i < lines.size(); i++) {
+            if (lines.get(i).matches("summer:\s*(#.*)?")) {
+                summerIdx = i;
+                break;
             }
+        }
+
+        if (summerIdx < 0) {
+            lines.add("");
+            lines.add(FLIP_MARKER);
+            lines.add("summer:");
+            lines.add("  engine: aot");
+            Files.write(yml.toPath(), lines);
+            log.info("[Summer] Appended summer.engine: aot to application.yml");
+            return;
+        }
+
+        // Scan the summer block: find an existing `engine:` line, and where its entries end
+        // (block ends at EOF or at the next column-0 key).
+        int blockEnd = lines.size();
+        int engineIdx = -1;
+        for (int i = summerIdx + 1; i < lines.size(); i++) {
+            String l = lines.get(i);
+            if (!l.isBlank() && !l.startsWith(" ") && !l.startsWith("\t")) {
+                blockEnd = i;
+                break;
+            }
+            if (l.matches("\\s+engine:\s*.*")) {
+                engineIdx = i;
+            }
+        }
+        String indent =
+                engineIdx >= 0
+                        ? lines.get(engineIdx).substring(0, lines.get(engineIdx).indexOf("engine:"))
+                        : "  ";
+
+        if (engineIdx >= 0) {
+            // Replace only the value token after `engine:`; keep indentation and any comment.
+            String l = lines.get(engineIdx);
+            String rest = l.substring(l.indexOf("engine:") + "engine:".length());
+            int comment = rest.indexOf('#');
+            String tail = comment >= 0 ? rest.substring(comment) : "";
+            lines.set(engineIdx, indent + "engine: aot" + (tail.isBlank() ? "" : " " + tail));
         } else {
-            root = new HashMap<>();
+            lines.add(blockEnd, indent + "engine: aot");
         }
-
-        @SuppressWarnings("unchecked")
-        Map<String, Object> summer = (Map<String, Object>) root.get("summer");
-        if (summer == null) {
-            summer = new HashMap<>();
-            root.put("summer", summer);
-        }
-        summer.put("engine", "aot");
-
-        YAML_MAPPER.writeValue(yml, root);
-        log.info("[Summer] Set summer.engine: aot for production build");
+        Files.write(yml.toPath(), lines);
+        log.info("[Summer] Set summer.engine: aot in application.yml");
     }
 
     private void collectJavaFiles(File dir, List<File> result) {
