@@ -6,6 +6,7 @@ import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.ServerConfig;
 import com.github.dropguard.summer.web.ServerOriginChecker;
 import com.github.dropguard.summer.web.WsRouter;
+import com.github.dropguard.summer.web.websocket.WebSocketBroadcaster;
 import com.github.dropguard.summer.web.websocket.WebSocketInterceptor;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
@@ -24,18 +25,21 @@ class WebSocketUpgradeHandler {
     private final ServerOriginChecker serverOriginChecker;
     private final List<WebSocketInterceptor> wsInterceptors;
     private final BodyConverter jsonConverter;
+    private final WebSocketBroadcaster broadcaster;
 
     public WebSocketUpgradeHandler(
             WsRouter wsRouter,
             ServerConfig config,
             ServerOriginChecker serverOriginChecker,
             List<WebSocketInterceptor> wsInterceptors,
-            BodyConverter jsonConverter) {
+            BodyConverter jsonConverter,
+            WebSocketBroadcaster broadcaster) {
         this.wsRouter = wsRouter;
         this.config = config;
         this.serverOriginChecker = serverOriginChecker;
         this.wsInterceptors = wsInterceptors;
         this.jsonConverter = jsonConverter;
+        this.broadcaster = broadcaster;
     }
 
     public boolean isWebSocketUpgrade(FullHttpRequest nettyReq) {
@@ -77,6 +81,9 @@ class WebSocketUpgradeHandler {
         NettyWebSocketContext wsContext =
                 new NettyWebSocketContext(
                         nettyCtx, wsMatch.pathParams(), headers, wsInterceptors, jsonConverter);
+        // Register the live session before any user lifecycle code runs — this is
+        // what makes broadcastAll cover every connection, joined or not.
+        broadcaster.connected(wsContext);
         wsMatch.handler().handle(wsContext);
 
         c.setHandled(true);
@@ -109,6 +116,15 @@ class WebSocketUpgradeHandler {
                                             new io.netty.handler.codec.http.websocketx
                                                     .WebSocketServerProtocolHandler(
                                                     uri, true, config.maxWebSocketFrameSize()));
+                            if (config.wsHeartbeatInterval() > 0) {
+                                // Post-upgrade the connection has no read-timeout
+                                // protection and legitimately stays quiet — liveness
+                                // is owned by protocol-level ping/pong from here on.
+                                nettyCtx.pipeline()
+                                        .addLast(
+                                                new WebSocketHeartbeatHandler(
+                                                        config.wsHeartbeatInterval()));
+                            }
                             nettyCtx.pipeline()
                                     .addLast(
                                             new SummerWebSocketFrameHandler(

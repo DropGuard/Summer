@@ -60,9 +60,17 @@ class NettyHttpServer {
                 context.getBeans(
                         com.github.dropguard.summer.web.websocket.WebSocketInterceptor.class);
         ServerOriginChecker serverOriginChecker = context.getBean(ServerOriginChecker.class);
+        com.github.dropguard.summer.web.websocket.WebSocketBroadcaster broadcaster =
+                context.getBean(
+                        com.github.dropguard.summer.web.websocket.WebSocketBroadcaster.class);
         WebSocketUpgradeHandler wsUpgradeHandler =
                 new WebSocketUpgradeHandler(
-                        wsRouter, config, serverOriginChecker, wsInterceptors, bodyConverter);
+                        wsRouter,
+                        config,
+                        serverOriginChecker,
+                        wsInterceptors,
+                        bodyConverter,
+                        broadcaster);
         return new NettyHttpServer(
                 config,
                 new WebServerDependencies(
@@ -139,7 +147,7 @@ class NettyHttpServer {
                                                             TimeUnit.MILLISECONDS))
                                             .addLast(
                                                     new ReadTimeoutHandler(
-                                                            config.readTimeout(),
+                                                            config.requestReceiveTimeout(),
                                                             TimeUnit.MILLISECONDS))
                                             .addLast(
                                                     new HttpObjectAggregator(

@@ -112,6 +112,10 @@ class NettyChunkedResponse implements ChunkedResponse {
             var future = ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT);
             if (!keepAlive) {
                 future.addListener(ChannelFutureListener.CLOSE);
+            } else {
+                // Stream finished: back to a keep-alive gap where read-idle
+                // detection applies again.
+                future.addListener(f -> ChannelInflight.markComplete(ctx));
             }
         }
     }

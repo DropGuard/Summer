@@ -20,6 +20,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.timeout.IdleStateEvent;
+import io.netty.handler.timeout.ReadTimeoutHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -55,6 +56,12 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest nettyReq) {
         if (server != null) server.getActiveConnections().incrementAndGet();
 
+        // The request is fully received (this handler sits behind the aggregator):
+        // slow-request protection has done its job for this connection and must not
+        // fire again — server-push responses legitimately have no inbound traffic.
+        removeReadTimeout(ctx);
+        ChannelInflight.markActive(ctx);
+
         // 1. Check HTTP Keep-Alive
         boolean keepAlive = HttpUtil.isKeepAlive(nettyReq);
 
@@ -74,6 +81,12 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
                 });
     }
 
+    private static void removeReadTimeout(ChannelHandlerContext ctx) {
+        if (ctx.pipeline().get(ReadTimeoutHandler.class) != null) {
+            ctx.pipeline().remove(ReadTimeoutHandler.class);
+        }
+    }
+
     private void sendSimpleResponse(
             ChannelHandlerContext ctx, HttpResponseStatus status, String message) {
         byte[] bytes = message.getBytes(java.nio.charset.StandardCharsets.UTF_8);
@@ -82,7 +95,12 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
                         HttpVersion.HTTP_1_1, status, Unpooled.wrappedBuffer(bytes));
         response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain");
         response.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, bytes.length);
-        ctx.writeAndFlush(response).addListener(ChannelFutureListener.CLOSE);
+        ctx.writeAndFlush(response)
+                .addListener(
+                        f -> {
+                            ChannelInflight.markComplete(ctx);
+                            ctx.close();
+                        });
     }
 
     private void processRequest(
@@ -185,7 +203,7 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
         errorResp.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, errorBytes.length);
         if (keepAlive) {
             errorResp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
-            ctx.writeAndFlush(errorResp);
+            ctx.writeAndFlush(errorResp).addListener(f -> ChannelInflight.markComplete(ctx));
         } else {
             errorResp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
             ctx.writeAndFlush(errorResp).addListener(ChannelFutureListener.CLOSE);
@@ -196,8 +214,13 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) {
         if (evt instanceof IdleStateEvent) {
-            log.debug("[Summer] Closing idle connection: {}", ctx.channel().remoteAddress());
-            ctx.close();
+            // Close only genuinely idle keep-alive gaps. Channels with response work
+            // in flight (open SSE/chunked streams, an in-flight handler, or a
+            // WebSocket session) legitimately stay quiet on the read side.
+            if (!ChannelInflight.isActive(ctx.channel())) {
+                log.debug("[Summer] Closing idle connection: {}", ctx.channel().remoteAddress());
+                ctx.close();
+            }
             return;
         }
         ctx.fireUserEventTriggered(evt);

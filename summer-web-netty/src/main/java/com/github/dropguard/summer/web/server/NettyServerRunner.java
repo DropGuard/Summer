@@ -7,7 +7,7 @@ import com.github.dropguard.summer.core.config.ShutdownConfig;
 import com.github.dropguard.summer.web.ExceptionHandlerRegistrar;
 import com.github.dropguard.summer.web.ExceptionRegistry;
 import com.github.dropguard.summer.web.HttpRouter;
-import com.github.dropguard.summer.web.RouteRegistrar;
+import com.github.dropguard.summer.web.RouterAdapter;
 import com.github.dropguard.summer.web.RouterRegistry;
 import com.github.dropguard.summer.web.ServerConfig;
 import com.github.dropguard.summer.web.WsRouter;
@@ -159,7 +159,7 @@ public class NettyServerRunner implements ApplicationRunner {
     private HttpRouter buildHttpRouter(BeanContainer context) {
         var builder = new HttpRouter.Builder(config.routerType(), routerRegistry);
 
-        for (RouteRegistrar registrar : context.getBeans(RouteRegistrar.class)) {
+        for (RouterAdapter registrar : context.getBeans(RouterAdapter.class)) {
             registrar.registerControllers(builder, context);
         }
 

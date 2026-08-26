@@ -42,6 +42,13 @@ class NettyHttpServerHandlerTest {
         when(server.getActiveConnections()).thenReturn(new AtomicInteger(0));
         when(ctx.writeAndFlush(any())).thenReturn(channelFuture);
 
+        // channelRead0 now touches the real pipeline/channel (timer removal +
+        // in-flight marking) — back it with a live EmbeddedChannel.
+        io.netty.channel.embedded.EmbeddedChannel backing =
+                new io.netty.channel.embedded.EmbeddedChannel();
+        when(ctx.channel()).thenReturn(backing);
+        when(ctx.pipeline()).thenReturn(backing.pipeline());
+
         HttpHeaders headers = new DefaultHttpHeaders();
         when(request.headers()).thenReturn(headers);
         when(request.protocolVersion()).thenReturn(HttpVersion.HTTP_1_1);

@@ -74,7 +74,9 @@ class NettyResponseSink implements ResponseSink {
                 resp.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, content.readableBytes());
             }
             resp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
-            ctx.writeAndFlush(resp);
+            // Buffered response fully written: the channel is back to a keep-alive
+            // gap, where read-idle detection applies again.
+            ctx.writeAndFlush(resp).addListener(f -> ChannelInflight.markComplete(ctx));
         } else {
             resp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
             ctx.writeAndFlush(resp).addListener(ChannelFutureListener.CLOSE);
@@ -93,7 +95,7 @@ class NettyResponseSink implements ResponseSink {
         errorResp.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, errorBytes.length);
         if (keepAlive) {
             errorResp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.KEEP_ALIVE);
-            ctx.writeAndFlush(errorResp);
+            ctx.writeAndFlush(errorResp).addListener(f -> ChannelInflight.markComplete(ctx));
         } else {
             errorResp.headers().set(HttpHeaderNames.CONNECTION, HttpHeaderValues.CLOSE);
             ctx.writeAndFlush(errorResp).addListener(ChannelFutureListener.CLOSE);
