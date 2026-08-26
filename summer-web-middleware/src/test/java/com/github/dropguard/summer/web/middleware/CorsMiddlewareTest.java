@@ -47,14 +47,21 @@ class CorsMiddlewareTest {
                             called.set(true);
                         });
 
-        HttpContext ctx = ctx(HttpMethod.GET, "/api/test");
+        HttpContext ctx =
+                CorsContext.builder(HttpMethod.GET, "/api/test")
+                        .withOrigin("https://app.example.com")
+                        .withHost("localhost:8080")
+                        .build();
         handler.handle(ctx);
 
         assertTrue(called.get());
         assertEquals("*", ctx.headers().get("Access-Control-Allow-Origin"));
-        assertEquals("GET, POST", ctx.headers().get("Access-Control-Allow-Methods"));
-        assertEquals("Content-Type", ctx.headers().get("Access-Control-Allow-Headers"));
-        assertEquals("3600", ctx.headers().get("Access-Control-Max-Age"));
+        assertEquals("Origin", ctx.headers().get("Vary"), "origin-dependent response must Vary");
+        assertNull(
+                ctx.headers().get("Access-Control-Allow-Methods"),
+                "policy headers belong on preflight responses only");
+        assertNull(ctx.headers().get("Access-Control-Allow-Headers"));
+        assertNull(ctx.headers().get("Access-Control-Max-Age"));
     }
 
     @Test
@@ -69,12 +76,35 @@ class CorsMiddlewareTest {
                             called.set(true);
                         });
 
-        HttpContext ctx = ctx(HttpMethod.OPTIONS, "/api/test");
+        HttpContext ctx =
+                CorsContext.builder(HttpMethod.OPTIONS, "/api/test")
+                        .withOrigin("https://app.example.com")
+                        .withHeader("Access-Control-Request-Method", "POST")
+                        .build();
         handler.handle(ctx);
 
         assertFalse(called.get(), "Next handler should NOT be called for preflight");
         assertEquals(HttpStatus.NO_CONTENT, ctx.status());
         assertEquals("*", ctx.headers().get("Access-Control-Allow-Origin"));
+        assertEquals("Origin", ctx.headers().get("Vary"));
+        assertEquals("GET, POST, PUT, DELETE", ctx.headers().get("Access-Control-Allow-Methods"));
+        assertEquals("Content-Type", ctx.headers().get("Access-Control-Allow-Headers"));
+        assertEquals("3600", ctx.headers().get("Access-Control-Max-Age"));
+    }
+
+    @Test
+    void plainOptionsWithoutPreflightHeadersPassesThrough() throws Exception {
+        CorsConfig config = corsProps("*", "GET", "Content-Type", 3600);
+        CorsMiddleware middleware = new CorsMiddleware(config);
+
+        AtomicBoolean called = new AtomicBoolean(false);
+        Handler handler = middleware.apply(ctx -> called.set(true));
+
+        // curl probe / health check: OPTIONS without the preflight marker headers.
+        HttpContext ctx = ctx(HttpMethod.OPTIONS, "/api/test");
+        handler.handle(ctx);
+
+        assertTrue(called.get(), "OPTIONS without Origin+ACRM is not a preflight — route it");
     }
 
     @Test
@@ -113,9 +143,7 @@ class CorsMiddlewareTest {
 
         // The matched origin (the requesting one) is reflected, not the raw configured list.
         assertEquals("https://example.com", ctx.headers().get("Access-Control-Allow-Origin"));
-        assertEquals("GET", ctx.headers().get("Access-Control-Allow-Methods"));
-        assertEquals("Authorization", ctx.headers().get("Access-Control-Allow-Headers"));
-        assertEquals("7200", ctx.headers().get("Access-Control-Max-Age"));
+        assertEquals("Origin", ctx.headers().get("Vary"));
     }
 
     @Test
@@ -132,9 +160,30 @@ class CorsMiddlewareTest {
                         .build();
         handler.handle(ctx);
 
-        assertNull(
-                ctx.headers().get("Access-Control-Allow-Origin"),
-                "Disallowed origin must not be reflected");
+        assertEquals(
+                HttpStatus.FORBIDDEN,
+                ctx.status(),
+                "disallowed origin is denied loudly, for actual and preflight alike");
+        assertNull(ctx.headers().get("Access-Control-Allow-Origin"), "no CORS headers on denial");
+        assertNull(ctx.headers().get("Access-Control-Allow-Methods"));
+    }
+
+    @Test
+    void disallowedPreflightAlsoDenied403() throws Exception {
+        CorsConfig config = corsProps("https://example.com", "GET", "Authorization", 7200);
+        CorsMiddleware middleware = new CorsMiddleware(config);
+
+        Handler handler = middleware.apply(ctx -> {});
+
+        HttpContext ctx =
+                CorsContext.builder(HttpMethod.OPTIONS, "/api/test")
+                        .withOrigin("https://evil.com")
+                        .withHeader("Access-Control-Request-Method", "POST")
+                        .build();
+        handler.handle(ctx);
+
+        assertEquals(HttpStatus.FORBIDDEN, ctx.status());
+        assertNull(ctx.headers().get("Access-Control-Allow-Origin"));
     }
 
     private HttpContext ctx(HttpMethod method, String path) {
@@ -149,6 +198,7 @@ class CorsMiddlewareTest {
         private final String path;
         private String origin;
         private String host;
+        private final Map<String, String> extraHeaders = new HashMap<>();
 
         private CorsContext(HttpMethod method, String path) {
             this.method = method;
@@ -169,6 +219,11 @@ class CorsMiddlewareTest {
             return this;
         }
 
+        CorsContext withHeader(String name, String value) {
+            this.extraHeaders.put(name, value);
+            return this;
+        }
+
         HttpContext build() {
             Map<String, String> headers = new HashMap<>();
             if (origin != null) {
@@ -177,6 +232,7 @@ class CorsMiddlewareTest {
             if (host != null) {
                 headers.put("host", host);
             }
+            headers.putAll(extraHeaders);
             Request req = new Request(method, path, null, null, new byte[0], headers);
             return new HttpContext(req);
         }
