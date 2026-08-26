@@ -20,6 +20,7 @@
     </parent>
 
     <artifactId>summer-benchmark</artifactId>
+    <version>0.3.2-SNAPSHOT</version>
     <packaging>pom</packaging>
     <name>Summer Benchmark</name>
 
