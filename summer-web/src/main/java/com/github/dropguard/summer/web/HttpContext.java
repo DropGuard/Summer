@@ -46,12 +46,14 @@ public class HttpContext {
         this(request, DEFAULT_JSON_PARSER);
     }
 
+    /**
+     * The injected converter is the single source of truth for body parsing and response
+     * serialization. No type sniffing: a {@link JsonBodyConverter} subclass is a legitimate
+     * customization point (its bean is designed to be replaced/configured) and must never be
+     * swapped for the static default.
+     */
     public HttpContext(Request request, BodyConverter jsonConverter) {
-        this(
-                request,
-                jsonConverter instanceof JsonBodyConverter
-                        ? DEFAULT_JSON_PARSER
-                        : new BodyParser(jsonConverter, AVALIDATOR));
+        this(request, new BodyParser(jsonConverter, AVALIDATOR));
     }
 
     public HttpContext(Request request, BodyParser bodyParser) {

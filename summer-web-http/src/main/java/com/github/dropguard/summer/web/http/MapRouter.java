@@ -41,7 +41,13 @@ public class MapRouter implements HttpRouter {
             entry.paramNames = base.paramNames;
             entry.catchAll = base.catchAll;
             entry.handler = route.handler();
-            this.routes.put(key, entry);
+            RouteEntryWithHandler previous = this.routes.putIfAbsent(key, entry);
+            if (previous != null) {
+                // Silent overwrite used to hide duplicate registrations behind "whichever
+                // controller registered last wins". Fail fast at router build (startup) instead.
+                throw com.github.dropguard.summer.web.exception.RouteConflictException.duplicate(
+                        key);
+            }
         }
     }
 

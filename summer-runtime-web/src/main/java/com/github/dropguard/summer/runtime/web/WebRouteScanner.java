@@ -2,6 +2,7 @@ package com.github.dropguard.summer.runtime.web;
 
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
+import com.github.dropguard.summer.core.bean.RouteInfo;
 import com.github.dropguard.summer.core.spi.RouteRegistrar;
 import com.github.dropguard.summer.core.spi.RouteRegistry;
 import com.github.dropguard.summer.web.annotation.Delete;
@@ -125,7 +126,7 @@ public class WebRouteScanner implements RouteRegistrar {
             }
 
             // Build parameter list
-            java.util.List<RouteRegistry.ParamInfo> params = collectParameters(method);
+            java.util.List<RouteInfo.ParamInfo> params = collectParameters(method);
 
             registry.registerRoute(bean, httpMethod, fullPath, method.getName(), params);
         }
@@ -163,8 +164,8 @@ public class WebRouteScanner implements RouteRegistrar {
         return "";
     }
 
-    private java.util.List<RouteRegistry.ParamInfo> collectParameters(Method method) {
-        java.util.List<RouteRegistry.ParamInfo> params = new java.util.ArrayList<>();
+    private java.util.List<RouteInfo.ParamInfo> collectParameters(Method method) {
+        java.util.List<RouteInfo.ParamInfo> params = new java.util.ArrayList<>();
         Parameter[] parameters = method.getParameters();
 
         for (int i = 0; i < parameters.length; i++) {
@@ -184,21 +185,21 @@ public class WebRouteScanner implements RouteRegistrar {
                 PathParam pathParam = param.getAnnotation(PathParam.class);
                 String bindingName = pathParam.value().isEmpty() ? paramName : pathParam.value();
                 params.add(
-                        new RouteRegistry.ParamInfo(
+                        new RouteInfo.ParamInfo(
                                 paramName,
                                 bindingName,
-                                RouteRegistry.ParamBinding.PATH,
-                                paramType,
+                                paramType.getName(),
+                                RouteInfo.ParamBinding.PATH,
                                 validated));
             } else if (param.isAnnotationPresent(QueryParam.class)) {
                 QueryParam queryParam = param.getAnnotation(QueryParam.class);
                 String bindingName = queryParam.value().isEmpty() ? paramName : queryParam.value();
                 params.add(
-                        new RouteRegistry.ParamInfo(
+                        new RouteInfo.ParamInfo(
                                 paramName,
                                 bindingName,
-                                RouteRegistry.ParamBinding.QUERY,
-                                paramType,
+                                paramType.getName(),
+                                RouteInfo.ParamBinding.QUERY,
                                 validated));
             } else if (com.github.dropguard.summer.web.ScrollRequest.class.isAssignableFrom(
                             paramType)
@@ -206,20 +207,20 @@ public class WebRouteScanner implements RouteRegistrar {
                     || paramType == com.github.dropguard.summer.web.ChunkedResponse.class
                     || paramType == com.github.dropguard.summer.web.Request.class) {
                 params.add(
-                        new RouteRegistry.ParamInfo(
+                        new RouteInfo.ParamInfo(
                                 paramName,
                                 "",
-                                RouteRegistry.ParamBinding.PAGEABLE,
-                                paramType,
+                                paramType.getName(),
+                                RouteInfo.ParamBinding.RESOLVER,
                                 false));
             } else {
                 // Default: body
                 params.add(
-                        new RouteRegistry.ParamInfo(
+                        new RouteInfo.ParamInfo(
                                 paramName,
                                 "",
-                                RouteRegistry.ParamBinding.BODY,
-                                paramType,
+                                paramType.getName(),
+                                RouteInfo.ParamBinding.BODY,
                                 validated));
             }
         }

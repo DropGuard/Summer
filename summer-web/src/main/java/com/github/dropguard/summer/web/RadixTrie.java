@@ -1,10 +1,13 @@
 package com.github.dropguard.summer.web;
 
+import com.github.dropguard.summer.core.ErrorCode;
 import com.github.dropguard.summer.core.Internal;
-import java.net.URLDecoder;
+import com.github.dropguard.summer.web.exception.SummerWebException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -44,11 +47,22 @@ public class RadixTrie<T> {
     /**
      * Inserts a handler for the given path pattern.
      *
+     * <p>Duplicate registration is rejected at insert time — the second handler used to silently
+     * overwrite the first, surfacing as "wrong controller answered" in production with no
+     * diagnostic. Fail fast instead, consistent with route-merge validation.
+     *
      * @param path the path pattern (e.g., "/users/{id}")
      * @param handler the handler to store
+     * @throws com.github.dropguard.summer.web.exception.RouteConflictException if a handler is
+     *     already registered for this exact pattern
      */
     public void insert(String path, T handler) {
-        navigateToNode(PathUtils.normalizePath(path)).handler = handler;
+        Node<T> node = navigateToNode(PathUtils.normalizePath(path));
+        if (node.handler != null) {
+            throw com.github.dropguard.summer.web.exception.RouteConflictException.duplicate(
+                    PathUtils.normalizePath(path));
+        }
+        node.handler = handler;
     }
 
     /**
@@ -80,9 +94,7 @@ public class RadixTrie<T> {
             return null;
         }
 
-        return new MatchResult<>(
-                result.node().handler,
-                result.params() != null ? result.params() : Collections.emptyMap());
+        return new MatchResult<>(result.node().handler, materialize(result.bindings(), path));
     }
 
     private Node<T> findNode(String path) {
@@ -154,13 +166,20 @@ public class RadixTrie<T> {
      * <p>A {@code **} node is a <em>last-resort</em> fallback: it is only entered when no
      * more-specific child (static / param / {@code *}) matches. Because descending into a specific
      * child can later dead-end, we remember the nearest ancestor catch-all (with a handler) as a
-     * {@code fallback}; if a segment has no specific child, we backtrack to that fallback (and undo
-     * any path parameter that specific descent bound).
+     * {@code fallback}; on backtrack we truncate the binding trail to what was recorded before that
+     * fallback was entered — parameter bindings made inside a dead-ended branch never reach the
+     * fallback result.
+     *
+     * <p>Bindings are collected as raw slices and only decoded into the params map once a handler
+     * is actually reached (deferred materialisation): failed attempts pay no decoding cost, and an
+     * invalid percent-escape surfaces as a typed 400-mapped exception instead of leaking out of the
+     * matcher.
      */
     private NodeAndParam<T> matchPath(String path) {
         Node<T> current = root;
         Node<T> fallback = null; // nearest ancestor catch-all whose handler is non-null
-        Map<String, String> params = null;
+        int fallbackDepth = 0; // binding-trail length when that fallback was captured
+        List<Binding> bindings = null;
         int start = 0;
         int len = path.length();
         for (int i = 0; i <= len; i++) {
@@ -170,17 +189,19 @@ public class RadixTrie<T> {
                     // any deeper segment that fails to match specifically.
                     if (current.catchAllChild != null && current.catchAllChild.handler != null) {
                         fallback = current.catchAllChild;
+                        fallbackDepth = bindings != null ? bindings.size() : 0;
                     }
-                    NodeAndParam<T> next = findNext(current, path, start, i, params);
+                    NodeAndParam<T> next = findNext(current, path, start, i, bindings);
                     if (next.node() == null) {
-                        // Dead end on a specific child — undo the parameter this descent bound
-                        // and backtrack to the nearest catch-all.
-                        if (next.boundParam() != null && params != null) {
-                            params.remove(next.boundParam());
+                        // Dead end on a specific child — drop every binding made inside this
+                        // branch and hand the trail as it stood at the fallback point.
+                        if (fallback == null) {
+                            return new NodeAndParam<>(null, null);
                         }
-                        return new NodeAndParam<>(fallback, null, params);
+                        bindings = truncate(bindings, fallbackDepth);
+                        return new NodeAndParam<>(fallback, bindings);
                     }
-                    params = next.params();
+                    bindings = next.bindings();
                     current = next.node();
                 }
                 start = i + 1;
@@ -189,43 +210,102 @@ public class RadixTrie<T> {
 
         // Path fully consumed by specific segments.
         if (current.handler != null) {
-            return new NodeAndParam<>(current, null, params);
+            return new NodeAndParam<>(current, bindings);
         }
         if (current.catchAllChild != null && current.catchAllChild.handler != null) {
-            return new NodeAndParam<>(current.catchAllChild, null, params);
+            return new NodeAndParam<>(current.catchAllChild, bindings);
         }
-        return new NodeAndParam<>(fallback, null, params);
+        if (fallback != null) {
+            bindings = truncate(bindings, fallbackDepth);
+            return new NodeAndParam<>(fallback, bindings);
+        }
+        return new NodeAndParam<>(null, null);
+    }
+
+    private static List<Binding> truncate(List<Binding> bindings, int depth) {
+        if (bindings != null && bindings.size() > depth) {
+            bindings.subList(depth, bindings.size()).clear();
+        }
+        return bindings;
+    }
+
+    /** Finds and materialises path parameters for a successful match. */
+    private static Map<String, String> materialize(List<Binding> bindings, String path) {
+        if (bindings == null || bindings.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<String, String> params = new HashMap<>(4);
+        for (Binding b : bindings) {
+            params.put(b.name(), decodeSegment(path.substring(b.start(), b.end())));
+        }
+        return params;
+    }
+
+    /**
+     * Percent-decodes one URI path segment per RFC 3986. Deliberately NOT {@link URLDecoder}: that
+     * applies application/x-www-form-urlencoded rules where {@code '+'} means space — in a path,
+     * {@code '+'} is a legal literal character (think base64 values or emails). Query-string
+     * parsing elsewhere keeps form semantics; the asymmetry is intentional.
+     *
+     * @throws SummerWebException mapped to 400 when an escape sequence is malformed
+     */
+    private static String decodeSegment(String raw) {
+        if (raw.indexOf('%') < 0) {
+            return raw;
+        }
+        byte[] bytes = raw.getBytes(StandardCharsets.UTF_8);
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream(bytes.length);
+        for (int i = 0; i < bytes.length; i++) {
+            byte c = bytes[i];
+            if (c == '%') {
+                if (i + 2 >= bytes.length) {
+                    throw new SummerWebException(
+                            ErrorCode.ROUTE_MATCH_ERROR,
+                            HttpStatus.BAD_REQUEST,
+                            "Invalid percent-encoding in request path segment: " + raw);
+                }
+                int hi = Character.digit((char) bytes[i + 1], 16);
+                int lo = Character.digit((char) bytes[i + 2], 16);
+                if (hi < 0 || lo < 0) {
+                    throw new SummerWebException(
+                            ErrorCode.ROUTE_MATCH_ERROR,
+                            HttpStatus.BAD_REQUEST,
+                            "Invalid percent-encoding in request path segment: " + raw);
+                }
+                out.write((hi << 4) | lo);
+                i += 2;
+            } else {
+                out.write(c); // includes literal '+'
+            }
+        }
+        return new String(out.toByteArray(), StandardCharsets.UTF_8);
     }
 
     /**
      * Finds the next node in the trie for the given path segment, honouring the priority order
-     * (static &gt; path parameter &gt; single-segment wildcard). The returned record also reports
-     * which path parameter (if any) was bound, so a later dead-end can undo that binding before
-     * backtracking to a catch-all.
+     * (static &gt; path parameter &gt; single-segment wildcard). Parameter bindings are appended to
+     * the caller's trail as raw slices — no decoding, no map mutation; the caller discards the
+     * whole trail if this descent eventually dead-ends.
      */
     private NodeAndParam<T> findNext(
-            Node<T> current, String path, int start, int end, Map<String, String> params) {
+            Node<T> current, String path, int start, int end, List<Binding> bindings) {
         // Try static children first -- linear scan with zero-allocation regionMatches
         for (Node<T> child : current.staticChildren.values()) {
             if (matchesSegment(child.name, path, start, end)) {
-                return new NodeAndParam<>(child, null, params);
+                return new NodeAndParam<>(child, bindings);
             }
         }
         // Fall back to parameterized child (e.g., {id})
         if (current.paramChild != null) {
-            String raw = path.substring(start, end);
-            String paramValue = URLDecoder.decode(raw, StandardCharsets.UTF_8);
-            if (params == null) {
-                params = new HashMap<>(4);
-            }
-            params.put(current.paramName, paramValue);
-            return new NodeAndParam<>(current.paramChild, current.paramName, params);
+            List<Binding> trail = bindings != null ? bindings : new ArrayList<>(2);
+            trail.add(new Binding(current.paramName, start, end));
+            return new NodeAndParam<>(current.paramChild, trail);
         }
         // Fall back to single-segment wildcard (*)
         if (current.wildcardChild != null) {
-            return new NodeAndParam<>(current.wildcardChild, null, params);
+            return new NodeAndParam<>(current.wildcardChild, bindings);
         }
-        return new NodeAndParam<>(null, null, params);
+        return new NodeAndParam<>(null, bindings);
     }
 
     /** Compares a node's name against a segment of the path without allocating substrings. */
@@ -267,14 +347,24 @@ public class RadixTrie<T> {
     public record MatchResult<T>(T handler, Map<String, String> params) {}
 
     /**
-     * Internal result of {@link #findNext}: the next node (or null on no specific match) plus the
-     * name of the path parameter bound by that descent (or null when no parameter was bound) and
-     * the parameter map.
+     * A raw parameter binding recorded during matching: the parameter name plus the slice of the
+     * request path carrying its (still percent-encoded) value.
+     *
+     * @param name the path parameter name
+     * @param start start index of the raw value in the request path
+     * @param end end index of the raw value in the request path
+     */
+    private record Binding(String name, int start, int end) {}
+
+    /**
+     * Internal result of a descent step: the next node (or null on no specific match) plus the
+     * binding trail accumulated so far. Bindings are materialised into a map only on success — a
+     * dead-ended branch's trail is simply discarded, which is what keeps catch-all fallbacks free
+     * of debris from more-specific branches.
      *
      * @param node the matched child node, or null
-     * @param boundParam the parameter name bound during this descent, or null
-     * @param params the lazily-created parameter map
+     * @param bindings the binding trail, or null when nothing has been bound yet
      * @param <T> the handler type
      */
-    private record NodeAndParam<T>(Node<T> node, String boundParam, Map<String, String> params) {}
+    private record NodeAndParam<T>(Node<T> node, List<Binding> bindings) {}
 }

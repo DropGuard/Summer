@@ -6,7 +6,7 @@ import com.github.dropguard.summer.core.bean.RouteInfo;
 import com.github.dropguard.summer.web.Handler;
 import com.github.dropguard.summer.web.HttpParameterResolverChain;
 import com.github.dropguard.summer.web.HttpRouter;
-import com.github.dropguard.summer.web.RouteRegistrar;
+import com.github.dropguard.summer.web.RouterAdapter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
  * lookup on the controller class — no extra state is carried on the shared {@link RouteInfo} type.
  */
 @Internal
-public class RuntimeRouteRegistrar implements RouteRegistrar {
+public class RuntimeRouteRegistrar implements RouterAdapter {
 
     private static final Logger log = LoggerFactory.getLogger(RuntimeRouteRegistrar.class);
 

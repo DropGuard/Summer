@@ -20,6 +20,7 @@ public class Request {
     private final String contentType;
     private final Map<String, String> headers;
     private Map<String, Object> attributes;
+    private Map<String, String> pathParams;
 
     public Request(HttpMethod method, String path, String query, String contentType, byte[] body) {
         this(method, path, query, contentType, body, null);
@@ -133,11 +134,17 @@ public class Request {
         attributes.put(key.name(), value);
     }
 
+    /**
+     * Records a routing-produced path parameter. Path parameters live in their OWN namespace,
+     * separate from typed {@link RequestAttributes.AttributeKey} attributes: a route {@code
+     * /users/{userId}} and a middleware-written {@code USER_ID} attribute coexist without ever
+     * seeing each other, so neither can corrupt the other's type.
+     */
     public void setPathParam(String name, String value) {
-        if (attributes == null) {
-            attributes = new HashMap<>(4);
+        if (pathParams == null) {
+            pathParams = new HashMap<>(4);
         }
-        attributes.put(name, value);
+        pathParams.put(name, value);
     }
 
     @SuppressWarnings("unchecked")
@@ -162,9 +169,10 @@ public class Request {
     }
 
     /**
-     * All request attributes, as an immutable view. Mutations go through the explicit write surface
-     * ({@link #setAttribute} / {@link #setPathParam}) — the returned map is a zero-copy
-     * unmodifiable wrapper, so callers cannot corrupt internal state.
+     * All typed request attributes, as an immutable view. This is the {@code AttributeKey}
+     * namespace only — path parameters are not included (read them via {@link #pathParam}).
+     * Mutations go through the explicit write surface ({@link #setAttribute}) — the returned map is
+     * a zero-copy unmodifiable wrapper, so callers cannot corrupt internal state.
      */
     public Map<String, Object> getAttributes() {
         return attributes != null
@@ -220,17 +228,14 @@ public class Request {
     // --- Explicit Parameter Extraction APIs ---
 
     /**
-     * Extracts a path parameter by name.
+     * Extracts a path parameter by name — reads only the routing namespace; typed attributes set
+     * under the same name are never returned here.
      *
      * <p>Warning: The returned value is URL-decoded. If outputting to HTML, you must escape it to
      * prevent XSS. For JSON responses, Jackson handles escaping automatically.
      */
     public String pathParam(String name) {
-        if (attributes == null) {
-            return null;
-        }
-        Object val = attributes.get(name);
-        return val != null ? val.toString() : null;
+        return pathParams != null ? pathParams.get(name) : null;
     }
 
     /**

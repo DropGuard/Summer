@@ -241,4 +241,89 @@ class WebContextTest {
         assertNull(ctx.body(), "json() must clear a prior text() body");
         assertEquals("dto2", ctx.resultObject(), "json() resultObject must be the response");
     }
+
+    // --- Injected BodyConverter contract (S-06): the converter handed to the
+    // constructor must actually be used — a JsonBodyConverter subclass is a
+    // legitimate customization point and must never be silently replaced by the
+    // static default parser. ---
+
+    /** Marker converter: every read returns the sentinel, writes produce marker bytes. */
+    private static class CustomJsonConverter extends JsonBodyConverter {
+        final Map<Object, Object> written = new java.util.HashMap<>();
+
+        @Override
+        public byte[] write(Object value) {
+            written.put(value, value);
+            return ("custom:" + value).getBytes(StandardCharsets.UTF_8);
+        }
+
+        @Override
+        public <T> T read(byte[] body, Class<T> type) {
+            return type.cast("read-by-custom");
+        }
+    }
+
+    @Test
+    void jsonSubclassConverterIsUsedForRequestBodyReads() {
+        Request request =
+                createRequestWithBody(
+                        HttpMethod.POST, "/test", "{\"k\":1}".getBytes(StandardCharsets.UTF_8));
+        CustomJsonConverter custom = new CustomJsonConverter();
+        HttpContext ctx = new HttpContext(request, custom);
+
+        String parsed = ctx.body(String.class);
+        assertEquals(
+                "read-by-custom",
+                parsed,
+                "a replaced JsonBodyConverter subclass must serve body parsing — "
+                        + "not the static default");
+    }
+
+    @Test
+    void jsonSubclassConverterIsUsedForResponseSerialization() {
+        Request request = createRequest(HttpMethod.GET, "/test");
+        CustomJsonConverter custom = new CustomJsonConverter();
+        HttpContext ctx = new HttpContext(request, custom);
+        ctx.ok(java.util.Map.of("greeting", "hi"));
+
+        RecordingSink sink = new RecordingSink();
+        ctx.flushTo(sink);
+
+        assertTrue(
+                custom.written.containsKey(ctx.resultObject()),
+                "response serialization must go through the injected converter");
+        assertEquals(
+                "custom:" + ctx.resultObject(), new String(sink.bytes, StandardCharsets.UTF_8));
+    }
+
+    private static final class RecordingSink implements ResponseSink {
+        byte[] bytes;
+
+        @Override
+        public void sendBytes(HttpStatus status, Map<String, String> headers, byte[] body) {
+            this.bytes = body;
+        }
+
+        @Override
+        public void sendObject(
+                HttpStatus status,
+                Map<String, String> headers,
+                Object resultObject,
+                BodyConverter converter) {
+            try {
+                this.bytes = converter.write(resultObject);
+            } catch (java.io.IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+
+        @Override
+        public void sendEmpty(HttpStatus status, Map<String, String> headers) {
+            this.bytes = new byte[0];
+        }
+    }
+
+    private Request createRequestWithBody(HttpMethod method, String path, byte[] body) {
+        return new Request(method, path, null, "application/json", body);
+    }
 }

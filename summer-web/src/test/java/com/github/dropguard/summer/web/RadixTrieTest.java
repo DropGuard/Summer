@@ -31,12 +31,13 @@ class RadixTrieTest {
     }
 
     @Test
-    void shouldOverwriteHandlerForSamePath() {
+    void shouldRejectDuplicateRouteRegistration() {
         RadixTrie<String> trie = new RadixTrie<>();
         trie.insert("/users", "old");
-        trie.insert("/users", "new");
-
-        assertEquals("new", trie.get("/users"));
+        assertThrows(
+                com.github.dropguard.summer.web.exception.RouteConflictException.class,
+                () -> trie.insert("/users", "new"));
+        assertEquals("old", trie.get("/users"), "first registration stays intact");
     }
 
     // --- Static route matching ---
@@ -307,5 +308,98 @@ class RadixTrieTest {
         RadixTrie.MatchResult<String> result = trie.match("/api");
         assertNotNull(result);
         assertEquals("api-exact", result.handler());
+    }
+
+    // --- Backtracking state hygiene (contract: catch-all matches carry only
+    // bindings that legitimately led INTO the catch-all, never debris from a
+    // dead-ended more-specific branch) ---
+
+    @Test
+    void catchAllFallbackMustNotLeakParamsFromDeadEndedBranch() {
+        RadixTrie<String> trie = new RadixTrie<>();
+        trie.insert("/files/**", "catch-all");
+        trie.insert("/files/{name}/meta", "meta");
+
+        RadixTrie.MatchResult<String> result = trie.match("/files/a/b/c");
+        assertNotNull(result);
+        assertEquals(
+                "catch-all",
+                result.handler(),
+                "the specific branch dead-ends, so the catch-all must serve");
+        assertTrue(
+                result.params().isEmpty(),
+                "params bound inside the dead-ended {name} branch must not leak "
+                        + "into the catch-all result");
+    }
+
+    @Test
+    void deeperMultiParamDeadEndKeepsPrefixBindingsDropsBranchDebris() {
+        RadixTrie<String> trie = new RadixTrie<>();
+        // The catch-all pattern itself declares {a}: it applies to everything the
+        // pattern matches, so a=1 is a LEGITIMATE prefix binding. b was bound only
+        // inside the dead-ended /{b}/end branch and must not survive.
+        trie.insert("/u/{a}/p/{b}/end", "specific");
+        trie.insert("/u/{a}/p/**", "catch-all");
+
+        RadixTrie.MatchResult<String> result = trie.match("/u/1/p/2/x/y/z");
+        assertNotNull(result);
+        assertEquals("catch-all", result.handler());
+        assertEquals(
+                java.util.Map.of("a", "1"),
+                result.params(),
+                "prefix bindings on the path INTO the catch-all are kept; bindings "
+                        + "made inside the dead-ended branch are dropped");
+    }
+
+    @Test
+    void paramsBoundOnThePathIntoTheCatchAllAreKept() {
+        // /files/{dir}/** : the binding happens ON the successful route into the
+        // catch-all scope, so it is legitimate.
+        RadixTrie<String> trie = new RadixTrie<>();
+        trie.insert("/files/{dir}/**", "dir-files");
+
+        RadixTrie.MatchResult<String> result = trie.match("/files/docs/a/b");
+        assertNotNull(result);
+        assertEquals("dir-files", result.handler());
+        assertEquals(java.util.Map.of("dir", "docs"), result.params());
+    }
+
+    // --- Path segment decoding contract (RFC 3986: percent-decoding only,
+    // literal '+' preserved — query strings are a different context) ---
+
+    @Test
+    void plusSignInPathSegmentIsLiteral() {
+        RadixTrie<String> trie = new RadixTrie<>();
+        trie.insert("/u/{email}", "user");
+
+        RadixTrie.MatchResult<String> result = trie.match("/u/a+b@x.com");
+        assertNotNull(result);
+        assertEquals("user", result.handler());
+        assertEquals(
+                "a+b@x.com",
+                result.params().get("email"),
+                "'+' is a legal literal character in URI paths (RFC 3986) and must "
+                        + "not be decoded as a space");
+    }
+
+    @Test
+    void percentEscapesAreStillDecoded() {
+        RadixTrie<String> trie = new RadixTrie<>();
+        trie.insert("/u/{email}", "user");
+
+        RadixTrie.MatchResult<String> result = trie.match("/u/a%40b.com");
+        assertEquals("a@b.com", result.params().get("email"));
+    }
+
+    @Test
+    void invalidPercentEscapeIsRejectedTyped() {
+        RadixTrie<String> trie = new RadixTrie<>();
+        trie.insert("/u/{email}", "user");
+
+        com.github.dropguard.summer.web.exception.SummerWebException ex =
+                assertThrows(
+                        com.github.dropguard.summer.web.exception.SummerWebException.class,
+                        () -> trie.match("/u/%zz"));
+        assertEquals(HttpStatus.BAD_REQUEST, ex.statusCode());
     }
 }

@@ -1,8 +1,10 @@
 package com.github.dropguard.summer.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -111,5 +113,58 @@ public class RequestParamTest {
         assertThrows(
                 UnsupportedOperationException.class, () -> request.getAttributes().put("k", "v"));
         assertEquals(1L, request.getAttribute(RequestAttributes.USER_ID));
+    }
+
+    // --- Namespace contract: path params and typed attributes are isolated ---
+
+    @Test
+    public void routeParamAndSameNameAttributeCoexistWithoutTypeCorruption() {
+        Request request = new Request(HttpMethod.GET, "/users/7", null, null, new byte[0]);
+        // Simulates the collision that used to be a ClassCastException: routing
+        // binds {userId}="7" (String), then middleware stores USER_ID as Long.
+        request.setPathParam("userId", "7");
+        request.setAttribute(RequestAttributes.USER_ID, 42L);
+
+        assertEquals(42L, (Long) request.getAttribute(RequestAttributes.USER_ID));
+        assertEquals("7", request.pathParam("userId"));
+        // Order independence: attribute first, param second.
+        Request flipped = new Request(HttpMethod.GET, "/users/7", null, null, new byte[0]);
+        flipped.setAttribute(RequestAttributes.USER_ID, 42L);
+        flipped.setPathParam("userId", "7");
+        assertEquals(42L, (Long) flipped.getAttribute(RequestAttributes.USER_ID));
+        assertEquals("7", flipped.pathParam("userId"));
+    }
+
+    @Test
+    public void sameNameLastWriteWinsWithinOneNamespaceOnly() {
+        Request request = new Request(HttpMethod.GET, "/u/x", null, null, new byte[0]);
+        request.setPathParam("id", "first");
+        request.setPathParam("id", "second");
+        assertEquals("second", request.pathParam("id"));
+
+        request.setAttribute(RequestAttributes.USER_ID, 1L);
+        request.setAttribute(RequestAttributes.USER_ID, 2L);
+        assertEquals(2L, (Long) request.getAttribute(RequestAttributes.USER_ID));
+    }
+
+    @Test
+    public void attributesViewExcludesPathParams() {
+        Request request = new Request(HttpMethod.GET, "/u/9", null, null, new byte[0]);
+        // Distinct names on purpose: with a colliding name the attribute itself
+        // would legitimately appear in the view and mask what we're asserting.
+        request.setPathParam("resourceId", "9");
+        request.setAttribute(RequestAttributes.USER_ID, 5L);
+
+        assertTrue(request.getAttributes().containsKey(RequestAttributes.USER_ID.name()));
+        assertFalse(
+                request.getAttributes().containsKey("resourceId"),
+                "the attributes view is the typed-attribute namespace only");
+    }
+
+    @Test
+    public void missingEntriesReturnNull() {
+        Request request = new Request(HttpMethod.GET, "/", null, null, new byte[0]);
+        assertNull(request.pathParam("anything"));
+        assertNull(request.getAttribute(RequestAttributes.USER_ID));
     }
 }

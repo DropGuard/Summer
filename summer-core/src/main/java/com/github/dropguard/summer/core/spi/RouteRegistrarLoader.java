@@ -23,9 +23,8 @@ import org.slf4j.LoggerFactory;
  * wire()} generation. If no {@code RouteRegistrar} is found on the classpath (i.e. {@code
  * summer-web} is absent), the result is empty and the container runs in pure-DI mode.
  *
- * <p>This is the single place where SPI-level parameter bindings are converted into the
- * cross-engine {@link RouteInfo.ParamInfo} contract ({@code VALIDATED_BODY} collapses to {@code
- * BODY} + {@code validated}, so both engines treat {@code @Valid} uniformly).
+ * <p>This is the single collection point for route metadata: registrars contribute {@link
+ * RouteInfo} parameter bindings directly, in the same cross-engine shape both engines consume.
  */
 @Internal
 public final class RouteRegistrarLoader {
@@ -148,26 +147,13 @@ public final class RouteRegistrarLoader {
                 String httpMethod,
                 String path,
                 String handlerMethodName,
-                List<ParamInfo> parameters) {
-            List<RouteInfo.ParamInfo> routeParams = new ArrayList<>();
-            for (ParamInfo spiParam : parameters) {
-                boolean validated =
-                        spiParam.validated || spiParam.binding == ParamBinding.VALIDATED_BODY;
-                RouteInfo.ParamBinding binding =
-                        spiParam.binding == ParamBinding.VALIDATED_BODY
-                                ? RouteInfo.ParamBinding.BODY
-                                : convertBinding(spiParam.binding);
-                routeParams.add(
-                        new RouteInfo.ParamInfo(
-                                spiParam.name,
-                                spiParam.bindingName,
-                                spiParam.type.getName(),
-                                binding,
-                                validated));
-            }
+                List<RouteInfo.ParamInfo> parameters) {
+            // Registrars speak the cross-engine RouteInfo.ParamInfo contract directly — no
+            // SPI-to-bean conversion layer (the old parallel ParamInfo/ParamBinding pair plus
+            // its 12-branch identity switch were refactor leftovers and are gone).
             RouteInfo route =
                     new RouteInfo(httpMethod, path, bean.qualifiedName, handlerMethodName);
-            route.params.addAll(routeParams);
+            route.params.addAll(parameters);
             result.routes.add(route);
         }
 
@@ -182,26 +168,6 @@ public final class RouteRegistrarLoader {
                     .add(
                             new BeanDefinition.ExceptionHandlerEntry(
                                     handlerMethodName, exceptionType, parameterCount));
-        }
-
-        private RouteInfo.ParamBinding convertBinding(ParamBinding binding) {
-            return switch (binding) {
-                case PATH -> RouteInfo.ParamBinding.PATH;
-                case QUERY -> RouteInfo.ParamBinding.QUERY;
-                case BODY -> RouteInfo.ParamBinding.BODY;
-                case CONTEXT -> RouteInfo.ParamBinding.CONTEXT;
-                case REQUEST -> RouteInfo.ParamBinding.REQUEST;
-                case RESPONSE -> RouteInfo.ParamBinding.RESPONSE;
-                case HEADER -> RouteInfo.ParamBinding.HEADER;
-                case COOKIE -> RouteInfo.ParamBinding.COOKIE;
-                case PAGEABLE -> RouteInfo.ParamBinding.PAGEABLE;
-                case SCROLL -> RouteInfo.ParamBinding.SCROLL;
-                case PRINCIPAL -> RouteInfo.ParamBinding.PRINCIPAL;
-                // VALIDATED_BODY never reaches here — the caller maps it to BODY + validated=true
-                // before calling convertBinding. Kept as an explicit case for exhaustiveness now
-                // that there is no UNKNOWN fallback: an unrecognized binding is a compile error.
-                case VALIDATED_BODY -> RouteInfo.ParamBinding.BODY;
-            };
         }
     }
 }

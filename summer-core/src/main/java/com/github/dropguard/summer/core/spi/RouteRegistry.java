@@ -1,6 +1,7 @@
 package com.github.dropguard.summer.core.spi;
 
 import com.github.dropguard.summer.core.bean.BeanDefinition;
+import com.github.dropguard.summer.core.bean.RouteInfo;
 
 /**
  * Callback interface for route registration during container build.
@@ -29,7 +30,7 @@ public interface RouteRegistry {
             String httpMethod,
             String path,
             String handlerMethodName,
-            java.util.List<ParamInfo> parameters);
+            java.util.List<RouteInfo.ParamInfo> parameters);
 
     /**
      * Register an exception handler method on a bean.
@@ -44,47 +45,4 @@ public interface RouteRegistry {
             String handlerMethodName,
             String exceptionType,
             int parameterCount);
-
-    /**
-     * Describes a single handler parameter binding.
-     *
-     * <p>This is a pure data carrier that moves through the SPI; it does not reference any
-     * web-specific annotation types.
-     */
-    final class ParamInfo {
-        public final String name;
-        public final String bindingName; // e.g., value from @PathParam/@QueryParam
-        public final ParamBinding binding;
-        public final Class<?> type;
-        public final boolean validated;
-
-        public ParamInfo(
-                String name,
-                String bindingName,
-                ParamBinding binding,
-                Class<?> type,
-                boolean validated) {
-            this.name = name;
-            this.bindingName = bindingName;
-            this.binding = binding;
-            this.type = type;
-            this.validated = validated;
-        }
-    }
-
-    /** Types of parameter binding supported by the framework. */
-    enum ParamBinding {
-        PATH,
-        QUERY,
-        BODY,
-        CONTEXT,
-        REQUEST,
-        RESPONSE,
-        HEADER,
-        COOKIE,
-        PAGEABLE,
-        SCROLL,
-        PRINCIPAL,
-        VALIDATED_BODY
-    }
 }

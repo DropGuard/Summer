@@ -4,13 +4,13 @@ import com.github.dropguard.summer.core.ApplicationState;
 import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.web.HttpRouter;
-import com.github.dropguard.summer.web.RouteRegistrar;
+import com.github.dropguard.summer.web.RouterAdapter;
 
 /**
  * Built-in health check routes. Exposes /health/ready which turns to 503 during graceful shutdown.
  */
 @Internal
-public class HealthRouteRegistrar implements RouteRegistrar {
+public class HealthRouteRegistrar implements RouterAdapter {
 
     @Override
     public void registerControllers(HttpRouter.Builder builder, BeanContainer context) {
