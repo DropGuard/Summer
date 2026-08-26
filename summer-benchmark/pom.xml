@@ -15,12 +15,11 @@
     <parent>
         <groupId>io.github.dropguard</groupId>
         <artifactId>summer-build-parent</artifactId>
-        <version>0.3.2-SNAPSHOT</version>
+        <version>0.3.3-SNAPSHOT</version>
         <relativePath/>
     </parent>
 
     <artifactId>summer-benchmark</artifactId>
-    <version>0.3.2</version>
     <packaging>pom</packaging>
     <name>Summer Benchmark</name>
 
