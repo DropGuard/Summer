@@ -56,44 +56,51 @@ public final class OriginPolicy {
         if (origin == null || requestHost == null) {
             return false;
         }
-        String originHost = hostOf(origin);
-        int originPort = portOf(origin);
-        String reqHost = hostOf(requestHost);
-        int reqPort = portOf(requestHost);
-        if (originHost == null || reqHost == null) {
+        ParsedOrigin parsedOrigin = parseOrigin(origin);
+        ParsedHost parsedHost = parseHost(requestHost, parsedOrigin.scheme);
+        if (parsedOrigin.host == null || parsedHost.host == null) {
             return false;
         }
-        return originHost.equals(reqHost) && originPort == reqPort;
+        return parsedOrigin.host.equalsIgnoreCase(parsedHost.host)
+                && parsedOrigin.port == parsedHost.port;
     }
 
-    private static String hostOf(String value) {
-        java.net.URI uri = java.net.URI.create(value);
-        // In Java 25+, URI.create("localhost:8080") produces an opaque URI
-        // (scheme=localhost, host=null) instead of throwing — check isOpaque()
-        // rather than relying on a catch that never fires.
-        if (!uri.isOpaque()) {
-            String host = uri.getHost();
-            if (host != null) return host;
-        }
-        int colon = value.lastIndexOf(':');
-        return colon < 0 ? value : value.substring(0, colon);
-    }
+    private record ParsedOrigin(String scheme, String host, int port) {}
 
-    private static int portOf(String value) {
-        java.net.URI uri = java.net.URI.create(value);
-        if (!uri.isOpaque()) {
-            if (uri.getPort() != -1) return uri.getPort();
-            return "https".equals(uri.getScheme()) ? 443 : 80;
-        }
-        int colon = value.lastIndexOf(':');
-        if (colon < 0) {
-            return 80;
-        }
+    private record ParsedHost(String host, int port) {}
+
+    private static ParsedOrigin parseOrigin(String origin) {
         try {
-            return Integer.parseInt(value.substring(colon + 1));
-        } catch (NumberFormatException e) {
-            throw new IllegalArgumentException(
-                    "Malformed origin (unparsable port): '" + value + "'", e);
+            java.net.URI uri = java.net.URI.create(origin);
+            String scheme = uri.getScheme();
+            String host = uri.getHost();
+            int port = uri.getPort();
+            if (port == -1) {
+                port = isSecureScheme(scheme) ? 443 : 80;
+            }
+            return new ParsedOrigin(scheme, host, port);
+        } catch (Exception e) {
+            return new ParsedOrigin(null, null, -1);
         }
+    }
+
+    private static ParsedHost parseHost(String requestHost, String originScheme) {
+        try {
+            // Prefix "//" so URI parses it as an authority (host[:port]) without treating leading
+            // '[' (IPv6) or ':' as a scheme name.
+            java.net.URI uri = java.net.URI.create("//" + requestHost);
+            String host = uri.getHost();
+            int port = uri.getPort();
+            if (port == -1) {
+                port = isSecureScheme(originScheme) ? 443 : 80;
+            }
+            return new ParsedHost(host, port);
+        } catch (Exception e) {
+            return new ParsedHost(null, -1);
+        }
+    }
+
+    private static boolean isSecureScheme(String scheme) {
+        return "https".equalsIgnoreCase(scheme) || "wss".equalsIgnoreCase(scheme);
     }
 }

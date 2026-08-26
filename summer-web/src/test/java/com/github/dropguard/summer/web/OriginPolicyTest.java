@@ -49,10 +49,23 @@ class OriginPolicyTest {
     }
 
     @Test
-    void bareHostWithoutPortDefaultsTo80() {
-        // Host: localhost (no port) → port 80
+    void bareHostWithoutPortDefaultsTo80ForHttpAnd443ForHttps() {
+        // Host: localhost (no port) → port 80 for http, port 443 for https
         assertTrue(OriginPolicy.isAllowed("http://localhost", null, "localhost"));
         assertTrue(OriginPolicy.isAllowed("http://localhost:80", null, "localhost"));
+        assertTrue(OriginPolicy.isAllowed("https://example.com", null, "example.com"));
+        assertTrue(OriginPolicy.isAllowed("https://example.com:443", null, "example.com"));
+        assertFalse(OriginPolicy.isAllowed("https://example.com:8443", null, "example.com"));
+    }
+
+    @Test
+    void ipv6HostParsedCorrectlyWithoutException() {
+        assertTrue(OriginPolicy.isAllowed("http://[::1]:8080", null, "[::1]:8080"));
+        assertTrue(OriginPolicy.isAllowed("http://[::1]", null, "[::1]:80"));
+        assertTrue(OriginPolicy.isAllowed("http://[::1]:80", null, "[::1]"));
+        assertTrue(OriginPolicy.isAllowed("https://[::1]", null, "[::1]"));
+        assertTrue(OriginPolicy.isAllowed("https://[::1]:443", null, "[::1]"));
+        assertFalse(OriginPolicy.isAllowed("http://[::1]:8080", null, "[::1]:9090"));
     }
 
     // ── Wildcard ─────────────────────────────────────────────────────────
