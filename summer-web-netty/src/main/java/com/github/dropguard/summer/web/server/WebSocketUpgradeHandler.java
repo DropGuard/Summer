@@ -93,43 +93,61 @@ class WebSocketUpgradeHandler {
         nettyCtx.executor()
                 .execute(
                         () -> {
-                            // Logs upgrade failures (e.g. an invalid handshake that Netty rejects
-                            // with a 500 of its own) on the server side. Nothing is sent to the
-                            // client beyond Netty's standard response — this is purely diagnostic
-                            // so a red WS IT can be triaged from the server log, not guessed at.
-                            nettyCtx.pipeline()
-                                    .addLast(
-                                            new io.netty.channel.ChannelInboundHandlerAdapter() {
-                                                @Override
-                                                public void exceptionCaught(
-                                                        ChannelHandlerContext ctx,
-                                                        Throwable cause) {
-                                                    log.error(
-                                                            "WebSocket upgrade failed for path={}",
-                                                            upgradePath,
-                                                            cause);
-                                                    ctx.close();
-                                                }
-                                            });
-                            nettyCtx.pipeline()
-                                    .addLast(
-                                            new io.netty.handler.codec.http.websocketx
-                                                    .WebSocketServerProtocolHandler(
-                                                    uri, true, config.maxWebSocketFrameSize()));
-                            if (config.wsHeartbeatInterval() > 0) {
-                                // Post-upgrade the connection has no read-timeout
-                                // protection and legitimately stays quiet — liveness
-                                // is owned by protocol-level ping/pong from here on.
+                            if (!nettyCtx.channel().isActive()) {
+                                io.netty.util.ReferenceCountUtil.safeRelease(retainedReq);
+                                return;
+                            }
+                            try {
+                                // Logs upgrade failures (e.g. an invalid handshake that Netty
+                                // rejects
+                                // with a 500 of its own) on the server side. Nothing is sent to the
+                                // client beyond Netty's standard response — this is purely
+                                // diagnostic
+                                // so a red WS IT can be triaged from the server log, not guessed
+                                // at.
                                 nettyCtx.pipeline()
                                         .addLast(
-                                                new WebSocketHeartbeatHandler(
-                                                        config.wsHeartbeatInterval()));
+                                                new io.netty.channel
+                                                        .ChannelInboundHandlerAdapter() {
+                                                    @Override
+                                                    public void exceptionCaught(
+                                                            ChannelHandlerContext ctx,
+                                                            Throwable cause) {
+                                                        log.error(
+                                                                "WebSocket upgrade failed for"
+                                                                        + " path={}",
+                                                                upgradePath,
+                                                                cause);
+                                                        ctx.close();
+                                                    }
+                                                });
+                                nettyCtx.pipeline()
+                                        .addLast(
+                                                new io.netty.handler.codec.http.websocketx
+                                                        .WebSocketServerProtocolHandler(
+                                                        uri, true, config.maxWebSocketFrameSize()));
+                                if (config.wsHeartbeatInterval() > 0) {
+                                    // Post-upgrade the connection has no read-timeout
+                                    // protection and legitimately stays quiet — liveness
+                                    // is owned by protocol-level ping/pong from here on.
+                                    nettyCtx.pipeline()
+                                            .addLast(
+                                                    new WebSocketHeartbeatHandler(
+                                                            config.wsHeartbeatInterval()));
+                                }
+                                nettyCtx.pipeline()
+                                        .addLast(
+                                                new SummerWebSocketFrameHandler(
+                                                        wsContext, config.maxWebSocketFrameSize()));
+                                nettyCtx.fireChannelRead(retainedReq);
+                            } catch (Throwable t) {
+                                io.netty.util.ReferenceCountUtil.safeRelease(retainedReq);
+                                log.error(
+                                        "WebSocket pipeline setup failed for path={}",
+                                        upgradePath,
+                                        t);
+                                nettyCtx.close();
                             }
-                            nettyCtx.pipeline()
-                                    .addLast(
-                                            new SummerWebSocketFrameHandler(
-                                                    wsContext, config.maxWebSocketFrameSize()));
-                            nettyCtx.fireChannelRead(retainedReq);
                         });
     }
 }

@@ -17,9 +17,13 @@ import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.codec.http.LastHttpContent;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** Netty-backed implementation of {@link ChunkedResponse}. */
 class NettyChunkedResponse implements ChunkedResponse {
+
+    private static final Logger log = LoggerFactory.getLogger(NettyChunkedResponse.class);
 
     private final ChannelHandlerContext ctx;
     private final boolean keepAlive;
@@ -80,6 +84,9 @@ class NettyChunkedResponse implements ChunkedResponse {
     @Override
     public void write(byte[] data) {
         if (closed.get() || !ctx.channel().isActive()) {
+            log.debug(
+                    "Discarding chunked write (length={}): response closed or channel inactive",
+                    data != null ? data.length : 0);
             return;
         }
         ensureHeaderSent();
