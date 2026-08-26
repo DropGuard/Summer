@@ -1,6 +1,5 @@
 package com.github.dropguard.summer.tck.grpc;
 
-import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 
 /**
@@ -12,9 +11,4 @@ import com.github.dropguard.summer.test.annotation.SummerTest;
  * contract; no engine-specific subclass is needed.
  */
 @SummerTest
-public class GrpcBehaviorTest extends AbstractGrpcTCK {
-
-    public GrpcBehaviorTest(BeanContainer context) {
-        super(context);
-    }
-}
+public class GrpcBehaviorTest extends AbstractGrpcTCK {}

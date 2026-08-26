@@ -12,19 +12,13 @@ import com.github.dropguard.summer.test.annotation.SummerTest;
 @SummerTest
 public class ConfigMappingBehaviorTest {
 
-    private final BeanContainer context;
-
-    public ConfigMappingBehaviorTest(BeanContainer context) {
-        this.context = context;
-    }
-
     @DualEngine
-    void testPropertiesBeanRegistered() {
+    void testPropertiesBeanRegistered(BeanContainer context) {
         assertNotNull(context.getBean(AppProperties.class));
     }
 
     @DualEngine
-    void testYamlValuesBound() {
+    void testYamlValuesBound(BeanContainer context) {
         AppProperties props = context.getBean(AppProperties.class);
         assertEquals("summer-tck", props.name());
         assertEquals(Integer.valueOf(8080), props.port());
@@ -32,14 +26,14 @@ public class ConfigMappingBehaviorTest {
     }
 
     @DualEngine
-    void testInjectableIntoBeanMethod() {
+    void testInjectableIntoBeanMethod(BeanContainer context) {
         AppService service = context.getBean(AppService.class);
         assertNotNull(service);
         assertSame(context.getBean(AppProperties.class), service.getProperties());
     }
 
     @DualEngine
-    void testNonBeanConstructorParamsResolved() {
+    void testNonBeanConstructorParamsResolved(BeanContainer context) {
         TlsProperties tls = context.getBean(TlsProperties.class);
         assertNotNull(tls);
         assertTrue(tls.enabled());
@@ -48,7 +42,7 @@ public class ConfigMappingBehaviorTest {
     }
 
     @DualEngine
-    void testMissingFieldThrows() {
+    void testMissingFieldThrows(BeanContainer context) {
         MissingFieldConfig cfg = context.getBean(MissingFieldConfig.class);
         assertThrows(
                 MissingFieldException.class,
@@ -58,7 +52,7 @@ public class ConfigMappingBehaviorTest {
     }
 
     @DualEngine
-    void testComponentCanInjectConfigProperties() {
+    void testComponentCanInjectConfigProperties(BeanContainer context) {
         PropertiesConsumer consumer = context.getBean(PropertiesConsumer.class);
         assertNotNull(consumer);
         assertNotNull(consumer.getProperties());
@@ -66,19 +60,19 @@ public class ConfigMappingBehaviorTest {
     }
 
     @DualEngine
-    void testConfigPropertiesAvailableAsDependency() {
+    void testConfigPropertiesAvailableAsDependency(BeanContainer context) {
         assertNotNull(context.getBean(PropertiesConsumer.class));
     }
 
     @DualEngine
-    void testServiceReceivesCorrectlyBoundProperties() {
+    void testServiceReceivesCorrectlyBoundProperties(BeanContainer context) {
         AppService service = context.getBean(AppService.class);
         assertNotNull(service);
         assertEquals("summer-tck", service.getProperties().name());
     }
 
     @DualEngine
-    void testMultiplePrefixesBoundIndependently() {
+    void testMultiplePrefixesBoundIndependently(BeanContainer context) {
         AppProperties app = context.getBean(AppProperties.class);
         TlsProperties tls = context.getBean(TlsProperties.class);
         assertNotNull(app);
@@ -88,7 +82,7 @@ public class ConfigMappingBehaviorTest {
     }
 
     @DualEngine
-    void testEmptyPrefixBindsRootYaml() {
+    void testEmptyPrefixBindsRootYaml(BeanContainer context) {
         RootService service = context.getBean(RootService.class);
         assertNotNull(service);
         var props = service.getProperties();
@@ -97,7 +91,7 @@ public class ConfigMappingBehaviorTest {
     }
 
     @DualEngine
-    void testAotGeneratesAllReturnTypes() {
+    void testAotGeneratesAllReturnTypes(BeanContainer context) {
         // Exercises every AOT code-gen branch for @ConfigMapping: enum, List<String>,
         // @WithName key rename, and @WithDefault — under both engines.
         WebConfig web = context.getBean(WebConfig.class);

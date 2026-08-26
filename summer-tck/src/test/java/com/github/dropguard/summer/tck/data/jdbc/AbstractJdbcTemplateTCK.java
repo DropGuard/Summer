@@ -24,16 +24,15 @@ import org.junit.jupiter.api.Test;
  */
 public abstract class AbstractJdbcTemplateTCK extends AbstractTCK {
 
-    protected final BeanContainer context;
+    // Per-invocation container: refreshed by the @BeforeEach below for EVERY
+    // @DualEngine invocation (resolved via the invocation's ParameterResolver).
+    protected BeanContainer context;
     protected JdbcTemplate jdbcTemplate;
     protected DataSource dataSource;
 
-    protected AbstractJdbcTemplateTCK(BeanContainer context) {
-        this.context = context;
-    }
-
     @BeforeEach
-    void setUpJdbcTemplate() {
+    void setUpJdbcTemplate(BeanContainer context) {
+        this.context = context;
         jdbcTemplate = context.getBean(JdbcTemplate.class);
         dataSource = context.getBean(DataSource.class);
 

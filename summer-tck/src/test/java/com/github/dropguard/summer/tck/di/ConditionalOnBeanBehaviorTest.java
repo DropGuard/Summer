@@ -10,19 +10,13 @@ import com.github.dropguard.summer.test.annotation.SummerTest;
 @SummerTest
 public class ConditionalOnBeanBehaviorTest {
 
-    private final BeanContainer context;
-
-    public ConditionalOnBeanBehaviorTest(BeanContainer context) {
-        this.context = context;
-    }
-
     @DualEngine
-    void testContextStartsSuccessfully() {
+    void testContextStartsSuccessfully(BeanContainer context) {
         assertNotNull(context, "BeanContainer should not be null");
     }
 
     @DualEngine
-    void testConditionalOnConcreteClass() {
+    void testConditionalOnConcreteClass(BeanContainer context) {
         RequiredComponent required = context.getBean(RequiredComponent.class);
         assertNotNull(required, "RequiredComponent should be registered");
 
@@ -33,7 +27,7 @@ public class ConditionalOnBeanBehaviorTest {
     }
 
     @DualEngine
-    void testConditionalOnMissingComponent() {
+    void testConditionalOnMissingComponent(BeanContainer context) {
         assertThrows(
                 Exception.class,
                 () -> context.getBean(ConditionalOnMissingComponent.class),
@@ -42,7 +36,7 @@ public class ConditionalOnBeanBehaviorTest {
     }
 
     @DualEngine
-    void testConditionalOnInterface() {
+    void testConditionalOnInterface(BeanContainer context) {
         RequiredInterface required = context.getBean(RequiredInterface.class);
         assertNotNull(required, "RequiredInterface should be registered");
 
@@ -53,7 +47,7 @@ public class ConditionalOnBeanBehaviorTest {
     }
 
     @DualEngine
-    void testAndSemanticsClassAndMethodConditions() {
+    void testAndSemanticsClassAndMethodConditions(BeanContainer context) {
         // AND semantics (Quarkus/Spring parity): a @Bean product's class-level and method-level
         // conditions are BOTH checked — the method-level one must NOT let a failing class-level
         // prerequisite through (the regression a single-slot evaluator would cause).

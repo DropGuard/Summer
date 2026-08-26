@@ -22,15 +22,10 @@ import org.junit.jupiter.api.BeforeEach;
 @SummerTest
 public class QueryBuilderTCKTest {
 
-    private final BeanContainer context;
     private QueryTemplate queryTemplate;
 
-    public QueryBuilderTCKTest(BeanContainer context) {
-        this.context = context;
-    }
-
     @BeforeEach
-    void setUp() {
+    void setUp(BeanContainer context) {
         queryTemplate = context.getBean(QueryTemplate.class);
         JdbcTemplate jdbcTemplate = context.getBean(JdbcTemplate.class);
         jdbcTemplate.update(
@@ -42,7 +37,7 @@ public class QueryBuilderTCKTest {
     }
 
     @DualEngine
-    void selectByEquality() {
+    void selectByEquality(BeanContainer context) {
         assertEquals(
                 2L,
                 queryTemplate.select(User.class).where(QueryTemplate.eq("name", "Alice")).count());
@@ -57,7 +52,7 @@ public class QueryBuilderTCKTest {
     }
 
     @DualEngine
-    void countAndFirst() {
+    void countAndFirst(BeanContainer context) {
         assertEquals(3L, queryTemplate.select(User.class).count());
 
         User bob = queryTemplate.select(User.class).where(QueryTemplate.eq("name", "Bob")).first();
@@ -65,7 +60,7 @@ public class QueryBuilderTCKTest {
     }
 
     @DualEngine
-    void orderingAndLimit() {
+    void orderingAndLimit(BeanContainer context) {
         var topTwo = queryTemplate.select(User.class).orderBy("id").limit(2).list();
         assertEquals(2, topTwo.size());
         assertEquals(1, topTwo.get(0).id());
@@ -73,7 +68,7 @@ public class QueryBuilderTCKTest {
     }
 
     @DualEngine
-    void insertPersists() {
+    void insertPersists(BeanContainer context) {
         assertEquals(1, queryTemplate.insert(new User(4, "Carol")));
 
         User carol = queryTemplate.select(User.class).where(QueryTemplate.eq("id", 4)).first();
@@ -81,7 +76,7 @@ public class QueryBuilderTCKTest {
     }
 
     @DualEngine
-    void updateById() {
+    void updateById(BeanContainer context) {
         queryTemplate.update(new User(2, "Bobby")).where(QueryTemplate.eq("id", 2)).execute();
 
         User updated = queryTemplate.select(User.class).where(QueryTemplate.eq("id", 2)).first();
@@ -89,7 +84,7 @@ public class QueryBuilderTCKTest {
     }
 
     @DualEngine
-    void partialUpdateSetsOnlyNamedColumn() {
+    void partialUpdateSetsOnlyNamedColumn(BeanContainer context) {
         queryTemplate
                 .update(User.class)
                 .set("name", "Bobby")
@@ -101,7 +96,7 @@ public class QueryBuilderTCKTest {
     }
 
     @DualEngine
-    void deleteById() {
+    void deleteById(BeanContainer context) {
         queryTemplate.delete(User.class).where(QueryTemplate.eq("id", 1)).execute();
 
         assertEquals(2L, queryTemplate.select(User.class).count());

@@ -13,19 +13,13 @@ import com.github.dropguard.summer.test.annotation.SummerTest;
 @SummerTest
 public class InterfaceInheritanceBehaviorTest {
 
-    private final BeanContainer context;
-
-    public InterfaceInheritanceBehaviorTest(BeanContainer context) {
-        this.context = context;
-    }
-
     @DualEngine
-    void testContextStartsSuccessfully() {
+    void testContextStartsSuccessfully(BeanContainer context) {
         assertNotNull(context, "BeanContainer should not be null");
     }
 
     @DualEngine
-    void testCanResolveBaseService() {
+    void testCanResolveBaseService(BeanContainer context) {
         BaseService baseService = context.getBean(BaseService.class);
         assertNotNull(baseService, "Should be able to resolve BaseService");
         assertInstanceOf(
@@ -33,7 +27,7 @@ public class InterfaceInheritanceBehaviorTest {
     }
 
     @DualEngine
-    void testCanResolveExtendedService() {
+    void testCanResolveExtendedService(BeanContainer context) {
         ExtendedService extendedService = context.getBean(ExtendedService.class);
         assertNotNull(extendedService, "Should be able to resolve ExtendedService");
         assertInstanceOf(
@@ -43,7 +37,7 @@ public class InterfaceInheritanceBehaviorTest {
     }
 
     @DualEngine
-    void testSingletonConsistency() {
+    void testSingletonConsistency(BeanContainer context) {
         BaseService baseService = context.getBean(BaseService.class);
         ExtendedService extendedService = context.getBean(ExtendedService.class);
         assertSame(
@@ -53,7 +47,7 @@ public class InterfaceInheritanceBehaviorTest {
     }
 
     @DualEngine
-    void testDependencyInjectionWithInheritedInterface() {
+    void testDependencyInjectionWithInheritedInterface(BeanContainer context) {
         ServiceClient client = context.getBean(ServiceClient.class);
         assertNotNull(client, "ServiceClient should be instantiated");
         assertNotNull(client.getBaseService(), "ServiceClient should have BaseService injected");

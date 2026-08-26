@@ -28,10 +28,10 @@ import org.junit.jupiter.api.Test;
 class QueryBuilderIntegrationTest {
 
     @RowModel(table = "issues")
-    record Issue(int id, String title, String status, String assignee) {}
+    record Issue(Integer id, String title, String status, String assignee) {}
 
     @RowModel(table = "issue_tags")
-    record IssueTag(int issueId, int tagId) {}
+    record IssueTag(Integer issueId, Integer tagId) {}
 
     private DataSource dataSource;
     private JdbcTemplate jdbcTemplate;

@@ -6,7 +6,7 @@ import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 import java.util.List;
 import java.util.stream.Stream;
-import org.junit.jupiter.api.extension.BeforeTestExecutionCallback;
+import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.Extension;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
@@ -24,14 +24,29 @@ import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
  * <p>JUnit's {@code TestTemplate} invocations share a single test instance (created by the
  * class-level {@code SummerExtension}, which hardcodes {@code Engine.RUNTIME}) — a per-invocation
  * {@code TestInstanceFactory} is never consulted. So the AOT container cannot be injected into the
- * test instance; instead this provider builds each engine's container in {@code
- * beforeTestExecution} (a real AOT compile+load for the AOT invocation — a build failure fails the
- * test), and exposes that container to the test method via a {@code BeanContainer} parameter
- * ({@link EngineParameterResolver}). Tests that must assert AOT behaviour declare {@code
- * BeanContainer} as a method parameter and read beans from it.
+ * test instance; instead this provider builds each engine's container in {@code beforeEach} (a real
+ * AOT compile+load for the AOT invocation — a build failure fails the test), and exposes that
+ * container to the test method via a {@code BeanContainer} parameter (see {@link
+ * #isEngineInvocation}). Tests that must assert AOT behaviour declare {@code BeanContainer} as a
+ * method parameter and read beans from it.
  */
 @Internal
 public final class DualEngineInvocationProvider implements TestTemplateInvocationContextProvider {
+
+    private static final ExtensionContext.Namespace NS =
+            ExtensionContext.Namespace.create(DualEngineInvocationProvider.class);
+    private static final String KEY = "container";
+
+    /**
+     * Whether the given context is inside a {@code @DualEngine} test-method invocation. The {@code
+     * SummerExtension} parameter resolver uses this to decline parameters there — exactly one
+     * resolver claims a {@code BeanContainer} parameter in either world: this provider's
+     * invocation-scoped resolver during a {@code @DualEngine} invocation, {@code SummerExtension}'s
+     * otherwise.
+     */
+    static boolean isEngineInvocation(ExtensionContext ec) {
+        return ec.getStore(NS).get(KEY) != null;
+    }
 
     @Override
     public boolean supportsTestTemplate(ExtensionContext context) {
@@ -53,10 +68,6 @@ public final class DualEngineInvocationProvider implements TestTemplateInvocatio
 
     /** One invocation context per engine: builds that engine's container before the method runs. */
     private static final class EngineContext implements TestTemplateInvocationContext {
-
-        private static final ExtensionContext.Namespace NS =
-                ExtensionContext.Namespace.create(DualEngineInvocationProvider.class);
-        private static final String KEY = "BeanContainer";
 
         private final Engine engine;
         private final Class<?> testClass;
@@ -81,10 +92,14 @@ public final class DualEngineInvocationProvider implements TestTemplateInvocatio
          * invocation hits the {@code SummerTestLifecycle} cache (the instance was already built by
          * {@code SummerExtension}); the AOT invocation performs a real compile+load — the only
          * place the AOT engine is actually exercised by the suite.
+         *
+         * <p>Runs as a {@link BeforeEachCallback} (not beforeTestExecution) so this invocation's
+         * container is already bound when user {@code @BeforeEach} methods resolve their {@code
+         * BeanContainer} parameters.
          */
-        private final class EngineContainerBuilder implements BeforeTestExecutionCallback {
+        private final class EngineContainerBuilder implements BeforeEachCallback {
             @Override
-            public void beforeTestExecution(ExtensionContext context) {
+            public void beforeEach(ExtensionContext context) {
                 SummerTestLifecycle.BuildOutcome outcome =
                         SummerTestLifecycle.createUniverse(testClass, engine);
                 context.getStore(NS).put(KEY, outcome.container());
@@ -92,11 +107,11 @@ public final class DualEngineInvocationProvider implements TestTemplateInvocatio
         }
 
         /**
-         * Resolves a {@code BeanContainer} test-method parameter from this invocation's engine
-         * container, letting a {@code @DualEngine} method assert behaviour against the actual
-         * engine that built it (the test instance itself always comes from the RUNTIME container).
-         * Only the {@code BeanContainer} type is claimed, so JUnit's own parameter resolvers are
-         * never shadowed.
+         * Resolves a {@code BeanContainer} parameter from THIS invocation's engine container,
+         * letting a {@code @DualEngine} method assert behaviour against the engine that built it
+         * (the test instance itself always comes from the RUNTIME container). Applicable only
+         * during an invocation — {@code SummerExtension} claims the same type everywhere else, so
+         * the two resolvers never compete for one parameter.
          */
         private final class EngineParameterResolver implements ParameterResolver {
             @Override

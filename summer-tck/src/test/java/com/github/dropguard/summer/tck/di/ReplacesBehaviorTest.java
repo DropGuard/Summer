@@ -12,14 +12,8 @@ import com.github.dropguard.summer.test.annotation.SummerTest;
 @SummerTest
 public class ReplacesBehaviorTest {
 
-    private final BeanContainer context;
-
-    public ReplacesBehaviorTest(BeanContainer context) {
-        this.context = context;
-    }
-
     @DualEngine
-    void testReplacementHappens() {
+    void testReplacementHappens(BeanContainer context) {
         ReplacableService service = context.getBean(ReplacableService.class);
         assertNotNull(service);
         assertEquals(
@@ -29,7 +23,7 @@ public class ReplacesBehaviorTest {
     }
 
     @DualEngine
-    void testOriginalIsRemoved() {
+    void testOriginalIsRemoved(BeanContainer context) {
         assertThrows(
                 Exception.class,
                 () -> context.getBean(OriginalComponent.class),
@@ -37,7 +31,7 @@ public class ReplacesBehaviorTest {
     }
 
     @DualEngine
-    void testConditionalReplacesConditionUnmet() {
+    void testConditionalReplacesConditionUnmet(BeanContainer context) {
         assertThrows(
                 Exception.class,
                 () ->
@@ -57,7 +51,7 @@ public class ReplacesBehaviorTest {
     }
 
     @DualEngine
-    void testConfigurationReplacesCascade() {
+    void testConfigurationReplacesCascade(BeanContainer context) {
         ServiceBean bean = context.getBean(ServiceBean.class);
         assertNotNull(bean);
         assertEquals(

@@ -3,6 +3,7 @@ package com.github.dropguard.summer.tck.aop;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.dropguard.summer.core.BeanContainer;
+import com.github.dropguard.summer.core.exception.NoSuchBeanException;
 import com.github.dropguard.summer.fixtures.aop.ClassLevelGreeter;
 import com.github.dropguard.summer.fixtures.aop.Greeter;
 import com.github.dropguard.summer.fixtures.aop.RecordingInterceptor;
@@ -13,14 +14,8 @@ import java.util.List;
 @SummerTest
 public class AopBehaviorTest {
 
-    private final BeanContainer context;
-
-    public AopBehaviorTest(BeanContainer context) {
-        this.context = context;
-    }
-
     @DualEngine
-    void testInterceptedMethodFiresInterceptor() {
+    void testInterceptedMethodFiresInterceptor(BeanContainer context) {
         RecordingInterceptor interceptor = context.getBean(RecordingInterceptor.class);
         interceptor.clearLog();
 
@@ -35,7 +30,7 @@ public class AopBehaviorTest {
     }
 
     @DualEngine
-    void testNonInterceptedMethodIsUnaffected() {
+    void testNonInterceptedMethodIsUnaffected(BeanContainer context) {
         RecordingInterceptor interceptor = context.getBean(RecordingInterceptor.class);
         interceptor.clearLog();
 
@@ -48,7 +43,7 @@ public class AopBehaviorTest {
     }
 
     @DualEngine
-    void testBeanIsProxy() {
+    void testBeanIsProxy(BeanContainer context) {
         Greeter greeter = context.getBean(Greeter.class);
         assertNotEquals(
                 com.github.dropguard.summer.fixtures.aop.GreeterService.class,
@@ -58,26 +53,33 @@ public class AopBehaviorTest {
     }
 
     @DualEngine
-    void testConcreteClassBypassesAop() {
+    void testConcreteClassLookupFailsLoudlyForBoundBean(BeanContainer context) {
         RecordingInterceptor interceptor = context.getBean(RecordingInterceptor.class);
         interceptor.clearLog();
 
-        com.github.dropguard.summer.fixtures.aop.GreeterService raw =
-                context.getBean(com.github.dropguard.summer.fixtures.aop.GreeterService.class);
-        assertEquals(
-                com.github.dropguard.summer.fixtures.aop.GreeterService.class,
-                raw.getClass(),
-                "getBean(ConcreteClass.class) must return the raw instance, not a JDK proxy");
-
-        String result = raw.greet("Charlie");
-        assertEquals("Hello, Charlie", result, "greet() on raw instance must NOT be intercepted");
+        // AOP lookup contract (one bean, one form): the bound bean exists ONLY as its proxy,
+        // which is not an instance of the concrete class — so a concrete-typed lookup must fail
+        // LOUDLY instead of silently handing out the un-intercepted raw instance. Declare the
+        // dependency on the interface (Greeter) instead.
+        NoSuchBeanException thrown =
+                assertThrows(
+                        NoSuchBeanException.class,
+                        () ->
+                                context.getBean(
+                                        com.github.dropguard.summer.fixtures.aop.GreeterService
+                                                .class),
+                        "getBean(ConcreteClass.class) on a bound bean must fail loudly, not"
+                                + " return the raw instance");
+        assertTrue(
+                thrown.getMessage().contains("GreeterService"),
+                "the failure must name the unresolved type: " + thrown.getMessage());
         assertTrue(
                 interceptor.getCallLog().isEmpty(),
-                "Interceptor must not fire when method is called on the raw instance");
+                "no interception may fire during the failed lookup");
     }
 
     @DualEngine
-    void testClassLevelBindingInterceptsAllMethods() {
+    void testClassLevelBindingInterceptsAllMethods(BeanContainer context) {
         RecordingInterceptor interceptor = context.getBean(RecordingInterceptor.class);
         interceptor.clearLog();
 

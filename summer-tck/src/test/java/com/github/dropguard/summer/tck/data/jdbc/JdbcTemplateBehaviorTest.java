@@ -1,6 +1,5 @@
 package com.github.dropguard.summer.tck.data.jdbc;
 
-import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 
@@ -18,10 +17,6 @@ import com.github.dropguard.summer.test.annotation.SummerTest;
  */
 @SummerTest
 public class JdbcTemplateBehaviorTest extends AbstractJdbcTemplateTCK {
-
-    public JdbcTemplateBehaviorTest(BeanContainer context) {
-        super(context);
-    }
 
     @DualEngine
     void insertAndQueryForList() {

@@ -2,7 +2,6 @@ package com.github.dropguard.summer.tck.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 import com.github.dropguard.summer.web.HttpContext;
@@ -21,10 +20,6 @@ import java.nio.charset.StandardCharsets;
  */
 @SummerTest
 public class PageableRouteDualEngineTest extends AbstractWebRouteTCK {
-
-    public PageableRouteDualEngineTest(BeanContainer context) {
-        super(context);
-    }
 
     @DualEngine
     protected void pageableParamResolvesThroughChainOnBothEngines() throws Exception {

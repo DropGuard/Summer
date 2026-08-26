@@ -25,15 +25,10 @@ import org.junit.jupiter.api.BeforeEach;
 @SummerTest
 public class TransactionRollbackTCKTest {
 
-    private final BeanContainer context;
     private JdbcTemplate jdbcTemplate;
 
-    public TransactionRollbackTCKTest(BeanContainer context) {
-        this.context = context;
-    }
-
     @BeforeEach
-    void setUp() {
+    void setUp(BeanContainer context) {
         jdbcTemplate = context.getBean(JdbcTemplate.class);
         jdbcTemplate.update(
                 "CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY, name VARCHAR(255))");
@@ -41,7 +36,7 @@ public class TransactionRollbackTCKTest {
     }
 
     @DualEngine
-    void transactionalWriteRollsBackOnException() {
+    void transactionalWriteRollsBackOnException(BeanContainer context) {
         TransactionalRecordRepo repo = context.getBean(TransactionalRecordRepo.class);
         long probeId = 9999L;
 

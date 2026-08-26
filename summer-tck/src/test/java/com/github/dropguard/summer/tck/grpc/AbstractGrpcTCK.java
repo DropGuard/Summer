@@ -8,6 +8,7 @@ import com.github.dropguard.summer.grpc.server.GrpcServerRunner;
 import com.github.dropguard.summer.tck.AbstractTCK;
 import com.github.dropguard.summer.test.annotation.DualEngine;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 
 /**
  * TCK for gRPC component discovery and basic behavior.
@@ -19,9 +20,11 @@ import org.junit.jupiter.api.AfterEach;
  */
 public abstract class AbstractGrpcTCK extends AbstractTCK {
 
-    protected final BeanContainer context;
+    // Per-invocation container: refreshed before every test by refreshContext().
+    protected BeanContainer context;
 
-    protected AbstractGrpcTCK(BeanContainer context) {
+    @BeforeEach
+    void refreshContext(BeanContainer context) {
         this.context = context;
     }
 

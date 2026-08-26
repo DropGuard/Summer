@@ -3,7 +3,6 @@ package com.github.dropguard.summer.tck.web;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 import com.github.dropguard.summer.web.ChunkedResponse;
@@ -21,10 +20,6 @@ import java.util.List;
 /** TCK test asserting SseStream and ChunkedResponse parameter resolution on BOTH engines. */
 @SummerTest
 public class SseStreamDualEngineTest extends AbstractWebRouteTCK {
-
-    public SseStreamDualEngineTest(BeanContainer context) {
-        super(context);
-    }
 
     private static class RecordingChunkedResponse implements ChunkedResponse {
         final List<String> chunks = new ArrayList<>();

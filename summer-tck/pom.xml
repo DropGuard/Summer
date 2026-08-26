@@ -10,6 +10,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>summer-tck</artifactId>
+    <properties>
+        <!-- internal module: never published to Maven Central -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+    </properties>
     <name>Summer Test Compatibility Kit</name>
     <description>Unified test suite for Summer dual DI engines</description>
 
@@ -45,7 +49,7 @@
         <dependency><groupId>com.h2database</groupId><artifactId>h2</artifactId></dependency>
         <dependency><groupId>com.zaxxer</groupId><artifactId>HikariCP</artifactId></dependency>
         <dependency><groupId>io.grpc</groupId><artifactId>grpc-stub</artifactId></dependency>
-        <dependency><groupId>com.google.protobuf</groupId><artifactId>protobuf-java</artifactId><version>3.25.5</version></dependency>
+        <dependency><groupId>com.google.protobuf</groupId><artifactId>protobuf-java</artifactId></dependency>
         <!-- JUnit and Mockito are supplied transitively by summer-test. -->
     </dependencies>
 

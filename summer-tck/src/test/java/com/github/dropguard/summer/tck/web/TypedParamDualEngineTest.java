@@ -2,7 +2,6 @@ package com.github.dropguard.summer.tck.web;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 import com.github.dropguard.summer.web.HttpContext;
@@ -21,10 +20,6 @@ import java.nio.charset.StandardCharsets;
  */
 @SummerTest
 public class TypedParamDualEngineTest extends AbstractWebRouteTCK {
-
-    public TypedParamDualEngineTest(BeanContainer context) {
-        super(context);
-    }
 
     private String dispatch(String path, String query) throws Exception {
         Request req = new Request(HttpMethod.GET, path, query, null, null);

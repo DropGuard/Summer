@@ -189,6 +189,6 @@ public final class TestContainer {
         }
         var archiveIndexes = new java.util.HashMap<>(prod.archiveIndexes());
         archiveIndexes.put("test", testIndex);
-        return BeanDeployment.forTestUniverse(prod.index(), classToArchive, archiveIndexes);
+        return BeanDeployment.forArchives(prod.index(), classToArchive, archiveIndexes);
     }
 }

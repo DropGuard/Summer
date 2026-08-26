@@ -12,6 +12,13 @@ import java.lang.annotation.Target;
  * <p>Mocks are registered <em>before</em> the container is built, so the real bean (if any) is
  * skipped — the mock always wins.
  *
+ * <p><strong>Contract.</strong> Skipping is by assignable-type closure: every candidate bean whose
+ * class, superclasses, or interfaces are assignable to (or from) the mocked type is removed —
+ * mocking an interface removes all its implementations, mocking a base class removes subclasses.
+ * Beans depending on any removed bean receive the mock instead, resolved through the same
+ * dependency-resolution path as production wiring. The mock itself is injectable both as the
+ * declared type and as any of its supertypes/interfaces.
+ *
  * <pre>{@code
  * &#64;SummerTest({UserService.class})
  * class UserServiceTest {

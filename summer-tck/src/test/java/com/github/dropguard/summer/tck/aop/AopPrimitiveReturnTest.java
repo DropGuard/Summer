@@ -14,57 +14,51 @@ import com.github.dropguard.summer.test.annotation.SummerTest;
 @SummerTest
 class AopPrimitiveReturnTest {
 
-    private final BeanContainer context;
-
-    AopPrimitiveReturnTest(BeanContainer context) {
-        this.context = context;
-    }
-
     @DualEngine
-    void testIntReturn() {
+    void testIntReturn(BeanContainer context) {
         Calculator calc = context.getBean(Calculator.class);
         assertEquals(7, calc.add(3, 4));
     }
 
     @DualEngine
-    void testLongReturn() {
+    void testLongReturn(BeanContainer context) {
         Calculator calc = context.getBean(Calculator.class);
         assertEquals(120L, calc.factorial(5));
     }
 
     @DualEngine
-    void testBooleanReturn() {
+    void testBooleanReturn(BeanContainer context) {
         Calculator calc = context.getBean(Calculator.class);
         assertTrue(calc.isPositive(42));
         assertFalse(calc.isPositive(-1));
     }
 
     @DualEngine
-    void testDoubleReturn() {
+    void testDoubleReturn(BeanContainer context) {
         Calculator calc = context.getBean(Calculator.class);
         assertEquals(3.0, calc.sqrt(9), 0.001);
     }
 
     @DualEngine
-    void testFloatReturn() {
+    void testFloatReturn(BeanContainer context) {
         Calculator calc = context.getBean(Calculator.class);
         assertEquals(2.5f, calc.half(5), 0.001f);
     }
 
     @DualEngine
-    void testShortReturn() {
+    void testShortReturn(BeanContainer context) {
         Calculator calc = context.getBean(Calculator.class);
         assertEquals((short) -7, calc.negate((short) 7));
     }
 
     @DualEngine
-    void testByteReturn() {
+    void testByteReturn(BeanContainer context) {
         Calculator calc = context.getBean(Calculator.class);
         assertEquals((byte) 6, calc.inc((byte) 5));
     }
 
     @DualEngine
-    void testCharReturn() {
+    void testCharReturn(BeanContainer context) {
         Calculator calc = context.getBean(Calculator.class);
         assertEquals('A', calc.firstChar("ABC"));
         assertEquals('\0', calc.firstChar(""));

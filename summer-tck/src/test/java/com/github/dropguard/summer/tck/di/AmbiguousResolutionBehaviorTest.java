@@ -26,18 +26,12 @@ public class AmbiguousResolutionBehaviorTest {
                     .beanClasses(AmbiguousServiceImplOne.class, AmbiguousServiceImplTwo.class)
                     .build();
 
-    private final BeanContainer container;
-
-    public AmbiguousResolutionBehaviorTest(BeanContainer container) {
-        this.container = container;
-    }
-
     @DualEngine
-    void ambiguousResolutionFailsFastOnBothEngines() {
+    void ambiguousResolutionFailsFastOnBothEngines(BeanContainer context) {
         assertThrows(
                 AmbiguousBeanException.class,
                 () ->
-                        container.getBean(
+                        context.getBean(
                                 com.github.dropguard.summer.tck.invisible.fixtures.di
                                         .AmbiguousService.class),
                 "two @Component impls of one interface must be rejected as ambiguous, not"

@@ -12,19 +12,13 @@ import com.github.dropguard.summer.test.annotation.SummerTest;
 @SummerTest
 public class GenericInterfaceBehaviorTest {
 
-    private final BeanContainer context;
-
-    public GenericInterfaceBehaviorTest(BeanContainer context) {
-        this.context = context;
-    }
-
     @DualEngine
-    void testContextStartsSuccessfully() {
+    void testContextStartsSuccessfully(BeanContainer context) {
         assertNotNull(context, "BeanContainer should not be null");
     }
 
     @DualEngine
-    void testCanResolveGenericService() {
+    void testCanResolveGenericService(BeanContainer context) {
         GenericService<?> service = context.getBean(GenericService.class);
         assertNotNull(service, "Should be able to resolve GenericService (raw type)");
         assertInstanceOf(
@@ -34,13 +28,13 @@ public class GenericInterfaceBehaviorTest {
     }
 
     @DualEngine
-    void testCanResolveStringServiceImpl() {
+    void testCanResolveStringServiceImpl(BeanContainer context) {
         StringServiceImpl service = context.getBean(StringServiceImpl.class);
         assertNotNull(service, "Should be able to resolve StringServiceImpl");
     }
 
     @DualEngine
-    void testSingletonConsistency() {
+    void testSingletonConsistency(BeanContainer context) {
         GenericService<?> genericService = context.getBean(GenericService.class);
         StringServiceImpl stringService = context.getBean(StringServiceImpl.class);
         assertSame(
@@ -51,7 +45,7 @@ public class GenericInterfaceBehaviorTest {
     }
 
     @DualEngine
-    void testDependencyInjectionWithGenericInterface() {
+    void testDependencyInjectionWithGenericInterface(BeanContainer context) {
         GenericServiceClient client = context.getBean(GenericServiceClient.class);
         assertNotNull(client, "GenericServiceClient should be instantiated");
         assertNotNull(

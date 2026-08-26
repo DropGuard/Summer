@@ -16,14 +16,8 @@ import com.github.dropguard.summer.test.annotation.SummerTest;
 @SummerTest
 public class RedisPropertiesDualEngineTest {
 
-    private final BeanContainer context;
-
-    public RedisPropertiesDualEngineTest(BeanContainer context) {
-        this.context = context;
-    }
-
     @DualEngine
-    void bindsRedisUriFromDefault() {
+    void bindsRedisUriFromDefault(BeanContainer context) {
         RedisProperties props = context.getBean(RedisProperties.class);
         assertNotNull(props);
         assertEquals("redis://localhost:6379", props.uri());

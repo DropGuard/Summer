@@ -16,19 +16,13 @@ import com.github.dropguard.summer.test.annotation.SummerTest;
 @SummerTest
 public class DependencyInjectionBehaviorTest {
 
-    private final BeanContainer context;
-
-    public DependencyInjectionBehaviorTest(BeanContainer context) {
-        this.context = context;
-    }
-
     @DualEngine
-    void testContextStartsSuccessfully() {
+    void testContextStartsSuccessfully(BeanContainer context) {
         assertNotNull(context, "BeanContainer should not be null");
     }
 
     @DualEngine
-    void testSingletonUniqueness() {
+    void testSingletonUniqueness(BeanContainer context) {
         ServiceC c1 = context.getBean(ServiceC.class);
         ServiceC c2 = context.getBean(ServiceC.class);
         assertNotNull(c1);
@@ -36,7 +30,7 @@ public class DependencyInjectionBehaviorTest {
     }
 
     @DualEngine
-    void testDependencyResolution() {
+    void testDependencyResolution(BeanContainer context) {
         ServiceA a = context.getBean(ServiceA.class);
         ServiceB b = context.getBean(ServiceB.class);
         ServiceC c = context.getBean(ServiceC.class);

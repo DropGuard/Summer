@@ -40,16 +40,16 @@ import org.junit.jupiter.api.Test;
  */
 public abstract class AbstractMiddlewareTCK extends AbstractTCK {
 
-    protected final BeanContainer context;
+    // Per-invocation container: refreshed by the @BeforeEach below for EVERY @DualEngine
+    // invocation (JUnit resolves the parameter through the invocation's ParameterResolver).
+    // Never cache it in a static or use it before setup runs.
+    protected BeanContainer context;
     protected HttpRouter router;
     protected List<Middleware> globalMiddlewares;
 
-    protected AbstractMiddlewareTCK(BeanContainer context) {
-        this.context = context;
-    }
-
     @BeforeEach
-    void setUpRouter() {
+    void setUpRouter(BeanContainer context) {
+        this.context = context;
         BeanContainer ctx = context;
 
         com.github.dropguard.summer.web.HttpRouter.Builder builder =
@@ -57,8 +57,8 @@ public abstract class AbstractMiddlewareTCK extends AbstractTCK {
                         com.github.dropguard.summer.web.http.RadixTreeHttpRouter::new);
 
         // Get registrars from context (they are @Component beans)
-        for (com.github.dropguard.summer.web.RouteRegistrar registrar :
-                ctx.getBeans(com.github.dropguard.summer.web.RouteRegistrar.class)) {
+        for (com.github.dropguard.summer.web.RouterAdapter registrar :
+                ctx.getBeans(com.github.dropguard.summer.web.RouterAdapter.class)) {
             registrar.registerControllers(builder, ctx);
         }
 
@@ -68,7 +68,7 @@ public abstract class AbstractMiddlewareTCK extends AbstractTCK {
                 ctx.getBean(com.github.dropguard.summer.fixtures.web.dummy.LoggingMiddleware.class);
 
         builder.group(
-                "/api/users",
+                "/api/mwarea",
                 group -> {
                     group.use(myMiddleware);
                     group.get("/secured", c -> c.text(HttpStatus.OK, "secret"));
@@ -77,7 +77,7 @@ public abstract class AbstractMiddlewareTCK extends AbstractTCK {
                 });
 
         builder.group(
-                "/api/class-level",
+                "/api/mw-class",
                 group -> {
                     group.use(loggingMiddleware);
                     group.get("/test", c -> c.text(HttpStatus.OK, "test"));
@@ -128,7 +128,7 @@ public abstract class AbstractMiddlewareTCK extends AbstractTCK {
     @Test
     void testMethodLevelMiddleware() throws Exception {
         // Route-level middleware via RouteProvider
-        Request req = new Request(HttpMethod.GET, "/api/users/secured", null, null, null);
+        Request req = new Request(HttpMethod.GET, "/api/mwarea/secured", null, null, null);
 
         String result = routeWithMiddlewares(req);
         assertNotNull(result);
@@ -138,7 +138,7 @@ public abstract class AbstractMiddlewareTCK extends AbstractTCK {
     @Test
     void testClassLevelMiddleware() throws Exception {
         // Route group middleware via RouteProvider
-        Request req = new Request(HttpMethod.GET, "/api/class-level/test", null, null, null);
+        Request req = new Request(HttpMethod.GET, "/api/mw-class/test", null, null, null);
 
         String result = routeWithMiddlewares(req);
         assertNotNull(result);
@@ -148,7 +148,7 @@ public abstract class AbstractMiddlewareTCK extends AbstractTCK {
     @Test
     void testMultipleMiddlewares() throws Exception {
         // Multiple route-level middlewares via RouteProvider
-        Request req = new Request(HttpMethod.GET, "/api/users/multi", null, null, null);
+        Request req = new Request(HttpMethod.GET, "/api/mwarea/multi", null, null, null);
 
         String result = routeWithMiddlewares(req);
         assertNotNull(result);

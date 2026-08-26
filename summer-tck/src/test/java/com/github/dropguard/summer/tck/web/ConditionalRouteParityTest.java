@@ -10,7 +10,7 @@ import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpMethod;
 import com.github.dropguard.summer.web.HttpRouter;
 import com.github.dropguard.summer.web.Request;
-import com.github.dropguard.summer.web.RouteRegistrar;
+import com.github.dropguard.summer.web.RouterAdapter;
 import com.github.dropguard.summer.web.http.RadixTreeHttpRouter;
 
 /**
@@ -25,16 +25,10 @@ import com.github.dropguard.summer.web.http.RadixTreeHttpRouter;
 @SummerTest
 public class ConditionalRouteParityTest {
 
-    private final BeanContainer context;
-
-    public ConditionalRouteParityTest(BeanContainer context) {
-        this.context = context;
-    }
-
     @DualEngine
-    void conditionedOutControllerRegistersNoRoutes() throws Exception {
+    void conditionedOutControllerRegistersNoRoutes(BeanContainer context) throws Exception {
         HttpRouter.Builder builder = new HttpRouter.Builder(RadixTreeHttpRouter::new);
-        for (RouteRegistrar registrar : context.getBeans(RouteRegistrar.class)) {
+        for (RouterAdapter registrar : context.getBeans(RouterAdapter.class)) {
             registrar.registerControllers(builder, context);
         }
         HttpRouter router = builder.build();

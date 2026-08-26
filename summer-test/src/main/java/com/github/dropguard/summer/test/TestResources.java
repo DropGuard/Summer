@@ -61,8 +61,13 @@ public final class TestResources {
         startAll(annotations).forEach(e -> e.instance().inject(injector));
     }
 
+    /** Package-private seam for contract tests: collect + start for one test class. */
+    static List<Entry> startAllForClass(Class<?> testClass) {
+        return startAll(collectAnnotations(testClass));
+    }
+
     /** Instantiates + starts each unique resource exactly once, in order(), sharing properties. */
-    private static List<Entry> startAll(
+    private static synchronized List<Entry> startAll(
             com.github.dropguard.summer.test.annotation.TestResource[] annotations) {
         // Deduplicate by (class, initArgs); each unique resource starts once (cached across test
         // classes, so a shared resource like Postgres must not restart per test class).
@@ -73,21 +78,26 @@ public final class TestResources {
                 keys.add(key);
             }
         }
-        List<Entry> entries = new ArrayList<>();
+        // Key and entry travel as ONE pair through the order() sort — writing back via sorted
+        // positions against declaration-order keys crossed cache mappings whenever the two
+        // orders differed, poisoning later classes with another resource's instance.
+        List<KeyedEntry> keyed = new ArrayList<>();
         for (ResourceKey key : keys) {
             Entry cached = CACHE.get(key);
-            entries.add(
-                    cached != null
-                            ? cached
-                            : CACHE.computeIfAbsent(key, TestResources::instantiate));
+            keyed.add(
+                    new KeyedEntry(
+                            key,
+                            cached != null
+                                    ? cached
+                                    : CACHE.computeIfAbsent(key, TestResources::instantiate)));
         }
-        entries.sort(Comparator.comparingInt(e -> e.instance().order()));
+        keyed.sort(Comparator.comparingInt(k -> k.entry().instance().order()));
         // Start the not-yet-started resources in order, feeding each the merged properties of its
         // predecessors (both freshly-started and previously-cached ones).
         Map<String, String> shared = new LinkedHashMap<>();
         List<Entry> result = new ArrayList<>();
-        for (int i = 0; i < entries.size(); i++) {
-            Entry entry = entries.get(i);
+        for (KeyedEntry keyedEntry : keyed) {
+            Entry entry = keyedEntry.entry();
             if (entry.started()) {
                 shared.putAll(entry.properties());
                 result.add(entry);
@@ -96,12 +106,14 @@ public final class TestResources {
                 Map<String, String> props = start(entry);
                 shared.putAll(props);
                 Entry startedEntry = new Entry(entry.instance(), props, true);
-                CACHE.put(keys.get(i), startedEntry);
+                CACHE.put(keyedEntry.key(), startedEntry);
                 result.add(startedEntry);
             }
         }
         return result;
     }
+
+    private record KeyedEntry(ResourceKey key, Entry entry) {}
 
     /** Instantiates a resource without starting it (order() is needed before start). */
     private static Entry instantiate(ResourceKey key) {
@@ -159,7 +171,11 @@ public final class TestResources {
         for (Entry entry : CACHE.values()) {
             try {
                 entry.instance().stop();
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                // Cleanup failure must not mask the original test flow, but it must also not
+                // vanish: a leaked container holds ports and memory on this machine.
+                org.slf4j.LoggerFactory.getLogger(TestResources.class)
+                        .warn("Failed to stop TestResource {}", entry.instance(), e);
             }
         }
         CACHE.clear();
@@ -168,8 +184,7 @@ public final class TestResources {
     private record ResourceKey(
             Class<? extends TestResourceManager> clazz, Map<String, String> initArgs) {}
 
-    private record Entry(
-            TestResourceManager instance, Map<String, String> properties, boolean started) {}
+    record Entry(TestResourceManager instance, Map<String, String> properties, boolean started) {}
 
     private static final class TestInjectorImpl implements TestResourceManager.TestInjector {
         private final Object testInstance;

@@ -11,14 +11,8 @@ import com.github.dropguard.summer.test.annotation.SummerTest;
 @SummerTest
 public class ValidationBehaviorTest {
 
-    private final BeanContainer context;
-
-    public ValidationBehaviorTest(BeanContainer context) {
-        this.context = context;
-    }
-
     @DualEngine
-    void testValidationPassesWhenTlsEnabledWithCerts() {
+    void testValidationPassesWhenTlsEnabledWithCerts(BeanContainer context) {
         TlsService service = context.getBean(TlsService.class);
         assertNotNull(service, "TlsService should be created when validation passes");
         assertTrue(service.getConfig().enabled(), "TLS should be enabled");
@@ -26,12 +20,12 @@ public class ValidationBehaviorTest {
     }
 
     @DualEngine
-    void testValidationPassesWhenTlsDisabled() {
+    void testValidationPassesWhenTlsDisabled(BeanContainer context) {
         assertNotNull(context, "Context should be created even when TLS is disabled");
     }
 
     @DualEngine
-    void testValidatorIsRegisteredAsBean() {
+    void testValidatorIsRegisteredAsBean(BeanContainer context) {
         TlsValidator validator = context.getBean(TlsValidator.class);
         assertNotNull(validator, "Validator should be registered as a bean");
     }

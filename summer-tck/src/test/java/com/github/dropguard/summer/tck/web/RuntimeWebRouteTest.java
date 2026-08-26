@@ -1,6 +1,5 @@
 package com.github.dropguard.summer.tck.web;
 
-import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 import org.junit.jupiter.api.Test;
@@ -17,10 +16,6 @@ import org.junit.jupiter.api.Test;
  */
 @SummerTest
 public class RuntimeWebRouteTest extends AbstractWebRouteTCK {
-
-    public RuntimeWebRouteTest(BeanContainer context) {
-        super(context);
-    }
 
     @DualEngine
     protected void routingIsIdenticalAcrossEngines() throws Exception {

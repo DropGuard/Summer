@@ -200,7 +200,7 @@ class JdbcTemplateTest {
         @Test
         @DisplayName("unregistered type throws DataAccessException")
         void unregisteredTypeThrows() {
-            record Unmapped(int x) {}
+            record Unmapped(Integer x) {}
 
             DataAccessException ex =
                     assertThrows(
@@ -263,5 +263,5 @@ class JdbcTemplateTest {
 
     // ---- Helper types ----
 
-    record TestRow(int id, String name) {}
+    record TestRow(Integer id, String name) {}
 }

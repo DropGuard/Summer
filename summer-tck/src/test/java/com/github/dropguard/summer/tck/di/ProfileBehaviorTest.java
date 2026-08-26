@@ -22,21 +22,15 @@ import com.github.dropguard.summer.test.annotation.TestProfile;
 @SummerTest
 public class ProfileBehaviorTest {
 
-    private final BeanContainer context;
-
-    public ProfileBehaviorTest(BeanContainer context) {
-        this.context = context;
-    }
-
     @DualEngine
-    void profileOverridesAppName() {
+    void profileOverridesAppName(BeanContainer context) {
         AppProperties props = context.getBean(AppProperties.class);
         assertNotNull(props);
         assertEquals("overridden-by-profile", props.name());
     }
 
     @DualEngine
-    void profileOverridesAppPort() {
+    void profileOverridesAppPort(BeanContainer context) {
         AppProperties props = context.getBean(AppProperties.class);
         assertEquals(Integer.valueOf(9999), props.port());
     }

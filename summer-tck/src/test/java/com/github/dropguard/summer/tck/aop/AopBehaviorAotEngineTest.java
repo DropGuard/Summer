@@ -3,6 +3,7 @@ package com.github.dropguard.summer.tck.aop;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.github.dropguard.summer.core.BeanContainer;
@@ -61,11 +62,13 @@ public class AopBehaviorAotEngineTest {
                 List.of("before:greet", "after:greet", "before:shout", "after:shout"),
                 interceptor.getCallLog());
 
-        // Raw instance must NOT be proxied or intercepted.
+        // AOP lookup contract (one bean, one form): the concrete-typed lookup of a BOUND bean
+        // fails loudly on BOTH engines instead of returning the raw instance.
         interceptor.clearLog();
-        GreeterService raw = context.getBean(GreeterService.class);
-        assertEquals(GreeterService.class, raw.getClass());
-        assertEquals("Hello, Charlie", raw.greet("Charlie"));
+        assertThrows(
+                com.github.dropguard.summer.core.exception.NoSuchBeanException.class,
+                () -> context.getBean(GreeterService.class),
+                "getBean(ConcreteClass.class) on a bound bean must fail loudly");
         assertTrue(interceptor.getCallLog().isEmpty());
     }
 }

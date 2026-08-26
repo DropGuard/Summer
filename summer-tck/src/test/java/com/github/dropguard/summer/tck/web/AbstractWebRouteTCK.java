@@ -32,24 +32,23 @@ import org.junit.jupiter.params.provider.Arguments;
  */
 public abstract class AbstractWebRouteTCK extends AbstractTCK {
 
-    protected final BeanContainer context;
+    // Per-invocation container: refreshed by the @BeforeEach below for EVERY
+    // @DualEngine invocation (resolved via the invocation's ParameterResolver).
+    protected BeanContainer context;
     protected HttpRouter router;
     protected ExceptionRegistry exceptionRegistry;
 
-    protected AbstractWebRouteTCK(BeanContainer context) {
-        this.context = context;
-    }
-
     @BeforeEach
-    void setUpRouter() {
+    void setUpRouter(BeanContainer context) {
+        this.context = context;
         com.github.dropguard.summer.web.HttpRouter.Builder builder =
                 new com.github.dropguard.summer.web.HttpRouter.Builder(
                         com.github.dropguard.summer.web.http.RadixTreeHttpRouter::new);
         exceptionRegistry = new ExceptionRegistry();
 
         // Get registrars from context (they are @Component beans)
-        for (com.github.dropguard.summer.web.RouteRegistrar registrar :
-                context.getBeans(com.github.dropguard.summer.web.RouteRegistrar.class)) {
+        for (com.github.dropguard.summer.web.RouterAdapter registrar :
+                context.getBeans(com.github.dropguard.summer.web.RouterAdapter.class)) {
             registrar.registerControllers(builder, context);
         }
         for (com.github.dropguard.summer.web.ExceptionHandlerRegistrar ehRegistrar :
