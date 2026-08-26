@@ -19,8 +19,14 @@ import java.lang.annotation.Target;
  * API for framework users is limited to the {@code @SummerTest}, {@code @Mock}, and
  * {@code @TestProfile} annotations plus the {@code TestContainer} facade ({@code build()} / {@code
  * buildForTest(Class)}). Everything else is internal unless explicitly documented otherwise.
+ *
+ * <p><strong>Retention: CLASS.</strong> The marker must survive into the .class files so that
+ * downstream tooling can see it — IDE decompiled-view hints, javadoc filtering, japicmp-style
+ * compatibility rules, ArchUnit-style architecture checks in consumer projects. SOURCE retention
+ * (the original choice) vanished at compile time and made the marker invisible to every consumer of
+ * the published jars.
  */
 @Documented
-@Retention(RetentionPolicy.SOURCE)
+@Retention(RetentionPolicy.CLASS)
 @Target({ElementType.TYPE, ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.FIELD})
 public @interface Internal {}

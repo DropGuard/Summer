@@ -26,6 +26,7 @@ public enum ErrorCode {
     VALIDATION_FAILED(3001, "Request validation failed"),
     BODY_PARSE_ERROR(3002, "Failed to parse request body"),
     ROUTE_CONFLICT(3003, "Route registration conflict"),
+    ROUTE_MATCH_ERROR(3006, "Request path could not be matched"),
     ARCHITECTURE_VIOLATION(3004, "Architecture constraint violated"),
     HANDLER_INVOCATION_FAILED(3005, "Failed to invoke request handler"),
 
