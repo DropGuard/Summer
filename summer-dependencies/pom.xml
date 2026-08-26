@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.github.dropguard</groupId>
         <artifactId>summer-parent</artifactId>
-        <version>0.3.3-SNAPSHOT</version>
+        <version>0.3.2</version>
         <relativePath>../summer-parent/pom.xml</relativePath>
     </parent>
 

@@ -7,13 +7,13 @@
     <parent>
         <groupId>io.github.dropguard</groupId>
         <artifactId>summer-build-parent</artifactId>
-        <version>0.3.3-SNAPSHOT</version>
+        <version>0.3.2</version>
         <relativePath>../summer-build-parent/pom.xml</relativePath>
     </parent>
 
     <groupId>com.github.dropguard.summer.samples</groupId>
     <artifactId>summer-samples</artifactId>
-    <version>0.3.3-SNAPSHOT</version>
+    <version>0.3.2</version>
     <packaging>pom</packaging>
     <name>Summer Samples</name>
     <description>Aggregator for Summer showcase and sample applications</description>

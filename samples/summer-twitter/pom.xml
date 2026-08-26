@@ -14,12 +14,12 @@
     <parent>
         <groupId>com.github.dropguard.summer.samples</groupId>
         <artifactId>summer-samples</artifactId>
-        <version>0.3.3-SNAPSHOT</version>
+        <version>0.3.2</version>
     </parent>
 
     <groupId>com.github.dropguard.summer.twitter</groupId>
     <artifactId>summer-twitter</artifactId>
-    <version>0.3.3-SNAPSHOT</version>
+    <version>0.3.2</version>
     <packaging>jar</packaging>
     <name>Summer Twitter</name>
     <description>Summer Framework showcase application: A micro Twitter clone</description>
