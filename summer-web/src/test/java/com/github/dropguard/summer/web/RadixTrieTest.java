@@ -148,6 +148,32 @@ class RadixTrieTest {
         RadixTrie.MatchResult<String> result = trie.match("/anything/at/all");
         assertNotNull(result);
         assertEquals("catch-all", result.handler());
+
+        RadixTrie.MatchResult<String> rootResult = trie.match("/");
+        assertNotNull(rootResult);
+        assertEquals("catch-all", rootResult.handler());
+
+        RadixTrie.MatchResult<String> emptyResult = trie.match("");
+        assertNotNull(emptyResult);
+        assertEquals("catch-all", emptyResult.handler());
+    }
+
+    @Test
+    void shouldPreferExactRootOverCatchAll() {
+        RadixTrie<String> trie = new RadixTrie<>();
+        trie.insert("/", "exact-root");
+        trie.insert("/**", "catch-all");
+
+        assertEquals("exact-root", trie.match("/").handler());
+        assertEquals("exact-root", trie.match("").handler());
+        assertEquals("catch-all", trie.match("/other").handler());
+    }
+
+    @Test
+    void shouldRejectMultiSegmentWildcardInMiddleOfPath() {
+        RadixTrie<String> trie = new RadixTrie<>();
+        assertThrows(IllegalArgumentException.class, () -> trie.insert("/a/**/b", "invalid"));
+        assertThrows(IllegalArgumentException.class, () -> trie.insert("/**/b", "invalid"));
     }
 
     // --- Root path ---

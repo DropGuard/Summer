@@ -84,9 +84,13 @@ public class RadixTrie<T> {
      */
     public MatchResult<T> match(String path) {
         if (isRootPath(path)) {
-            return root.handler != null
-                    ? new MatchResult<>(root.handler, Collections.emptyMap())
-                    : null;
+            if (root.handler != null) {
+                return new MatchResult<>(root.handler, Collections.emptyMap());
+            }
+            if (root.catchAllChild != null && root.catchAllChild.handler != null) {
+                return new MatchResult<>(root.catchAllChild.handler, Collections.emptyMap());
+            }
+            return null;
         }
 
         NodeAndParam<T> result = matchPath(path);
@@ -120,6 +124,13 @@ public class RadixTrie<T> {
 
     private Node<T> navigateToNode(String path) {
         String[] segments = tokenize(path);
+        for (int i = 0; i < segments.length; i++) {
+            if ("**".equals(segments[i]) && i < segments.length - 1) {
+                throw new IllegalArgumentException(
+                        "Multi-segment wildcard (**) must only appear as the final segment: "
+                                + path);
+            }
+        }
         Node<T> current = root;
 
         for (String segment : segments) {
