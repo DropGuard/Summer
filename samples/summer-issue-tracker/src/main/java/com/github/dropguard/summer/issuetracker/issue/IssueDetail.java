@@ -15,6 +15,6 @@ public record IssueDetail(
         List<Tag> tags,
         List<Comment> comments,
         List<IssueHistory> history,
-        int commentCount,
+        Integer commentCount,
         String assigneeName,
         String reporterName) {}
