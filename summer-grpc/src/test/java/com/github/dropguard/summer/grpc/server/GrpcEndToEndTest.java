@@ -63,7 +63,10 @@ class GrpcEndToEndTest {
                     }
                 });
 
-        assertTrue(latch.await(5, TimeUnit.SECONDS));
+        // Real sockets + in-process executor: under full-reactor load the first call has
+        // been observed to exceed 5s on a cold JVM. 15s keeps the contract assertion
+        // (response arrives) while tolerating environment jitter.
+        assertTrue(latch.await(15, TimeUnit.SECONDS), "gRPC call should complete");
         assertNotNull(received[0]);
         assertTrue(received[0].startsWith("Hello "));
     }
