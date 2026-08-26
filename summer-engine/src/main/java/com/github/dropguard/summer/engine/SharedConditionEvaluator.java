@@ -60,8 +60,9 @@ public final class SharedConditionEvaluator {
      * exact type name and implemented interfaces, so it works without loading classes — safe for
      * the AOT compile phase.
      *
-     * <p>{@code @ConditionalOnBean} visibility is currently global — the archive-scoped boundary is
-     * intentionally not enforced yet (see {@code resolveConditionalOnBean}).
+     * <p>{@code @ConditionalOnBean} visibility is the whole candidate universe — identical to bean
+     * injection's visibility. There is deliberately no per-archive scoping: one container, one
+     * visibility model (see {@code resolveConditionalOnBean}).
      *
      * @param beans bean list (mutated in place)
      * @param mockedTypes type names declared as {@code @Mock} on the test constructor
@@ -257,17 +258,10 @@ public final class SharedConditionEvaluator {
             List<BeanDefinition> beans,
             List<BeanDefinition> topoOrder,
             Map<String, Set<String>> requiredTypes) {
-        // Visibility is currently GLOBAL: a @ConditionalOnBean(X) on bean B is
-        // satisfied by any bean T (or interface it implements) in the candidate set,
-        // regardless of archive. The {@link BeanDefinition#archiveName} field
-        // and {@link BeanDeployment} archive API are in place as the boundary
-        // contract, but the hard archive-scoped boundary is intentionally NOT
-        // enforced yet: the framework relies on cross-archive @ConditionalOnBean
-        // (e.g. RowMapperConfiguration @ConditionalOnBean(JdbcTemplate),
-        // where JdbcTemplate is supplied by the application/test and lives in a
-        // different archive). A future explicit cross-archive contract
-        // (import/export or dependency-visible) will tighten this; until then the
-        // boundary stays global to avoid wrongly dropping framework beans.
+        // Contract: conditions evaluate against the WHOLE candidate universe — the same single
+        // visibility model as bean injection. Requirements are satisfied against the live bean
+        // list while walking topological order, so cascading drops work: if a provider was
+        // itself dropped, its dependents see it gone.
         Set<String> available = new HashSet<>();
         for (BeanDefinition bean : beans) {
             available.add(bean.qualifiedName);
@@ -280,7 +274,6 @@ public final class SharedConditionEvaluator {
             Set<String> required = requiredTypes.get(bean.qualifiedName);
             if (required == null) continue;
 
-            // AND semantics: the bean survives only if EVERY declared prerequisite exists.
             boolean allPresent = true;
             for (String requiredType : required) {
                 if (!available.contains(requiredType)) {

@@ -26,7 +26,7 @@ public final class RuntimeBootstrap {
     public static BeanContainer build(Object... externalBeans) {
         JandexIndexLoader.LoadedIndex prod = JandexIndexLoader.productionIndex();
         BeanDeployment deployment =
-                BeanDeployment.forProduction(
+                BeanDeployment.forArchives(
                         prod.index(), prod.classToArchive(), prod.archiveIndexes());
         return RuntimeContainer.init(deployment, List.of(), Map.of(), externalBeans);
     }

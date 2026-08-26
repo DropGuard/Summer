@@ -17,7 +17,7 @@ public class SimpleJdbcTransactionManager implements TransactionManager {
     }
 
     @Override
-    public <T> T executeInTransaction(TransactionCallback<T> action) throws Throwable {
+    public <T> T executeInTransaction(TransactionCallback<T> action) throws Exception {
         if (ScopedValueTransactionContext.CONNECTION.isBound()) {
             throw new SummerTransactionException(
                     "Nested transactions are not supported. A transaction is already active.");

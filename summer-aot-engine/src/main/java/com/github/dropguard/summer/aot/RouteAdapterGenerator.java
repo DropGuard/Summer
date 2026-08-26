@@ -17,7 +17,7 @@ import org.slf4j.LoggerFactory;
  * Generates web route adapter for AOT mode.
  *
  * <p>In AOT mode, routes are registered statically instead of via reflection. This generator
- * creates a RouteRegistrar that wires up controllers and exception handlers at compile time.
+ * creates a RouterAdapter that wires up controllers and exception handlers at compile time.
  */
 @Internal
 public final class RouteAdapterGenerator {
@@ -30,7 +30,7 @@ public final class RouteAdapterGenerator {
     public RouteAdapterGenerator() {}
 
     /**
-     * Generate a RouteRegistrar implementation for AOT mode.
+     * Generate a RouterAdapter implementation for AOT mode.
      *
      * @param beans list of bean definitions
      * @param outputDir directory to write generated source files
@@ -67,7 +67,7 @@ public final class RouteAdapterGenerator {
                         .addModifiers(
                                 javax.lang.model.element.Modifier.PUBLIC,
                                 javax.lang.model.element.Modifier.FINAL)
-                        .addSuperinterface(ClassName.get(WEB_PACKAGE, "RouteRegistrar"))
+                        .addSuperinterface(ClassName.get(WEB_PACKAGE, "RouterAdapter"))
                         .addMethod(
                                 MethodSpec.methodBuilder("registerControllers")
                                         .addAnnotation(Override.class)
@@ -97,47 +97,7 @@ public final class RouteAdapterGenerator {
         // Extract parameters
         for (RouteInfo.ParamInfo param : route.params) {
             String key = param.bindingName.isEmpty() ? param.name : param.bindingName;
-            if (param.binding == RouteInfo.ParamBinding.PATH) {
-                body.add(
-                        "$T $N = $L;\n",
-                        TypeReads.typeName(param.type),
-                        param.name,
-                        TypeReads.httpParse(param.type, "ctx.request().pathParam", key));
-            } else if (param.binding == RouteInfo.ParamBinding.QUERY) {
-                body.add(
-                        "$T $N = $L;\n",
-                        TypeReads.typeName(param.type),
-                        param.name,
-                        TypeReads.httpParse(param.type, "ctx.request().queryParam", key));
-            } else if (param.binding == RouteInfo.ParamBinding.BODY) {
-                String method = param.validated ? "validatedBody" : "body";
-                body.add(
-                        "$T $N = ctx.$L($T.class);\n",
-                        TypeReads.typeName(param.type),
-                        param.name,
-                        method,
-                        ClassName.bestGuess(param.type));
-            } else if (param.binding == RouteInfo.ParamBinding.PAGEABLE) {
-                // @Pageable is the one user-extensible resolver (@Replaces swaps it), so
-                // resolve it through the same HttpParameterResolverChain the runtime uses.
-                // This keeps @Replaces behaviour identical across engines. PATH/QUERY/BODY
-                // stay inline because they have no swappable resolver.
-                // annotationType is null for pageable params — resolvers match by the
-                // parameter TYPE (DefaultPageResolver.supports), mirroring RuntimeHandlerParam.
-                body.add(
-                        "$T $N = ($T) context.getBean($T.class).resolve(ctx, new $T($T.class, $S,"
-                                + " $L, $L));\n",
-                        TypeReads.typeName(param.type),
-                        param.name,
-                        TypeReads.typeName(param.type),
-                        ClassName.get(
-                                "com.github.dropguard.summer.web", "HttpParameterResolverChain"),
-                        ClassName.get("com.github.dropguard.summer.web", "RouteInfoHandlerParam"),
-                        ClassName.bestGuess(param.type),
-                        param.bindingName,
-                        annotationType(param.binding),
-                        param.validated);
-            }
+            body.add(paramDeclaration(param, key));
         }
 
         // Controller methods require HttpContext as first parameter.
@@ -172,6 +132,59 @@ public final class RouteAdapterGenerator {
      * AOT engine resolves parameters through the same {@code HttpParameterResolverChain} the
      * runtime uses — keeping annotation-driven matching identical across both engines.
      */
+    /**
+     * Parameter declaration emitted into the handler lambda.
+     *
+     * <p>A switch <em>expression</em> over {@code ParamBinding}, deliberately: adding a binding
+     * constant without a case here is a compile error in this generator — the compiler replaces
+     * what used to be a runtime else-throw guard against silently-generated broken code.
+     */
+    private CodeBlock paramDeclaration(RouteInfo.ParamInfo param, String key) {
+        return switch (param.binding) {
+            case PATH ->
+                    CodeBlock.of(
+                            "$T $N = $L;\n",
+                            TypeReads.typeName(param.type),
+                            param.name,
+                            TypeReads.httpParse(param.type, "ctx.request().pathParam", key));
+            case QUERY ->
+                    CodeBlock.of(
+                            "$T $N = $L;\n",
+                            TypeReads.typeName(param.type),
+                            param.name,
+                            TypeReads.httpParse(param.type, "ctx.request().queryParam", key));
+            case BODY -> {
+                String method = param.validated ? "validatedBody" : "body";
+                yield CodeBlock.of(
+                        "$T $N = ctx.$L($T.class);\n",
+                        TypeReads.typeName(param.type),
+                        param.name,
+                        method,
+                        AotTypeNames.safeClassName(param.type));
+            }
+            case RESOLVER ->
+                    // The resolver chain is the user-extensible path (@Replaces swaps resolvers),
+                    // so these parameters resolve through the same chain the runtime uses,
+                    // keeping @Replaces behaviour identical across engines. PATH/QUERY/BODY stay
+                    // inline because they have no swappable resolver.
+                    CodeBlock.of(
+                            "$T $N = ($T) context.getBean($T.class).resolve(ctx, new $T($T.class,"
+                                    + " $S, $L, $L));\n",
+                            TypeReads.typeName(param.type),
+                            param.name,
+                            TypeReads.typeName(param.type),
+                            ClassName.get(
+                                    "com.github.dropguard.summer.web",
+                                    "HttpParameterResolverChain"),
+                            ClassName.get(
+                                    "com.github.dropguard.summer.web", "RouteInfoHandlerParam"),
+                            AotTypeNames.safeClassName(param.type),
+                            key,
+                            annotationType(param.binding),
+                            param.validated);
+        };
+    }
+
     private static com.palantir.javapoet.CodeBlock annotationType(
             com.github.dropguard.summer.core.bean.RouteInfo.ParamBinding binding) {
         return switch (binding) {

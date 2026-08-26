@@ -5,4 +5,4 @@ package com.github.dropguard.summer.tck.invisible.fixtures.narrow.jdbc;
  * RowMapper} for it can come from the {@code @Bean} producer's own {@code registerMapper} call —
  * never from the AOT bake (which only covers {@code @RowModel}s) nor the reflective registrar.
  */
-public record CustomMappedType(int id, String name) {}
+public record CustomMappedType(Integer id, String name) {}

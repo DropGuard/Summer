@@ -21,15 +21,25 @@ public final class AotTypeNames {
      * preprocessing that only applies to Jandex-derived type names.
      */
     public static TypeName parseTypeName(String typeName) {
-        if (typeName.startsWith("[")) return ClassName.get(Object.class);
+        if (typeName.startsWith("[")) {
+            // Arrays were silently mapped to Object.class, which produced generated code that
+            // compiled but behaved wrongly. Array-typed bean/parameter shapes are unsupported —
+            // say so at generation time instead.
+            throw new IllegalArgumentException(
+                    "Array types are not supported by AOT generation: " + typeName);
+        }
         if (PrimitiveTypes.isPrimitive(typeName)) return TypeReads.typeName(typeName);
         // Jandex rawType names use JVM internal '$' for nested classes (e.g.
         // WebConfig$RouterType). Render the source form WebConfig.RouterType via
         // ClassName's nested-class constructor so the generated import resolves.
         String dotted = typeName.replace('$', '.');
-        int lastDot = dotted.lastIndexOf('.');
-        String pkg = dotted.substring(0, lastDot);
-        String[] nested = dotted.substring(lastDot + 1).split("\\.");
+        String[] parts = dotted.split("\\.");
+        if (parts.length == 1) {
+            // Default package: no dot to split on (substring(0, -1) used to throw here).
+            return ClassName.get("", parts[0]);
+        }
+        String pkg = dotted.substring(0, dotted.lastIndexOf('.'));
+        String[] nested = dotted.substring(dotted.lastIndexOf('.') + 1).split("\\.");
         if (nested.length == 1) {
             return ClassName.get(pkg, nested[0]);
         }

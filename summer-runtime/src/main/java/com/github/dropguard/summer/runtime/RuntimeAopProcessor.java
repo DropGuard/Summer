@@ -8,6 +8,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -48,12 +49,14 @@ final class RuntimeAopProcessor {
             return instance;
         }
 
-        // Summer uses JDK dynamic proxies -- requires at least one interface.
-        Class<?> clazz = instance.getClass();
-        if (clazz.getInterfaces().length == 0) {
+        // Summer uses JDK dynamic proxies -- requires at least one interface. The check uses
+        // discovery's transitive closure (superclass chains included), NOT the raw class's
+        // direct interfaces — an abstract-base-declared interface is a legitimate proxy target.
+        Class<?>[] interfaces = loadInterfaces(bean);
+        if (interfaces.length == 0) {
             throw new SummerAopException(
                     ErrorCode.AOP_NO_INTERFACE,
-                    clazz.getName()
+                    instance.getClass().getName()
                             + " is annotated with AOP bindings but implements no interfaces. Summer"
                             + " uses JDK dynamic proxies -- extract an interface and inject it by"
                             + " the interface type instead.");
@@ -64,7 +67,16 @@ final class RuntimeAopProcessor {
         if (specs.isEmpty()) {
             return instance;
         }
-        return ProxyFactory.createProxy(instance, specs);
+        // Expose exactly the interface set the specs were built from — discovery's transitive
+        // closure (superclass chains included), not the raw class's direct interfaces.
+        return ProxyFactory.createProxy(interfaces, instance, specs);
+    }
+
+    private static Class<?>[] loadInterfaces(BeanDefinition bean) {
+        return bean.interfaceNames.stream()
+                .map(RuntimeAopProcessor::loadClass)
+                .filter(java.util.Objects::nonNull)
+                .toArray(Class<?>[]::new);
     }
 
     /**
@@ -92,12 +104,21 @@ final class RuntimeAopProcessor {
                 continue;
             }
             for (Method method : iface.getMethods()) {
-                boolean bound = classLevel || methodBindings.containsKey(method.getName());
-                if (!bound) {
+                // A method's binding set is the UNION of the class-level key ("")
+                // and any method-level entry — never a replacement. This mirrors
+                // the CDI interceptor-binding resolution convention and keeps
+                // both engines' InterceptedMethod metadata identical.
+                Set<String> boundNames = new HashSet<>();
+                if (classLevel) {
+                    boundNames.addAll(classLevelNames);
+                }
+                Set<String> methodLevel = methodBindings.get(method.getName());
+                if (methodLevel != null) {
+                    boundNames.addAll(methodLevel);
+                }
+                if (boundNames.isEmpty()) {
                     continue;
                 }
-                Set<String> boundNames =
-                        classLevel ? classLevelNames : methodBindings.get(method.getName());
                 Set<Class<? extends Annotation>> bindingTypes =
                         materialize(boundNames, interceptorBindings);
                 specs.put(method, new ProxyFactory.ProxyMethodSpec(matching, bindingTypes));

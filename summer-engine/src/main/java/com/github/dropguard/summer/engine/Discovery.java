@@ -320,6 +320,25 @@ public final class Discovery {
 
     private static void collectInterfacesRecursive(
             BeanDefinition bean, ClassInfo ci, IndexView merged, Set<String> visited) {
+        // Climb the SUPERCLASS chain first: interfaces on an abstract base must reach
+        // interfaceNames exactly like the child's own ones — otherwise beans inheriting their
+        // contract (and its bindings) run raw, silently outside AOP and interface-keyed
+        // resolution. java.lang.Object terminates the climb; classes absent from the index
+        // (JDK/third-party) end it too.
+        DotName superName = ci.superName();
+        while (superName != null && !superName.equals(DotName.createSimple("java.lang.Object"))) {
+            ClassInfo superCi = merged.getClassByName(superName);
+            if (superCi == null) {
+                break;
+            }
+            collectFromSingleClass(bean, superCi, merged, visited);
+            superName = superCi.superName();
+        }
+        collectFromSingleClass(bean, ci, merged, visited);
+    }
+
+    private static void collectFromSingleClass(
+            BeanDefinition bean, ClassInfo ci, IndexView merged, Set<String> visited) {
         for (org.jboss.jandex.Type iface : ci.interfaceTypes()) {
             String ifaceName = iface.name().toString();
             if (visited.add(ifaceName)) {

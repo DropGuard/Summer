@@ -39,7 +39,7 @@ public final class AotContextGenerator {
     private static final ClassName ROUTE_ADAPTER =
             ClassName.get(PACKAGE, "GeneratedAnnotationRouterAdapter");
     private static final ClassName ROUTE_REGISTRAR =
-            ClassName.get("com.github.dropguard.summer.web", "RouteRegistrar");
+            ClassName.get("com.github.dropguard.summer.web", "RouterAdapter");
     private static final ClassName EXCEPTION_HANDLER_ADAPTER =
             ClassName.get(PACKAGE, "GeneratedExceptionHandlerAdapter");
     private static final ClassName EXCEPTION_HANDLER_REGISTRAR =

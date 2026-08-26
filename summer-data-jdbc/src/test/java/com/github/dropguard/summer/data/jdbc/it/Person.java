@@ -8,4 +8,4 @@ import com.github.dropguard.summer.data.jdbc.annotation.RowModel;
  * meaning so it cannot be mistaken for a demo's domain model (e.g. an issue tracker's Issue).
  */
 @RowModel(table = "persons")
-public record Person(Long id, String name, int age, String status) {}
+public record Person(Long id, String name, Integer age, String status) {}

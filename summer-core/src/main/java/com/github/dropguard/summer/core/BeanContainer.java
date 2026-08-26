@@ -8,7 +8,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -76,21 +75,34 @@ public final class BeanContainer implements AutoCloseable {
      * Gets a bean by type. First tries exact key match, then falls back to {@code isInstance}
      * scanning. Throws if zero or multiple matches.
      *
+     * <p><b>AOP lookup contract (one bean, one form):</b> a bean with interceptor bindings exists
+     * in the lookup plane ONLY as its proxy. The proxy is not an instance of the bean's concrete
+     * class (JDK-proxy semantics on both engines), so {@code getBean(ConcreteClass)} for a bound
+     * bean fails loudly with {@link NoSuchBeanException} instead of silently handing out the
+     * un-intercepted raw instance — declare the dependency on the interface. Lifecycle callbacks
+     * ({@code @PostConstruct} before wrapping, close/seal through the proxy onto the target) are
+     * unaffected: they never route through type lookup.
+     *
      * <p><b>Strategy interfaces:</b> Summer supports multiple beans implementing one interface
      * (e.g. {@code CursorPageResolver} + {@code DefaultPageResolver} both implement {@code
      * HttpParameterResolver}, composed via {@code HttpParameterResolverChain}). Such an interface
      * is deliberately NOT registered as a shared key (see {@code
-     * BeanInstantiator#registerAllInterfaces} — a last-writer-wins overwrite would hide the
+     * BeanInstantiator#registerDiscoveredInterfaces} — a last-writer-wins overwrite would hide the
      * multi-impl contract), so {@code getBean(strategyIface)} falls back to the {@code isInstance}
      * scan and throws {@code AmbiguousBeanException} for the multi-impl case. To obtain all impls
-     * use {@link #getBeans(Class)}; to resolve a specific one use the concrete type. This is by
-     * design, not a gap.
+     * use {@link #getBeans(Class)}. This is by design, not a gap.
      */
     public <T> T getBean(Class<T> type) {
         return getBean(typeIndex, type);
     }
 
-    /** Returns all beans whose type is assignable to the given type, sorted by {@code @Order}. */
+    /**
+     * Returns all beans whose type is assignable to the given type, sorted by {@code @Order}.
+     *
+     * <p>Homogeneous by construction: each bean contributes exactly ONE entry (identity dedup), and
+     * for an AOP-bound bean that entry is its proxy — a collection of a strategy interface never
+     * mixes a bean's proxied and raw forms.
+     */
     public <T> List<T> getBeans(Class<T> type) {
         return getBeans(typeIndex, type);
     }
@@ -104,7 +116,12 @@ public final class BeanContainer implements AutoCloseable {
             throw new IllegalArgumentException("getBean requires a non-null type");
         }
         Object exact = singletons.get(type);
-        if (exact != null) {
+        // An exact hit is only a resolution when the value is actually assignable to the key's
+        // type. An AOP-bound bean sits under its concrete-class key AS ITS PROXY (so collection
+        // scans can always see it); the proxy is not an instance of that class, so the hit is
+        // discarded and the scan below fails loudly with NoSuchBeanException — the typed
+        // declaration of a bound dependency must be the interface (AOP lookup contract).
+        if (exact != null && type.isInstance(exact)) {
             return (T) exact;
         }
         List<T> matches = getBeans(singletons, type);
@@ -123,7 +140,10 @@ public final class BeanContainer implements AutoCloseable {
             throw new IllegalArgumentException("getBeans requires a non-null type");
         }
         List<T> result = new ArrayList<>();
-        Set<Object> seen = new HashSet<>();
+        // Identity semantics, matching Builder.seen: the container owns beans, not type
+        // keys, so the SAME instance registered under several keys is emitted once — but two
+        // distinct instances that happen to be equals()-equal are still two beans.
+        Set<Object> seen = Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         for (Object bean : singletons.values()) {
             if (type.isInstance(bean) && seen.add(bean)) {
                 result.add((T) bean);

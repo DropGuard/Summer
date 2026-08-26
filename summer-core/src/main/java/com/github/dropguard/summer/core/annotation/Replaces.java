@@ -35,6 +35,13 @@ import java.lang.annotation.Target;
  * 	}
  * }
  * </pre>
+ *
+ * <p><strong>Contract.</strong> Matching runs against the whole candidate universe — application,
+ * framework, and test archives alike; a test-slice configuration may replace a production one. A
+ * missing target fails startup with {@code NoSuchBeanException}: replacement is an assertion that
+ * the target exists, not an optional override. The survivor is always the replacing definition;
+ * every bean whose class (class-level) or producer return type (method-level) matches the target is
+ * removed before condition evaluation.
  */
 @Target({ElementType.TYPE, ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)

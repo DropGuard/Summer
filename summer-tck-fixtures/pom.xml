@@ -11,6 +11,10 @@
     </parent>
 
     <artifactId>summer-tck-fixtures</artifactId>
+    <properties>
+        <!-- internal module: never published to Maven Central -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+    </properties>
     <name>Summer TCK Fixtures</name>
     <description>Test fixture beans for Summer TCK - packaged as separate JAR to test cross-module discovery</description>
 

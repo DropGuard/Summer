@@ -2,6 +2,7 @@ package com.github.dropguard.summer.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.github.dropguard.summer.core.bean.RouteInfo;
 import java.util.List;
@@ -119,4 +120,52 @@ class BeanContainerTest {
     }
 
     static final class PlainBean {}
+
+    // --- Collection-injection identity contract (S-08): the container owns
+    // BEANS, not type keys — two distinct instances that happen to be equals()
+    // -equal are still two beans and must both reach collection injection. ---
+
+    interface Named {}
+
+    interface Titled {}
+
+    /** Value semantics ON PURPOSE: distinct instances, equal by field. */
+    static final class ValueBean implements Named, Titled {
+        private final String v;
+
+        ValueBean(String v) {
+            this.v = v;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            return o instanceof ValueBean other && other.v.equals(v);
+        }
+
+        @Override
+        public int hashCode() {
+            return v.hashCode();
+        }
+    }
+
+    @Test
+    void collectionInjectionKeepsDistinctButEqualBeans() {
+        ValueBean first = new ValueBean("same");
+        ValueBean second = new ValueBean("same");
+        assert first != second;
+
+        BeanContainer.Builder builder = new BeanContainer.Builder();
+        builder.register(Named.class, first);
+        builder.register(Titled.class, second);
+        BeanContainer container = builder.build();
+
+        List<ValueBean> all = container.getBeans(ValueBean.class);
+        assertEquals(
+                2,
+                all.size(),
+                "equals-equal but distinct beans are two beans — equals-based "
+                        + "deduplication silently drops one from collection injection");
+        assertTrue(all.contains(first));
+        assertTrue(all.contains(second));
+    }
 }

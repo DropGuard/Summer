@@ -230,19 +230,20 @@ public final class BeanEnrichment {
             }
 
             Map<String, Set<String>> methodBindings = new java.util.HashMap<>();
-            if (targetBindings.isEmpty()) {
-                for (MethodInfo method : ci.methods()) {
-                    Set<String> methodAnnNames = new HashSet<>();
-                    for (AnnotationInstance ann : method.annotations()) {
-                        if (bindingAnnotations.contains(ann.name())) {
-                            String name = ann.name().toString();
-                            methodAnnNames.add(name);
-                            bindings.add(name);
-                        }
+            // Impl-method bindings are collected even when a class-level binding
+            // exists: the per-method contract is the UNION of both levels, so the
+            // method-level names must reach methodBindingAnnotations regardless.
+            for (MethodInfo method : ci.methods()) {
+                Set<String> methodAnnNames = new HashSet<>();
+                for (AnnotationInstance ann : method.annotations()) {
+                    if (bindingAnnotations.contains(ann.name())) {
+                        String name = ann.name().toString();
+                        methodAnnNames.add(name);
+                        bindings.add(name);
                     }
-                    if (!methodAnnNames.isEmpty()) {
-                        methodBindings.put(method.name(), methodAnnNames);
-                    }
+                }
+                if (!methodAnnNames.isEmpty()) {
+                    methodBindings.put(method.name(), methodAnnNames);
                 }
             }
 
@@ -282,11 +283,10 @@ public final class BeanEnrichment {
 
             // A class-level binding (@Logged on the bean class) intercepts every
             // method. AotProxyGenerator keys that as "" (empty method name), so we
-            // must record it there — BeanEnrichment otherwise only populates
-            // methodBindingAnnotations with method-level entries (keyed by method
-            // name). RUNTIME's ProxyFactory derives class-level coverage directly
-            // from the implementation class annotations, so this key is the AOT
-            // engine's signal that the whole bean is bound.
+            // must record it there. Both engines resolve a method's binding set as
+            // the UNION of this "" key and the method-name keys below (the CDI
+            // interceptor-binding resolution convention); neither may treat ""
+            // as a replacement for method-level entries.
             Map<String, Set<String>> finalMethodBindings = new java.util.HashMap<>(methodBindings);
             if (!targetBindings.isEmpty()) {
                 Set<String> classLevel =

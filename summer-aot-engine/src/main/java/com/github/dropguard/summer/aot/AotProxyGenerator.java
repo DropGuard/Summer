@@ -126,6 +126,14 @@ public final class AotProxyGenerator {
             methodLevelBindingMethods = bean.methodBindingAnnotations.keySet();
         }
 
+        // Binding METADATA per method is the union of every declaration site:
+        // the class-level key ("") and any method-name keys recorded by
+        // discovery, merged with what this generator reads off the interface
+        // methods below. Union (not replacement) follows the CDI interceptor-
+        // binding resolution convention: a method's binding set is the class-
+        // level set together with all method-level bindings.
+        Set<String> classLevelNames = bean.methodBindingAnnotations.getOrDefault("", Set.of());
+
         // Pass 1: collect intercepted methods and generate static metadata fields
         for (String ifaceName : bean.interfaceNames) {
             ClassInfo ifaceCi = index.getClassByName(DotName.createSimple(ifaceName));
@@ -137,7 +145,11 @@ public final class AotProxyGenerator {
                 boolean shouldIntercept =
                         classLevelBinding || methodLevelBindingMethods.contains(method.name());
                 if (shouldIntercept) {
-                    proxyBuilder.addField(buildMetaField(method, bindingAnnotations));
+                    proxyBuilder.addField(
+                            buildMetaField(
+                                    method,
+                                    bindingAnnotations,
+                                    bindingUnionFor(bean, classLevelNames, method)));
                 }
             }
         }
@@ -169,12 +181,28 @@ public final class AotProxyGenerator {
 
     // ── Metadata Field ────────────────────────────────────────────────
 
-    private FieldSpec buildMetaField(MethodInfo method, Set<DotName> bindingAnnotations) {
+    /**
+     * The binding names recorded by discovery for one method: the class-level set merged with any
+     * method-level entry for this method's name. Discovery only ever stores binding-annotation FQNs
+     * here, so no further filtering is needed.
+     */
+    private static Set<String> bindingUnionFor(
+            BeanDefinition bean, Set<String> classLevelNames, MethodInfo method) {
+        Set<String> union = new HashSet<>(classLevelNames);
+        union.addAll(bean.methodBindingAnnotations.getOrDefault(method.name(), Set.of()));
+        return union;
+    }
+
+    private FieldSpec buildMetaField(
+            MethodInfo method, Set<DotName> bindingAnnotations, Set<String> discoveryBindingNames) {
         Set<ClassName> annotationClasses = new HashSet<>();
         for (AnnotationInstance ann : method.annotations()) {
             if (bindingAnnotations.contains(ann.name())) {
                 annotationClasses.add(AotTypeNames.safeClassName(ann.name().toString()));
             }
+        }
+        for (String bindingName : discoveryBindingNames) {
+            annotationClasses.add(AotTypeNames.safeClassName(bindingName));
         }
 
         // AOT emits the method view as compile-time constants: method name + the set
@@ -205,8 +233,24 @@ public final class AotProxyGenerator {
                 .build();
     }
 
-    private static String metaFieldName(MethodInfo method) {
-        return "META_" + method.name();
+    /**
+     * Overload-safe metadata field name: the bare method name collides when two overloads are both
+     * bound (find(String) / find(int) would emit two META_find fields and the generated source
+     * would not compile). The erased parameter types disambiguate deterministically.
+     */
+    static String metaFieldName(MethodInfo method) {
+        StringBuilder name = new StringBuilder("META_").append(method.name());
+        for (org.jboss.jandex.Type param : method.parameterTypes()) {
+            String erased =
+                    param.name()
+                            .toString()
+                            .replace('$', '_')
+                            .replace('.', '_')
+                            .replace('[', '_')
+                            .replace(';', '_');
+            name.append('_').append(erased);
+        }
+        return name.toString();
     }
 
     // ── Proxy Method (through interceptor chain) ──────────────────────

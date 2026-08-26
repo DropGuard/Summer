@@ -187,14 +187,33 @@ public final class RowMapperFactory {
      * X.class} literals).
      */
     public static Class<?> resolveFieldType(String typeName) {
-        // JDBC reads every numeric primitive as its boxed Class (e.g. "int" and
-        // "java.lang.Integer" both -> Integer.class); this is the mapper's own
-        // domain and is intentionally not shared with codegen's raw-type table.
+        // Primitives are rejected by contract: a database NULL cannot map onto int/long/double/
+        // boolean, and the two engines used to disagree on what happened next (the runtime's
+        // Jackson conversion silently defaulted to 0/false while the AOT mapper threw a bare
+        // NPE at unboxing). Wrapper types make nullability explicit and keep both engines
+        // identical by removing the path entirely.
+        String boxed =
+                switch (typeName) {
+                    case "int" -> "java.lang.Integer";
+                    case "long" -> "java.lang.Long";
+                    case "double" -> "java.lang.Double";
+                    case "boolean" -> "java.lang.Boolean";
+                    default -> null;
+                };
+        if (boxed != null) {
+            throw new IllegalStateException(
+                    "Unsupported @RowModel component type: `"
+                            + typeName
+                            + "` (primitive). A database NULL cannot map safely onto a"
+                            + " primitive — declare the component as its wrapper type `"
+                            + boxed
+                            + "` so nullability stays explicit.");
+        }
         return switch (typeName) {
-            case "int", "java.lang.Integer" -> Integer.class;
-            case "long", "java.lang.Long" -> Long.class;
-            case "double", "java.lang.Double" -> Double.class;
-            case "boolean", "java.lang.Boolean" -> Boolean.class;
+            case "java.lang.Integer" -> Integer.class;
+            case "java.lang.Long" -> Long.class;
+            case "java.lang.Double" -> Double.class;
+            case "java.lang.Boolean" -> Boolean.class;
             case "java.lang.String" -> String.class;
             case "java.math.BigDecimal" -> java.math.BigDecimal.class;
             case "java.util.UUID" -> java.util.UUID.class;
@@ -206,7 +225,7 @@ public final class RowMapperFactory {
                     throw new IllegalStateException(
                             "Unsupported @RowModel field type: "
                                     + typeName
-                                    + ". @RowModel supports JDBC-native types only (primitives,"
+                                    + ". @RowModel supports JDBC-native types only (wrapper types,"
                                     + " String, BigDecimal, UUID, java.time.*). Complex types such"
                                     + " as jsonb or nested records require explicit extension.");
         };

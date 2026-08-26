@@ -41,8 +41,8 @@ public class ProxyFactory {
     }
 
     @SuppressWarnings("unchecked")
-    public static <T> T createProxy(T target, Map<Method, ProxyMethodSpec> methodSpecs) {
-        Class<?>[] interfaces = target.getClass().getInterfaces();
+    public static <T> T createProxy(
+            Class<?>[] interfaces, T target, Map<Method, ProxyMethodSpec> methodSpecs) {
         if (interfaces.length == 0) {
             throw new SummerAopException(
                     ErrorCode.AOP_NO_INTERFACE,

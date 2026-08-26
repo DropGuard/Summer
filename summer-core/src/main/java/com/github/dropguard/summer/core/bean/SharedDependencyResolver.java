@@ -71,20 +71,30 @@ public final class SharedDependencyResolver {
     }
 
     /**
-     * Builds the mapping from each mocked type name to the names of the interfaces its
-     * implementation class implements. Used (without class loading) to satisfy a dependency
-     * declared against an interface that the mock implements.
+     * Builds, per mocked type, EVERY type name a consumer may legally declare for injection: the
+     * target itself, its full superclass chain, and its transitive interface hierarchy. Consumers
+     * are not required to declare the mock's concrete type — a dependency on {@code
+     * AbstractService} or {@code ServicePort} is satisfied by an {@code @Mock} of {@code
+     * RealService} exactly as it would be by the real bean (the S-09a contract).
      */
     private static Map<String, Set<String>> mockedInterfaceNames(List<MockedBean> mocks) {
         Map<String, Set<String>> result = new HashMap<>();
         for (MockedBean mocked : mocks) {
-            Set<String> ifaces = new HashSet<>();
-            for (Class<?> iface : mocked.targetType().getInterfaces()) {
-                ifaces.add(iface.getName());
-            }
-            result.put(mocked.targetTypeName(), ifaces);
+            Set<String> assignable = new HashSet<>();
+            collectAssignableNames(mocked.targetType(), assignable);
+            result.put(mocked.targetTypeName(), assignable);
         }
         return result;
+    }
+
+    private static void collectAssignableNames(Class<?> type, Set<String> into) {
+        if (type == null || !into.add(type.getName())) {
+            return;
+        }
+        for (Class<?> iface : type.getInterfaces()) {
+            collectAssignableNames(iface, into);
+        }
+        collectAssignableNames(type.getSuperclass(), into);
     }
 
     private List<BeanDefinition> resolve(
@@ -412,7 +422,21 @@ public final class SharedDependencyResolver {
 
         for (var entry : incoming.entrySet()) {
             for (BeanDefinition dep : entry.getValue()) {
-                dependents.get(dep).add(entry.getKey());
+                Set<BeanDefinition> set = dependents.get(dep);
+                if (set == null) {
+                    // `dep` was removed earlier in the pipeline — almost always an unsatisfied
+                    // @ConditionalOnBean. A silent NPE here would hide which edge is broken;
+                    // name both ends instead.
+                    throw new com.github.dropguard.summer.core.exception.BeanCreationException(
+                            "Bean "
+                                    + entry.getKey().qualifiedName
+                                    + " depends on "
+                                    + dep.qualifiedName
+                                    + ", which was removed during container assembly (most likely"
+                                    + " its @ConditionalOnBean requirement is not satisfied within"
+                                    + " its visibility scope).");
+                }
+                set.add(entry.getKey());
             }
         }
         return dependents;

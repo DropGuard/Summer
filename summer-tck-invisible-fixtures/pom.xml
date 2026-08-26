@@ -11,6 +11,10 @@
     </parent>
 
     <artifactId>summer-tck-invisible-fixtures</artifactId>
+    <properties>
+        <!-- internal module: never published to Maven Central -->
+        <maven.deploy.skip>true</maven.deploy.skip>
+    </properties>
     <name>Summer TCK Invisible Fixtures</name>
     <description>
         Whole-universe-invisible fixtures for the narrow-seeded test path

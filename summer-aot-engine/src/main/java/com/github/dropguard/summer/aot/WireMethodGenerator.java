@@ -176,10 +176,12 @@ public final class WireMethodGenerator {
         if (parameter.resolved().isEmpty()) {
             // A dependency on a mocked type: its bean definition was removed at discovery and
             // the mock instance is registered on the builder before the wire loop runs
-            // (build(Object...) mock branch). Resolve it from the builder at runtime — injecting
-            // null here would silently hand the dependent bean a null instead of the mock.
+            // (build(Object...) mock branch). Resolve through getBean so the generated code
+            // shares the RUNTIME engine's assignability scan — a @Mock declared on the concrete
+            // type must satisfy consumers injecting supertypes or transitive interfaces, and a
+            // genuinely missing dependency fails loudly instead of injecting null.
             ClassName paramClass = AotTypeNames.safeClassName(parameter.typeName());
-            return CodeBlock.of("($T) builder.peek($T.class)", paramClass, paramClass);
+            return CodeBlock.of("($T) builder.getBean($T.class)", paramClass, paramClass);
         }
         return CodeBlock.of("$N", parameter.resolved().get(0).variableName);
     }
@@ -302,12 +304,14 @@ public final class WireMethodGenerator {
             if (bean instanceof ConfigPropertiesBean) {
                 wire.addStatement("builder.register($T.class, $N)", beanClass, varName);
             } else {
-                if (bean.needsProxy() && !bean.interfaceNames.isEmpty()) {
-                    wire.addStatement(
-                            "builder.$L($T.class, $N)", register, beanClass, varName + "_impl");
-                } else {
-                    wire.addStatement("builder.$L($T.class, $N)", register, beanClass, varName);
-                }
+                // AOP lookup contract (one bean, one form) — mirrors
+                // BeanInstantiator.registerRegularBean: for a BOUND bean varName IS the
+                // $$AotProxy (the raw lives in varName_impl as its private target), so the
+                // concrete-class key holds the proxy. The proxy implements only the
+                // interfaces, so a typed getBean(ConcreteClass) misses the scan and fails
+                // loudly with NoSuchBeanException — identical to the runtime engine's JDK
+                // proxy. Unbound beans register themselves.
+                wire.addStatement("builder.$L($T.class, $N)", register, beanClass, varName);
                 // Register an interface key only when exactly one bean implements it (single-bean
                 // lookup by interface / ctor injection). An interface with multiple impls is a
                 // collection-injection strategy (List<HttpParameterResolver>, List<Middleware>)

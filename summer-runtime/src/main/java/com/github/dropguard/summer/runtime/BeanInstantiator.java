@@ -213,46 +213,52 @@ final class BeanInstantiator {
     }
 
     private void registerRegularBean(BeanDefinition bean, Object instance) {
-        Class<?> clazz = instance.getClass();
         List<MethodInterceptor> matchingInterceptors =
                 resolveMatchingInterceptors(bean.qualifiedName);
         Object proxy =
                 RuntimeAopProcessor.applyProxy(
                         instance, bean, matchingInterceptors, interceptorBindings);
+        // AOP lookup contract (one bean, one form): a BOUND bean (proxy != instance) is owned by
+        // the container AS ITS PROXY — the proxy sits under the concrete-class key AND under its
+        // unique interface keys, so every lookup plane (typed getBean, collection scans) sees
+        // exactly one incarnation and interception can never be bypassed by resolving through a
+        // different type. The raw instance remains the proxy's private target: @PostConstruct has
+        // already run on it above, and close()/seal() forward through the proxy onto it.
+        // UNBOUND beans register as themselves — nothing changes for them.
+        boolean proxied = proxy != instance;
         // A @Bean-produced instance is owned as a product: the container closes it before its
         // producer (the CDI producer-destruction rule — the product's close may access the
         // producer's alive state).
         boolean isProduct = bean.producerMethodName != null;
+        Class<?> clazz = instance.getClass();
         if (isProduct) {
-            builder.registerProduct(clazz, instance);
+            builder.registerProduct(clazz, proxied ? proxy : instance);
         } else {
-            builder.register(clazz, instance);
+            builder.register(clazz, proxied ? proxy : instance);
         }
-        // Interface-based AOP: the JDK proxy is registered under every interface (recursively).
-        // Multiple beans MAY share an interface (strategy pattern: e.g. CursorPageResolver and
-        // DefaultPageResolver both implement HttpParameterResolver, composed via
-        // HttpParameterResolverChain). BeanContainer.Builder#register is keyed by type, so the
-        // last registration wins on a shared interface key — callers that need all impls must use
-        // getBeans(interface) or the resolver chain, never getBean(interface) for a strategy.
-        registerAllInterfaces(clazz, proxy, isProduct);
+        // Interface-based AOP: the proxy is registered under every DISCOVERED interface that is
+        // unique to this bean — discovery's transitive closure (superclass chains included), the
+        // same set the specs were built from. Re-deriving via clazz.getInterfaces() here would
+        // silently drop superclass-inherited interfaces from resolution.
+        // Multiple beans MAY share an interface (strategy pattern): such keys stay unregistered
+        // (count guard below) so getBean(interface) keeps failing loudly on ambiguity — callers
+        // use getBeans / the resolver chain for multi-impl strategies; the proxies remain visible
+        // to those scans via their concrete-class-key registration above.
+        registerDiscoveredInterfaces(bean, proxy, isProduct);
     }
 
-    private void registerAllInterfaces(Class<?> clazz, Object instance, boolean isProduct) {
-        for (Class<?> iface : clazz.getInterfaces()) {
-            // Register the interface key only when exactly one bean implements it (single-bean
-            // lookup by interface / constructor injection by interface). An interface with
-            // multiple impls is a collection-injection strategy (List<HttpParameterResolver>,
-            // List<Middleware>) resolved via getBeans — its key would otherwise be overwritten by
-            // the last-writer-wins register() and hide the multi-impl contract.
-            Integer count = ifaceCounts.get(iface.getName());
+    private void registerDiscoveredInterfaces(
+            BeanDefinition bean, Object proxy, boolean isProduct) {
+        for (String ifaceName : bean.interfaceNames) {
+            Class<?> iface = loadClassForInstantiation(ifaceName);
+            Integer count = ifaceCounts.get(ifaceName);
             if (count != null && count == 1) {
                 if (isProduct) {
-                    builder.registerProduct(iface, instance);
+                    builder.registerProduct(iface, proxy);
                 } else {
-                    builder.register(iface, instance);
+                    builder.register(iface, proxy);
                 }
             }
-            registerAllInterfaces(iface, instance, isProduct);
         }
     }
 

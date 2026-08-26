@@ -52,7 +52,8 @@ class ProxyFactoryTest {
     @Test
     void shouldCreateProxy() {
         TestService target = new TestServiceImpl();
-        TestService proxy = ProxyFactory.createProxy(target, emptyPlan());
+        TestService proxy =
+                ProxyFactory.createProxy(new Class<?>[] {TestService.class}, target, emptyPlan());
 
         assertNotNull(proxy);
         assertNotSame(target, proxy);
@@ -70,20 +71,24 @@ class ProxyFactoryTest {
                 };
 
         // An empty plan still yields a valid proxy (no methods wrapped).
-        TestService proxy = ProxyFactory.createProxy(target, emptyPlan());
+        TestService proxy =
+                ProxyFactory.createProxy(new Class<?>[] {TestService.class}, target, emptyPlan());
         assertNotNull(proxy);
     }
 
     @Test
     void shouldThrowWhenTargetHasNoInterfaces() {
         Object target = new Object();
-        assertThrows(SummerAopException.class, () -> ProxyFactory.createProxy(target, emptyPlan()));
+        assertThrows(
+                SummerAopException.class,
+                () -> ProxyFactory.createProxy(new Class<?>[0], target, emptyPlan()));
     }
 
     @Test
     void shouldHandleObjectMethodsOnProxyItself() {
         TestService target = new TestServiceImpl();
-        TestService proxy = ProxyFactory.createProxy(target, emptyPlan());
+        TestService proxy =
+                ProxyFactory.createProxy(new Class<?>[] {TestService.class}, target, emptyPlan());
 
         // toString returns proxy identity, not target identity
         assertTrue(proxy.toString().startsWith("Proxy["));
@@ -104,7 +109,9 @@ class ProxyFactoryTest {
         Method sayHello = method(TestService.class, "sayHello");
         TestService proxy =
                 ProxyFactory.createProxy(
-                        target, Map.of(sayHello, spec(interceptor, TestIntercepted.class)));
+                        new Class<?>[] {TestService.class},
+                        target,
+                        Map.of(sayHello, spec(interceptor, TestIntercepted.class)));
         String result = proxy.sayHello();
         assertEquals("Intercepted: Hello", result);
     }
@@ -125,7 +132,9 @@ class ProxyFactoryTest {
         Method sayHello = method(TestService.class, "sayHello");
         TestService proxy =
                 ProxyFactory.createProxy(
-                        target, Map.of(sayHello, spec(interceptor, TestIntercepted.class)));
+                        new Class<?>[] {TestService.class},
+                        target,
+                        Map.of(sayHello, spec(interceptor, TestIntercepted.class)));
         // greet() is not in the plan, so it is not intercepted.
         String result = proxy.greet("Alice");
         assertEquals("Hello, Alice!", result);
@@ -140,6 +149,7 @@ class ProxyFactoryTest {
         Method sayHello = method(TestService.class, "sayHello");
         TestService proxy =
                 ProxyFactory.createProxy(
+                        new Class<?>[] {TestService.class},
                         target,
                         Map.of(
                                 sayHello,
@@ -161,6 +171,7 @@ class ProxyFactoryTest {
         Method greet = method(InterfaceAnnotatedService.class, "greet", String.class);
         InterfaceAnnotatedService proxy =
                 ProxyFactory.createProxy(
+                        new Class<?>[] {InterfaceAnnotatedService.class},
                         target,
                         Map.of(
                                 sayHello,

@@ -68,7 +68,7 @@ class TransactionInterceptorTest {
         final AtomicBoolean executed = new AtomicBoolean(false);
 
         @Override
-        public <T> T executeInTransaction(TransactionCallback<T> action) throws Throwable {
+        public <T> T executeInTransaction(TransactionCallback<T> action) throws Exception {
             executed.set(true);
             return action.doInTransaction();
         }

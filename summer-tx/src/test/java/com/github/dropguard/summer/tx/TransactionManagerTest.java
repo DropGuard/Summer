@@ -14,7 +14,7 @@ class TransactionManagerTest {
 
     private static class TestTransactionManager implements TransactionManager {
         @Override
-        public <T> T executeInTransaction(TransactionCallback<T> action) throws Throwable {
+        public <T> T executeInTransaction(TransactionCallback<T> action) throws Exception {
             return action.doInTransaction();
         }
     }

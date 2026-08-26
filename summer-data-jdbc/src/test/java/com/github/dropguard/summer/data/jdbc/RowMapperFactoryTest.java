@@ -28,7 +28,13 @@ class RowMapperFactoryTest {
         assertSame(UUID.class, RowMapperFactory.resolveFieldType("java.util.UUID"));
         assertSame(
                 LocalDateTime.class, RowMapperFactory.resolveFieldType("java.time.LocalDateTime"));
-        assertSame(Integer.class, RowMapperFactory.resolveFieldType("int"));
+        // Primitives are rejected by contract (S-09b): NULL cannot map onto them and
+        // the engines used to diverge (silent 0 vs NPE).
+        var primitive =
+                assertThrows(
+                        IllegalStateException.class,
+                        () -> RowMapperFactory.resolveFieldType("int"));
+        assertTrue(primitive.getMessage().contains("java.lang.Integer"));
     }
 
     @Test

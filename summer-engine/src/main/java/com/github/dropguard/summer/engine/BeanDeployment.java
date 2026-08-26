@@ -43,10 +43,10 @@ import org.jboss.jandex.IndexView;
  * the isolation lives in which archives each pipeline collects.
  *
  * <p>An <b>archive</b> is the immutable unit of discovery: one jar (or one build output directory)
- * is one archive, named after the artifact it ships in. Archives are isolated for
- * {@code @ConditionalOnBean} visibility — a bean's condition is satisfied only by another bean in
- * the <em>same</em> archive (see {@link #archiveOf(String)}). Bean <em>injection</em> remains
- * global; only the condition-evaluation boundary is archive-scoped.
+ * is one archive, named after the artifact it ships in. The partition exists for discovery and
+ * AOT/test-slice mechanics ({@link #archiveOf(String)}) — it does NOT bound visibility: both
+ * {@code @ConditionalOnBean} evaluation and bean injection see the whole candidate universe. One
+ * container, one visibility model; conditions are not an access-control mechanism.
  *
  * <p>Lives in the engine module (not summer-core) so the foundation layer stays free of Jandex —
  * the deployment's index slices are engine machinery, not contract.
@@ -138,13 +138,17 @@ public final class BeanDeployment {
     }
 
     /**
-     * Builds a whole-universe test deployment: the application archives plus the current test
-     * class's {@code test-classes} archive (indexed on demand by {@code
-     * com.github.dropguard.summer.test.TestClassIndexer}, supplied inside {@code archiveIndexes}
-     * under the {@code "test"} key). The two slices stay separate as distinct archives; {@link
-     * #discoveryIndex()} merges them on demand for discovery.
+     * Builds a deployment whose universe is exactly the given archives. The factory is deliberately
+     * shape-agnostic: a production deployment passes only application archives, a whole-universe
+     * test deployment additionally passes the current test class's {@code test-classes} archive
+     * (indexed on demand by {@code com.github.dropguard.summer.test.TestClassIndexer}) inside
+     * {@code archiveIndexes} — the two slices stay separate and {@link #discoveryIndex()} merges
+     * them on demand for discovery.
+     *
+     * <p>(Formerly two identical factories named {@code forProduction} / {@code forTestUniverse}
+     * whose bodies did not differ; the distinction lives entirely in the caller's arguments.)
      */
-    public static BeanDeployment forTestUniverse(
+    public static BeanDeployment forArchives(
             IndexView productionIndex,
             Map<String, String> classToArchive,
             Map<String, IndexView> archiveIndexes) {
@@ -173,13 +177,6 @@ public final class BeanDeployment {
      * Builds a production deployment: the application archives only, no test slice. Used by runtime
      * startup and AOT code generation — a test class can never enter this deployment.
      */
-    public static BeanDeployment forProduction(
-            IndexView productionIndex,
-            Map<String, String> classToArchive,
-            Map<String, IndexView> archiveIndexes) {
-        return new BeanDeployment(productionIndex, classToArchive, archiveIndexes);
-    }
-
     /**
      * Builds a production deployment from a single merged index, treating it as one archive named
      * {@code "production"}. Convenience overload mirroring {@link #forNarrow(IndexView, IndexView)}
@@ -224,9 +221,9 @@ public final class BeanDeployment {
     }
 
     /**
-     * Returns the archive name a class belongs to, or {@code null} if the class is not indexed.
-     * This is the boundary key for {@code @ConditionalOnBean} visibility: a condition is satisfied
-     * only by beans in the same archive.
+     * Returns the archive name a class belongs to, or {@code null} for engine-provided synthetic
+     * beans and unindexed classes. Diagnostics, AOT slicing and test-universe merging use it; it
+     * does not restrict {@code @ConditionalOnBean} or injection visibility.
      */
     public String archiveOf(String className) {
         return classToArchive.get(className);
