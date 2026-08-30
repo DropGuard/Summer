@@ -47,8 +47,8 @@ public final class ShutdownContext {
             Runnable task = tasks.removeFirst();
             try {
                 task.run();
-            } catch (Exception e) {
-                log.error("[Summer] Error during shutdown task: {}", e.getMessage(), e);
+            } catch (Throwable t) {
+                log.error("[Summer] Error during shutdown task: {}", t.getMessage(), t);
             }
         }
     }
