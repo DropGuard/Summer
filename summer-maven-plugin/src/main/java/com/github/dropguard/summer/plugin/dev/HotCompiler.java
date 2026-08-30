@@ -1,11 +1,10 @@
 package com.github.dropguard.summer.plugin.dev;
 
+import com.github.dropguard.summer.aot.AotSourceCompiler;
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
+import javax.tools.Diagnostic;
+import javax.tools.JavaFileObject;
 
 /** Executes incremental fast-compilation via the standard JavaCompiler API. */
 public class HotCompiler {
@@ -28,38 +27,32 @@ public class HotCompiler {
     public boolean compile(List<File> sourceFiles) {
         if (sourceFiles.isEmpty()) return true;
 
-        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-        if (compiler == null) {
-            log.error("System JavaCompiler not found. Please run with a JDK, not a JRE.");
-            return false;
-        }
-
         List<String> options =
-                new ArrayList<>(
-                        Arrays.asList(
-                                "-classpath",
-                                classpath,
-                                "-d",
-                                outputDir.getAbsolutePath(),
-                                "-g",
-                                "-parameters"));
-
-        List<String> filePaths = new ArrayList<>();
-        for (File f : sourceFiles) {
-            filePaths.add(f.getAbsolutePath());
-        }
-
-        List<String> args = new ArrayList<>(options);
-        args.addAll(filePaths);
+                List.of(
+                        "-classpath",
+                        classpath,
+                        "-d",
+                        outputDir.getAbsolutePath(),
+                        "-g",
+                        "-parameters");
 
         log.info("[Summer] Recompiling " + sourceFiles.size() + " changed file(s)...");
-        int result = compiler.run(null, null, null, args.toArray(new String[0]));
+        try {
+            List<Diagnostic<? extends JavaFileObject>> diags =
+                    AotSourceCompiler.compile(sourceFiles, options);
 
-        if (result == 0) {
-            log.info("[Summer] Compilation successful.");
-            return true;
-        } else {
-            log.error("[Summer] Compilation failed.");
+            if (diags.isEmpty()) {
+                log.info("[Summer] Compilation successful.");
+                return true;
+            }
+
+            for (var diag : diags) {
+                log.error("[Summer] " + diag);
+            }
+            log.error("[Summer] Compilation failed ({} diagnostic(s)).", diags.size());
+            return false;
+        } catch (Exception e) {
+            log.error("[Summer] Compilation failed", e);
             return false;
         }
     }
