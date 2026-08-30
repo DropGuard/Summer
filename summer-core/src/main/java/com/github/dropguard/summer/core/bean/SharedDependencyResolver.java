@@ -1,7 +1,9 @@
 package com.github.dropguard.summer.core.bean;
 
+import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.exception.AmbiguousBeanException;
+import com.github.dropguard.summer.core.exception.BeanCreationException;
 import com.github.dropguard.summer.core.exception.CircularDependencyException;
 import com.github.dropguard.summer.core.exception.NoSuchBeanException;
 import java.util.ArrayDeque;
@@ -104,13 +106,13 @@ public final class SharedDependencyResolver {
         validateUniqueBeanNames(beans);
 
         for (BeanDefinition bean : beans) {
-            resolveDependencies(bean, beans, mockedTypeNames, mockedInterfaces);
-        }
-
-        for (BeanDefinition bean : beans) {
             if (bean.isFactoryMethod()) {
                 linkConfigBean(bean, beans);
             }
+        }
+
+        for (BeanDefinition bean : beans) {
+            resolveDependencies(bean, beans, mockedTypeNames, mockedInterfaces);
         }
 
         return topologicalSort(beans);
@@ -201,12 +203,19 @@ public final class SharedDependencyResolver {
             // discovery time, so both engines fail fast at build rather than at instantiation —
             // this is the same rejection the engines perform (BeanInstantiator /
             // WireMethodGenerator), moved earlier so it cannot diverge.
-            if (paramType.equals("com.github.dropguard.summer.core.BeanContainer")) {
-                throw new com.github.dropguard.summer.core.exception.BeanCreationException(
-                        "ApplicationContext injection is not supported: "
-                                + bean.qualifiedName
-                                + " declares a BeanContainer constructor parameter. Use"
-                                + " BeanContainer from the caller instead.");
+            try {
+                Class<?> clazz = Class.forName(paramType);
+                if (BeanContainer.class.isAssignableFrom(clazz)) {
+                    throw new BeanCreationException(
+                            "Injection of container type "
+                                    + clazz.getName()
+                                    + " is not supported: "
+                                    + bean.qualifiedName
+                                    + " declares a container constructor parameter. Use"
+                                    + " BeanContainer from the caller instead.");
+                }
+            } catch (ClassNotFoundException ignored) {
+                // class not found on classpath; will be handled as missing bean later
             }
 
             BeanDefinition resolved = findBean(paramType, allBeans);
