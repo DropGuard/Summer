@@ -341,8 +341,8 @@ public final class WireMethodGenerator {
         wire.beginControlFlow(
                 "if (bean instanceof $T validator)",
                 ClassName.get("com.github.dropguard.summer.core.validation", "Validator"));
-        wire.addStatement("$T target = builder.peek(validator.targetType())", Object.class);
-        wire.beginControlFlow("if (target != null)");
+        wire.addStatement("$T targets = builder.getBeans(validator.targetType())", List.class);
+        wire.beginControlFlow("for ($T target : targets)", Object.class);
         wire.addStatement("validator.validate(target)");
         wire.endControlFlow();
         wire.endControlFlow();

@@ -138,8 +138,10 @@ public final class RuntimeContainer implements ContainerEngine {
         // validators
         for (Object bean : builder.singletons().values()) {
             if (bean instanceof Validator<?> v) {
-                Object target = builder.peek(v.targetType());
-                if (target != null) ((Validator<Object>) v).validate(target);
+                List<?> targets = builder.getBeans(v.targetType());
+                for (Object target : targets) {
+                    ((Validator<Object>) v).validate(target);
+                }
             }
         }
 
