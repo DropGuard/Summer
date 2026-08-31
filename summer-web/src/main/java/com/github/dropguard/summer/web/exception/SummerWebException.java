@@ -5,8 +5,8 @@ import com.github.dropguard.summer.core.exception.SummerException;
 import com.github.dropguard.summer.web.HttpStatus;
 
 /**
- * Base class for all Web and HTTP-related exceptions in Summer. Carries an HTTP status code for
- * automatic response mapping.
+ * Internal framework exception that carries an HTTP status code. Used for framework-infrastructure
+ * failures (route resolution errors, encoding errors) that need to surface as HTTP responses.
  */
 public class SummerWebException extends SummerException {
     private final HttpStatus status;

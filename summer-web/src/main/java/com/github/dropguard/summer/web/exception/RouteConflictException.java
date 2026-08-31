@@ -1,18 +1,16 @@
 package com.github.dropguard.summer.web.exception;
 
-import com.github.dropguard.summer.core.ErrorCode;
 import com.github.dropguard.summer.web.HttpStatus;
 
 /** Thrown when route registration conflicts with an existing route. */
-public class RouteConflictException extends SummerWebException {
+public class RouteConflictException extends HttpException {
     /**
      * Two different parameter names claim the same position (e.g. {@code /{id}} vs {@code
      * /{name}}).
      */
     public RouteConflictException(String path) {
         super(
-                ErrorCode.ROUTE_CONFLICT,
-                HttpStatus.INTERNAL_SERVER_ERROR,
+                HttpStatus.INTERNAL_SERVER_ERROR.code(),
                 "Route conflict: parameter name mismatch at " + path);
     }
 
@@ -22,14 +20,13 @@ public class RouteConflictException extends SummerWebException {
      */
     public static RouteConflictException duplicate(String methodAndPath) {
         return new RouteConflictException(
-                ErrorCode.ROUTE_CONFLICT,
-                HttpStatus.INTERNAL_SERVER_ERROR,
+                HttpStatus.INTERNAL_SERVER_ERROR.code(),
                 "Duplicate route registration: "
                         + methodAndPath
                         + " is already registered; later registration would silently win");
     }
 
-    private RouteConflictException(ErrorCode errorCode, HttpStatus status, String message) {
-        super(errorCode, status, message);
+    private RouteConflictException(int status, String message) {
+        super(status, message);
     }
 }
