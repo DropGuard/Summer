@@ -30,7 +30,7 @@ public final class AuthUtils {
      * Validates the access token and returns the authenticated user's ID. Use when authentication
      * is required.
      *
-     * @throws BusinessException 401 if the token is missing, expired, or invalid
+     * @throws InvalidCredentialsException 401 if the token is missing, expired, or invalid
      */
     public static Long getCurrentUserId(HttpContext ctx, JwtUtil jwtUtil) {
         String token = extractToken(ctx);

@@ -1,7 +1,8 @@
 package com.github.dropguard.summer.issuetracker.security;
 
 import com.github.dropguard.summer.core.Component;
-import com.github.dropguard.summer.issuetracker.common.BusinessException;
+import com.github.dropguard.summer.web.exception.BadRequestException;
+import com.github.dropguard.summer.web.exception.UnauthorizedException;
 import com.github.dropguard.summer.issuetracker.org.Organization;
 import com.github.dropguard.summer.issuetracker.org.OrganizationRepository;
 import com.github.dropguard.summer.issuetracker.user.User;
@@ -42,10 +43,10 @@ public class AuthService {
             String orgName,
             String orgSlug) {
         if (userService.findByUsername(username).isPresent()) {
-            throw BusinessException.badRequest("Username already taken");
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Username already taken");
         }
         if (password == null || password.length() < 8) {
-            throw BusinessException.badRequest("Password must be at least 8 characters");
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Password must be at least 8 characters");
         }
         // Demo simplification: every registration creates its own organization. The
         // new user is a plain MEMBER — ADMIN/MANAGER are granted explicitly (e.g. a
@@ -73,9 +74,9 @@ public class AuthService {
         User user =
                 userService
                         .findByUsername(username)
-                        .orElseThrow(() -> BusinessException.unauthorized("Invalid credentials"));
+                        .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Invalid credentials"));
         if (!verifyPassword(user.passwordHash(), password)) {
-            throw BusinessException.unauthorized("Invalid credentials");
+            throw new BusinessException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Invalid credentials");
         }
         return new AuthResult(
                 user.id(),

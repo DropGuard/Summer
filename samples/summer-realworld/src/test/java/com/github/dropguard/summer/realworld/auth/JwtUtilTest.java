@@ -3,7 +3,7 @@ package com.github.dropguard.summer.realworld.auth;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.dropguard.summer.core.config.ConfigBinder.BindingContext;
-import com.github.dropguard.summer.realworld.common.BusinessException;
+import com.github.dropguard.summer.realworld.common.InvalidCredentialsException;
 import com.github.dropguard.summer.runtime.RuntimeConfigBinder;
 import io.jsonwebtoken.Jwts;
 import java.util.Date;
@@ -113,25 +113,25 @@ class JwtUtilTest {
 
     @Test
     void validateAccessTokenThrowsOnNullToken() {
-        BusinessException ex =
-                assertThrows(BusinessException.class, () -> jwtUtil.validateAccessToken(null));
+        InvalidCredentialsException ex =
+                assertThrows(InvalidCredentialsException.class, () -> jwtUtil.validateAccessToken(null));
         assertEquals("token", ex.field());
         assertEquals("is missing", ex.getMessage());
     }
 
     @Test
     void validateAccessTokenThrowsOnBlankToken() {
-        BusinessException ex =
-                assertThrows(BusinessException.class, () -> jwtUtil.validateAccessToken("   "));
+        InvalidCredentialsException ex =
+                assertThrows(InvalidCredentialsException.class, () -> jwtUtil.validateAccessToken("   "));
         assertEquals("token", ex.field());
         assertEquals("is missing", ex.getMessage());
     }
 
     @Test
     void validateAccessTokenThrowsOnGarbageToken() {
-        BusinessException ex =
+        InvalidCredentialsException ex =
                 assertThrows(
-                        BusinessException.class, () -> jwtUtil.validateAccessToken("not-a-jwt"));
+                        InvalidCredentialsException.class, () -> jwtUtil.validateAccessToken("not-a-jwt"));
         assertEquals("token", ex.field());
         assertEquals("is invalid", ex.getMessage());
     }
@@ -151,9 +151,9 @@ class JwtUtilTest {
                         .signWith(key)
                         .compact();
 
-        BusinessException ex =
+        InvalidCredentialsException ex =
                 assertThrows(
-                        BusinessException.class, () -> jwtUtil.validateAccessToken(expiredToken));
+                        InvalidCredentialsException.class, () -> jwtUtil.validateAccessToken(expiredToken));
         assertEquals("token", ex.field());
         assertEquals("is expired", ex.getMessage());
     }
@@ -162,9 +162,9 @@ class JwtUtilTest {
     void validateAccessTokenThrowsOnRefreshTokenUsedAsAccess() {
         String refreshToken = jwtUtil.generateRefreshToken(1L);
 
-        BusinessException ex =
+        InvalidCredentialsException ex =
                 assertThrows(
-                        BusinessException.class, () -> jwtUtil.validateAccessToken(refreshToken));
+                        InvalidCredentialsException.class, () -> jwtUtil.validateAccessToken(refreshToken));
         assertEquals("token", ex.field());
         assertEquals("is invalid", ex.getMessage());
     }
@@ -184,9 +184,9 @@ class JwtUtilTest {
     void validateRefreshTokenRejectsAccessToken() {
         String accessToken = jwtUtil.generateAccessToken(1L, "u", "u@t.com");
 
-        BusinessException ex =
+        InvalidCredentialsException ex =
                 assertThrows(
-                        BusinessException.class, () -> jwtUtil.validateRefreshToken(accessToken));
+                        InvalidCredentialsException.class, () -> jwtUtil.validateRefreshToken(accessToken));
         assertEquals("token", ex.field());
         assertEquals("is invalid", ex.getMessage());
     }

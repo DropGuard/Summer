@@ -59,25 +59,25 @@ public class JwtUtil {
     public Long validateAccessToken(String token) {
         if (token == null || token.isBlank()) {
             throw new BusinessException(
-                    HttpStatus.UNAUTHORIZED, "TOKEN_MISSING", "Token is missing");
+                    HttpStatus.UNAUTHORIZED.code(), "TOKEN_MISSING", "Token is missing");
         }
         Claims claims;
         try {
             claims = extractClaims(token);
         } catch (ExpiredJwtException e) {
             throw new BusinessException(
-                    HttpStatus.UNAUTHORIZED, "TOKEN_EXPIRED", "Token is expired");
+                    HttpStatus.UNAUTHORIZED.code(), "TOKEN_EXPIRED", "Token is expired");
         } catch (Exception e) {
             throw new BusinessException(
-                    HttpStatus.UNAUTHORIZED, "TOKEN_INVALID", "Token is invalid");
+                    HttpStatus.UNAUTHORIZED.code(), "TOKEN_INVALID", "Token is invalid");
         }
         if (!"access".equals(claims.get("type", String.class))) {
             throw new BusinessException(
-                    HttpStatus.UNAUTHORIZED, "TOKEN_INVALID", "Token is invalid");
+                    HttpStatus.UNAUTHORIZED.code(), "TOKEN_INVALID", "Token is invalid");
         }
         if (claims.getExpiration().before(new Date())) {
             throw new BusinessException(
-                    HttpStatus.UNAUTHORIZED, "TOKEN_EXPIRED", "Token is expired");
+                    HttpStatus.UNAUTHORIZED.code(), "TOKEN_EXPIRED", "Token is expired");
         }
         return Long.valueOf(claims.getSubject());
     }
@@ -86,25 +86,25 @@ public class JwtUtil {
     public Long validateRefreshToken(String token) {
         if (token == null || token.isBlank()) {
             throw new BusinessException(
-                    HttpStatus.UNAUTHORIZED, "TOKEN_MISSING", "Token is missing");
+                    HttpStatus.UNAUTHORIZED.code(), "TOKEN_MISSING", "Token is missing");
         }
         Claims claims;
         try {
             claims = extractClaims(token);
         } catch (ExpiredJwtException e) {
             throw new BusinessException(
-                    HttpStatus.UNAUTHORIZED, "TOKEN_EXPIRED", "Token is expired");
+                    HttpStatus.UNAUTHORIZED.code(), "TOKEN_EXPIRED", "Token is expired");
         } catch (Exception e) {
             throw new BusinessException(
-                    HttpStatus.UNAUTHORIZED, "TOKEN_INVALID", "Token is invalid");
+                    HttpStatus.UNAUTHORIZED.code(), "TOKEN_INVALID", "Token is invalid");
         }
         if (!"refresh".equals(claims.get("type", String.class))) {
             throw new BusinessException(
-                    HttpStatus.UNAUTHORIZED, "TOKEN_INVALID", "Token is invalid");
+                    HttpStatus.UNAUTHORIZED.code(), "TOKEN_INVALID", "Token is invalid");
         }
         if (claims.getExpiration().before(new Date())) {
             throw new BusinessException(
-                    HttpStatus.UNAUTHORIZED, "TOKEN_EXPIRED", "Token is expired");
+                    HttpStatus.UNAUTHORIZED.code(), "TOKEN_EXPIRED", "Token is expired");
         }
         return Long.valueOf(claims.getSubject());
     }

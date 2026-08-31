@@ -1,6 +1,6 @@
 package com.github.dropguard.summer.issuetracker.security;
 
-import com.github.dropguard.summer.issuetracker.common.BusinessException;
+import com.github.dropguard.summer.web.exception.UnauthorizedException;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.RequestAttributes;
 
@@ -16,7 +16,7 @@ public final class Actors {
     public static long require(HttpContext ctx) {
         Long id = ctx.request().getAttribute(RequestAttributes.USER_ID);
         if (id == null) {
-            throw BusinessException.unauthorized("Authentication required");
+            throw new UnauthorizedException("Authentication required");
         }
         return id;
     }

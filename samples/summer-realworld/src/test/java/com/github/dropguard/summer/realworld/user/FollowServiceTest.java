@@ -3,7 +3,7 @@ package com.github.dropguard.summer.realworld.user;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-import com.github.dropguard.summer.realworld.common.IllegalOperationException;
+import com.github.dropguard.summer.realworld.common.SelfFollowException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +27,7 @@ class FollowServiceTest {
 
     @Test
     void followThrowsWhenSelf() {
-        assertThrows(IllegalOperationException.class, () -> service.follow(5L, 5L));
+        assertThrows(SelfFollowException.class, () -> service.follow(5L, 5L));
         verifyNoInteractions(mockRepo);
     }
 

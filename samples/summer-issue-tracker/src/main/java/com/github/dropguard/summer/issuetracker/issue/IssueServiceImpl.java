@@ -4,12 +4,14 @@ import com.github.dropguard.summer.core.data.PageRequest;
 
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.issuetracker.audit.IssueHistory;
+import com.github.dropguard.summer.issuetracker.common.BusinessException;
 import com.github.dropguard.summer.issuetracker.audit.IssueHistoryRepository;
 import com.github.dropguard.summer.issuetracker.audit.SystemAudit;
 import com.github.dropguard.summer.issuetracker.audit.SystemAuditRepository;
 import com.github.dropguard.summer.issuetracker.comment.Comment;
 import com.github.dropguard.summer.issuetracker.comment.CommentRepository;
-import com.github.dropguard.summer.issuetracker.common.BusinessException;
+import com.github.dropguard.summer.web.exception.BadRequestException;
+import com.github.dropguard.summer.web.exception.NotFoundException;
 import com.github.dropguard.summer.issuetracker.common.IdGenerator;
 import com.github.dropguard.summer.issuetracker.project.Project;
 import com.github.dropguard.summer.issuetracker.project.ProjectRepository;
@@ -83,15 +85,15 @@ public class IssueServiceImpl implements IssueService {
             String priority,
             Long assigneeId) {
         if (title == null || title.isBlank()) {
-            throw BusinessException.badRequest("Title must not be empty");
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Title must not be empty");
         }
         if (status == null || priority == null) {
-            throw BusinessException.badRequest("Status and priority are required");
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Status and priority are required");
         }
         Project project =
                 projectRepository
                         .findById(projectId)
-                        .orElseThrow(() -> BusinessException.notFound("Project"));
+                        .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Project not found"));
 
         long id = idGenerator.nextId();
         String key = project.projectKey() + "-" + projectRepository.nextIssueSeq(projectId);
@@ -160,10 +162,10 @@ public class IssueServiceImpl implements IssueService {
         Project project = projectRepository.findById(issue.projectId()).orElseThrow();
         assertOwns(actorId, issue, project, "reassign");
         if (newAssigneeId != null && userRepository.findById(newAssigneeId).isEmpty()) {
-            throw BusinessException.notFound("Assignee user");
+            throw new BusinessException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Assignee user" + " not found");
         }
         if (newAssigneeId != null && !authz.isMember(newAssigneeId, project.id())) {
-            throw BusinessException.badRequest("Assignee is not a member of this project");
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Assignee is not a member of this project");
         }
         Issue updated =
                 new Issue(
@@ -238,7 +240,7 @@ public class IssueServiceImpl implements IssueService {
         Project project = projectRepository.findById(issue.projectId()).orElseThrow();
         assertOwns(actorId, issue, project, "edit");
         if (title == null || title.isBlank()) {
-            throw BusinessException.badRequest("Title must not be empty");
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Title must not be empty");
         }
         Issue updated =
                 new Issue(
@@ -316,7 +318,7 @@ public class IssueServiceImpl implements IssueService {
         Issue issue =
                 issueRepository
                         .findByKey(projectId, issueKey)
-                        .orElseThrow(() -> BusinessException.notFound("Issue"));
+                        .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Issue not found"));
         return getIssueDetail(issue.id());
     }
 
@@ -344,7 +346,7 @@ public class IssueServiceImpl implements IssueService {
     @Transactional
     public Comment addComment(long actorId, long issueId, String body) {
         if (body == null || body.isBlank()) {
-            throw BusinessException.badRequest("Comment body must not be empty");
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Comment body must not be empty");
         }
         Issue issue = load(issueId);
         Comment comment =
@@ -387,7 +389,7 @@ public class IssueServiceImpl implements IssueService {
     private Issue load(long issueId) {
         return issueRepository
                 .findById(issueId)
-                .orElseThrow(() -> BusinessException.notFound("Issue"));
+                .orElseThrow(() -> new BusinessException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Issue not found"));
     }
 
     private String nameOf(Long userId) {
@@ -400,14 +402,14 @@ public class IssueServiceImpl implements IssueService {
     private static String normalizeStatus(String s) {
         return switch (s.toUpperCase()) {
             case "OPEN", "IN_PROGRESS", "BLOCKED", "DONE", "CLOSED" -> s.toUpperCase();
-            default -> throw BusinessException.badRequest("Invalid status: " + s);
+            default -> throw new BusinessException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Invalid status: " + s);
         };
     }
 
     private static String normalizePriority(String p) {
         return switch (p.toUpperCase()) {
             case "LOW", "MEDIUM", "HIGH", "CRITICAL" -> p.toUpperCase();
-            default -> throw BusinessException.badRequest("Invalid priority: " + p);
+            default -> throw new BusinessException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Invalid priority: " + p);
         };
     }
 }

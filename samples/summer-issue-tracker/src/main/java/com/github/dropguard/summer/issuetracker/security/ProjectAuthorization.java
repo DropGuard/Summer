@@ -1,7 +1,8 @@
 package com.github.dropguard.summer.issuetracker.security;
 
 import com.github.dropguard.summer.core.Component;
-import com.github.dropguard.summer.issuetracker.common.BusinessException;
+import com.github.dropguard.summer.web.exception.UnauthorizedException;
+import com.github.dropguard.summer.web.exception.ForbiddenException;
 import com.github.dropguard.summer.issuetracker.issue.Issue;
 import com.github.dropguard.summer.issuetracker.issue.IssueRepository;
 import com.github.dropguard.summer.issuetracker.project.Project;
@@ -36,13 +37,13 @@ public class ProjectAuthorization {
     public User requireActor(long actorId) {
         return userRepository
                 .findById(actorId)
-                .orElseThrow(() -> BusinessException.unauthorized("Unknown actor"));
+                .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Unknown actor"));
     }
 
     /** Tenant isolation: an actor may only touch resources in their own org. */
     public void assertSameOrg(User actor, Project project) {
         if (!actor.orgId().equals(project.orgId())) {
-            throw BusinessException.forbidden("You do not belong to this organization");
+            throw new BusinessException(HttpStatus.FORBIDDEN, "FORBIDDEN", "You do not belong to this organization");
         }
     }
 
@@ -57,14 +58,14 @@ public class ProjectAuthorization {
             return;
         }
         if (!isMember(actor.id(), project.id())) {
-            throw BusinessException.forbidden("You are not a member of this project");
+            throw new BusinessException(HttpStatus.FORBIDDEN, "FORBIDDEN", "You are not a member of this project");
         }
     }
 
     /** Only a manager or the project lead may perform destructive admin actions. */
     public void assertCanAdminister(User actor, Project project) {
         if (!isManagerOrLead(actor, project)) {
-            throw BusinessException.forbidden(
+            throw new BusinessException(HttpStatus.FORBIDDEN, "FORBIDDEN", 
                     "Only a project manager or lead can perform this action");
         }
     }
@@ -101,7 +102,7 @@ public class ProjectAuthorization {
                 Objects.equals(actorId, issue.assigneeId())
                         || Objects.equals(actorId, issue.reporterId());
         if (!owns) {
-            throw BusinessException.forbidden(
+            throw new BusinessException(HttpStatus.FORBIDDEN, "FORBIDDEN", 
                     "You can only " + action + " on issues assigned to or reported by you");
         }
     }

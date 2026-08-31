@@ -7,6 +7,7 @@ import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.Middleware;
 import com.github.dropguard.summer.web.RequestAttributes;
 import com.github.dropguard.summer.web.annotation.GlobalMiddleware;
+import com.github.dropguard.summer.twitter.common.BusinessException;
 
 @Component
 @GlobalMiddleware
@@ -28,18 +29,13 @@ public class AuthMiddleware implements Middleware {
 
             String authHeader = ctx.header("Authorization");
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                ctx.text(HttpStatus.UNAUTHORIZED, "Missing or invalid Authorization header");
-                return;
+                throw new BusinessException(HttpStatus.UNAUTHORIZED.code(), "TOKEN_MISSING", "Missing or invalid Authorization header");
             }
 
             String token = authHeader.substring(7);
-            try {
-                Long userId = jwtUtil.validateAccessToken(token);
-                ctx.request().setAttribute(RequestAttributes.USER_ID, userId);
-                next.handle(ctx);
-            } catch (Exception e) {
-                ctx.text(HttpStatus.UNAUTHORIZED, "Invalid token");
-            }
+            Long userId = jwtUtil.validateAccessToken(token);
+            ctx.request().setAttribute(RequestAttributes.USER_ID, userId);
+            next.handle(ctx);
         };
     }
 

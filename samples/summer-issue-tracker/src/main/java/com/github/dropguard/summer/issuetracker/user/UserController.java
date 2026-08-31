@@ -1,9 +1,11 @@
 package com.github.dropguard.summer.issuetracker.user;
 
+
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.issuetracker.security.Actors;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.annotation.Get;
+import com.github.dropguard.summer.web.exception.NotFoundException;
 import com.github.dropguard.summer.web.annotation.RestController;
 
 /**
@@ -36,8 +38,7 @@ public class UserController {
                         .findById(userId)
                         .orElseThrow(
                                 () ->
-                                        com.github.dropguard.summer.issuetracker.common
-                                                .BusinessException.notFound("User"));
+                                        new NotFoundException("User not found"));
         ctx.ok(UserView.from(user));
     }
 }

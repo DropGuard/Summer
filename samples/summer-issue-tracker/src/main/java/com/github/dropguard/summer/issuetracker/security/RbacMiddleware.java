@@ -2,8 +2,9 @@ package com.github.dropguard.summer.issuetracker.security;
 
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.core.annotation.Order;
-import com.github.dropguard.summer.issuetracker.common.BusinessException;
-import com.github.dropguard.summer.issuetracker.common.ErrorResponse;
+
+
+import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.issuetracker.issue.Issue;
 import com.github.dropguard.summer.issuetracker.issue.IssueRepository;
 import com.github.dropguard.summer.issuetracker.project.Project;
@@ -13,6 +14,9 @@ import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.Middleware;
 import com.github.dropguard.summer.web.RequestAttributes;
 import com.github.dropguard.summer.web.annotation.GlobalMiddleware;
+import com.github.dropguard.summer.web.exception.UnauthorizedException;
+import com.github.dropguard.summer.web.exception.ForbiddenException;
+import com.github.dropguard.summer.web.exception.NotFoundException;
 
 /**
  * The coarse-grained RBAC gate, enforced at the HTTP layer before any handler runs (the Gin-style
@@ -22,9 +26,7 @@ import com.github.dropguard.summer.web.annotation.GlobalMiddleware;
  * the list runs FIRST. {@link JwtAuthMiddleware} therefore carries the HIGHER {@code @Order}
  * ({@code @Order(2)} &gt; this {@code @Order(1)}): auth populates the attribute before this gate
  * reads it. Public routes pass through; every other route requires an actor (401) and a
- * membership/tenant check against the resource the path names (403). Middleware-layer rejections
- * write the response here — the handler exception registry does not cover the middleware chain (the
- * Gin model: middleware writes and aborts, it does not throw).
+ * Middleware-layer rejections should throw BusinessException to be handled by the framework's global error handler, ensuring consistent JSON error responses.
  *
  * <p>The fine-grained rule ("a plain member may only mutate issues they reported or are assigned
  * to") and the audit trail live in the service layer, which holds the resource at hand.
@@ -59,18 +61,10 @@ public class RbacMiddleware implements Middleware {
                 return;
             }
             Long actorId = ctx.request().getAttribute(RequestAttributes.USER_ID);
-            try {
-                if (actorId == null) {
-                    throw BusinessException.unauthorized("Authentication required");
-                }
-                gate(ctx, actorId);
-            } catch (BusinessException e) {
-                // Middleware-layer rejections write here: the handler exception registry does not
-                // cover the chain (the Gin model — middleware writes and aborts, it does not
-                // throw), so an escaping exception would surface as a fatal 500.
-                ctx.json(e.status(), new ErrorResponse(e.code(), e.getMessage()));
-                return;
+            if (actorId == null) {
+                throw HttpException(HttpStatus.UNAUTHORIZED.code(), "UNAUTHORIZED", "Authentication required");
             }
+            gate(ctx, actorId);
             handler.handle(ctx);
         };
     }
@@ -95,11 +89,11 @@ public class RbacMiddleware implements Middleware {
             Issue issue =
                     issueRepository
                             .findById(issueId)
-                            .orElseThrow(() -> BusinessException.notFound("Issue"));
+                            .orElseThrow(() -> HttpException(HttpStatus.NOT_FOUND.code(), "NOT_FOUND", "Issue not found"));
             Project project =
                     projectRepository
                             .findById(issue.projectId())
-                            .orElseThrow(() -> BusinessException.notFound("Project"));
+                            .orElseThrow(() -> HttpException(HttpStatus.NOT_FOUND.code(), "NOT_FOUND", "Project not found"));
             if ("DELETE".equals(ctx.method().name()) && path.equals("/api/issues/" + issueId)) {
                 // deleteIssue is the destructive admin action: manager or lead only.
                 authz.assertCanAdminister(authz.requireActor(actorId), project);
@@ -113,14 +107,14 @@ public class RbacMiddleware implements Middleware {
             Project project =
                     projectRepository
                             .findById(projectId)
-                            .orElseThrow(() -> BusinessException.notFound("Project"));
+                            .orElseThrow(() -> HttpException(HttpStatus.NOT_FOUND.code(), "NOT_FOUND", "Project not found"));
             authz.assertCanAccess(authz.requireActor(actorId), project);
             return;
         }
         if ("orgs".equals(scope)) {
             long orgId = parseId(resourceId);
             if (authz.requireActor(actorId).orgId() != orgId) {
-                throw BusinessException.forbidden("You do not belong to this organization");
+                throw HttpException(HttpStatus.FORBIDDEN.code(), "FORBIDDEN", "You do not belong to this organization");
             }
         }
     }
@@ -129,7 +123,7 @@ public class RbacMiddleware implements Middleware {
         try {
             return Long.parseLong(segment);
         } catch (NumberFormatException e) {
-            throw BusinessException.notFound("Resource");
+            throw HttpException(HttpStatus.NOT_FOUND.code(), "NOT_FOUND", "Resource not found");
         }
     }
 }

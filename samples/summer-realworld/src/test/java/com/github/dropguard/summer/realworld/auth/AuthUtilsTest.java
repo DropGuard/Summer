@@ -3,7 +3,7 @@ package com.github.dropguard.summer.realworld.auth;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.dropguard.summer.core.config.ConfigBinder.BindingContext;
-import com.github.dropguard.summer.realworld.common.BusinessException;
+import com.github.dropguard.summer.realworld.common.InvalidCredentialsException;
 import com.github.dropguard.summer.runtime.RuntimeConfigBinder;
 import com.github.dropguard.summer.web.HttpContext;
 import java.util.Map;
@@ -82,14 +82,14 @@ class AuthUtilsTest {
         // Use a deliberately mangled token that won't parse
         HttpContext ctx = ctxWithHeader("Token garbage");
 
-        assertThrows(BusinessException.class, () -> AuthUtils.tryGetCurrentUserId(ctx, jwtUtil));
+        assertThrows(InvalidCredentialsException.class, () -> AuthUtils.tryGetCurrentUserId(ctx, jwtUtil));
     }
 
     @Test
     void getCurrentUserIdThrowsWhenNoHeader() {
         HttpContext ctx = ctxWithHeader(null);
 
-        assertThrows(BusinessException.class, () -> AuthUtils.getCurrentUserId(ctx, jwtUtil));
+        assertThrows(InvalidCredentialsException.class, () -> AuthUtils.getCurrentUserId(ctx, jwtUtil));
     }
 
     @Test

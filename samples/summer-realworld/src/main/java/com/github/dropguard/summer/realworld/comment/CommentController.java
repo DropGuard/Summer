@@ -8,9 +8,13 @@ import com.github.dropguard.summer.realworld.comment.CommentDtos.Author;
 import com.github.dropguard.summer.realworld.comment.CommentDtos.CommentData;
 import com.github.dropguard.summer.realworld.comment.CommentDtos.CommentResponse;
 import com.github.dropguard.summer.realworld.comment.CommentDtos.CommentsResponse;
-import com.github.dropguard.summer.realworld.common.Errors;
 import com.github.dropguard.summer.realworld.user.User;
 import com.github.dropguard.summer.realworld.user.UserService;
+
+import com.github.dropguard.summer.realworld.common.ArticleNotFoundException;
+import com.github.dropguard.summer.realworld.common.CommentNotFoundException;
+import com.github.dropguard.summer.realworld.common.CommentForbiddenException;
+import com.github.dropguard.summer.realworld.common.InvalidCredentialsException;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.annotation.Delete;
@@ -45,14 +49,12 @@ public class CommentController {
     public void addComment(HttpContext ctx, @PathParam("slug") String slug) {
         Long currentUserId = getCurrentUserId(ctx);
         if (currentUserId == null) {
-            ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
-            return;
+            throw new InvalidCredentialsException("Token is missing");
         }
 
         Optional<Article> articleOpt = articleService.findBySlug(slug);
         if (articleOpt.isEmpty()) {
-            ctx.json(HttpStatus.NOT_FOUND, Errors.articleNotFound());
-            return;
+            throw new ArticleNotFoundException("Article not found");
         }
 
         CommentDtos.CreateCommentRequest body =
@@ -71,8 +73,7 @@ public class CommentController {
     public void getComments(HttpContext ctx, @PathParam("slug") String slug) {
         Optional<Article> articleOpt = articleService.findBySlug(slug);
         if (articleOpt.isEmpty()) {
-            ctx.json(HttpStatus.NOT_FOUND, Errors.articleNotFound());
-            return;
+            throw new ArticleNotFoundException("Article not found");
         }
 
         List<Comment> comments = commentService.findByArticleId(articleOpt.get().id());
@@ -99,34 +100,29 @@ public class CommentController {
             HttpContext ctx, @PathParam("slug") String slug, @PathParam("id") String commentIdStr) {
         Long currentUserId = getCurrentUserId(ctx);
         if (currentUserId == null) {
-            ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
-            return;
+            throw new InvalidCredentialsException("Token is missing");
         }
 
         Optional<Article> articleOpt = articleService.findBySlug(slug);
         if (articleOpt.isEmpty()) {
-            ctx.json(HttpStatus.NOT_FOUND, Errors.articleNotFound());
-            return;
+            throw new ArticleNotFoundException("Article not found");
         }
 
         Long commentId;
         try {
             commentId = Long.parseLong(commentIdStr);
         } catch (NumberFormatException e) {
-            ctx.json(HttpStatus.NOT_FOUND, Errors.commentNotFound());
-            return;
+            throw new CommentNotFoundException("Comment not found");
         }
 
         Optional<Comment> commentOpt = commentService.findById(commentId);
         if (commentOpt.isEmpty()) {
-            ctx.json(HttpStatus.NOT_FOUND, Errors.commentNotFound());
-            return;
+            throw new CommentNotFoundException("Comment not found");
         }
 
         Comment comment = commentOpt.get();
         if (!comment.authorId().equals(currentUserId)) {
-            ctx.json(HttpStatus.FORBIDDEN, Errors.commentForbidden());
-            return;
+            throw new CommentForbiddenException("Comment forbidden");
         }
 
         commentService.delete(commentId);

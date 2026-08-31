@@ -1,6 +1,11 @@
 package com.github.dropguard.summer.twitter.auth;
 
 import com.github.dropguard.summer.twitter.user.User;
+import com.github.dropguard.summer.twitter.common.UsernameAlreadyExistsException;
+import com.github.dropguard.summer.twitter.common.EmailAlreadyExistsException;
+import com.github.dropguard.summer.twitter.common.RateLimitedException;
+import com.github.dropguard.summer.twitter.common.InvalidCredentialsException;
+import com.github.dropguard.summer.twitter.common.InvalidTokenException;
 import com.github.dropguard.summer.twitter.user.UserRepository;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpStatus;
@@ -49,14 +54,12 @@ public class AuthController {
 
         Optional<User> existingUser = userRepository.findByUsername(req.username());
         if (existingUser.isPresent()) {
-            ctx.text(HttpStatus.BAD_REQUEST, "Username already exists");
-            return;
+            throw new UsernameAlreadyExistsException("Username already exists");
         }
 
         Optional<User> existingEmail = userRepository.findByEmail(req.email());
         if (existingEmail.isPresent()) {
-            ctx.text(HttpStatus.BAD_REQUEST, "Email already exists");
-            return;
+            throw new EmailAlreadyExistsException("Email already exists");
         }
 
         String passwordHash = BCrypt.hashpw(req.password(), BCrypt.gensalt());
@@ -84,25 +87,19 @@ public class AuthController {
         LoginRequest req = ctx.validatedBody(LoginRequest.class);
 
         if (rateLimiter.isBlocked(req.username())) {
-            ctx.json(
-                    HttpStatus.TOO_MANY_REQUESTS,
-                    new com.github.dropguard.summer.twitter.common.ErrorResponse(
-                            "RATE_LIMITED", "Too many login attempts, try again later"));
-            return;
+            throw new RateLimitedException("Too many login attempts, try again later");
         }
 
         Optional<User> userOpt = userRepository.findByUsername(req.username());
         if (userOpt.isEmpty()) {
             rateLimiter.recordFailure(req.username());
-            ctx.text(HttpStatus.UNAUTHORIZED, "Invalid username or password");
-            return;
+            throw new InvalidCredentialsException("Invalid username or password");
         }
 
         User user = userOpt.get();
         if (!BCrypt.checkpw(req.password(), user.passwordHash())) {
             rateLimiter.recordFailure(req.username());
-            ctx.text(HttpStatus.UNAUTHORIZED, "Invalid username or password");
-            return;
+            throw new InvalidCredentialsException("Invalid username or password");
         }
 
         rateLimiter.reset(req.username());
@@ -118,8 +115,7 @@ public class AuthController {
 
         Optional<User> userOpt = userRepository.findById(userId);
         if (userOpt.isEmpty()) {
-            ctx.text(HttpStatus.UNAUTHORIZED, "Invalid token");
-            return;
+            throw new InvalidTokenException("Invalid token");
         }
 
         User user = userOpt.get();

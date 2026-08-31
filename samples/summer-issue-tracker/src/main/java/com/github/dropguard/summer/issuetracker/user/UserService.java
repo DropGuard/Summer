@@ -1,7 +1,8 @@
 package com.github.dropguard.summer.issuetracker.user;
 
 import com.github.dropguard.summer.core.Component;
-import com.github.dropguard.summer.issuetracker.common.BusinessException;
+import com.github.dropguard.summer.web.exception.BadRequestException;
+import com.github.dropguard.summer.web.exception.NotFoundException;
 import com.github.dropguard.summer.issuetracker.common.IdGenerator;
 import com.github.dropguard.summer.issuetracker.org.OrganizationRepository;
 import com.github.dropguard.summer.issuetracker.security.Role;
@@ -32,10 +33,10 @@ public class UserService {
             String passwordHash,
             Role role) {
         if (organizationRepository.findById(orgId).isEmpty()) {
-            throw BusinessException.badRequest("Organization " + orgId + " does not exist");
+            throw new BadRequestException("Organization " + orgId + " does not exist");
         }
         if (userRepository.findByUsername(username).isPresent()) {
-            throw BusinessException.badRequest("Username already taken: " + username);
+            throw new BadRequestException("Username already taken: " + username);
         }
         User user =
                 new User(
@@ -60,6 +61,6 @@ public class UserService {
     }
 
     public User require(Long id) {
-        return userRepository.findById(id).orElseThrow(() -> BusinessException.notFound("User"));
+        return userRepository.findById(id).orElseThrow(() -> new NotFoundException("User not found"));
     }
 }

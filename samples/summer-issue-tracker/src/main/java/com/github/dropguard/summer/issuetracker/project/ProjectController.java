@@ -57,19 +57,15 @@ public class ProjectController {
     public void create(HttpContext ctx) {
         CreateProjectRequest req = ctx.validatedBody(CreateProjectRequest.class);
         long userId = Actors.require(ctx);
-        User lead =
-                userRepository
-                        .findById(userId)
-                        .orElseThrow(() -> BusinessException.notFound("User"));
+        User lead = userRepository.findById(userId).orElseThrow(() -> BusinessException.notFound("User"));
         long id = idGenerator.nextId();
-        Project project =
-                new Project(
-                        id,
-                        lead.orgId(),
-                        req.projectKey(),
-                        req.name(),
-                        userId,
-                        java.time.OffsetDateTime.now());
+        Project project = new Project(
+                id,
+                lead.orgId(),
+                req.projectKey(),
+                req.name(),
+                userId,
+                java.time.OffsetDateTime.now());
         projectRepository.insert(project);
         projectRepository.addMember(id, userId, "MANAGER");
         auditRepository.insert(
@@ -102,7 +98,7 @@ public class ProjectController {
         User actor =
                 userRepository
                         .findById(Actors.require(ctx))
-                        .orElseThrow(() -> BusinessException.unauthorized("Unknown actor"));
+                        .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Unknown actor"));
         authz.assertSameOrg(actor, project);
         authz.assertCanAccess(actor, project);
         ctx.ok(project);
@@ -121,18 +117,18 @@ public class ProjectController {
         // Only a manager or lead may add members — delegated to the shared authz rules.
         authz.assertCanAdminister(actor, project);
         if (userRepository.findById(req.userId()).isEmpty()) {
-            throw BusinessException.notFound("User");
+            throw new BusinessException(HttpStatus.NOT_FOUND, "NOT_FOUND", "User" + " not found");
         }
         // The caller-supplied role must be a valid *project* role; ADMIN is an
         // org-level role and must never be written into project_members.
         if (!isValidProjectRole(req.role())) {
-            throw BusinessException.badRequest("Invalid project role: " + req.role());
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Invalid project role: " + req.role());
         }
         try {
             projectRepository.addMember(id, req.userId(), req.role());
         } catch (RuntimeException e) {
             // Duplicate primary key → user already a member (concurrent add race).
-            throw BusinessException.conflict("User is already a member of this project");
+            throw new BusinessException(HttpStatus.CONFLICT, "CONFLICT", "User is already a member of this project");
         }
         auditRepository.insert(
                 new SystemAudit(
@@ -163,7 +159,7 @@ public class ProjectController {
         User actor =
                 userRepository
                         .findById(Actors.require(ctx))
-                        .orElseThrow(() -> BusinessException.unauthorized("Unknown actor"));
+                        .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Unknown actor"));
         authz.assertSameOrg(actor, project);
         authz.assertCanAccess(actor, project);
         List<ProjectMember> members = projectRepository.findMembers(id);

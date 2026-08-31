@@ -61,11 +61,11 @@ public class TagController {
     public void create(HttpContext ctx, @PathParam("orgId") Long orgId) {
         User actor = currentActor(ctx);
         if (!actor.orgId().equals(orgId)) {
-            throw BusinessException.forbidden("You can only manage tags in your own organization");
+            throw new BusinessException(HttpStatus.FORBIDDEN, "FORBIDDEN", "You can only manage tags in your own organization");
         }
         CreateTagRequest req = ctx.validatedBody(CreateTagRequest.class);
         if (tagRepository.findByName(orgId, req.name()).isPresent()) {
-            throw BusinessException.badRequest("Tag already exists in this org");
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Tag already exists in this org");
         }
         Tag tag = new Tag(idGenerator.nextId(), orgId, req.name(), req.color());
         tagRepository.insert(tag);
@@ -76,7 +76,7 @@ public class TagController {
     public void list(HttpContext ctx, @PathParam("orgId") Long orgId) {
         User actor = currentActor(ctx);
         if (!actor.orgId().equals(orgId)) {
-            throw BusinessException.forbidden("You can only view tags in your own organization");
+            throw new BusinessException(HttpStatus.FORBIDDEN, "FORBIDDEN", "You can only view tags in your own organization");
         }
         ctx.ok(tagRepository.findByOrg(orgId));
     }
@@ -101,7 +101,7 @@ public class TagController {
         Tag tag =
                 tagRepository.findById(tagId).orElseThrow(() -> BusinessException.notFound("Tag"));
         if (!tag.orgId().equals(actor.orgId())) {
-            throw BusinessException.forbidden("Tag does not belong to your organization");
+            throw new BusinessException(HttpStatus.FORBIDDEN, "FORBIDDEN", "Tag does not belong to your organization");
         }
         tagRepository.attach(id, tagId);
         ctx.status(HttpStatus.NO_CONTENT);
@@ -118,7 +118,7 @@ public class TagController {
         Tag tag =
                 tagRepository.findById(tagId).orElseThrow(() -> BusinessException.notFound("Tag"));
         if (!tag.orgId().equals(actor.orgId())) {
-            throw BusinessException.forbidden("Tag does not belong to your organization");
+            throw new BusinessException(HttpStatus.FORBIDDEN, "FORBIDDEN", "Tag does not belong to your organization");
         }
         tagRepository.detach(id, tagId);
         ctx.status(HttpStatus.NO_CONTENT);
@@ -128,6 +128,6 @@ public class TagController {
         long actorId = Actors.require(ctx);
         return userRepository
                 .findById(actorId)
-                .orElseThrow(() -> BusinessException.unauthorized("Unknown actor"));
+                .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Unknown actor"));
     }
 }

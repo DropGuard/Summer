@@ -3,13 +3,17 @@ package com.github.dropguard.summer.realworld.user;
 import com.github.dropguard.summer.realworld.auth.AuthUtils;
 import com.github.dropguard.summer.realworld.auth.JwtUtil;
 import com.github.dropguard.summer.realworld.auth.LoginRateLimiter;
-import com.github.dropguard.summer.realworld.common.Errors;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.annotation.Get;
 import com.github.dropguard.summer.web.annotation.Post;
 import com.github.dropguard.summer.web.annotation.Put;
 import com.github.dropguard.summer.web.annotation.RestController;
+
+import com.github.dropguard.summer.realworld.common.RateLimitedException;
+import com.github.dropguard.summer.realworld.common.InvalidCredentialsException;
+import com.github.dropguard.summer.web.exception.ValidationException;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.mindrot.jbcrypt.BCrypt;
@@ -41,17 +45,13 @@ public class UserController {
         var u = body.user();
 
         if (rateLimiter.isBlocked(u.email())) {
-            ctx.json(
-                    HttpStatus.TOO_MANY_REQUESTS,
-                    Errors.of("rate_limit", "too many attempts, try again later"));
-            return;
+            throw new RateLimitedException("Too many attempts, try again later");
         }
 
         Optional<User> userOpt = userService.findByEmail(u.email());
         if (userOpt.isEmpty() || !BCrypt.checkpw(u.password(), userOpt.get().password())) {
             rateLimiter.recordFailure(u.email());
-            ctx.json(HttpStatus.UNAUTHORIZED, Errors.credentials());
-            return;
+            throw new InvalidCredentialsException("Invalid credentials");
         }
 
         rateLimiter.reset(u.email());
@@ -63,8 +63,7 @@ public class UserController {
         Long userId = jwtUtil.validateAccessToken(extractToken(ctx));
         Optional<User> userOpt = userService.findById(userId);
         if (userOpt.isEmpty()) {
-            ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
-            return;
+            throw new InvalidCredentialsException("Token is missing");
         }
 
         ctx.json(HttpStatus.OK, createUserResponse(userOpt.get()));
@@ -75,8 +74,7 @@ public class UserController {
         Long userId = jwtUtil.validateAccessToken(extractToken(ctx));
         Optional<User> userOpt = userService.findById(userId);
         if (userOpt.isEmpty()) {
-            ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
-            return;
+            throw new InvalidCredentialsException("Token is missing");
         }
 
         User user = userOpt.get();
@@ -90,17 +88,14 @@ public class UserController {
 
         // Reject null email/username (must be non-null if provided)
         if (rawUser != null && rawUser.containsKey("email") && rawUser.get("email") == null) {
-            ctx.json(HttpStatus.UNPROCESSABLE_ENTITY, Errors.of("email", "can't be blank"));
-            return;
+            throw new ValidationException(List.of("email: can't be blank"));
         }
         if (rawUser != null && rawUser.containsKey("username") && rawUser.get("username") == null) {
-            ctx.json(HttpStatus.UNPROCESSABLE_ENTITY, Errors.of("username", "can't be blank"));
-            return;
+            throw new ValidationException(List.of("username: can't be blank"));
         }
         // Reject null password
         if (rawUser != null && rawUser.containsKey("password") && rawUser.get("password") == null) {
-            ctx.json(HttpStatus.UNPROCESSABLE_ENTITY, Errors.of("password", "can't be blank"));
-            return;
+            throw new ValidationException(List.of("password: can't be blank"));
         }
 
         // For bio/image: null in JSON means "set to null", absent means "don't update"
@@ -120,8 +115,7 @@ public class UserController {
         Long userId = jwtUtil.validateRefreshToken(body.refreshToken());
         Optional<User> userOpt = userService.findById(userId);
         if (userOpt.isEmpty()) {
-            ctx.json(HttpStatus.UNAUTHORIZED, Errors.tokenMissing());
-            return;
+            throw new InvalidCredentialsException("Token is missing");
         }
 
         String newAccess =

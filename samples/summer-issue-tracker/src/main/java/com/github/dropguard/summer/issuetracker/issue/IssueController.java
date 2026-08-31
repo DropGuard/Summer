@@ -1,4 +1,9 @@
 package com.github.dropguard.summer.issuetracker.issue;
+
+import com.github.dropguard.summer.web.exception.BadRequestException;
+import com.github.dropguard.summer.web.exception.UnauthorizedException;
+import com.github.dropguard.summer.web.exception.NotFoundException;
+import com.github.dropguard.summer.issuetracker.common.BusinessException;
 import com.github.dropguard.summer.core.data.Page;
 import com.github.dropguard.summer.core.data.PageRequest;
 
@@ -103,7 +108,7 @@ public class IssueController {
         // notFound here — never leaks that the project exists.
         int dash = key.lastIndexOf('-');
         if (dash <= 0) {
-            throw com.github.dropguard.summer.issuetracker.common.BusinessException.badRequest(
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", 
                     "Invalid issue key");
         }
         String projectKey = key.substring(0, dash);
@@ -113,15 +118,13 @@ public class IssueController {
                         .findById(actorId)
                         .orElseThrow(
                                 () ->
-                                        com.github.dropguard.summer.issuetracker.common
-                                                .BusinessException.unauthorized("Unknown actor"));
+                                        new BusinessException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Unknown actor"));
         var project =
                 projectRepository
                         .findByKey(actor.orgId(), projectKey)
                         .orElseThrow(
                                 () ->
-                                        com.github.dropguard.summer.issuetracker.common
-                                                .BusinessException.notFound("Project"));
+                                        new BusinessException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Project not found"));
         var issue = issueService.getIssueDetailByKey(project.id(), key);
         ctx.ok(issue);
     }

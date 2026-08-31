@@ -2,12 +2,15 @@ package com.github.dropguard.summer.realworld.article;
 
 import com.github.dropguard.summer.core.data.LimitOffsetPageRequest;
 import com.github.dropguard.summer.realworld.article.ArticleDtos.ArticleData;
+
+import com.github.dropguard.summer.realworld.common.ArticleNotFoundException;
+import com.github.dropguard.summer.realworld.common.ArticleForbiddenException;
+import com.github.dropguard.summer.realworld.common.TagListNullException;
 import com.github.dropguard.summer.realworld.article.ArticleDtos.ArticleResponse;
 import com.github.dropguard.summer.realworld.article.ArticleDtos.ArticlesResponse;
 import com.github.dropguard.summer.realworld.article.ArticleDtos.Author;
 import com.github.dropguard.summer.realworld.auth.AuthUtils;
 import com.github.dropguard.summer.realworld.auth.JwtUtil;
-import com.github.dropguard.summer.realworld.common.Errors;
 import com.github.dropguard.summer.realworld.user.FollowRepository;
 import com.github.dropguard.summer.realworld.user.User;
 import com.github.dropguard.summer.realworld.user.UserService;
@@ -122,8 +125,7 @@ public class ArticleController {
     public void getArticle(HttpContext ctx, @PathParam("slug") String slug) {
         Optional<Article> articleOpt = articleService.findBySlug(slug);
         if (articleOpt.isEmpty()) {
-            ctx.json(HttpStatus.NOT_FOUND, Errors.articleNotFound());
-            return;
+            throw new ArticleNotFoundException("Article not found");
         }
 
         Long currentUserId = tryGetCurrentUserId(ctx);
@@ -157,14 +159,12 @@ public class ArticleController {
 
         Optional<Article> articleOpt = articleService.findBySlug(slug);
         if (articleOpt.isEmpty()) {
-            ctx.json(HttpStatus.NOT_FOUND, Errors.articleNotFound());
-            return;
+            throw new ArticleNotFoundException("Article not found");
         }
 
         Article article = articleOpt.get();
         if (!article.authorId().equals(currentUserId)) {
-            ctx.json(HttpStatus.FORBIDDEN, Errors.articleForbidden());
-            return;
+            throw new ArticleForbiddenException("Article forbidden");
         }
 
         ArticleDtos.UpdateArticleRequest body =
@@ -180,8 +180,7 @@ public class ArticleController {
         if (rawArticle != null
                 && rawArticle.containsKey("tagList")
                 && rawArticle.get("tagList") == null) {
-            ctx.json(HttpStatus.UNPROCESSABLE_ENTITY, Errors.of("tagList", "can't be null"));
-            return;
+            throw new TagListNullException("tagList: can't be null");
         }
 
         Article updatedArticle =
@@ -199,14 +198,12 @@ public class ArticleController {
 
         Optional<Article> articleOpt = articleService.findBySlug(slug);
         if (articleOpt.isEmpty()) {
-            ctx.json(HttpStatus.NOT_FOUND, Errors.articleNotFound());
-            return;
+            throw new ArticleNotFoundException("Article not found");
         }
 
         Article article = articleOpt.get();
         if (!article.authorId().equals(currentUserId)) {
-            ctx.json(HttpStatus.FORBIDDEN, Errors.articleForbidden());
-            return;
+            throw new ArticleForbiddenException("Article forbidden");
         }
 
         articleService.delete(article.id());
@@ -219,8 +216,7 @@ public class ArticleController {
 
         Optional<Article> articleOpt = articleService.findBySlug(slug);
         if (articleOpt.isEmpty()) {
-            ctx.json(HttpStatus.NOT_FOUND, Errors.articleNotFound());
-            return;
+            throw new ArticleNotFoundException("Article not found");
         }
 
         favoriteRepository.favorite(currentUserId, articleOpt.get().id());
@@ -237,8 +233,7 @@ public class ArticleController {
 
         Optional<Article> articleOpt = articleService.findBySlug(slug);
         if (articleOpt.isEmpty()) {
-            ctx.json(HttpStatus.NOT_FOUND, Errors.articleNotFound());
-            return;
+            throw new ArticleNotFoundException("Article not found");
         }
 
         favoriteRepository.unfavorite(currentUserId, articleOpt.get().id());

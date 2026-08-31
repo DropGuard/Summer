@@ -1,9 +1,9 @@
 package com.github.dropguard.summer.realworld.article;
 
-import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.realworld.comment.CommentRepository;
-import com.github.dropguard.summer.realworld.common.ValidationException;
+import com.github.dropguard.summer.web.exception.ValidationException;
 import java.time.LocalDateTime;
+import com.github.dropguard.summer.core.Component;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,13 +25,13 @@ public class ArticleService {
     public Article create(
             String title, String description, String body, List<String> tagList, Long authorId) {
         if (title == null || title.isBlank()) {
-            throw new ValidationException("title", "can't be blank");
+            throw new ValidationException(List.of("title: can't be blank"));
         }
         if (description == null || description.isBlank()) {
-            throw new ValidationException("description", "can't be blank");
+            throw new ValidationException(List.of("description: can't be blank"));
         }
         if (body == null || body.isBlank()) {
-            throw new ValidationException("body", "can't be blank");
+            throw new ValidationException(List.of("body: can't be blank"));
         }
 
         String slug = generateUniqueSlug(title);
@@ -70,20 +70,20 @@ public class ArticleService {
 
         if (title != null) {
             if (title.isBlank()) {
-                throw new ValidationException("title", "can't be blank");
+                throw new ValidationException(List.of("title: can't be blank"));
             }
             newTitle = title;
             newSlug = generateUniqueSlug(title);
         }
         if (description != null) {
             if (description.isBlank()) {
-                throw new ValidationException("description", "can't be blank");
+                throw new ValidationException(List.of("description: can't be blank"));
             }
             newDescription = description;
         }
         if (body != null) {
             if (body.isBlank()) {
-                throw new ValidationException("body", "can't be blank");
+                throw new ValidationException(List.of("body: can't be blank"));
             }
             newBody = body;
         }

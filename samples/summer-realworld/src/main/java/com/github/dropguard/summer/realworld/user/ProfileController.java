@@ -2,12 +2,12 @@ package com.github.dropguard.summer.realworld.user;
 
 import com.github.dropguard.summer.realworld.auth.AuthUtils;
 import com.github.dropguard.summer.realworld.auth.JwtUtil;
-import com.github.dropguard.summer.realworld.common.Errors;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.annotation.Delete;
 import com.github.dropguard.summer.web.annotation.Get;
 import com.github.dropguard.summer.web.annotation.PathParam;
+import com.github.dropguard.summer.realworld.common.ProfileNotFoundException;
 import com.github.dropguard.summer.web.annotation.Post;
 import com.github.dropguard.summer.web.annotation.RestController;
 import java.util.Optional;
@@ -29,8 +29,7 @@ public class ProfileController {
     public void getProfile(HttpContext ctx, @PathParam("username") String username) {
         Optional<User> userOpt = userService.findByUsername(username);
         if (userOpt.isEmpty()) {
-            ctx.json(HttpStatus.NOT_FOUND, Errors.profileNotFound());
-            return;
+            throw new ProfileNotFoundException("Profile not found");
         }
 
         Long currentUserId = AuthUtils.tryGetCurrentUserId(ctx, jwtUtil);
@@ -43,8 +42,7 @@ public class ProfileController {
 
         Optional<User> userOpt = userService.findByUsername(username);
         if (userOpt.isEmpty()) {
-            ctx.json(HttpStatus.NOT_FOUND, Errors.profileNotFound());
-            return;
+            throw new ProfileNotFoundException("Profile not found");
         }
 
         followService.follow(currentUserId, userOpt.get().id());
@@ -57,8 +55,7 @@ public class ProfileController {
 
         Optional<User> userOpt = userService.findByUsername(username);
         if (userOpt.isEmpty()) {
-            ctx.json(HttpStatus.NOT_FOUND, Errors.profileNotFound());
-            return;
+            throw new ProfileNotFoundException("Profile not found");
         }
 
         followService.unfollow(currentUserId, userOpt.get().id());

@@ -1,8 +1,8 @@
 package com.github.dropguard.summer.realworld.user;
 
 import com.github.dropguard.summer.core.Component;
-import com.github.dropguard.summer.realworld.common.IllegalOperationException;
 
+import com.github.dropguard.summer.realworld.common.SelfFollowException;
 @Component
 public class FollowService {
     private final FollowRepository followRepository;
@@ -13,7 +13,7 @@ public class FollowService {
 
     public void follow(Long currentUserId, Long targetId) {
         if (currentUserId.equals(targetId)) {
-            throw new IllegalOperationException("follow", "can't follow yourself");
+            throw new SelfFollowException("can't follow yourself");
         }
         followRepository.follow(currentUserId, targetId);
     }

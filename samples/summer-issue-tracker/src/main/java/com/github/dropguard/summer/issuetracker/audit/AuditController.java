@@ -3,6 +3,7 @@ package com.github.dropguard.summer.issuetracker.audit;
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.issuetracker.common.BusinessException;
 import com.github.dropguard.summer.issuetracker.security.Actors;
+import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.issuetracker.user.User;
 import com.github.dropguard.summer.issuetracker.user.UserRepository;
 import com.github.dropguard.summer.web.HttpContext;
@@ -33,9 +34,9 @@ public class AuditController {
         User actor =
                 userRepository
                         .findById(Actors.require(ctx))
-                        .orElseThrow(() -> BusinessException.unauthorized("Unknown actor"));
+                        .orElseThrow(() -> new RuntimeException("Unknown actor"));
         if (!actor.orgId().equals(orgId)) {
-            throw BusinessException.forbidden(
+            throw new BusinessException(HttpStatus.FORBIDDEN, "FORBIDDEN", 
                     "You can only view your own organization's audit log");
         }
         List<SystemAudit> events = auditRepository.findByOrg(orgId);

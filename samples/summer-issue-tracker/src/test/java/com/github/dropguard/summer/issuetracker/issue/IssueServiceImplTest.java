@@ -194,7 +194,7 @@ class IssueServiceImplTest {
         when(issueRepository.findById(ISSUE_ID)).thenReturn(Optional.of(issue));
         when(projectRepository.findById(PROJECT_ID)).thenReturn(Optional.of(project));
         // The current user is OWNER_ID; make the issue owned by someone else.
-        org.mockito.Mockito.doThrow(BusinessException.forbidden("no"))
+        org.mockito.Mockito.doThrow(new BusinessException(HttpStatus.FORBIDDEN, "FORBIDDEN", "no"))
                 .when(authz)
                 .assertOwns(eq(OTHER_ID), any(), any(), any());
 
