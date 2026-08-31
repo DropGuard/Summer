@@ -205,7 +205,12 @@ public final class SharedDependencyResolver {
             // WireMethodGenerator), moved earlier so it cannot diverge.
             try {
                 Class<?> clazz = Class.forName(paramType);
-                if (BeanContainer.class.isAssignableFrom(clazz)) {
+                // Reject BeanContainer itself and its supertypes (e.g., AutoCloseable,
+                // since BeanContainer implements AutoCloseable). Also reject any class for which
+                // BeanContainer is assignable (i.e., subclasses of BeanContainer or classes
+                // that have BeanContainer in their interface hierarchy).
+                if (BeanContainer.class.isAssignableFrom(clazz)
+                        || clazz.isAssignableFrom(BeanContainer.class)) {
                     throw new BeanCreationException(
                             "Injection of container type "
                                     + clazz.getName()
