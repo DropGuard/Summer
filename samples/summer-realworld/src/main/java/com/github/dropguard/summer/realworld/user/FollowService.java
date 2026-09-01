@@ -1,8 +1,8 @@
 package com.github.dropguard.summer.realworld.user;
 
 import com.github.dropguard.summer.core.Component;
-
 import com.github.dropguard.summer.realworld.common.SelfFollowException;
+
 @Component
 public class FollowService {
     private final FollowRepository followRepository;

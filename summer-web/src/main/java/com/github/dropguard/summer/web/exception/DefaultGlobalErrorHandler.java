@@ -18,32 +18,7 @@ import java.util.List;
 public class DefaultGlobalErrorHandler implements ExceptionHandlerRegistrar {
 
     private static final HttpStatus intToHttpStatus(int code) {
-        switch (code) {
-            case 200:
-                return HttpStatus.OK;
-            case 201:
-                return HttpStatus.CREATED;
-            case 204:
-                return HttpStatus.NO_CONTENT;
-            case 400:
-                return HttpStatus.BAD_REQUEST;
-            case 401:
-                return HttpStatus.UNAUTHORIZED;
-            case 403:
-                return HttpStatus.FORBIDDEN;
-            case 404:
-                return HttpStatus.NOT_FOUND;
-            case 405:
-                return HttpStatus.METHOD_NOT_ALLOWED;
-            case 409:
-                return HttpStatus.CONFLICT;
-            case 422:
-                return HttpStatus.UNPROCESSABLE_ENTITY;
-            case 500:
-                return HttpStatus.INTERNAL_SERVER_ERROR;
-            default:
-                return HttpStatus.INTERNAL_SERVER_ERROR;
-        }
+        return HttpStatus.fromCode(code);
     }
 
     @ExceptionHandler(AuthException.class)

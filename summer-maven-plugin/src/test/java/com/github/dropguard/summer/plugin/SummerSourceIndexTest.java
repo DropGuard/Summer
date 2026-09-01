@@ -209,6 +209,32 @@ class SummerSourceIndexTest {
     }
 
     @Test
+    void reconcilePreservesLocalAndAnonymousClasses(@TempDir Path temp) throws Exception {
+        File classes = temp.resolve("classes").toFile();
+        classes.mkdirs();
+        File outer = touchClass(classes, "com/example/Outer.class");
+        File localRecord = touchClass(classes, "com/example/Outer$1Req.class");
+        File anon = touchClass(classes, "com/example/Outer$1.class");
+        File nested = touchClass(classes, "com/example/Outer$Inner.class");
+        File nestedLocal = touchClass(classes, "com/example/Outer$Inner$1Local.class");
+        File staleOuter = touchClass(classes, "com/example/Deleted$1.class");
+        File staleMember = touchClass(classes, "com/example/Outer$DeletedMember.class");
+
+        int removed =
+                SummerSourceIndex.reconcile(
+                        classes, Set.of("com.example.Outer", "com.example.Outer$Inner"));
+
+        assertEquals(2, removed);
+        assertTrue(outer.exists());
+        assertTrue(localRecord.exists());
+        assertTrue(anon.exists());
+        assertTrue(nested.exists());
+        assertTrue(nestedLocal.exists());
+        assertFalse(staleOuter.exists());
+        assertFalse(staleMember.exists());
+    }
+
+    @Test
     void reconcileIsIdempotent(@TempDir Path temp) throws Exception {
         File classes = temp.resolve("classes").toFile();
         classes.mkdirs();

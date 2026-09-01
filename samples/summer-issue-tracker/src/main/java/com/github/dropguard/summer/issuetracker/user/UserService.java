@@ -1,11 +1,11 @@
 package com.github.dropguard.summer.issuetracker.user;
 
 import com.github.dropguard.summer.core.Component;
-import com.github.dropguard.summer.web.exception.BadRequestException;
-import com.github.dropguard.summer.web.exception.NotFoundException;
 import com.github.dropguard.summer.issuetracker.common.IdGenerator;
 import com.github.dropguard.summer.issuetracker.org.OrganizationRepository;
 import com.github.dropguard.summer.issuetracker.security.Role;
+import com.github.dropguard.summer.web.exception.BadRequestException;
+import com.github.dropguard.summer.web.exception.NotFoundException;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 
@@ -61,6 +61,8 @@ public class UserService {
     }
 
     public User require(Long id) {
-        return userRepository.findById(id).orElseThrow(() -> new NotFoundException("User not found"));
+        return userRepository
+                .findById(id)
+                .orElseThrow(() -> new NotFoundException("User not found"));
     }
 }

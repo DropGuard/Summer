@@ -1,10 +1,9 @@
 package com.github.dropguard.summer.realworld.comment;
 
 import com.github.dropguard.summer.core.Component;
+import com.github.dropguard.summer.web.exception.ValidationException;
 import java.time.LocalDateTime;
 import java.util.List;
-
-import com.github.dropguard.summer.web.exception.ValidationException;
 import java.util.Optional;
 
 @Component
@@ -17,7 +16,7 @@ public class CommentService {
 
     public Comment create(String body, Long articleId, Long authorId) {
         if (body == null || body.isBlank()) {
-            throw new ValidationException(List.of("body: can't be blank"));
+            throw new ValidationException("body", "can't be blank");
         }
         LocalDateTime now = LocalDateTime.now();
         Comment comment = new Comment(null, body, articleId, authorId, now, now);

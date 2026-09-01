@@ -3,17 +3,15 @@ package com.github.dropguard.summer.realworld.user;
 import com.github.dropguard.summer.realworld.auth.AuthUtils;
 import com.github.dropguard.summer.realworld.auth.JwtUtil;
 import com.github.dropguard.summer.realworld.auth.LoginRateLimiter;
+import com.github.dropguard.summer.realworld.common.InvalidCredentialsException;
+import com.github.dropguard.summer.realworld.common.RateLimitedException;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.annotation.Get;
 import com.github.dropguard.summer.web.annotation.Post;
 import com.github.dropguard.summer.web.annotation.Put;
 import com.github.dropguard.summer.web.annotation.RestController;
-
-import com.github.dropguard.summer.realworld.common.RateLimitedException;
-import com.github.dropguard.summer.realworld.common.InvalidCredentialsException;
 import com.github.dropguard.summer.web.exception.ValidationException;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.mindrot.jbcrypt.BCrypt;
@@ -88,14 +86,14 @@ public class UserController {
 
         // Reject null email/username (must be non-null if provided)
         if (rawUser != null && rawUser.containsKey("email") && rawUser.get("email") == null) {
-            throw new ValidationException(List.of("email: can't be blank"));
+            throw new ValidationException("email", "can't be blank");
         }
         if (rawUser != null && rawUser.containsKey("username") && rawUser.get("username") == null) {
-            throw new ValidationException(List.of("username: can't be blank"));
+            throw new ValidationException("username", "can't be blank");
         }
         // Reject null password
         if (rawUser != null && rawUser.containsKey("password") && rawUser.get("password") == null) {
-            throw new ValidationException(List.of("password: can't be blank"));
+            throw new ValidationException("password", "can't be blank");
         }
 
         // For bio/image: null in JSON means "set to null", absent means "don't update"

@@ -1,13 +1,7 @@
 package com.github.dropguard.summer.issuetracker.issue;
 
-import com.github.dropguard.summer.web.exception.BadRequestException;
-import com.github.dropguard.summer.web.exception.UnauthorizedException;
-import com.github.dropguard.summer.web.exception.NotFoundException;
-import com.github.dropguard.summer.issuetracker.common.BusinessException;
-import com.github.dropguard.summer.core.data.Page;
-import com.github.dropguard.summer.core.data.PageRequest;
-
 import com.github.dropguard.summer.core.Component;
+import com.github.dropguard.summer.issuetracker.common.BusinessException;
 import com.github.dropguard.summer.issuetracker.project.ProjectRepository;
 import com.github.dropguard.summer.issuetracker.security.Actors;
 import com.github.dropguard.summer.issuetracker.user.User;
@@ -108,8 +102,7 @@ public class IssueController {
         // notFound here — never leaks that the project exists.
         int dash = key.lastIndexOf('-');
         if (dash <= 0) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", 
-                    "Invalid issue key");
+            throw new BusinessException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Invalid issue key");
         }
         String projectKey = key.substring(0, dash);
         long actorId = Actors.require(ctx);
@@ -118,13 +111,19 @@ public class IssueController {
                         .findById(actorId)
                         .orElseThrow(
                                 () ->
-                                        new BusinessException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Unknown actor"));
+                                        new BusinessException(
+                                                HttpStatus.UNAUTHORIZED,
+                                                "UNAUTHORIZED",
+                                                "Unknown actor"));
         var project =
                 projectRepository
                         .findByKey(actor.orgId(), projectKey)
                         .orElseThrow(
                                 () ->
-                                        new BusinessException(HttpStatus.NOT_FOUND, "NOT_FOUND", "Project not found"));
+                                        new BusinessException(
+                                                HttpStatus.NOT_FOUND,
+                                                "NOT_FOUND",
+                                                "Project not found"));
         var issue = issueService.getIssueDetailByKey(project.id(), key);
         ctx.ok(issue);
     }

@@ -1,13 +1,13 @@
 package com.github.dropguard.summer.twitter.auth;
 
 import com.github.dropguard.summer.core.Component;
+import com.github.dropguard.summer.twitter.common.BusinessException;
 import com.github.dropguard.summer.web.Handler;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.Middleware;
 import com.github.dropguard.summer.web.RequestAttributes;
 import com.github.dropguard.summer.web.annotation.GlobalMiddleware;
-import com.github.dropguard.summer.twitter.common.BusinessException;
 
 @Component
 @GlobalMiddleware
@@ -29,7 +29,10 @@ public class AuthMiddleware implements Middleware {
 
             String authHeader = ctx.header("Authorization");
             if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-                throw new BusinessException(HttpStatus.UNAUTHORIZED.code(), "TOKEN_MISSING", "Missing or invalid Authorization header");
+                throw new BusinessException(
+                        HttpStatus.UNAUTHORIZED.code(),
+                        "TOKEN_MISSING",
+                        "Missing or invalid Authorization header");
             }
 
             String token = authHeader.substring(7);

@@ -3,9 +3,7 @@ package com.github.dropguard.summer.realworld.common;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.exception.HttpException;
 
-/**
- * 401 – Email/password mismatch, or token missing/expired/invalid.
- */
+/** 401 – Email/password mismatch, or token missing/expired/invalid. */
 public class InvalidCredentialsException extends HttpException {
     private final String field;
 

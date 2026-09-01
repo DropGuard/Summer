@@ -87,7 +87,8 @@ class AuthIT extends AbstractTwitterIT {
                         {"username":"%s","displayName":"Dup","email":"dup@test.com","password":"password123"}
                         """
                                 .formatted(user));
-        assertEquals(400, dup.statusCode(), "Duplicate username should be rejected");
+        assertEquals(
+                409, dup.statusCode(), "Duplicate username should be rejected with 409 Conflict");
         // Error body is plain text ("Username already exists"), not JSON — no token
         // is issued on a rejected registration.
         assertTrue(!dup.body().isBlank(), "Rejection must carry an error message");

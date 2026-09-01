@@ -114,7 +114,8 @@ class JwtUtilTest {
     @Test
     void validateAccessTokenThrowsOnNullToken() {
         InvalidCredentialsException ex =
-                assertThrows(InvalidCredentialsException.class, () -> jwtUtil.validateAccessToken(null));
+                assertThrows(
+                        InvalidCredentialsException.class, () -> jwtUtil.validateAccessToken(null));
         assertEquals("token", ex.field());
         assertEquals("is missing", ex.getMessage());
     }
@@ -122,7 +123,9 @@ class JwtUtilTest {
     @Test
     void validateAccessTokenThrowsOnBlankToken() {
         InvalidCredentialsException ex =
-                assertThrows(InvalidCredentialsException.class, () -> jwtUtil.validateAccessToken("   "));
+                assertThrows(
+                        InvalidCredentialsException.class,
+                        () -> jwtUtil.validateAccessToken("   "));
         assertEquals("token", ex.field());
         assertEquals("is missing", ex.getMessage());
     }
@@ -131,7 +134,8 @@ class JwtUtilTest {
     void validateAccessTokenThrowsOnGarbageToken() {
         InvalidCredentialsException ex =
                 assertThrows(
-                        InvalidCredentialsException.class, () -> jwtUtil.validateAccessToken("not-a-jwt"));
+                        InvalidCredentialsException.class,
+                        () -> jwtUtil.validateAccessToken("not-a-jwt"));
         assertEquals("token", ex.field());
         assertEquals("is invalid", ex.getMessage());
     }
@@ -153,7 +157,8 @@ class JwtUtilTest {
 
         InvalidCredentialsException ex =
                 assertThrows(
-                        InvalidCredentialsException.class, () -> jwtUtil.validateAccessToken(expiredToken));
+                        InvalidCredentialsException.class,
+                        () -> jwtUtil.validateAccessToken(expiredToken));
         assertEquals("token", ex.field());
         assertEquals("is expired", ex.getMessage());
     }
@@ -164,7 +169,8 @@ class JwtUtilTest {
 
         InvalidCredentialsException ex =
                 assertThrows(
-                        InvalidCredentialsException.class, () -> jwtUtil.validateAccessToken(refreshToken));
+                        InvalidCredentialsException.class,
+                        () -> jwtUtil.validateAccessToken(refreshToken));
         assertEquals("token", ex.field());
         assertEquals("is invalid", ex.getMessage());
     }
@@ -186,7 +192,8 @@ class JwtUtilTest {
 
         InvalidCredentialsException ex =
                 assertThrows(
-                        InvalidCredentialsException.class, () -> jwtUtil.validateRefreshToken(accessToken));
+                        InvalidCredentialsException.class,
+                        () -> jwtUtil.validateRefreshToken(accessToken));
         assertEquals("token", ex.field());
         assertEquals("is invalid", ex.getMessage());
     }

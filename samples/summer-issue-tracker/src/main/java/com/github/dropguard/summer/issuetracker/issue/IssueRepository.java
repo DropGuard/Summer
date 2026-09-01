@@ -1,8 +1,8 @@
 package com.github.dropguard.summer.issuetracker.issue;
-import com.github.dropguard.summer.core.data.Page;
-import com.github.dropguard.summer.core.data.PageRequest;
 
 import com.github.dropguard.summer.core.Component;
+import com.github.dropguard.summer.core.data.Page;
+import com.github.dropguard.summer.core.data.PageRequest;
 import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
 import com.github.dropguard.summer.data.jdbc.query.QueryBuilder;
 import com.github.dropguard.summer.data.jdbc.query.QueryTemplate;

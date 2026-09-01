@@ -6,9 +6,6 @@ import com.github.dropguard.summer.web.middleware.CorsMiddleware;
 
 public class Application {
     public static void main(String[] args) throws Exception {
-        new SummerApplication()
-                .apply(CorsMiddleware.class)
-                .apply(AuthMiddleware.class)
-                .start(args);
+        new SummerApplication().apply(CorsMiddleware.class).apply(AuthMiddleware.class).start(args);
     }
 }

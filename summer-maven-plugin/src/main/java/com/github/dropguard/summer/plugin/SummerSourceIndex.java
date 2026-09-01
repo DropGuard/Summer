@@ -95,7 +95,7 @@ final class SummerSourceIndex {
                 Path relative = outputDirectory.toPath().relativize(path);
                 if (relative.startsWith("META-INF")) continue;
                 String binary = toBinaryName(relative.toString());
-                if (!allowed.contains(binary)) {
+                if (!isAllowed(binary, allowed)) {
                     try {
                         Files.deleteIfExists(path);
                         removed++;
@@ -106,6 +106,36 @@ final class SummerSourceIndex {
             }
         }
         return removed;
+    }
+
+    /**
+     * Determines whether a binary class name is allowed to exist on disk.
+     *
+     * <p>Direct members (top-level and nested classes) must be explicitly present in {@code
+     * allowed}. Local and anonymous classes (e.g. {@code Foo$1}, {@code Foo$1Req}, {@code
+     * Foo$Inner$1}) are named by javac with a {@code $} followed by digits; they are permitted as
+     * long as their enclosing class exists in {@code allowed}.
+     */
+    static boolean isAllowed(String binary, Set<String> allowed) {
+        if (allowed.contains(binary)) {
+            return true;
+        }
+        String current = binary;
+        while (true) {
+            int lastDollar = current.lastIndexOf('$');
+            if (lastDollar < 0) {
+                return false;
+            }
+            if (lastDollar + 1 < current.length()
+                    && Character.isDigit(current.charAt(lastDollar + 1))) {
+                current = current.substring(0, lastDollar);
+                if (allowed.contains(current)) {
+                    return true;
+                }
+            } else {
+                return false;
+            }
+        }
     }
 
     /**

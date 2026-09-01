@@ -11,13 +11,14 @@ import static org.mockito.Mockito.when;
 import com.github.dropguard.summer.issuetracker.audit.IssueHistoryRepository;
 import com.github.dropguard.summer.issuetracker.audit.SystemAuditRepository;
 import com.github.dropguard.summer.issuetracker.comment.CommentRepository;
-import com.github.dropguard.summer.issuetracker.common.BusinessException;
 import com.github.dropguard.summer.issuetracker.common.IdGenerator;
 import com.github.dropguard.summer.issuetracker.project.Project;
 import com.github.dropguard.summer.issuetracker.project.ProjectRepository;
 import com.github.dropguard.summer.issuetracker.security.ProjectAuthorization;
 import com.github.dropguard.summer.issuetracker.user.User;
 import com.github.dropguard.summer.issuetracker.user.UserRepository;
+import com.github.dropguard.summer.web.exception.BadRequestException;
+import com.github.dropguard.summer.web.exception.ForbiddenException;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -123,7 +124,7 @@ class IssueServiceImplTest {
         when(projectRepository.findById(PROJECT_ID)).thenReturn(Optional.of(project));
 
         assertThrows(
-                BusinessException.class,
+                BadRequestException.class,
                 () -> service.changePriority(OWNER_ID, ISSUE_ID, "URGENT"));
     }
 
@@ -135,13 +136,13 @@ class IssueServiceImplTest {
         when(userRepository.findById(OWNER_ID)).thenReturn(Optional.of(user(OWNER_ID, "MEMBER")));
 
         assertThrows(
-                BusinessException.class,
+                BadRequestException.class,
                 () ->
                         service.createIssue(
                                 OWNER_ID, PROJECT_ID, "Title", "Desc", null, "MEDIUM", null),
                 "null status should be rejected");
         assertThrows(
-                BusinessException.class,
+                BadRequestException.class,
                 () ->
                         service.createIssue(
                                 OWNER_ID, PROJECT_ID, "Title", "Desc", "OPEN", null, null),
@@ -176,8 +177,8 @@ class IssueServiceImplTest {
     }
 
     @Test
-    void updateIssueForbiddenForNonOwner() {
-        Project project = new Project(PROJECT_ID, ORG_ID, "DEMO", "Demo", OWNER_ID, null);
+    void mutatingNonOwnedIssueFailsFineGrainedAuthz() {
+        Project project = new Project(PROJECT_ID, ORG_ID, "DEMO", "Demo", OTHER_ID, null);
         Issue issue =
                 new Issue(
                         ISSUE_ID,
@@ -194,12 +195,12 @@ class IssueServiceImplTest {
         when(issueRepository.findById(ISSUE_ID)).thenReturn(Optional.of(issue));
         when(projectRepository.findById(PROJECT_ID)).thenReturn(Optional.of(project));
         // The current user is OWNER_ID; make the issue owned by someone else.
-        org.mockito.Mockito.doThrow(new BusinessException(HttpStatus.FORBIDDEN, "FORBIDDEN", "no"))
+        org.mockito.Mockito.doThrow(new ForbiddenException("no"))
                 .when(authz)
                 .assertOwns(eq(OTHER_ID), any(), any(), any());
 
         assertThrows(
-                BusinessException.class,
+                ForbiddenException.class,
                 () -> service.updateIssue(OTHER_ID, ISSUE_ID, "New", "New body"));
         verify(issueRepository, never()).updateMutable(any());
     }

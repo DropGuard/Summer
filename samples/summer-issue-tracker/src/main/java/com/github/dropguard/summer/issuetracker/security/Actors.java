@@ -1,8 +1,8 @@
 package com.github.dropguard.summer.issuetracker.security;
 
-import com.github.dropguard.summer.web.exception.UnauthorizedException;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.RequestAttributes;
+import com.github.dropguard.summer.web.exception.UnauthorizedException;
 
 /**
  * Reads the current user id from the request attribute the auth middleware set (the Gin {@code

@@ -1,7 +1,6 @@
 package com.github.dropguard.summer.realworld.auth;
 
 import com.github.dropguard.summer.core.Component;
-import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.realworld.common.InvalidCredentialsException;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
@@ -92,8 +91,8 @@ public record JwtUtil(JwtProperties jwtProperties) {
     /**
      * Validates an access token end-to-end and returns the user ID.
      *
-     * @throws InvalidCredentialsException 401 with {@code "token"} field if the token is missing, not an
-     *     access token, expired, or otherwise unparseable.
+     * @throws InvalidCredentialsException 401 with {@code "token"} field if the token is missing,
+     *     not an access token, expired, or otherwise unparseable.
      */
     public Long validateAccessToken(String token) {
         if (token == null || token.isBlank()) {
@@ -121,8 +120,8 @@ public record JwtUtil(JwtProperties jwtProperties) {
     /**
      * Validates a refresh token end-to-end and returns the user ID.
      *
-     * @throws InvalidCredentialsException 401 if the token is missing, not a refresh token, expired, or
-     *     otherwise unparseable.
+     * @throws InvalidCredentialsException 401 if the token is missing, not a refresh token,
+     *     expired, or otherwise unparseable.
      */
     public Long validateRefreshToken(String token) {
         if (token == null || token.isBlank()) {

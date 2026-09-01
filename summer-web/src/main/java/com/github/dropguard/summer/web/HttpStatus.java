@@ -70,4 +70,17 @@ public enum HttpStatus {
     public String reason() {
         return reason;
     }
+
+    private static final java.util.Map<Integer, HttpStatus> BY_CODE = new java.util.HashMap<>();
+
+    static {
+        for (HttpStatus status : values()) {
+            BY_CODE.put(status.code, status);
+        }
+    }
+
+    public static HttpStatus fromCode(int code) {
+        HttpStatus status = BY_CODE.get(code);
+        return status != null ? status : INTERNAL_SERVER_ERROR;
+    }
 }

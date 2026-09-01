@@ -148,7 +148,9 @@ public class TweetService {
         }
         if (!tweet.authorId().equals(requesterId)) {
             throw new BusinessException(
-                    HttpStatus.FORBIDDEN.code(), "forbidden", "You can only delete your own tweets");
+                    HttpStatus.FORBIDDEN.code(),
+                    "forbidden",
+                    "You can only delete your own tweets");
         }
 
         // Clean up likes before the tweet goes away (ON DELETE CASCADE handles

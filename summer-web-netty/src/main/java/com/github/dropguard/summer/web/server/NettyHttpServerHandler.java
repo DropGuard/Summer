@@ -128,7 +128,11 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
             ScopedValue.where(REQUEST_SLOT, new RequestSlot(ctx, nettyReq))
                     .call(
                             () -> {
-                                handlerChain.handle(webCtx);
+                                try {
+                                    handlerChain.handle(webCtx);
+                                } catch (Exception e) {
+                                    handleException(webCtx, e);
+                                }
                                 return null;
                             });
 
@@ -148,47 +152,58 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
         return handler;
     }
 
-    private void dispatch(HttpContext c) {
+    private void dispatch(HttpContext c) throws Exception {
         RequestSlot slot = REQUEST_SLOT.get();
-        try {
-            if (deps.wsUpgradeHandler().isWebSocketUpgrade(slot.nettyReq)) {
-                deps.wsUpgradeHandler().handleUpgrade(slot.ctx, slot.nettyReq, c);
-                return;
-            }
-
-            deps.httpRouter().route(c);
-        } catch (Exception e) {
-            if (deps.exceptionRegistry() != null) {
-                Handler customHandler = deps.exceptionRegistry().getHandler(e);
-                if (customHandler != null) {
-                    try {
-                        c.request()
-                                .setAttribute(
-                                        com.github.dropguard.summer.web.RequestAttributes
-                                                .LAST_EXCEPTION,
-                                        e);
-                        customHandler.handle(c);
-                        return;
-                    } catch (Exception handlerException) {
-                        log.warn(
-                                "Exception handler failed for: {}",
-                                e.getClass().getName(),
-                                handlerException);
-                    }
-                }
-            }
-
-            if (e instanceof com.github.dropguard.summer.web.exception.SummerWebException webEx) {
-                c.status(webEx.statusCode());
-                if (webEx.getMessage() != null) {
-                    c.text(webEx.statusCode(), webEx.getMessage());
-                }
-                return;
-            }
-
-            c.error(e);
-            log.error("Request failed: {}", c.request().getPath(), e);
+        if (deps.wsUpgradeHandler().isWebSocketUpgrade(slot.nettyReq)) {
+            deps.wsUpgradeHandler().handleUpgrade(slot.ctx, slot.nettyReq, c);
+            return;
         }
+
+        deps.httpRouter().route(c);
+    }
+
+    private void handleException(HttpContext c, Exception e) {
+        if (deps.exceptionRegistry() != null) {
+            Handler customHandler = deps.exceptionRegistry().getHandler(e);
+            if (customHandler != null) {
+                try {
+                    c.request()
+                            .setAttribute(
+                                    com.github.dropguard.summer.web.RequestAttributes
+                                            .LAST_EXCEPTION,
+                                    e);
+                    customHandler.handle(c);
+                    return;
+                } catch (Exception handlerException) {
+                    log.warn(
+                            "Exception handler failed for: {}",
+                            e.getClass().getName(),
+                            handlerException);
+                }
+            }
+        }
+
+        if (e instanceof com.github.dropguard.summer.web.exception.HttpException httpEx) {
+            com.github.dropguard.summer.web.HttpStatus status =
+                    com.github.dropguard.summer.web.HttpStatus.fromCode(httpEx.getStatus());
+            c.status(status);
+            if (httpEx.getMessage() != null) {
+                c.text(status, httpEx.getMessage());
+            }
+            return;
+        }
+
+        if (e instanceof com.github.dropguard.summer.web.exception.SummerWebException webEx) {
+            com.github.dropguard.summer.web.HttpStatus status = webEx.statusCode();
+            c.status(status);
+            if (webEx.getMessage() != null) {
+                c.text(status, webEx.getMessage());
+            }
+            return;
+        }
+
+        c.error(e);
+        log.error("Request failed: {}", c.request().getPath(), e);
     }
 
     private FullHttpResponse sendErrorResponse(ChannelHandlerContext ctx, boolean keepAlive) {

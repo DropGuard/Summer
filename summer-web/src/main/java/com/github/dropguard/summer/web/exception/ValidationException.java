@@ -19,6 +19,14 @@ public class ValidationException extends HttpException {
         this.violations = List.copyOf(violations);
     }
 
+    public ValidationException(String path, String message) {
+        this(List.of(new Result.Violation(path, message)));
+    }
+
+    public ValidationException(String message) {
+        this(List.of(new Result.Violation("", message)));
+    }
+
     /** Returns every validation violation that was accumulated. */
     public List<Result.Violation> violations() {
         return violations;

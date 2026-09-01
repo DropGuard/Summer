@@ -1,7 +1,7 @@
 package com.github.dropguard.summer.issuetracker.issue;
+
 import com.github.dropguard.summer.core.data.Page;
 import com.github.dropguard.summer.core.data.PageRequest;
-
 import com.github.dropguard.summer.issuetracker.audit.IssueHistory;
 import com.github.dropguard.summer.issuetracker.comment.Comment;
 import com.github.dropguard.summer.issuetracker.tag.Tag;

@@ -1,13 +1,12 @@
 package com.github.dropguard.summer.realworld.user;
 
+import com.github.dropguard.summer.core.Component;
+import com.github.dropguard.summer.realworld.common.DuplicateEmailException;
+import com.github.dropguard.summer.realworld.common.DuplicateUsernameException;
+import com.github.dropguard.summer.web.exception.ValidationException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import com.github.dropguard.summer.core.Component;
-
-import com.github.dropguard.summer.realworld.common.DuplicateUsernameException;
-import com.github.dropguard.summer.realworld.common.DuplicateEmailException;
-import com.github.dropguard.summer.web.exception.ValidationException;
 import org.mindrot.jbcrypt.BCrypt;
 
 @Component
@@ -20,16 +19,16 @@ public class UserService {
 
     public User register(String username, String email, String password) {
         if (username == null || username.isBlank()) {
-            throw new ValidationException(List.of("username: can't be blank"));
+            throw new ValidationException("username", "can't be blank");
         }
         if (email == null || email.isBlank()) {
-            throw new ValidationException(List.of("email: can't be blank"));
+            throw new ValidationException("email", "can't be blank");
         }
         if (password == null || password.isBlank()) {
-            throw new ValidationException(List.of("password: can't be blank"));
+            throw new ValidationException("password", "can't be blank");
         }
         if (password.length() < 8) {
-            throw new ValidationException(List.of("password: is too short (minimum is 8 characters)"));
+            throw new ValidationException("password", "is too short (minimum is 8 characters)");
         }
         if (userRepository.findByUsername(username).isPresent()) {
             throw new DuplicateUsernameException("username has already been taken");
@@ -79,7 +78,7 @@ public class UserService {
 
         if (username != null) {
             if (username.isBlank()) {
-                throw new ValidationException(List.of("username: can't be blank"));
+                throw new ValidationException("username", "can't be blank");
             }
             Optional<User> existing = userRepository.findByUsername(username);
             if (existing.isPresent() && !existing.get().id().equals(user.id())) {
@@ -89,7 +88,7 @@ public class UserService {
         }
         if (email != null) {
             if (email.isBlank()) {
-                throw new ValidationException(List.of("email: can't be blank"));
+                throw new ValidationException("email", "can't be blank");
             }
             Optional<User> existing = userRepository.findByEmail(email);
             if (existing.isPresent() && !existing.get().id().equals(user.id())) {
@@ -99,10 +98,10 @@ public class UserService {
         }
         if (password != null) {
             if (password.isBlank()) {
-                throw new ValidationException(List.of("password: can't be blank"));
+                throw new ValidationException("password", "can't be blank");
             }
             if (password.length() < 8) {
-                throw new ValidationException(List.of("password: is too short (minimum is 8 characters)"));
+                throw new ValidationException("password", "is too short (minimum is 8 characters)");
             }
             newPassword = BCrypt.hashpw(password, BCrypt.gensalt());
         }

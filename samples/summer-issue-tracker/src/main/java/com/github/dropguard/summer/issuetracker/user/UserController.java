@@ -1,12 +1,11 @@
 package com.github.dropguard.summer.issuetracker.user;
 
-
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.issuetracker.security.Actors;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.annotation.Get;
-import com.github.dropguard.summer.web.exception.NotFoundException;
 import com.github.dropguard.summer.web.annotation.RestController;
+import com.github.dropguard.summer.web.exception.NotFoundException;
 
 /**
  * Read-only current-user endpoint. Returns a {@link UserView} that never exposes the stored {@code
@@ -36,9 +35,7 @@ public class UserController {
         User user =
                 userRepository
                         .findById(userId)
-                        .orElseThrow(
-                                () ->
-                                        new NotFoundException("User not found"));
+                        .orElseThrow(() -> new NotFoundException("User not found"));
         ctx.ok(UserView.from(user));
     }
 }

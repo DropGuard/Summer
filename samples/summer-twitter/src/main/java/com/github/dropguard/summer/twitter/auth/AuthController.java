@@ -1,11 +1,11 @@
 package com.github.dropguard.summer.twitter.auth;
 
-import com.github.dropguard.summer.twitter.user.User;
-import com.github.dropguard.summer.twitter.common.UsernameAlreadyExistsException;
 import com.github.dropguard.summer.twitter.common.EmailAlreadyExistsException;
-import com.github.dropguard.summer.twitter.common.RateLimitedException;
 import com.github.dropguard.summer.twitter.common.InvalidCredentialsException;
 import com.github.dropguard.summer.twitter.common.InvalidTokenException;
+import com.github.dropguard.summer.twitter.common.RateLimitedException;
+import com.github.dropguard.summer.twitter.common.UsernameAlreadyExistsException;
+import com.github.dropguard.summer.twitter.user.User;
 import com.github.dropguard.summer.twitter.user.UserRepository;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpStatus;

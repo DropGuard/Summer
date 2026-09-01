@@ -1,12 +1,12 @@
 package com.github.dropguard.summer.issuetracker.security;
 
 import com.github.dropguard.summer.core.Component;
-import com.github.dropguard.summer.web.exception.BadRequestException;
-import com.github.dropguard.summer.web.exception.UnauthorizedException;
 import com.github.dropguard.summer.issuetracker.org.Organization;
 import com.github.dropguard.summer.issuetracker.org.OrganizationRepository;
 import com.github.dropguard.summer.issuetracker.user.User;
 import com.github.dropguard.summer.issuetracker.user.UserService;
+import com.github.dropguard.summer.web.exception.BadRequestException;
+import com.github.dropguard.summer.web.exception.UnauthorizedException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
@@ -43,10 +43,10 @@ public class AuthService {
             String orgName,
             String orgSlug) {
         if (userService.findByUsername(username).isPresent()) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Username already taken");
+            throw new BadRequestException("Username already taken");
         }
         if (password == null || password.length() < 8) {
-            throw new BusinessException(HttpStatus.BAD_REQUEST, "BAD_REQUEST", "Password must be at least 8 characters");
+            throw new BadRequestException("Password must be at least 8 characters");
         }
         // Demo simplification: every registration creates its own organization. The
         // new user is a plain MEMBER — ADMIN/MANAGER are granted explicitly (e.g. a
@@ -74,9 +74,9 @@ public class AuthService {
         User user =
                 userService
                         .findByUsername(username)
-                        .orElseThrow(() -> new BusinessException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Invalid credentials"));
+                        .orElseThrow(() -> new UnauthorizedException("Invalid credentials"));
         if (!verifyPassword(user.passwordHash(), password)) {
-            throw new BusinessException(HttpStatus.UNAUTHORIZED, "UNAUTHORIZED", "Invalid credentials");
+            throw new UnauthorizedException("Invalid credentials");
         }
         return new AuthResult(
                 user.id(),

@@ -2,12 +2,12 @@ package com.github.dropguard.summer.realworld.user;
 
 import com.github.dropguard.summer.realworld.auth.AuthUtils;
 import com.github.dropguard.summer.realworld.auth.JwtUtil;
+import com.github.dropguard.summer.realworld.common.ProfileNotFoundException;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.annotation.Delete;
 import com.github.dropguard.summer.web.annotation.Get;
 import com.github.dropguard.summer.web.annotation.PathParam;
-import com.github.dropguard.summer.realworld.common.ProfileNotFoundException;
 import com.github.dropguard.summer.web.annotation.Post;
 import com.github.dropguard.summer.web.annotation.RestController;
 import java.util.Optional;

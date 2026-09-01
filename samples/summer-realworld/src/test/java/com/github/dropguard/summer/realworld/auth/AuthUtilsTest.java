@@ -82,14 +82,17 @@ class AuthUtilsTest {
         // Use a deliberately mangled token that won't parse
         HttpContext ctx = ctxWithHeader("Token garbage");
 
-        assertThrows(InvalidCredentialsException.class, () -> AuthUtils.tryGetCurrentUserId(ctx, jwtUtil));
+        assertThrows(
+                InvalidCredentialsException.class,
+                () -> AuthUtils.tryGetCurrentUserId(ctx, jwtUtil));
     }
 
     @Test
     void getCurrentUserIdThrowsWhenNoHeader() {
         HttpContext ctx = ctxWithHeader(null);
 
-        assertThrows(InvalidCredentialsException.class, () -> AuthUtils.getCurrentUserId(ctx, jwtUtil));
+        assertThrows(
+                InvalidCredentialsException.class, () -> AuthUtils.getCurrentUserId(ctx, jwtUtil));
     }
 
     @Test
