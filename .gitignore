@@ -48,7 +48,6 @@ bin/
 .antigravitycli/
 .omo/
 *.log
-logs/
 
 ### Protobuf generated code ###
 # NOTE: the tck's summer/grpc/test/echo/ fixtures ARE committed (minimal hand-written stubs —
