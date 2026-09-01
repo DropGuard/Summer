@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>io.github.dropguard</groupId>
+        <artifactId>summer-build-parent</artifactId>
+        <version>0.3.3-SNAPSHOT</version>
+        <relativePath>../../../../summer-build-parent/pom.xml</relativePath>
+    </parent>
+    <groupId>com.example</groupId>
+    <artifactId>staleness-app</artifactId>
+    <version>1.0</version>
+    <packaging>jar</packaging>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.github.dropguard</groupId>
+            <artifactId>summer-boot</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.dropguard</groupId>
+            <artifactId>summer-runtime</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.github.dropguard</groupId>
+            <artifactId>summer-aot-engine</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>io.github.dropguard</groupId>
+                <artifactId>summer-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+</project>
