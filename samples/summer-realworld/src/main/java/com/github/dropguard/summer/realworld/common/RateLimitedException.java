@@ -4,7 +4,7 @@ import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.exception.HttpException;
 
 /**
- * 429 – 登录/操作频率受限
+ * 429 – Login or operation rate limit exceeded.
  */
 public class RateLimitedException extends HttpException {
     public RateLimitedException(String message) {

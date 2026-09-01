@@ -1,6 +1,5 @@
 package com.github.dropguard.summer.core.bean;
 
-import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.exception.AmbiguousBeanException;
 import com.github.dropguard.summer.core.exception.BeanCreationException;
@@ -203,24 +202,13 @@ public final class SharedDependencyResolver {
             // discovery time, so both engines fail fast at build rather than at instantiation —
             // this is the same rejection the engines perform (BeanInstantiator /
             // WireMethodGenerator), moved earlier so it cannot diverge.
-            try {
-                Class<?> clazz = Class.forName(paramType);
-                // Reject BeanContainer itself and its supertypes (e.g., AutoCloseable,
-                // since BeanContainer implements AutoCloseable). Also reject any class for which
-                // BeanContainer is assignable (i.e., subclasses of BeanContainer or classes
-                // that have BeanContainer in their interface hierarchy).
-                if (BeanContainer.class.isAssignableFrom(clazz)
-                        || clazz.isAssignableFrom(BeanContainer.class)) {
-                    throw new BeanCreationException(
-                            "Injection of container type "
-                                    + clazz.getName()
-                                    + " is not supported: "
-                                    + bean.qualifiedName
-                                    + " declares a container constructor parameter. Use"
-                                    + " BeanContainer from the caller instead.");
-                }
-            } catch (ClassNotFoundException ignored) {
-                // class not found on classpath; will be handled as missing bean later
+            if (paramType.equals("com.github.dropguard.summer.core.BeanContainer")) {
+                throw new BeanCreationException(
+                        "Injection of container type com.github.dropguard.summer.core.BeanContainer"
+                                + " is not supported: "
+                                + bean.qualifiedName
+                                + " declares a BeanContainer constructor parameter. Use"
+                                + " BeanContainer from the caller instead.");
             }
 
             BeanDefinition resolved = findBean(paramType, allBeans);

@@ -4,7 +4,7 @@ import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.exception.HttpException;
 
 /**
- * 401 – 邮箱/密码不匹配、token 缺失/过期/无效。
+ * 401 – Email/password mismatch, or token missing/expired/invalid.
  */
 public class InvalidCredentialsException extends HttpException {
     private final String field;

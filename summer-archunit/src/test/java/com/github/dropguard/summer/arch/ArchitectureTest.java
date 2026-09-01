@@ -103,8 +103,7 @@ class ArchitectureTest {
                         .layer("CrossCutting")
                         .definedBy(
                                 "..com.github.dropguard.summer.aop..",
-                                "..com.github.dropguard.summer.tx..",
-                                "..com.github.dropguard.summer.core.validation..")
+                                "..com.github.dropguard.summer.tx..")
                         .layer("Server")
                         .definedBy(
                                 "..com.github.dropguard.summer.web.server..",

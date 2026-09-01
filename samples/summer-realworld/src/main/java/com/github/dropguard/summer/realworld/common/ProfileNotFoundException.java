@@ -4,7 +4,7 @@ import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.exception.HttpException;
 
 /**
- * 404 – profile 未找到
+ * 404 – Profile not found.
  */
 public class ProfileNotFoundException extends HttpException {
     public ProfileNotFoundException(String message) {

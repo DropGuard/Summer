@@ -4,7 +4,7 @@ import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.exception.HttpException;
 
 /**
- * 400 – 不允许关注自己
+ * 400 – Cannot follow oneself.
  */
 public class SelfFollowException extends HttpException {
     public SelfFollowException(String message) {

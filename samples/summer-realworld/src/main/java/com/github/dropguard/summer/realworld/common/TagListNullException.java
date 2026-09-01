@@ -4,7 +4,7 @@ import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.exception.HttpException;
 
 /**
- * 422 – 更新文章时显式传入 null 的 tagList
+ * 422 – Explicitly passing null for tagList when updating an article.
  */
 public class TagListNullException extends HttpException {
     public TagListNullException(String message) {

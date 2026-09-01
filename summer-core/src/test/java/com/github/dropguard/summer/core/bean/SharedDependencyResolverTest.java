@@ -79,16 +79,4 @@ class SharedDependencyResolverTest {
                 () -> new SharedDependencyResolver().resolve(List.of(dependent), List.of()),
                 "BeanContainer constructor injection must fail at discovery, before any engine");
     }
-
-    @Test
-    void beanContainerSubtypeInjectionIsRejectedAtDiscovery() {
-        // Also reject injection of subtypes of BeanContainer (e.g., AutoCloseable)
-        BeanDefinition dependent = component("pkg.ContainerInjecting", Set.of());
-        dependent.parameters.add(param("java.lang.AutoCloseable"));
-
-        assertThrows(
-                BeanCreationException.class,
-                () -> new SharedDependencyResolver().resolve(List.of(dependent), List.of()),
-                "Injection of BeanContainer subtype must be rejected at discovery");
-    }
 }

@@ -4,7 +4,7 @@ import com.github.dropguard.summer.web.HttpStatus;
 import com.github.dropguard.summer.web.exception.HttpException;
 
 /**
- * 409 – 注册/更新时邮箱已被占用
+ * 409 – Email already taken during registration/update.
  */
 public class DuplicateEmailException extends HttpException {
     public DuplicateEmailException(String message) {
