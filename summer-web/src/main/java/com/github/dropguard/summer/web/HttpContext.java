@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web;
 
+import com.github.dropguard.summer.core.validation.Validator;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,11 +32,8 @@ public class HttpContext {
 
     private static final Logger log = LoggerFactory.getLogger(HttpContext.class);
 
-    private static final io.avaje.validation.Validator AVALIDATOR =
-            io.avaje.validation.Validator.builder().build();
-
-    private static final BodyParser DEFAULT_JSON_PARSER =
-            new BodyParser(new JsonBodyConverter(), AVALIDATOR);
+    /** Framework validator using the result-acumulation model (core.validation.Validator). */
+    private static final Validator<?> VALIDATOR = new FrameworkValidator();
 
     private final Request request;
     private final Response response = new Response();
@@ -43,7 +41,7 @@ public class HttpContext {
     private ResponseState responseState = ResponseState.UNSET;
 
     public HttpContext(Request request) {
-        this(request, DEFAULT_JSON_PARSER);
+        this(request, new BodyParser(new JsonBodyConverter(), VALIDATOR));
     }
 
     /**
@@ -53,12 +51,15 @@ public class HttpContext {
      * swapped for the static default.
      */
     public HttpContext(Request request, BodyConverter jsonConverter) {
-        this(request, new BodyParser(jsonConverter, AVALIDATOR));
+        this(request, new BodyParser(jsonConverter, VALIDATOR));
     }
 
     public HttpContext(Request request, BodyParser bodyParser) {
         this.request = request;
-        this.bodyParser = bodyParser != null ? bodyParser : DEFAULT_JSON_PARSER;
+        this.bodyParser =
+                bodyParser != null
+                        ? bodyParser
+                        : new BodyParser(new JsonBodyConverter(), VALIDATOR);
     }
 
     // --- Read facade ---
@@ -237,6 +238,19 @@ public class HttpContext {
         return bodyParser.parse(request.getBody(), request.getContentType(), type);
     }
 
+    /**
+     * Validates the request body and returns the parsed object.
+     *
+     * <p>Uses the framework's result-acumulation model: all validation violations are collected in
+     * one pass, then {@link ValidationException} is thrown with every problem reported. Unlike the
+     * old avaje-based approach, no validation is skipped on the first error -- every constraint
+     * failure is reported.
+     *
+     * @param type the type to parse from the request body
+     * @return the parsed and validated object
+     * @throws BodyParseException if the body cannot be parsed to the target type
+     * @throws ValidationException if validation fails (every violation is listed)
+     */
     public <T> T validatedBody(Class<T> type) {
         return bodyParser.parseAndValidate(request.getBody(), request.getContentType(), type);
     }

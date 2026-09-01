@@ -44,8 +44,15 @@ public class GlobalErrorHandler {
     public void handleHttp(HttpContext ctx, HttpException e) {
         if (e instanceof ValidationException) {
             ValidationException ve = (ValidationException) e;
-            ctx.json(intToHttpStatus(ve.getStatus()),
-                    UserDtos.ErrorResponse.of("body", ve.errors().get(0)));
+            // New Result.Violation carries (path, message). The legacy errors() helper was removed
+            // because ValidationException no longer pre-builds a String list; callers either pull
+            // the first violation or join all of them in DefaultGlobalErrorHandler.
+            com.github.dropguard.summer.core.validation.Result.Violation first =
+                    ve.violations().get(0);
+            String field = first.path().isEmpty() ? "body" : first.path();
+            ctx.json(
+                    intToHttpStatus(ve.getStatus()),
+                    UserDtos.ErrorResponse.of(field, first.message()));
         } else if (e instanceof InvalidCredentialsException) {
             InvalidCredentialsException ice = (InvalidCredentialsException) e;
             if (ice.field() != null) {

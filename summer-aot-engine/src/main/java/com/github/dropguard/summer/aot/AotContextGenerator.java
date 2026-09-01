@@ -46,6 +46,10 @@ public final class AotContextGenerator {
             ClassName.get("com.github.dropguard.summer.web", "ExceptionHandlerRegistrar");
     private static final ClassName MOCKED_BEAN =
             ClassName.get("com.github.dropguard.summer.core.bean", "MockedBean");
+    private static final ClassName VALIDATOR =
+            ClassName.get("com.github.dropguard.summer.core.validation", "Validator");
+    private static final ClassName RESULT =
+            ClassName.get("com.github.dropguard.summer.core.validation", "Result");
 
     private final IndexView index;
     private final File outputDir;
@@ -195,7 +199,52 @@ public final class AotContextGenerator {
                     "builder.register($T.class, _ehAdapter)", EXCEPTION_HANDLER_REGISTRAR);
         }
 
+        // Validation Phase: emitted before builder.build() so it runs on the pre-seal
+        // builder.singletons() view, exactly matching RuntimeContainer's runtime path. See
+        // emitValidationPhase javadoc for the parity contract.
+        emitValidationPhase(method);
+
         method.addCode("\n");
         method.addStatement("return builder.build($T.AOT)", ENGINE);
+    }
+
+    /**
+     * Emits the canonical Validation Phase for the AOT-generated {@code build()} method. Single
+     * source of truth shared with {@code RuntimeContainer} — both engines must produce the same
+     * validator iteration + violation accumulation, otherwise runtime/AOT parity drifts and tests
+     * marked {@code @DualEngine} would diverge on validation behavior.
+     *
+     * <p>The generated code matches the runtime container exactly:
+     *
+     * <ol>
+     *   <li>One {@code Result} accumulator (reused across every validator).
+     *   <li>For each bean in {@code builder.singletons().values()} that is a {@code Validator<?>},
+     *       resolve targets via {@code builder.getBeans(targetType)} and call {@code
+     *       validate(target, result)}.
+     *   <li>{@code result.throwIfInvalid()} once, after every validator has run — never
+     *       mid-iteration.
+     * </ol>
+     *
+     * <p>Why this lives here and not in {@link WireMethodGenerator}: the validation phase operates
+     * on the pre-seal {@code builder.singletons()} view (every bean instantiated, none yet sealed)
+     * — RuntimeContainer runs validators before {@code builder.build(Engine.RUNTIME)} for the same
+     * reason, so the AOT path mirrors it 1:1.
+     */
+    private void emitValidationPhase(MethodSpec.Builder method) {
+        method.addCode("\n");
+        method.addComment("Validation Phase");
+        method.addStatement("$T _validationResult = new $T()", RESULT, RESULT);
+        method.beginControlFlow("for ($T _bean : builder.singletons().values())", Object.class);
+        method.beginControlFlow("if (_bean instanceof $T<?> _v)", VALIDATOR);
+        method.addStatement("$T<?> _targets = builder.getBeans(_v.targetType())", List.class);
+        method.beginControlFlow("for ($T _target : _targets)", Object.class);
+        // _v is captured as Validator<capture#1>, so validate(_target, ...) won't compile
+        // against Validator<Object> without an unchecked cast — mirroring RuntimeContainer's
+        // (Validator<Object>) cast at the call site.
+        method.addStatement("(($T<Object>) _v).validate(_target, _validationResult)", VALIDATOR);
+        method.endControlFlow();
+        method.endControlFlow();
+        method.endControlFlow();
+        method.addStatement("_validationResult.throwIfInvalid()");
     }
 }

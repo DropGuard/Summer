@@ -1,7 +1,7 @@
 package com.github.dropguard.summer.grpc.config;
 
 import com.github.dropguard.summer.core.annotation.Configuration;
-import com.github.dropguard.summer.core.validation.ConfigValidationException;
+import com.github.dropguard.summer.core.validation.Result;
 import com.github.dropguard.summer.core.validation.Validator;
 
 /**
@@ -20,13 +20,15 @@ public class GrpcClientTlsValidator implements Validator<GrpcClientTlsConfig> {
     }
 
     @Override
-    public void validate(GrpcClientTlsConfig config) {
+    public void validate(GrpcClientTlsConfig config, Result result) {
         if (config.enabled() == null || !config.enabled()) {
             return;
         }
         if (config.trustCert() == null) {
-            throw new ConfigValidationException(
-                    "TLS enabled but 'grpc.client.tls.trust-cert' is required");
+            result.violate("trustCert", "TLS enabled but 'grpc.client.tls.trust-cert' is required");
+        }
+        if (config.trustCert() != null && config.trustCert().isBlank()) {
+            result.violate("trustCert", "must not be blank");
         }
     }
 }

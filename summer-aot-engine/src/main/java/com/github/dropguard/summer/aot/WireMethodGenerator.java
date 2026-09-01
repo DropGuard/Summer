@@ -62,16 +62,25 @@ public final class WireMethodGenerator {
             // callbacks are never intercepted (CDI semantics).
             emitPostConstruct(wire, bean, implVar);
 
-            String interceptorsListVar = varName + "_interceptors";
-            wire.addStatement(
-                    "$T<$T> $N = new $T<>()",
-                    ClassName.get(List.class),
-                    ClassName.get("com.github.dropguard.summer.aop", "MethodInterceptor"),
-                    interceptorsListVar,
-                    ClassName.get(ArrayList.class));
+            // Inline an empty interceptor list for the common case (zero interceptors),
+            // avoiding the `ArrayList` variable declaration. With interceptors present,
+            // declare a typed list once and reuse it for the proxy construction.
+            String interceptorsExpr;
+            if (bean.interceptors.isEmpty()) {
+                interceptorsExpr = "java.util.List.of()";
+            } else {
+                String interceptorsListVar = varName + "_interceptors";
+                wire.addStatement(
+                        "$T<$T> $N = new $T<>()",
+                        ClassName.get(List.class),
+                        ClassName.get("com.github.dropguard.summer.aop", "MethodInterceptor"),
+                        interceptorsListVar,
+                        ClassName.get(ArrayList.class));
 
-            for (BeanDefinition interceptor : bean.interceptors) {
-                wire.addStatement("$N.add($N)", interceptorsListVar, interceptor.variableName);
+                for (BeanDefinition interceptor : bean.interceptors) {
+                    wire.addStatement("$N.add($N)", interceptorsListVar, interceptor.variableName);
+                }
+                interceptorsExpr = interceptorsListVar;
             }
 
             com.palantir.javapoet.TypeName proxyType =
@@ -81,12 +90,12 @@ public final class WireMethodGenerator {
             ClassName proxyClass =
                     ClassName.get(beanClass.packageName(), beanClass.simpleName() + "$$AotProxy");
             wire.addStatement(
-                    "$T $N = new $T($N, $N)",
+                    "$T $N = new $T($N, $L)",
                     proxyType,
                     varName,
                     proxyClass,
                     implVar,
-                    interceptorsListVar);
+                    interceptorsExpr);
         } else {
             if (bean.parameters.isEmpty()) {
                 wire.addStatement("$T $N = new $T()", beanClass, varName, beanClass);
@@ -334,19 +343,10 @@ public final class WireMethodGenerator {
             }
         }
 
-        // Validation Phase: run all Validator beans
-        wire.addCode("\n");
-        wire.addComment("Validation Phase");
-        wire.beginControlFlow("for ($T bean : builder.singletons().values())", Object.class);
-        wire.beginControlFlow(
-                "if (bean instanceof $T validator)",
-                ClassName.get("com.github.dropguard.summer.core.validation", "Validator"));
-        wire.addStatement("$T targets = builder.getBeans(validator.targetType())", List.class);
-        wire.beginControlFlow("for ($T target : targets)", Object.class);
-        wire.addStatement("validator.validate(target)");
-        wire.endControlFlow();
-        wire.endControlFlow();
-        wire.endControlFlow();
+        // Validation Phase: emitted in AotContextGenerator.emitSharedBody() (before builder.build)
+        // so it runs on the pre-seal builder.singletons() view — RuntimeContainer does the
+        // same. WireMethodGenerator stays ignorant of validation: the framework's single
+        // source of truth is AotContextGenerator.emitValidationPhase().
     }
 
     /**

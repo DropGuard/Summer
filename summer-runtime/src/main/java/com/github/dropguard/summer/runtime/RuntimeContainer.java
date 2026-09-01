@@ -8,6 +8,7 @@ import com.github.dropguard.summer.core.bean.BeanDefinition;
 import com.github.dropguard.summer.core.bean.ConfigPropertiesBean;
 import com.github.dropguard.summer.core.bean.MockedBean;
 import com.github.dropguard.summer.core.config.ConfigBinder;
+import com.github.dropguard.summer.core.validation.Result;
 import com.github.dropguard.summer.core.validation.Validator;
 import com.github.dropguard.summer.engine.BeanDeployment;
 import com.github.dropguard.summer.engine.BuildPipeline;
@@ -135,15 +136,19 @@ public final class RuntimeContainer implements ContainerEngine {
         }
         builder.routes(resolved.routes());
 
-        // validators
+        // validators — single pass, single Result, single throw
+        Result validationResult = new Result();
         for (Object bean : builder.singletons().values()) {
             if (bean instanceof Validator<?> v) {
                 List<?> targets = builder.getBeans(v.targetType());
                 for (Object target : targets) {
-                    ((Validator<Object>) v).validate(target);
+                    @SuppressWarnings("unchecked")
+                    Validator<Object> typed = (Validator<Object>) v;
+                    typed.validate(target, validationResult);
                 }
             }
         }
+        validationResult.throwIfInvalid();
 
         log.info(
                 "[Summer] Built RUNTIME container: {} beans, {} routes",

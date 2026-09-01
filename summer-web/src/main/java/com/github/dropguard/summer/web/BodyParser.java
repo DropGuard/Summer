@@ -1,25 +1,24 @@
 package com.github.dropguard.summer.web;
 
+import com.github.dropguard.summer.core.validation.Result;
+import com.github.dropguard.summer.core.validation.Validator;
 import com.github.dropguard.summer.web.exception.BodyParseException;
 import com.github.dropguard.summer.web.exception.ValidationException;
-import io.avaje.validation.ConstraintViolationException;
-import io.avaje.validation.Validator;
 import java.io.IOException;
-import java.util.List;
 
 /**
  * Parses and validates HTTP request bodies.
  *
  * <p>Separates body parsing and validation concerns from {@link HttpContext}. The {@link
  * BodyConverter} handles serialization format (JSON, etc.) and the {@link Validator} handles
- * constraint validation.
+ * constraint validation using the framework's result-acumulation model.
  */
 class BodyParser {
 
     private final BodyConverter converter;
-    private final Validator validator;
+    private final Validator<?> validator;
 
-    public BodyParser(BodyConverter converter, Validator validator) {
+    public BodyParser(BodyConverter converter, Validator<?> validator) {
         this.converter = converter;
         this.validator = validator;
     }
@@ -47,24 +46,24 @@ class BodyParser {
     }
 
     /**
-     * Parses and validates the request body.
+     * Parses and validates the request body using the framework's result-acumulation model. All
+     * violations are collected and reported together via {@link ValidationException}.
      *
      * @param body raw request body bytes
      * @param contentType request content type
      * @param type target type
-     * @return parsed and validated object
+     * @return parsed object
      * @throws BodyParseException if parsing fails
-     * @throws ValidationException if validation fails
+     * @throws ValidationException if validation fails (with every accumulated violation)
      */
     public <T> T parseAndValidate(byte[] body, String contentType, Class<T> type) {
         T parsed = parse(body, contentType, type);
         if (parsed != null) {
-            try {
-                validator.validate(parsed);
-            } catch (ConstraintViolationException e) {
-                List<String> errors = e.violations().stream().map(Object::toString).toList();
-                throw new ValidationException(errors);
-            }
+            Result result = new Result();
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            Validator<Object> typed = (Validator) validator;
+            typed.validate(parsed, result);
+            result.throwIfInvalid();
         }
         return parsed;
     }

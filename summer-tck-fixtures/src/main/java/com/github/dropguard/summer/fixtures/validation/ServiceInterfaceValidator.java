@@ -1,7 +1,7 @@
 package com.github.dropguard.summer.fixtures.validation;
 
 import com.github.dropguard.summer.core.Component;
-import com.github.dropguard.summer.core.validation.ConfigValidationException;
+import com.github.dropguard.summer.core.validation.Result;
 import com.github.dropguard.summer.core.validation.Validator;
 
 /** Test validator for ServiceInterface. */
@@ -14,12 +14,13 @@ public class ServiceInterfaceValidator implements Validator<ServiceInterface> {
     }
 
     @Override
-    public void validate(ServiceInterface service) {
+    public void validate(ServiceInterface service, Result result) {
         if (service == null) {
-            throw new ConfigValidationException("Service cannot be null");
-        }
-        if (service.getName() == null || service.getName().isEmpty()) {
-            throw new ConfigValidationException("Service name cannot be empty");
+            result.violate("", "Service cannot be null");
+        } else {
+            if (service.getName() == null || service.getName().isEmpty()) {
+                result.violate("", "Service name cannot be empty");
+            }
         }
     }
 }

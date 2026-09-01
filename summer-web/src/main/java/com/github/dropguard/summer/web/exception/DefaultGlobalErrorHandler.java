@@ -62,9 +62,13 @@ public class DefaultGlobalErrorHandler implements ExceptionHandlerRegistrar {
 
     @ExceptionHandler(ValidationException.class)
     public void handleValidation(HttpContext ctx, ValidationException ex) {
+        List<String> errors =
+                ex.violations().stream()
+                        .map(v -> v.path().isEmpty() ? v.message() : v.path() + ": " + v.message())
+                        .toList();
         ctx.json(
                 intToHttpStatus(ex.getStatus()),
-                new ValidationErrorResponse(ex.getStatus(), ex.getMessage(), ex.errors()));
+                new ValidationErrorResponse(ex.getStatus(), ex.getMessage(), errors));
     }
 
     @ExceptionHandler(ConflictException.class)

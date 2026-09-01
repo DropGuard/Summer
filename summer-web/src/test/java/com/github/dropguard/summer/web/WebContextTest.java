@@ -7,7 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.github.dropguard.summer.web.exception.SummerWebException;
+import com.github.dropguard.summer.web.exception.BodyParseException;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
@@ -137,7 +137,7 @@ class WebContextTest {
         Request request = createRequest(HttpMethod.POST, "/test", headers);
         HttpContext ctx = new HttpContext(request);
 
-        assertThrows(SummerWebException.class, () -> ctx.body(NotARecord.class));
+        assertThrows(BodyParseException.class, () -> ctx.body(NotARecord.class));
     }
 
     @Test
