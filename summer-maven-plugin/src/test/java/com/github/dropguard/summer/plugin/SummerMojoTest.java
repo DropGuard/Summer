@@ -41,6 +41,7 @@ class SummerMojoTest {
         File basedir = Files.createTempDirectory("summer-mojo-test").toFile();
         File classes = new File(basedir, "target/classes");
         prepareFixture(classes);
+        prepareFixtureSource(new File(basedir, "src/main/java"));
 
         MavenProject project = new MavenProject();
         project.setGroupId("com.example");
@@ -48,10 +49,12 @@ class SummerMojoTest {
         project.setVersion("1.0");
         project.setPackaging("jar");
         project.setFile(new File(basedir, "pom.xml"));
+        File srcMainJava = new File(basedir, "src/main/java");
         Build build = new Build();
         build.setDirectory(new File(basedir, "target").getAbsolutePath());
         build.setOutputDirectory(classes.getAbsolutePath());
         project.setBuild(build);
+        project.addCompileSourceRoot(srcMainJava.getAbsolutePath());
         project.getArtifacts().add(coreArtifact());
 
         SummerMojo mojo = new SummerMojo();
@@ -81,15 +84,16 @@ class SummerMojoTest {
     /**
      * The staleness contract: a bean deleted between builds leaves its compiled {@code
      * $$AotProxy}-style class in {@code target/classes} (javac never deletes), where it would be
-     * packaged into the jar. The manifest written by run N names those outputs, so run N+1 must
-     * remove them — including nested {@code Foo$1} siblings — and then rewrite the manifest to name
-     * ITS OWN outputs.
+     * packaged into the jar. The new reconciliation path walks the live source set + the
+     * generated-sources directory and removes every compiled output that has no matching source —
+     * including nested {@code Foo$1} siblings.
      */
     @Test
-    void staleGeneratedClassesAreRemovedAndManifestIsRewritten() throws Exception {
+    void staleGeneratedClassesAreRemovedByReconciliation() throws Exception {
         File basedir = Files.createTempDirectory("summer-mojo-test-stale").toFile();
         File classes = new File(basedir, "target/classes");
         prepareFixture(classes);
+        prepareFixtureSource(new File(basedir, "src/main/java"));
 
         // Simulate a bean that existed in a previous build but was deleted from the sources:
         // its compiled output lingers in target/classes, and the previous run's manifest lists it.
@@ -99,19 +103,18 @@ class SummerMojoTest {
         File staleNested = new File(staleDir, "OldBean$$AotProxy$1.class");
         Files.write(staleClass.toPath(), new byte[] {1});
         Files.write(staleNested.toPath(), new byte[] {1});
-        File manifest = new File(basedir, "target/aot-generated-classes.txt");
-        Files.writeString(manifest.toPath(), "com/example/gone/OldBean$$AotProxy\n", UTF_8);
-
         MavenProject project = new MavenProject();
         project.setGroupId("com.example");
         project.setArtifactId("fixture-app");
         project.setVersion("1.0");
         project.setPackaging("jar");
         project.setFile(new File(basedir, "pom.xml"));
+        File srcMainJava = new File(basedir, "src/main/java");
         Build build = new Build();
         build.setDirectory(new File(basedir, "target").getAbsolutePath());
         build.setOutputDirectory(classes.getAbsolutePath());
         project.setBuild(build);
+        project.addCompileSourceRoot(srcMainJava.getAbsolutePath());
         project.getArtifacts().add(coreArtifact());
 
         SummerMojo mojo = new SummerMojo();
@@ -119,16 +122,13 @@ class SummerMojoTest {
         setField(mojo, "outputDirectory", classes);
         mojo.execute();
 
-        assertTrue(!staleClass.exists(), "stale class must be removed by the next run");
-        assertTrue(!staleNested.exists(), "stale nested class must be removed by the next run");
+        assertTrue(!staleClass.exists(), "stale class must be removed by reconciliation");
+        assertTrue(!staleNested.exists(), "stale nested class must be removed by reconciliation");
 
-        String rewritten = new String(Files.readAllBytes(manifest.toPath()), UTF_8);
-        assertTrue(
-                rewritten.contains("com/github/dropguard/summer/aot/generated/GeneratedAotContext"),
-                "manifest must be rewritten to name this run's own outputs: " + rewritten);
-        assertTrue(
-                !rewritten.contains("com/example/gone/OldBean"),
-                "manifest must no longer list the removed class: " + rewritten);
+        // The previous run's manifest is no longer consulted — the new path relies on the
+        // live source set + a fresh state snapshot. Verify the state file was written.
+        File stateFile = new File(basedir, "target/summer/source-classes.tsv");
+        assertTrue(stateFile.exists(), "state file must be written after a successful run");
     }
 
     /** Copies the fixture bean, writes its Jandex index, and seeds an application.yml. */
@@ -186,5 +186,21 @@ class SummerMojoTest {
         Field f = SummerMojo.class.getDeclaredField(name);
         f.setAccessible(true);
         f.set(target, value);
+    }
+
+    /**
+     * Writes a stub source so reconcile has something to parse. The matching .class lives in {@code
+     * classes/com/github/dropguard/summer/plugin/FixtureService.class}.
+     */
+    private void prepareFixtureSource(File srcMainJava) throws Exception {
+        srcMainJava.mkdirs();
+        File pkg = new File(srcMainJava, "com/github/dropguard/summer/plugin");
+        pkg.mkdirs();
+        Files.writeString(
+                new File(pkg, "FixtureService.java").toPath(),
+                "package com.github.dropguard.summer.plugin;\n"
+                        + "import com.github.dropguard.summer.core.Component;\n"
+                        + "@Component public class FixtureService {}\n",
+                UTF_8);
     }
 }

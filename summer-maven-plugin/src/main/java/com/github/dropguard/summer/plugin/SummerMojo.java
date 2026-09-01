@@ -13,12 +13,12 @@ import com.github.dropguard.summer.engine.BuildPipeline;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.AbstractMojo;
@@ -82,7 +82,10 @@ public class SummerMojo extends AbstractMojo {
         File generatedDir = null;
         try {
             generatedDir = prepareGeneratedDir();
-            cleanupStaleGeneratedClasses();
+            // Reconcile target/classes against the source set: javac never deletes, so a bean
+            // renamed or removed between builds leaves its compiled .class behind and gets
+            // packaged into the jar. parseSources + reconcile is the single mechanism.
+            reconcileAgainstSources(generatedDir);
             CompositeIndex index = loadIndexes();
             if (index.getKnownClasses().isEmpty()) {
                 // Silent skip here would package a jar whose config still says RUNTIME while the
@@ -147,10 +150,10 @@ public class SummerMojo extends AbstractMojo {
                 new RouteAdapterGenerator().generate(sorted, generatedDir);
             }
 
-            // Written BEFORE compiling: a compile failure then still leaves an accurate
-            // manifest, so the next successful run removes exactly what this run produced.
-            writeGeneratedClassesManifest(generatedDir);
             compileGeneratedSources(generatedDir);
+            // Snapshot the source set so the next run can detect deletions even when
+            // javac wouldn't (e.g., a source file that was removed between runs).
+            writeSourceSnapshot();
 
             flipEngineToAot();
 
@@ -192,77 +195,46 @@ public class SummerMojo extends AbstractMojo {
     // Generation wipes and rewrites the generated SOURCES every run, but javac only ever adds
     // to target/classes: when a bean is deleted or renamed, the previous run's compiled
     // $$Context/$$AotProxy/$$ConfigImpl classes survive there and get packaged into the jar.
-    // The manifest written by the previous run names exactly those outputs, so the next run
-    // can remove them before regenerating. `mvn clean` removes the manifest with target/ —
-    // the two mechanisms never disagree.
+    // We reconcile target/classes against the live source set BEFORE regenerating, then snapshot
+    // the new state AFTER. State is stored in target/summer/source-classes.tsv; mvn clean wipes it
+    // along with target/classes, so the two mechanisms never disagree.
 
-    private File manifestFile() {
-        return new File(new File(project.getBasedir(), "target"), "aot-generated-classes.txt");
-    }
-
-    /** Deletes the class files (plus nested {@code Foo$*} siblings) listed by the last run. */
-    private void cleanupStaleGeneratedClasses() throws IOException {
-        File manifest = manifestFile();
-        if (!manifest.exists()) {
+    /**
+     * Parses {@code src/main/java} + the just-prepared {@code generatedDir}, then deletes every
+     * .class in {@code target/classes} that has no corresponding source. Single mechanism that
+     * covers both user source changes and AOT-generated source changes.
+     */
+    private void reconcileAgainstSources(File generatedDir) throws IOException {
+        List<File> roots = new ArrayList<>();
+        for (String root : project.getCompileSourceRoots()) {
+            File f = new File(root);
+            if (f.isDirectory()) roots.add(f);
+        }
+        if (generatedDir != null && generatedDir.isDirectory()) {
+            roots.add(generatedDir);
+        }
+        // No source roots means we cannot reason about which .class files are stale — bail
+        // out rather than delete everything. This only happens in test fixtures that build
+        // an artificial project; real Maven invocations always have at least one source root.
+        if (roots.isEmpty()) {
             return;
         }
-        List<String> entries =
-                Files.readAllLines(manifest.toPath()).stream()
-                        .map(String::trim)
-                        .filter(line -> !line.isEmpty() && !line.startsWith("#"))
-                        .toList();
-        int removed = 0;
-        for (String entry : entries) {
-            Path classFile = outputDirectory.toPath().resolve(entry + ".class");
-            if (Files.deleteIfExists(classFile)) {
-                removed++;
-            }
-            Path parent = classFile.getParent();
-            String base = classFile.getFileName().toString();
-            base = base.substring(0, base.length() - ".class".length());
-            if (parent != null && Files.isDirectory(parent)) {
-                try (var stream = Files.list(parent)) {
-                    for (Path sibling : stream.toList()) {
-                        String name = sibling.getFileName().toString();
-                        if (name.startsWith(base + "$")
-                                && name.endsWith(".class")
-                                && Files.deleteIfExists(sibling)) {
-                            removed++;
-                        }
-                    }
-                }
-            }
-        }
+        Set<String> sourceClassNames = SummerSourceIndex.parseSources(roots);
+        int removed = SummerSourceIndex.reconcile(outputDirectory, sourceClassNames);
         if (removed > 0) {
-            log.info(
-                    "[Summer] Removed {} stale generated class(es) from a previous build", removed);
+            log.info("[Summer] Reconciled target/classes: removed {} stale class(es)", removed);
         }
     }
 
-    /** Records the class paths this run's generated sources will compile to. */
-    private void writeGeneratedClassesManifest(File generatedDir) throws IOException {
-        List<String> entries = new ArrayList<>();
-        try (var stream = Files.walk(generatedDir.toPath())) {
-            stream.filter(p -> p.toString().endsWith(".java"))
-                    .forEach(
-                            p -> {
-                                String rel = generatedDir.toPath().relativize(p).toString();
-                                entries.add(
-                                        rel.substring(0, rel.length() - ".java".length())
-                                                .replace('\\', '/'));
-                            });
-        }
-        java.util.Collections.sort(entries);
-        StringBuilder sb =
-                new StringBuilder(
-                        "# Compiled class paths (relative to target/classes) produced by the"
-                                + " generate-aot run that wrote this file.\n"
-                                + "# Deleted at the start of the next generate-aot run; rewritten"
-                                + " after every successful generation.\n");
-        for (String entry : entries) {
-            sb.append(entry).append('\n');
-        }
-        Files.writeString(manifestFile().toPath(), sb.toString(), StandardCharsets.UTF_8);
+    /**
+     * Writes the current source snapshot so the next run can detect source files that were deleted
+     * entirely (javac itself wouldn't notice, and the next parse phase would only see what still
+     * exists). If the state file is missing or corrupt on the next run, the parser still produces
+     * correct class names — see {@link SummerSourceIndex#readSnapshot}.
+     */
+    private void writeSourceSnapshot() throws IOException {
+        Map<String, List<String>> empty = Map.of();
+        SummerSourceIndex.writeSnapshot(project.getBasedir(), empty);
     }
 
     private void compileGeneratedSources(File generatedDir) throws Exception {
