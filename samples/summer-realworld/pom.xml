@@ -14,12 +14,12 @@
     <parent>
         <groupId>com.github.dropguard.summer.samples</groupId>
         <artifactId>summer-samples</artifactId>
-        <version>0.3.3-SNAPSHOT</version>
+        <version>0.3.3</version>
     </parent>
 
     <groupId>com.github.dropguard.summer.realworld</groupId>
     <artifactId>summer-realworld</artifactId>
-    <version>0.3.3-SNAPSHOT</version>
+    <version>0.3.3</version>
     <packaging>jar</packaging>
     <name>Summer RealWorld</name>
     <description>RealWorld example application demonstrating the Summer framework</description>
