@@ -130,8 +130,9 @@ mvn install -DskipTests       # Install all jars locally, skip tests
   a public signature (constructor/method param types), build that module chain with `mvn clean`;
   and never read a surefire report without the matching `BUILD SUCCESS/FAILURE` line — a stale
   "all green" report next to a failed build is the classic false signal. The AOT mojo wipes and
-  regenerates its sources every run and removes last run's generated classes via
-  `target/aot-generated-classes.txt`; `mvn clean` remains the sledgehammer.
+  regenerates its sources every run; stale compiled outputs are reconciled by
+  {@code SummerSourceIndex} against the live source set, with a snapshot at
+  `target/summer/source-classes.tsv`. `mvn clean` remains the sledgehammer.
 - JDK 25 baseline (`--sun-misc-unsafe-memory-access=allow` for Netty/AOT).
 - No Maven wrapper — CI uses `setup-java` which auto-installs Maven.
 - `summer-parent/pom.xml` is the **mandatory build contract** (not optional): it binds Jandex
