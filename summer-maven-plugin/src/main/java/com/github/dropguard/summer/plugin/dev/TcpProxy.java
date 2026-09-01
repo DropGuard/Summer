@@ -90,7 +90,7 @@ public class TcpProxy {
                                                         + "...");
 
                                         env.rebuild(filesToCompile);
-                                        isDirty = false;
+                                        isDirty = !changedFiles.isEmpty();
                                         log.info(
                                                 "[Summer] Backend ready on :"
                                                         + env.backendPort()
@@ -123,6 +123,10 @@ public class TcpProxy {
                                         clientSocket);
 
                             } catch (Exception e) {
+                                // Surface failures (compile errors, backend connect errors) to
+                                // the user. changedFiles stays as-is: the user's edit is the
+                                // truth, and the next request retries the rebuild against it.
+                                log.error("[Summer] Proxy handler error", e);
                                 closeQuietly(clientSocket);
                             }
                         },
