@@ -58,7 +58,10 @@ public final class DevEnvironment {
             }
         }
         if (!sources.isEmpty()) {
-            compiler.compile(sources);
+            if (!compiler.compile(sources)) {
+                throw new CompileFailedException(
+                        "Compilation failed; the Summer application was not restarted");
+            }
             indexer.reindex(compiler.outputDir);
         }
 
