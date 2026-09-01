@@ -1,46 +1,21 @@
 package com.github.dropguard.summer.core.validation;
 
 /**
- * Validates a bean after property binding, before it is used.
+ * Validates a bean instance. Implementation is registered as a {@code @Component} and runs against
+ * matching beans during the validation phase.
  *
- * <p>Implement this interface and register as a {@code @Component} to validate configuration
- * properties or other beans during the Validation Phase of the bean lifecycle.
- *
- * <p>Example:
- *
- * <pre>
- * {
- * 	&#64;code
- * 	&#64;Component
- * 	public class TlsConfigValidator implements Validator&lt;MyTlsConfig&gt; {
- *
- * 		&#64;Override
- * 		public Class&lt;MyTlsConfig&gt; targetType() {
- * 			return MyTlsConfig.class;
- * 		}
- *
- * 		@Override
- * 		public void validate(MyTlsConfig config) {
- * 			if (config.enabled() &amp;&amp; config.certChain() == null) {
- * 				throw new ConfigValidationException("TLS enabled but cert-chain is required");
- * 			}
- * 		}
- * 	}
- * }
- * </pre>
- *
- * @param <T> the type to validate
+ * <p>Each violation is added to the result; the framework raises the exception once validation is
+ * complete — never mid-validation — so a single error report lists every problem, not just the
+ * first.
  */
 public interface Validator<T> {
 
-    /** Returns the type this validator applies to. */
+    /** Returns the bean type this validator applies to. */
     Class<T> targetType();
 
     /**
-     * Validates the given bean.
-     *
-     * @param bean the bean to validate
-     * @throws ConfigValidationException if validation fails
+     * Validates the bean, adding violations to the result. Implementations MUST NOT throw — always
+     * report via {@code result.violate(...)}.
      */
-    void validate(T bean);
+    void validate(T bean, Result result);
 }
