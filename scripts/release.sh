@@ -61,7 +61,7 @@ for root, dirs, files in os.walk('.'):
     if any(p in root for p in ['target', '.git', '.idea', 'node_modules']):
         continue
     for file in files:
-        if file == 'pom.xml':
+        if file == 'pom.xml' or file == 'docker-compose.yml':
             p = os.path.join(root, file)
             with open(p, 'r', encoding='utf-8') as f:
                 content = f.read()
@@ -69,16 +69,24 @@ for root, dirs, files in os.walk('.'):
             current_tag = f'<version>{current}</version>'
             target_prop = f'<summer.framework.version>{target}</summer.framework.version>'
             current_prop = f'<summer.framework.version>{current}</summer.framework.version>'
-            if current_tag in content or current_prop in content:
+            target_jar = f'benchmark-summer-{target}.jar'
+            current_jar = f'benchmark-summer-{current}.jar'
+            target_jsonb_jar = f'benchmark-summer-jsonb-{target}.jar'
+            current_jsonb_jar = f'benchmark-summer-jsonb-{current}.jar'
+            if current_tag in content or current_prop in content or current_jar in content:
                 count += 1
                 affected.append(p)
                 if not dry_run:
-                    new_content = content.replace(current_tag, target_tag).replace(current_prop, target_prop)
+                    new_content = (content
+                        .replace(current_tag, target_tag)
+                        .replace(current_prop, target_prop)
+                        .replace(current_jar, target_jar)
+                        .replace(current_jsonb_jar, target_jsonb_jar))
                     with open(p, 'w', encoding='utf-8') as f:
                         f.write(new_content)
 
 action = '[DRY-RUN] Would update' if dry_run else 'Updated'
-print(f'==> {action} {count} POM files ({current} -> {target}):')
+print(f'==> {action} {count} files ({current} -> {target}):')
 for p in sorted(affected):
     print(f'    - {p}')
 "

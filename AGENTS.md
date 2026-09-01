@@ -213,27 +213,15 @@ Three tiers, from highest to lowest level:
 Summer uses automated tag-driven CI/CD deployment to Maven Central via GitHub Actions (`publish.yml`).
 During development, the version on `main` is always a `-SNAPSHOT` (e.g., `0.3.2-SNAPSHOT`).
 
-To release a new version (standard Maven `versions:set` workflow):
+To release a new version, use the automated release script:
 ```bash
-# 1. Update versions across framework, samples, and benchmark modules
-mvn -f summer-parent/pom.xml versions:set -DnewVersion=0.3.2 -DgenerateBackupPoms=false
-mvn -f samples/pom.xml versions:set -DnewVersion=0.3.2 -DgenerateBackupPoms=false
-mvn -f summer-benchmark/pom.xml versions:set -DnewVersion=0.3.2 -DgenerateBackupPoms=false
+# Preview the release without modifying any files or git state:
+./scripts/release.sh --dry-run <version>
 
-# 2. Check code formatting
-mvn spotless:check
+# Execute the release (updates all POMs, runs spotless, commits, tags, bumps dev snapshot, and pushes):
+./scripts/release.sh <version> [next-snapshot-version]
 
-# 3. Commit and tag release
-git commit -am "chore: bump version to 0.3.2"
-git tag v0.3.2
-
-# 4. Bump main to next development snapshot
-mvn -f summer-parent/pom.xml versions:set -DnewVersion=0.3.3-SNAPSHOT -DgenerateBackupPoms=false
-mvn -f samples/pom.xml versions:set -DnewVersion=0.3.3-SNAPSHOT -DgenerateBackupPoms=false
-mvn -f summer-benchmark/pom.xml versions:set -DnewVersion=0.3.3-SNAPSHOT -DgenerateBackupPoms=false
-git commit -am "chore: bump development version to 0.3.3-SNAPSHOT"
-
-# 5. Push main and tag to trigger automated publish workflow
-git push origin main && git push origin v0.3.2
+# Example:
+./scripts/release.sh 0.3.3 0.3.4-SNAPSHOT
 ```
 Pushing the `v*` tag automatically triggers the GitHub Actions `publish.yml` workflow, which handles Java 25 compilation, GPG signing, Maven Central staging/publishing, and GitHub Release notes generation.
