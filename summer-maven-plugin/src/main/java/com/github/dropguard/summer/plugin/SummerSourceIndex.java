@@ -6,17 +6,12 @@ import com.sun.source.tree.Tree;
 import com.sun.source.util.JavacTask;
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import javax.tools.JavaCompiler;
 import javax.tools.StandardJavaFileManager;
@@ -30,17 +25,14 @@ import javax.tools.ToolProvider;
  * truth for "what classes does this source define", which means the extraction stays correct as the
  * Java grammar evolves (records, sealed, pattern-matching declarations, ...).
  *
- * <p>The state file ({@code target/summer/source-classes.tsv}) stores the last successful snapshot
- * of {@code source path → binary class names}, so a deleted source file can be identified on the
- * next run even when the source itself is gone. Reading the state when missing or corrupt returns
- * an empty map — the caller proceeds with a full re-parse, which is the defined fallback behavior.
+ * <p>Every run parses the LIVE source set and reconciles from scratch — no persistent state: a
+ * deleted source file's classes vanish from the parse output and are deleted from {@code
+ * target/classes} by the same rule as any other orphan, so cross-run bookkeeping would add nothing
+ * the live parse does not already know.
  */
 final class SummerSourceIndex {
 
     private SummerSourceIndex() {}
-
-    private static final String STATE_RELATIVE_PATH = "summer/source-classes.tsv";
-    private static final String STATE_HEADER = "# Summer source/class state v1";
 
     // ── Public API ───────────────────────────────────────────────────────────────
 
@@ -136,79 +128,6 @@ final class SummerSourceIndex {
                 return false;
             }
         }
-    }
-
-    /**
-     * Writes the current source snapshot to the state file inside {@code basedir/target/}.
-     *
-     * <p>Format: {@code HEADER\n<sourcePath>\t<class1,class2,...>\n...}, one line per source.
-     *
-     * @param basedir the Maven project basedir
-     * @param sources map from source path to its class names
-     */
-    static void writeSnapshot(File basedir, Map<String, List<String>> sources) throws IOException {
-        Path stateFile = stateFile(basedir);
-        Files.createDirectories(stateFile.getParent());
-
-        StringBuilder content = new StringBuilder(STATE_HEADER).append('\n');
-        for (Map.Entry<String, List<String>> entry : sources.entrySet()) {
-            content.append(entry.getKey()).append('\t');
-            List<String> classes = entry.getValue();
-            for (int i = 0; i < classes.size(); i++) {
-                if (i > 0) content.append(',');
-                content.append(classes.get(i));
-            }
-            content.append('\n');
-        }
-
-        Path temp = stateFile.resolveSibling(stateFile.getFileName() + ".tmp");
-        Files.writeString(
-                temp,
-                content.toString(),
-                StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING,
-                StandardOpenOption.WRITE);
-        try {
-            Files.move(
-                    temp,
-                    stateFile,
-                    StandardCopyOption.ATOMIC_MOVE,
-                    StandardCopyOption.REPLACE_EXISTING);
-        } catch (java.nio.file.AtomicMoveNotSupportedException e) {
-            Files.move(temp, stateFile, StandardCopyOption.REPLACE_EXISTING);
-        }
-    }
-
-    /**
-     * Reads the snapshot previously written by {@link #writeSnapshot}. Returns an empty map if the
-     * state file does not exist, is unreadable, or is corrupt — callers MUST treat this as a safe
-     * fallback and proceed with a full re-parse.
-     *
-     * @param basedir the Maven project basedir
-     * @return snapshot, or empty map on any I/O error
-     */
-    static Map<String, List<String>> readSnapshot(File basedir) {
-        Path stateFile = stateFile(basedir);
-        if (!Files.exists(stateFile)) return Collections.emptyMap();
-        Map<String, List<String>> result = new HashMap<>();
-        try {
-            for (String line : Files.readAllLines(stateFile, StandardCharsets.UTF_8)) {
-                if (line.isBlank() || line.startsWith("#")) continue;
-                int tab = line.indexOf('\t');
-                if (tab < 0) continue;
-                String path = line.substring(0, tab);
-                String classesField = line.substring(tab + 1);
-                List<String> classes = new ArrayList<>();
-                if (!classesField.isEmpty()) {
-                    Collections.addAll(classes, classesField.split(",", -1));
-                }
-                result.put(path, Collections.unmodifiableList(classes));
-            }
-        } catch (IOException e) {
-            return Collections.emptyMap();
-        }
-        return result;
     }
 
     // ── Internal: javac AST extraction (public API only) ─────────────────────────
@@ -308,10 +227,6 @@ final class SummerSourceIndex {
     }
 
     // ── Internal: filesystem utilities ───────────────────────────────────────────
-
-    private static Path stateFile(File basedir) {
-        return basedir.toPath().resolve("target").resolve(STATE_RELATIVE_PATH);
-    }
 
     private static void collectJavaFiles(File root, List<File> acc) {
         File[] files = root.listFiles();

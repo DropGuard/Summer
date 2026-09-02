@@ -124,11 +124,6 @@ class SummerMojoTest {
 
         assertTrue(!staleClass.exists(), "stale class must be removed by reconciliation");
         assertTrue(!staleNested.exists(), "stale nested class must be removed by reconciliation");
-
-        // The previous run's manifest is no longer consulted — the new path relies on the
-        // live source set + a fresh state snapshot. Verify the state file was written.
-        File stateFile = new File(basedir, "target/summer/source-classes.tsv");
-        assertTrue(stateFile.exists(), "state file must be written after a successful run");
     }
 
     /** Copies the fixture bean, writes its Jandex index, and seeds an application.yml. */

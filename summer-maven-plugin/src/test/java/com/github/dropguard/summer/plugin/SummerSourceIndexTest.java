@@ -10,7 +10,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -252,55 +251,6 @@ class SummerSourceIndexTest {
         File missing = temp.resolve("does-not-exist").toFile();
         int removed = SummerSourceIndex.reconcile(missing, Set.of("com.example.Foo"));
         assertEquals(0, removed);
-    }
-
-    // ── snapshot ─────────────────────────────────────────────────────────────────
-
-    @Test
-    void writeSnapshotRoundTrips(@TempDir Path temp) throws Exception {
-        File basedir = temp.toFile();
-        Map<String, List<String>> snapshot =
-                Map.of(
-                        "src/main/java/com/example/Foo.java",
-                        List.of("com.example.Foo", "com.example.Foo$Inner"),
-                        "src/main/java/com/example/Bar.java",
-                        List.of("com.example.Bar"));
-
-        SummerSourceIndex.writeSnapshot(basedir, snapshot);
-
-        Map<String, List<String>> read = SummerSourceIndex.readSnapshot(basedir);
-        assertEquals(snapshot, read);
-    }
-
-    @Test
-    void readSnapshotMissingFileReturnsEmpty(@TempDir Path temp) throws Exception {
-        Map<String, List<String>> result = SummerSourceIndex.readSnapshot(temp.toFile());
-        assertNotNull(result);
-        assertTrue(result.isEmpty());
-    }
-
-    @Test
-    void readSnapshotCorruptFileReturnsEmpty(@TempDir Path temp) throws Exception {
-        Path stateFile = temp.resolve("target/summer/source-classes.tsv");
-        Files.createDirectories(stateFile.getParent());
-        Files.writeString(
-                stateFile, "totally\nbroken lines with no tabs at all\n", StandardCharsets.UTF_8);
-
-        Map<String, List<String>> result = SummerSourceIndex.readSnapshot(temp.toFile());
-        assertNotNull(result);
-        assertTrue(result.isEmpty());
-    }
-
-    @Test
-    void readSnapshotSkipsCommentAndBlankLines(@TempDir Path temp) throws Exception {
-        File basedir = temp.toFile();
-        Map<String, List<String>> snapshot =
-                Map.of("src/main/java/com/example/Foo.java", List.of("com.example.Foo"));
-        SummerSourceIndex.writeSnapshot(basedir, snapshot);
-
-        Map<String, List<String>> read = SummerSourceIndex.readSnapshot(basedir);
-        assertEquals(1, read.size());
-        assertEquals(List.of("com.example.Foo"), read.get("src/main/java/com/example/Foo.java"));
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────────

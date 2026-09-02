@@ -18,7 +18,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.plugin.AbstractMojo;
@@ -147,13 +146,10 @@ public class SummerMojo extends AbstractMojo {
             // Route adapter imports web types — generate only when routes exist,
             // or non-web applications fail to compile the generated sources.
             if (sorted.stream().anyMatch(b -> !b.routes.isEmpty())) {
-                new RouteAdapterGenerator().generate(sorted, generatedDir);
+                new RouteAdapterGenerator().generate(sorted, index, generatedDir);
             }
 
             compileGeneratedSources(generatedDir);
-            // Snapshot the source set so the next run can detect deletions even when
-            // javac wouldn't (e.g., a source file that was removed between runs).
-            writeSourceSnapshot();
 
             flipEngineToAot();
 
@@ -195,9 +191,8 @@ public class SummerMojo extends AbstractMojo {
     // Generation wipes and rewrites the generated SOURCES every run, but javac only ever adds
     // to target/classes: when a bean is deleted or renamed, the previous run's compiled
     // $$Context/$$AotProxy/$$ConfigImpl classes survive there and get packaged into the jar.
-    // We reconcile target/classes against the live source set BEFORE regenerating, then snapshot
-    // the new state AFTER. State is stored in target/summer/source-classes.tsv; mvn clean wipes it
-    // along with target/classes, so the two mechanisms never disagree.
+    // We reconcile target/classes against the live source set BEFORE regenerating. No persistent
+    // state: the live parse is recomputed every run and needs no cross-run bookkeeping.
 
     /**
      * Parses {@code src/main/java} + the just-prepared {@code generatedDir}, then deletes every
@@ -224,17 +219,6 @@ public class SummerMojo extends AbstractMojo {
         if (removed > 0) {
             log.info("[Summer] Reconciled target/classes: removed {} stale class(es)", removed);
         }
-    }
-
-    /**
-     * Writes the current source snapshot so the next run can detect source files that were deleted
-     * entirely (javac itself wouldn't notice, and the next parse phase would only see what still
-     * exists). If the state file is missing or corrupt on the next run, the parser still produces
-     * correct class names — see {@link SummerSourceIndex#readSnapshot}.
-     */
-    private void writeSourceSnapshot() throws IOException {
-        Map<String, List<String>> empty = Map.of();
-        SummerSourceIndex.writeSnapshot(project.getBasedir(), empty);
     }
 
     private void compileGeneratedSources(File generatedDir) throws Exception {
