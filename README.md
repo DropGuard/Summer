@@ -45,7 +45,7 @@ summer dev
 | Step | CLI Command | Pure Maven Alternative | What it does |
 |---|---|---|---|
 | **1. Scaffold** | `summer create myapp` | (See manual POM below) | Scaffolds a new project with AOT, Jandex, and ArchUnit guardrails |
-| **2. Develop** | `summer dev` | `mvn summer:dev` | Hot-reload dev loop on `:8080` (TCP proxy + eager-kill & lazy-reboot) |
+| **2. Develop** | `summer dev` | `mvn summer:dev`<br>(needs `io.github.dropguard` in your pluginGroups, or use `mvn io.github.dropguard:summer-maven-plugin:dev`) | Hot-reload dev loop on `:8080` (TCP proxy + eager-kill & lazy-reboot) |
 | **3. Test** | — | `mvn test` | Runs application tests |
 | **4. Ship** | `summer build` | `mvn package` | Generates AOT constructor wiring → runnable fat jar (`java -jar`) |
 

@@ -131,8 +131,9 @@ mvn install -DskipTests       # Install all jars locally, skip tests
   and never read a surefire report without the matching `BUILD SUCCESS/FAILURE` line — a stale
   "all green" report next to a failed build is the classic false signal. The AOT mojo wipes and
   regenerates its sources every run; stale compiled outputs are reconciled by
-  {@code SummerSourceIndex} against the live source set, with a snapshot at
-  `target/summer/source-classes.tsv`. `mvn clean` remains the sledgehammer.
+  `SummerSourceIndex` against the live source set (javac-parsed, exact binary names including
+  nested types) on every invocation — deliberately no persistent state file. `mvn clean` remains
+  the sledgehammer.
 - JDK 25 baseline (`--sun-misc-unsafe-memory-access=allow` for Netty/AOT).
 - No Maven wrapper — CI uses `setup-java` which auto-installs Maven.
 - `summer-parent/pom.xml` is the **mandatory build contract** (not optional): it binds Jandex
@@ -155,13 +156,19 @@ choice — Summer ships no Dockerfile, by design.
   `BeanContainer.close()` never runs and graceful shutdown silently dies.
 - **Health probes** — `/health/ready` (readiness, flips to 503 during
   shutdown) and `/health/live` (liveness). Point the orchestrator's readiness
-  probe at `/health/ready` so it stops routing before the server stops
-  accepting.
-- **Graceful shutdown budget** — `ShutdownConfig.timeoutMs` (default 10s,
-  bounds the in-flight drain) must sit *inside* the platform's kill budget:
-  bare `docker stop` defaults to 10s (raise with `--stop-timeout`), and on
-  Kubernetes set `terminationGracePeriodSeconds` strictly greater than
-  `timeoutMs` + other teardown work.
+  probe at `/health/ready`; on SIGTERM the app flips readiness *before*
+  draining, and the orchestrator's endpoint removal (not an in-app wait) is
+  what stops routing — so readiness propagation delay is the platform's to
+  absorb.
+- **Graceful shutdown budget** — `ShutdownConfig.timeoutMs` is the *single*
+  budget (Spring/Quarkus model): SIGTERM → readiness 503 → stop accepting →
+  drain in-flight requests within the budget → release event loops (also
+  bounded by what remains of the budget). No per-phase configuration. It must
+  sit *inside* the platform's kill budget: bare `docker stop` defaults to 10s
+  (raise with `--stop-timeout`), and on Kubernetes set
+  `terminationGracePeriodSeconds` strictly greater than `timeoutMs` + other
+  teardown work. There is deliberately no in-app LB drain window before the
+  server stops accepting (Spring Boot and Quarkus don't have one either).
 - **Externalized config** — inject the datasource URL etc. via `${VAR}` /
   `${VAR:-default}` in `application.yml` (resolved from env at bind time), so
   the same image runs against any Postgres service name without a rebuild.
@@ -203,7 +210,7 @@ Three tiers, from highest to lowest level:
 
 - `jakarta.validation-api` 3.0.2 in BOM (`summer-dependencies`), transitively provided by `summer-web`.
 - `avaje-validator` 2.17 is the runtime implementation.
-- Use `ctx.validatedBody(Class<T>)` on controllers — it deserializes + auto-validates. Throws `ValidationException` (→ 400/422 via global error handler).
+- Use `ctx.validatedBody(Class<T>)` on controllers — it deserializes + auto-validates. Throws `ValidationException` (→ 400; unmapped exceptions fall back to the plain-text status mapping in the Netty handler).
 - DTO records use `@jakarta.validation.constraints.NotBlank`, `@Email`, etc.
 - All three demos (issue-tracker, realworld, twitter) are migrated to this pattern.
 
