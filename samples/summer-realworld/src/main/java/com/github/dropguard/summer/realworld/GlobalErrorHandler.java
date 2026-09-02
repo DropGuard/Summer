@@ -57,7 +57,6 @@ public class GlobalErrorHandler {
             ValidationException ve = (ValidationException) e;
             // New Result.Violation carries (path, message). The legacy errors() helper was removed
             // because ValidationException no longer pre-builds a String list; callers either pull
-            // the first violation or join all of them in DefaultGlobalErrorHandler.
             com.github.dropguard.summer.core.validation.Result.Violation first =
                     ve.violations().get(0);
             String field = first.path().isEmpty() ? "body" : first.path();
