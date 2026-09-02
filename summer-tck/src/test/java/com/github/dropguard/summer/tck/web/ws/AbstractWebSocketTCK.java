@@ -254,4 +254,49 @@ public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
             }
         };
     }
+
+    // --- Cross-implementation contract: fail-fast duplicates, priority, decoding ---
+
+    @Test
+    void testWsDuplicateRegistrationFailsFast() {
+        // Same contract as MapRouter/RadixTrie: a duplicate route must fail the router build,
+        // not let "whichever handler registered last wins" hide the conflict.
+        assertThrows(
+                com.github.dropguard.summer.web.exception.RouteConflictException.class,
+                () -> createBuilder().ws("/chat", ctx -> {}).ws("/chat", ctx -> {}).build());
+    }
+
+    @Test
+    void testWsStaticBeatsParamAtSameDepth() {
+        AtomicReference<String> hit = new AtomicReference<>();
+
+        WsRouter router =
+                createBuilder()
+                        .ws("/chat/{room}", ctx -> hit.set("param"))
+                        .ws("/chat/general", ctx -> hit.set("static"))
+                        .build();
+
+        WsRouter.WsMatch match = router.routeWs("/chat/general");
+        assertNotNull(match, "static sibling must match");
+        match.handler().handle(createMockContext(match.pathParams()));
+        assertEquals("static", hit.get(), "static route must beat the param sibling");
+
+        WsRouter.WsMatch paramMatch = router.routeWs("/chat/42");
+        assertNotNull(paramMatch, "param sibling must still match");
+        assertEquals("42", paramMatch.pathParams().get("room"));
+    }
+
+    @Test
+    void testWsPlusInPathParamStaysLiteral() {
+        AtomicReference<String> roomRef = new AtomicReference<>();
+
+        WsRouter router =
+                createBuilder()
+                        .ws("/chat/{room}", ctx -> roomRef.set(ctx.pathParam("room")))
+                        .build();
+
+        WsRouter.WsMatch match = router.routeWs("/chat/a+b");
+        assertNotNull(match, "literal plus must still match the param route");
+        assertEquals("a+b", match.pathParams().get("room"), "'+' must stay a literal plus");
+    }
 }

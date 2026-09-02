@@ -3,6 +3,7 @@ package com.github.dropguard.summer.tck.web.router;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.github.dropguard.summer.tck.AbstractComponentTCK;
 import com.github.dropguard.summer.web.HttpContext;
@@ -430,6 +431,115 @@ public abstract class AbstractRouterTCK extends AbstractComponentTCK {
 
         assertEquals("star", bodyAsString(r, HttpMethod.GET, "/files/report.pdf"));
         assertEquals("catch-all", bodyAsString(r, HttpMethod.GET, "/files/sub/dir"));
+    }
+
+    // --- Cross-implementation contract: backtracking, priority, decoding ---
+    //
+    // These cases pin the shared contract that made MAP and RADIX_TREE
+    // interchangeable. Each was a real divergence before the alignment: the
+    // radix trie never backtracked out of a dead-ended static branch, the map
+    // router decoded path params with URLDecoder (form semantics: '+' became a
+    // space), and pattern ties resolved by map iteration order.
+
+    @Test
+    void testStaticBranchDeadEndFallsBackToParamSibling() throws Exception {
+        // /files/static matches the static child, but that node has no handler and no
+        // children — the match must backtrack to the {name} sibling instead of 404ing.
+        HttpRouter r =
+                builder()
+                        .get("/files/{name}", ctx -> ctx.text(HttpStatus.OK, "named"))
+                        .get("/files/static/*", ctx -> ctx.text(HttpStatus.OK, "static-dir"))
+                        .build();
+
+        assertEquals("static-dir", bodyAsString(r, HttpMethod.GET, "/files/static/a"));
+        assertEquals("named", bodyAsString(r, HttpMethod.GET, "/files/static"));
+        assertEquals("named", bodyAsString(r, HttpMethod.GET, "/files/report.pdf"));
+    }
+
+    @Test
+    void testParamBranchDeadEndFallsBackToWildcardSibling() throws Exception {
+        // Same contract one level deeper: {id} binds, its subtree dead-ends, the wildcard
+        // sibling of {id} must get its chance.
+        HttpRouter r =
+                builder()
+                        .get("/u/{id}/x", ctx -> ctx.text(HttpStatus.OK, "param-x"))
+                        .get("/u/*/y", ctx -> ctx.text(HttpStatus.OK, "star-y"))
+                        .build();
+
+        assertEquals("param-x", bodyAsString(r, HttpMethod.GET, "/u/5/x"));
+        assertEquals("star-y", bodyAsString(r, HttpMethod.GET, "/u/5/y"));
+    }
+
+    @Test
+    void testStaticBeatsParamAtSameDepth() throws Exception {
+        HttpRouter r =
+                builder()
+                        .get("/u/{id}", ctx -> ctx.text(HttpStatus.OK, "param"))
+                        .get("/u/me", ctx -> ctx.text(HttpStatus.OK, "static"))
+                        .build();
+
+        assertEquals("static", bodyAsString(r, HttpMethod.GET, "/u/me"));
+        assertEquals("param", bodyAsString(r, HttpMethod.GET, "/u/5"));
+    }
+
+    @Test
+    void testPlusInPathParamStaysLiteral() throws Exception {
+        // RFC 3986 path semantics: '+' is a literal plus in a path segment. Form decoding
+        // ('+' = space) is query-string behavior and must not leak into path params.
+        HttpRouter r =
+                builder()
+                        .get(
+                                "/files/{name}",
+                                ctx -> ctx.text(HttpStatus.OK, ctx.request().pathParam("name")))
+                        .build();
+
+        assertEquals("a+b+c", bodyAsString(r, HttpMethod.GET, "/files/a+b+c"));
+    }
+
+    @Test
+    void testPercentEncodedPathParamIsDecoded() throws Exception {
+        HttpRouter r =
+                builder()
+                        .get(
+                                "/files/{name}",
+                                ctx -> ctx.text(HttpStatus.OK, ctx.request().pathParam("name")))
+                        .build();
+
+        assertEquals("a b", bodyAsString(r, HttpMethod.GET, "/files/a%20b"));
+    }
+
+    @Test
+    void testCatchAllCoversZeroSegments() throws Exception {
+        HttpRouter r =
+                builder().get("/files/**", ctx -> ctx.text(HttpStatus.OK, "catch-all")).build();
+
+        assertEquals("catch-all", bodyAsString(r, HttpMethod.GET, "/files"));
+        assertEquals("catch-all", bodyAsString(r, HttpMethod.GET, "/files/a/b"));
+    }
+
+    @Test
+    void testDeepDeadEndFallsBackToAncestorCatchAll() throws Exception {
+        HttpRouter r =
+                builder()
+                        .get("/a/b/c", ctx -> ctx.text(HttpStatus.OK, "static"))
+                        .get("/a/**", ctx -> ctx.text(HttpStatus.OK, "catch-all"))
+                        .build();
+
+        assertEquals("static", bodyAsString(r, HttpMethod.GET, "/a/b/c"));
+        assertEquals("catch-all", bodyAsString(r, HttpMethod.GET, "/a/x/y"));
+        assertEquals("catch-all", bodyAsString(r, HttpMethod.GET, "/a/b/x"));
+    }
+
+    @Test
+    void testDuplicateRegistrationFailsFast() throws Exception {
+        var b =
+                builder()
+                        .get("/users", ctx -> ctx.text(HttpStatus.OK, "first"))
+                        .get("/users", ctx -> ctx.text(HttpStatus.OK, "second"));
+        assertThrows(
+                com.github.dropguard.summer.web.exception.RouteConflictException.class,
+                b::build,
+                "duplicate route registration must fail the router build, not pick a winner");
     }
 
     // --- Helper ---

@@ -170,74 +170,107 @@ public class RadixTrie<T> {
     }
 
     /**
-     * Matches the path against the trie, honouring the documented priority order (exact static &gt;
-     * path parameter &gt; single-segment wildcard ({@code *}) &gt; multi-segment wildcard ({@code
-     * **})).
+     * Matches the path against the trie by recursive descent, honouring the documented priority
+     * order (exact static &gt; path parameter &gt; single-segment wildcard ({@code *}) &gt;
+     * multi-segment wildcard ({@code **})).
      *
-     * <p>A {@code **} node is a <em>last-resort</em> fallback: it is only entered when no
-     * more-specific child (static / param / {@code *}) matches. Because descending into a specific
-     * child can later dead-end, we remember the nearest ancestor catch-all (with a handler) as a
-     * {@code fallback}; on backtrack we truncate the binding trail to what was recorded before that
-     * fallback was entered — parameter bindings made inside a dead-ended branch never reach the
-     * fallback result.
+     * <p>Priority applies at EVERY depth and the descent backtracks: a static child that matches
+     * one segment but dead-ends deeper does not shadow a param/wildcard sibling one level up — with
+     * {@code /files/{name}} and {@code /files/static/*} registered, a request for {@code
+     * /files/static/a} still falls through to {@code /files/{name}} handling the two-segment
+     * remainder? No — {@code /files/{name}} only covers one segment; the point is the reverse: a
+     * request for {@code /files/static} (static branch present, but its subtree dead-ends) falls
+     * through to the {@code /files/{name}} sibling. Catch-alls ({@code **}) remain the last resort:
+     * entered only after static/param/{@code *} fail at the same node.
      *
      * <p>Bindings are collected as raw slices and only decoded into the params map once a handler
      * is actually reached (deferred materialisation): failed attempts pay no decoding cost, and an
      * invalid percent-escape surfaces as a typed 400-mapped exception instead of leaking out of the
-     * matcher.
+     * matcher. Backtracking truncates the binding trail, so bindings made inside a dead-ended
+     * branch never leak into the returned match.
      */
     private NodeAndParam<T> matchPath(String path) {
-        Node<T> current = root;
-        Node<T> fallback = null; // nearest ancestor catch-all whose handler is non-null
-        int fallbackDepth = 0; // binding-trail length when that fallback was captured
-        List<Binding> bindings = null;
-        int start = 0;
         int len = path.length();
-        for (int i = 0; i <= len; i++) {
-            if (i == len || path.charAt(i) == '/') {
-                if (i > start) {
-                    // A catch-all at the current node (with a handler) is a viable fallback for
-                    // any deeper segment that fails to match specifically.
-                    if (current.catchAllChild != null && current.catchAllChild.handler != null) {
-                        fallback = current.catchAllChild;
-                        fallbackDepth = bindings != null ? bindings.size() : 0;
-                    }
-                    NodeAndParam<T> next = findNext(current, path, start, i, bindings);
-                    if (next.node() == null) {
-                        // Dead end on a specific child — drop every binding made inside this
-                        // branch and hand the trail as it stood at the fallback point.
-                        if (fallback == null) {
-                            return new NodeAndParam<>(null, null);
-                        }
-                        bindings = truncate(bindings, fallbackDepth);
-                        return new NodeAndParam<>(fallback, bindings);
-                    }
-                    bindings = next.bindings();
-                    current = next.node();
-                }
-                start = i + 1;
+        int[] starts = new int[8];
+        int[] ends = new int[8];
+        int count = 0;
+        int i = 0;
+        while (i < len) {
+            while (i < len && path.charAt(i) == '/') i++;
+            if (i >= len) break;
+            int start = i;
+            while (i < len && path.charAt(i) != '/') i++;
+            if (count == starts.length) {
+                starts = java.util.Arrays.copyOf(starts, count * 2);
+                ends = java.util.Arrays.copyOf(ends, count * 2);
             }
+            starts[count] = start;
+            ends[count] = i;
+            count++;
         }
-
-        // Path fully consumed by specific segments.
-        if (current.handler != null) {
-            return new NodeAndParam<>(current, bindings);
-        }
-        if (current.catchAllChild != null && current.catchAllChild.handler != null) {
-            return new NodeAndParam<>(current.catchAllChild, bindings);
-        }
-        if (fallback != null) {
-            bindings = truncate(bindings, fallbackDepth);
-            return new NodeAndParam<>(fallback, bindings);
-        }
-        return new NodeAndParam<>(null, null);
+        List<Binding> bindings = new ArrayList<>();
+        Node<T> matched = matchFrom(root, path, starts, ends, 0, count, bindings);
+        return matched != null
+                ? new NodeAndParam<>(matched, bindings)
+                : new NodeAndParam<>(null, null);
     }
 
-    private static List<Binding> truncate(List<Binding> bindings, int depth) {
-        if (bindings != null && bindings.size() > depth) {
-            bindings.subList(depth, bindings.size()).clear();
+    /**
+     * Recursive descent with backtracking. Returns the node carrying a handler, or {@code null}
+     * when every branch from this node dead-ends; on {@code null} the caller's binding trail is
+     * rolled back to its state at entry.
+     */
+    private Node<T> matchFrom(
+            Node<T> node,
+            String path,
+            int[] starts,
+            int[] ends,
+            int idx,
+            int count,
+            List<Binding> bindings) {
+        if (idx == count) {
+            if (node.handler != null) {
+                return node;
+            }
+            // ** matches zero or more segments: "/s/**" accepts "/s" itself.
+            if (node.catchAllChild != null && node.catchAllChild.handler != null) {
+                return node.catchAllChild;
+            }
+            return null;
         }
-        return bindings;
+        int start = starts[idx];
+        int end = ends[idx];
+
+        // 1. Exact static segment (at most one static child can match).
+        for (Node<T> child : node.staticChildren.values()) {
+            if (matchesSegment(child.name, path, start, end)) {
+                Node<T> r = matchFrom(child, path, starts, ends, idx + 1, count, bindings);
+                if (r != null) {
+                    return r;
+                }
+            }
+        }
+        // 2. Path parameter — bind the raw slice, roll back if the branch dead-ends.
+        if (node.paramChild != null) {
+            bindings.add(new Binding(node.paramName, start, end));
+            Node<T> r = matchFrom(node.paramChild, path, starts, ends, idx + 1, count, bindings);
+            if (r != null) {
+                return r;
+            }
+            bindings.remove(bindings.size() - 1);
+        }
+        // 3. Single-segment wildcard (*).
+        if (node.wildcardChild != null) {
+            Node<T> r = matchFrom(node.wildcardChild, path, starts, ends, idx + 1, count, bindings);
+            if (r != null) {
+                return r;
+            }
+        }
+        // 4. Multi-segment wildcard (**) — last resort, matches the remaining segments.
+        if (node.catchAllChild != null && node.catchAllChild.handler != null) {
+            return node.catchAllChild;
+        }
+        return null;
     }
 
     /** Finds and materialises path parameters for a successful match. */
@@ -260,7 +293,7 @@ public class RadixTrie<T> {
      *
      * @throws SummerWebException mapped to 400 when an escape sequence is malformed
      */
-    private static String decodeSegment(String raw) {
+    static String decodeSegment(String raw) {
         if (raw.indexOf('%') < 0) {
             return raw;
         }
@@ -290,33 +323,6 @@ public class RadixTrie<T> {
             }
         }
         return new String(out.toByteArray(), StandardCharsets.UTF_8);
-    }
-
-    /**
-     * Finds the next node in the trie for the given path segment, honouring the priority order
-     * (static &gt; path parameter &gt; single-segment wildcard). Parameter bindings are appended to
-     * the caller's trail as raw slices — no decoding, no map mutation; the caller discards the
-     * whole trail if this descent eventually dead-ends.
-     */
-    private NodeAndParam<T> findNext(
-            Node<T> current, String path, int start, int end, List<Binding> bindings) {
-        // Try static children first -- linear scan with zero-allocation regionMatches
-        for (Node<T> child : current.staticChildren.values()) {
-            if (matchesSegment(child.name, path, start, end)) {
-                return new NodeAndParam<>(child, bindings);
-            }
-        }
-        // Fall back to parameterized child (e.g., {id})
-        if (current.paramChild != null) {
-            List<Binding> trail = bindings != null ? bindings : new ArrayList<>(2);
-            trail.add(new Binding(current.paramName, start, end));
-            return new NodeAndParam<>(current.paramChild, trail);
-        }
-        // Fall back to single-segment wildcard (*)
-        if (current.wildcardChild != null) {
-            return new NodeAndParam<>(current.wildcardChild, bindings);
-        }
-        return new NodeAndParam<>(null, bindings);
     }
 
     /** Compares a node's name against a segment of the path without allocating substrings. */

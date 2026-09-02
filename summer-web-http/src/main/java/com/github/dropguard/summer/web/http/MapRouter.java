@@ -68,20 +68,17 @@ public class MapRouter implements HttpRouter {
 
         // Among the pattern-based routes that match, pick the most specific one. The map iteration
         // order is undefined, so we do NOT return on the first regex hit — instead we rank the
-        // candidates (path parameter > single-segment wildcard > catch-all) and keep the best,
-        // matching the Radix router's documented priority contract.
+        // candidates lexicographically per segment (static > param > * > **, the Radix router's
+        // documented priority contract) with a deterministic pattern-string tie-break.
         RouteEntryWithHandler best = null;
         Map<String, String> bestParams = null;
-        int bestRank = Integer.MIN_VALUE;
         for (Map.Entry<String, RouteEntryWithHandler> route : routes.entrySet()) {
             if (!route.getKey().startsWith(method + " ")) continue;
 
             Map<String, String> params = PathMatcher.matchPattern(route.getValue(), path);
             if (params == null) continue;
 
-            int rank = routeRank(route.getValue());
-            if (rank > bestRank) {
-                bestRank = rank;
+            if (best == null || PathMatcher.compareSpecificity(route.getValue(), best) > 0) {
                 best = route.getValue();
                 bestParams = params;
             }
@@ -91,21 +88,6 @@ public class MapRouter implements HttpRouter {
             ctx.markMatched();
             best.handler.handle(ctx);
         }
-    }
-
-    /**
-     * Priority rank for a matching pattern: higher wins. Path parameter ({@code {name}}) ranks
-     * above the single-segment wildcard ({@code *}), which ranks above the multi-segment catch-all
-     * ({@code **}). This mirrors {@code RadixTrie}'s matching contract.
-     */
-    private static int routeRank(RouteEntry entry) {
-        if (entry.catchAll) {
-            return 1; // ** — last resort
-        }
-        if (!entry.paramNames.isEmpty()) {
-            return 3; // {name}
-        }
-        return 2; // * (no params, not catch-all)
     }
 
     private static class RouteEntryWithHandler extends RouteEntry {

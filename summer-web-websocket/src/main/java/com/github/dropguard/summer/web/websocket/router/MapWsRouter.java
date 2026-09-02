@@ -38,8 +38,17 @@ public class MapWsRouter implements WsRouter {
             RouteEntry base = PathMatcher.parsePath(route.path());
             entry.pattern = base.pattern;
             entry.paramNames = base.paramNames;
+            entry.catchAll = base.catchAll;
+            entry.kinds.addAll(base.kinds);
             entry.handler = route.handler();
-            routes.put(PathUtils.normalizePath(route.path()), entry);
+            RouteEntryWithHandler previous =
+                    this.routes.putIfAbsent(PathUtils.normalizePath(route.path()), entry);
+            if (previous != null) {
+                // Fail fast on duplicate registrations, like MapRouter and RadixTrie — a silent
+                // overwrite used to surface as "whichever handler registered last wins".
+                throw com.github.dropguard.summer.web.exception.RouteConflictException.duplicate(
+                        PathUtils.normalizePath(route.path()));
+            }
         }
     }
 
@@ -52,11 +61,24 @@ public class MapWsRouter implements WsRouter {
             return new WsMatch(entry.handler, Map.of());
         }
 
+        // Among matching pattern routes pick the most specific (static > param > * > **),
+        // lexicographically per segment with a deterministic tie-break — the same contract as
+        // MapRouter and RadixTrie, so a route table resolves identically regardless of router
+        // type or map iteration order.
+        RouteEntryWithHandler best = null;
+        Map<String, String> bestParams = null;
         for (RouteEntryWithHandler route : routes.values()) {
             Map<String, String> params = PathMatcher.matchPattern(route, normalized);
-            if (params != null) {
-                return new WsMatch(route.handler, params);
+            if (params == null) {
+                continue;
             }
+            if (best == null || PathMatcher.compareSpecificity(route, best) > 0) {
+                best = route;
+                bestParams = params;
+            }
+        }
+        if (best != null) {
+            return new WsMatch(best.handler, bestParams);
         }
 
         return null;
