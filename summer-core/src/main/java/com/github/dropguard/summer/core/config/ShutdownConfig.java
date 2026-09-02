@@ -9,10 +9,13 @@ package com.github.dropguard.summer.core.config;
  * regardless. It bounds both the servers' graceful drain ({@code NettyServerRunner}/ {@code
  * GrpcServerRunner}) and the JVM-exit guard in {@code SummerApplication}'s shutdown hook.
  *
- * <p>There is no hard traffic-isolation sleep: an instance signals shutdown via {@code
- * ApplicationState.beginShutdown()} (readiness probe returns 503), letting the load balancer stop
- * routing before the server stops accepting — so the drain window is driven by LB polling, not a
- * fixed sleep.
+ * <p>Shutdown sequence: readiness flips to 503 ({@code ApplicationState.beginShutdown()}), the
+ * server stops accepting, in-flight requests drain within the budget, event loops release with
+ * whatever remains of it. There is deliberately NO in-app wait between the 503 and stop-accepting —
+ * Spring Boot and Quarkus don't have one either; stopping the instance from receiving new traffic
+ * during readiness-propagation delay is the orchestrator's job (Kubernetes removes the endpoint
+ * before/around SIGTERM). On platforms without endpoint propagation (bare {@code docker stop}), new
+ * requests may be refused during the drain — that is expected, not a bug.
  *
  * <p>The default (10s) is tuned to sit inside a bare {@code docker stop}'s 10s SIGKILL budget, so
  * draining in-flight requests is not cut short by a forced kill. On Kubernetes, raise {@code

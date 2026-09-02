@@ -202,8 +202,12 @@ class NettyHttpServer {
      * port is actually freed). Called by the runner's registered shutdown task; a zero timeout
      * skips the drain wait.
      */
+    private static final java.util.concurrent.TimeUnit NANOSECONDS =
+            java.util.concurrent.TimeUnit.NANOSECONDS;
+
     public void shutdown(java.time.Duration timeout) {
         log.info("Stopping Netty server... {} active requests.", activeConnections.get());
+        long deadlineNanos = System.nanoTime() + timeout.toNanos();
         // 1. Stop accepting new connections.
         try {
             if (serverChannelFuture != null) {
@@ -241,18 +245,27 @@ class NettyHttpServer {
         // wait out — a non-zero quiet period would just stall shutdown by netty's
         // default 2s per group with no pending work. This is what makes test
         // teardown fast (dozens of containers closing in sequence were previously
-        // stalling the JVM for ~2s each, adding 30s+ of exit time). A non-zero
-        // timeout still bounds how long we wait for the groups to terminate.
+        // stalling the JVM for ~2s each, adding 30s+ of exit time). Each group's
+        // wait is bounded by the REMAINING shutdown budget, not a fresh 5s
+        // allowance — the single-budget model (ShutdownConfig.timeoutMs) is the
+        // total, and a drain that consumed most of it must not be extended past
+        // by the event-loop release.
         try {
             if (bossGroup != null) {
-                bossGroup.shutdownGracefully(0, 5, java.util.concurrent.TimeUnit.SECONDS).sync();
+                bossGroup.shutdownGracefully(0, remainingNanos(deadlineNanos), NANOSECONDS).sync();
             }
             if (workerGroup != null) {
-                workerGroup.shutdownGracefully(0, 5, java.util.concurrent.TimeUnit.SECONDS).sync();
+                workerGroup
+                        .shutdownGracefully(0, remainingNanos(deadlineNanos), NANOSECONDS)
+                        .sync();
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
         log.info("Netty Server stopped.");
+    }
+
+    private static long remainingNanos(long deadlineNanos) {
+        return Math.max(0, deadlineNanos - System.nanoTime());
     }
 }
