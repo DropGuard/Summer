@@ -3,7 +3,7 @@ package com.github.dropguard.summer.runtime.web;
 import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
 import com.github.dropguard.summer.core.exception.BeanCreationException;
-import com.github.dropguard.summer.runtime.HandlerMetadata;
+import com.github.dropguard.summer.runtime.InstantiatedBeans;
 import com.github.dropguard.summer.web.ExceptionHandlerRegistrar;
 import com.github.dropguard.summer.web.ExceptionRegistry;
 import com.github.dropguard.summer.web.Handler;
@@ -13,27 +13,32 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Exception handler registrar that reads from pre-computed {@link
- * BeanDefinition.ExceptionHandlerEntry} records rather than re-scanning annotations via reflection.
+ * Exception handler registrar that reads pre-computed {@link BeanDefinition.ExceptionHandlerEntry}
+ * records plus the bean birth record ({@link InstantiatedBeans}) rather than re-scanning
+ * annotations or routing through {@code getBean}.
  *
- * <p>Pre-computed handler data is set by {@code RuntimeContainer init()} after discovery — the
- * registrar itself only resolves {@code Method} handles by name and parameter count (no annotation
- * scanning).
+ * <p>The registrar consumes the instantiation record because it needs the bean ITSELF: under the
+ * one-bean-one-form AOP contract, a bound bean's concrete-class lookup fails loudly, and even a
+ * successful proxy lookup could only be invoked on interface methods. The record hands over the
+ * bean's single legal form (the proxy for bound beans); {@link
+ * HandlerFactory#resolveDispatchMethod} then picks the dispatchable {@code Method} and fails fast
+ * when a bound bean's handler method is not exposed on its interfaces.
  *
  * <p>Metadata drift (an unloadable bean/exception class, a handler method that vanished from the
- * class) fails fast at startup instead of silently dropping handlers — the metadata comes from the
- * same Jandex discovery that produced the container's beans, so a miss is stale/corrupt index
- * drift, not a recoverable state.
+ * class, a bean recorded at discovery but never instantiated) fails fast at startup instead of
+ * silently dropping handlers.
  */
 class RuntimeExceptionHandlerRegistrar implements ExceptionHandlerRegistrar {
 
     private final HttpParameterResolverChain resolverChain;
     private final Map<String, List<BeanDefinition.ExceptionHandlerEntry>> handlers;
+    private final InstantiatedBeans instantiated;
 
     public RuntimeExceptionHandlerRegistrar(
-            HttpParameterResolverChain resolverChain, HandlerMetadata handlerMetadata) {
+            HttpParameterResolverChain resolverChain, InstantiatedBeans instantiated) {
         this.resolverChain = resolverChain;
-        this.handlers = handlerMetadata.entries();
+        this.handlers = instantiated.exceptionHandlerEntries();
+        this.instantiated = instantiated;
     }
 
     @Override
@@ -55,21 +60,10 @@ class RuntimeExceptionHandlerRegistrar implements ExceptionHandlerRegistrar {
                                 + " Jandex index but missing from the classpath (stale index?).",
                         e);
             }
-            Object instance = context.getBean(clazz);
+            Object instance = instantiated.instanceOf(beanClassName);
 
             for (BeanDefinition.ExceptionHandlerEntry eh : entry.getValue()) {
-                Method method = findMethod(clazz, eh.methodName(), eh.parameterCount());
-                if (method == null) {
-                    throw new BeanCreationException(
-                            "Exception handler method "
-                                    + beanClassName
-                                    + "."
-                                    + eh.methodName()
-                                    + "("
-                                    + eh.parameterCount()
-                                    + " params) recorded at discovery no longer exists on the"
-                                    + " class — stale metadata.");
-                }
+                Method method = resolveMethod(clazz, instance, eh);
                 Class<?> exClass;
                 try {
                     exClass = Class.forName(eh.exceptionClass());
@@ -91,19 +85,22 @@ class RuntimeExceptionHandlerRegistrar implements ExceptionHandlerRegistrar {
         }
     }
 
-    /**
-     * Finds the handler method on the type discovery recorded it against — the CONCRETE class, not
-     * whatever instance {@code context.getBean} returns. (The container registers the raw instance
-     * under the concrete-class key and proxies under interface keys only, so the two coincide
-     * today; looking up on the concrete class keeps this registrar independent of that registration
-     * convention.)
-     */
-    private static Method findMethod(Class<?> clazz, String name, int paramCount) {
-        for (Method m : clazz.getDeclaredMethods()) {
-            if (m.getName().equals(name) && m.getParameterCount() == paramCount) {
-                return m;
-            }
+    private static Method resolveMethod(
+            Class<?> clazz, Object instance, BeanDefinition.ExceptionHandlerEntry eh) {
+        Method method =
+                HandlerFactory.resolveDispatchMethod(
+                        instance, clazz, eh.methodName(), eh.parameterCount());
+        if (method == null) {
+            throw new BeanCreationException(
+                    "Exception handler method "
+                            + clazz.getName()
+                            + "."
+                            + eh.methodName()
+                            + "("
+                            + eh.parameterCount()
+                            + " params) recorded at discovery no longer exists on the"
+                            + " class — stale metadata.");
         }
-        return null;
+        return method;
     }
 }

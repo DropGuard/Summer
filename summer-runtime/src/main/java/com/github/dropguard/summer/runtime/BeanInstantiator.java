@@ -45,16 +45,21 @@ final class BeanInstantiator {
     // single-impl interfaces (supports getBean(iface) / ctor injection); multi-impl interfaces
     // are collection-injection strategies (List<X>) resolved via getBeans, never by a shared key.
     private final java.util.Map<String, Integer> ifaceCounts;
+    // Birth record: every bean's instantiated form (proxy for AOP-bound beans). Framework
+    // registration hooks (exception handlers, routes) consume this instead of getBean.
+    private final InstantiatedBeans instantiated;
 
     BeanInstantiator(
             BeanContainer.Builder builder,
             Map<String, List<String>> interceptorMap,
             Map<String, Set<String>> interceptorBindingAnnotations,
-            java.util.Map<String, Integer> ifaceCounts) {
+            java.util.Map<String, Integer> ifaceCounts,
+            InstantiatedBeans instantiated) {
         this.builder = builder;
         this.interceptorMap = interceptorMap;
         this.interceptorBindings = buildInterceptorBindings(interceptorBindingAnnotations);
         this.ifaceCounts = ifaceCounts;
+        this.instantiated = instantiated;
     }
 
     /**
@@ -231,10 +236,15 @@ final class BeanInstantiator {
         // producer's alive state).
         boolean isProduct = bean.producerMethodName != null;
         Class<?> clazz = instance.getClass();
+        Object incarnation = proxied ? proxy : instance;
+        // Birth record — the instantiated form is the bean's ONLY legal form. Handlers and route
+        // registration resolve through this record, never through lookup (the concrete-class key
+        // of an AOP-bound bean holds the proxy, which getBean rejects by contract).
+        instantiated.record(bean.qualifiedName, incarnation);
         if (isProduct) {
-            builder.registerProduct(clazz, proxied ? proxy : instance);
+            builder.registerProduct(clazz, incarnation);
         } else {
-            builder.register(clazz, proxied ? proxy : instance);
+            builder.register(clazz, incarnation);
         }
         // Interface-based AOP: the proxy is registered under every DISCOVERED interface that is
         // unique to this bean — discovery's transitive closure (superclass chains included), the

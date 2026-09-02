@@ -173,13 +173,22 @@ public final class AotContextGenerator {
         // Engine-provided beans (IndexView, RuntimeDiMarker, ...) arrive as synthetic
         // beans in the candidate list and are registered by WireMethodGenerator — no
         // hand-written registration here.
-        wireGen.generateWireMethod(method, sortedBeans, profileOverrides);
+        // Birth record: every bean's instantiated form (proxy for AOP-bound beans), the
+        // generated counterpart of BeanInstantiator's InstantiatedBeans. Framework
+        // registration hooks (routes, exception handlers) resolve through it, never
+        // through getBean, which rejects AOP-bound concrete types by contract.
+        method.addStatement(
+                "$T<String, Object> _instantiatedBeans = new $T<>()",
+                java.util.Map.class,
+                java.util.HashMap.class);
+        wireGen.generateWireMethod(method, sortedBeans, profileOverrides, "_instantiatedBeans");
 
         // Route adapter
         if (sortedBeans.stream().anyMatch(b -> !b.routes.isEmpty())) {
             method.addCode("\n");
             method.addComment("Register route adapter");
-            method.addStatement("$T _routeAdapter = new $T()", ROUTE_ADAPTER, ROUTE_ADAPTER);
+            method.addStatement(
+                    "$T _routeAdapter = new $T(_instantiatedBeans)", ROUTE_ADAPTER, ROUTE_ADAPTER);
             method.addStatement("builder.register($T.class, _routeAdapter)", ROUTE_REGISTRAR);
         }
 
@@ -192,7 +201,7 @@ public final class AotContextGenerator {
             method.addCode("\n");
             method.addComment("Register exception handler adapter");
             method.addStatement(
-                    "$T _ehAdapter = new $T()",
+                    "$T _ehAdapter = new $T(_instantiatedBeans)",
                     EXCEPTION_HANDLER_ADAPTER,
                     EXCEPTION_HANDLER_ADAPTER);
             method.addStatement(

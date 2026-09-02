@@ -267,7 +267,8 @@ public final class WireMethodGenerator {
     void generateWireMethod(
             MethodSpec.Builder wire,
             List<BeanDefinition> sortedBeans,
-            Map<String, Object> overrides) {
+            Map<String, Object> overrides,
+            String incarnationsVar) {
         configGen.reset();
         for (int i = 0; i < sortedBeans.size(); i++) {
             BeanDefinition bean = sortedBeans.get(i);
@@ -297,6 +298,10 @@ public final class WireMethodGenerator {
                 com.palantir.javapoet.CodeBlock instanceExpr = syntheticInstanceExpression(bean);
                 wire.addStatement("$T $N = $L", beanClass, varName, instanceExpr);
                 wire.addStatement("builder.register($T.class, $N)", beanClass, varName);
+                if (incarnationsVar != null) {
+                    wire.addStatement(
+                            "$N.put($S, $N)", incarnationsVar, bean.qualifiedName, varName);
+                }
                 continue;
             }
 
@@ -340,6 +345,13 @@ public final class WireMethodGenerator {
                             AotTypeNames.parseTypeName(iface),
                             varName);
                 }
+            }
+            // Birth record — mirrors BeanInstantiator.registerRegularBean: the instantiated form
+            // (the $$AotProxy for a BOUND bean) is the bean's ONLY legal form, and framework
+            // registration hooks (routes, exception handlers) resolve through this record instead
+            // of getBean, which rejects AOP-bound concrete types by contract.
+            if (incarnationsVar != null) {
+                wire.addStatement("$N.put($S, $N)", incarnationsVar, bean.qualifiedName, varName);
             }
         }
 

@@ -123,7 +123,7 @@ public abstract class AbstractWebRouteTCK extends AbstractTCK {
     }
 
     /** Mirrors NettyHttpServerHandler: route, catch, map through the exception registry. */
-    private String dispatchWithExceptionMapping(HttpMethod method, String path) throws Exception {
+    protected String dispatchWithExceptionMapping(HttpMethod method, String path) throws Exception {
         HttpContext ctx = new HttpContext(new Request(method, path, null, null, null));
         try {
             router.route(ctx);

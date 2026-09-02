@@ -129,7 +129,7 @@ public final class AotEngine {
             // Route adapter imports web types — generate only when routes exist,
             // or non-web applications fail to compile the generated sources.
             if (sorted.stream().anyMatch(b -> !b.routes.isEmpty())) {
-                new RouteAdapterGenerator().generate(sorted, tempDir);
+                new RouteAdapterGenerator().generate(sorted, index, tempDir);
             }
 
             // 2. Compile generated sources

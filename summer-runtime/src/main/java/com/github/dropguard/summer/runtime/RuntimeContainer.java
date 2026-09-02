@@ -64,10 +64,11 @@ public final class RuntimeContainer implements ContainerEngine {
         // same single sequence as the AOT entries, so dual-engine parity is structural.
         List<BeanDefinition> candidates = BuildPipeline.discoverCandidates(deployment, mocks);
 
-        // Runtime-only contribution derived from the surviving candidates: collect exception
-        // handlers (SPI-contributed + already present) into the synthetic HandlerMetadata bean
-        // consumed by the web exception registry. Injected before resolution so beans that
-        // reference it resolve.
+        // Runtime-only contribution derived from the surviving candidates: the birth record that
+        // beans will be recorded into at instantiation, seeded with the collected exception
+        // handler entries (SPI-contributed + already present). Injected before resolution so
+        // beans that reference it resolve. Framework registration hooks (exception handlers,
+        // routes) read the record instead of routing through getBean — see InstantiatedBeans.
         Map<String, List<BeanDefinition.ExceptionHandlerEntry>> handlerMap = new HashMap<>();
         for (BeanDefinition bd : candidates) {
             if (!bd.exceptionHandlerMethods.isEmpty()) {
@@ -81,10 +82,11 @@ public final class RuntimeContainer implements ContainerEngine {
                         });
             }
         }
-        BeanDefinition handlerMetaDef =
-                new BeanDefinition(HandlerMetadata.class.getName(), "HandlerMetadata");
-        handlerMetaDef.syntheticInstance = new HandlerMetadata(handlerMap);
-        candidates.add(handlerMetaDef);
+        BeanDefinition instantiatedDef =
+                new BeanDefinition(InstantiatedBeans.class.getName(), "InstantiatedBeans");
+        InstantiatedBeans instantiated = new InstantiatedBeans(handlerMap);
+        instantiatedDef.syntheticInstance = instantiated;
+        candidates.add(instantiatedDef);
 
         // Shared core, stage 2: dependency resolution → variable-name dedup → route extraction.
         BuildPipeline.Resolved resolved = BuildPipeline.resolve(candidates, mocks);
@@ -108,7 +110,8 @@ public final class RuntimeContainer implements ContainerEngine {
                         builder,
                         interceptorMap,
                         bindingMap,
-                        resolved.interfaceImplementationCounts());
+                        resolved.interfaceImplementationCounts(),
+                        instantiated);
 
         for (MockedBean mocked : mocks) {
             builder.register(mocked.targetType(), mocked.instance());

@@ -26,19 +26,34 @@ public class RuntimeRouteRegistrar implements RouterAdapter {
     private static final Logger log = LoggerFactory.getLogger(RuntimeRouteRegistrar.class);
 
     private final HttpParameterResolverChain resolverChain;
+    private final com.github.dropguard.summer.runtime.InstantiatedBeans instantiated;
 
-    public RuntimeRouteRegistrar(HttpParameterResolverChain resolverChain) {
+    public RuntimeRouteRegistrar(
+            HttpParameterResolverChain resolverChain,
+            com.github.dropguard.summer.runtime.InstantiatedBeans instantiated) {
         this.resolverChain = resolverChain;
+        this.instantiated = instantiated;
     }
 
     @Override
     public void registerControllers(HttpRouter.Builder builder, BeanContainer context) {
         for (RouteInfo route : context.routes()) {
             Class<?> controllerClass = resolveControllerClass(route);
-            Object controller = context.getBean(controllerClass);
+            // Birth record, not getBean: an AOP-bound controller's concrete-class lookup fails
+            // loudly by contract, and route dispatch must go through the bean's single legal
+            // incarnation (the proxy) so interception applies. resolveDispatchMethod picks the
+            // interface method for proxy incarnations and fails fast when the route method is
+            // not exposed on any interface.
+            Object controller = instantiated.instanceOf(route.controllerClass);
             Handler handler =
                     HandlerFactory.create(
-                            controller, resolveHandler(route, controllerClass), resolverChain);
+                            controller,
+                            HandlerFactory.resolveDispatchMethod(
+                                    controller,
+                                    controllerClass,
+                                    route.methodName,
+                                    route.params.size() + 1),
+                            resolverChain);
             switch (route.httpMethod) {
                 case "GET" -> builder.get(route.path, handler);
                 case "POST" -> builder.post(route.path, handler);
@@ -61,31 +76,5 @@ public class RuntimeRouteRegistrar implements RouterAdapter {
             throw new IllegalStateException(
                     "Controller class not on classpath: " + route.controllerClass, e);
         }
-    }
-
-    /**
-     * Resolves the handler {@link java.lang.reflect.Method} from the controller class and method
-     * name. The method name is the cross-engine string contract shared with the AOT engine.
-     */
-    private static java.lang.reflect.Method resolveHandler(
-            RouteInfo route, Class<?> controllerClass) {
-        // Match by name AND parameter count (the scanner enforces first-param-HttpContext, so a
-        // handler has exactly route.params.size() + 1 parameters): name-only matching binds the
-        // wrong method when a controller overloads a handler name.
-        int expectedParamCount = route.params.size() + 1;
-        for (java.lang.reflect.Method m : controllerClass.getMethods()) {
-            if (m.getName().equals(route.methodName)
-                    && m.getParameterCount() == expectedParamCount) {
-                return m;
-            }
-        }
-        throw new IllegalStateException(
-                "Handler method not found: "
-                        + route.controllerClass
-                        + "."
-                        + route.methodName
-                        + "("
-                        + expectedParamCount
-                        + " params)");
     }
 }
