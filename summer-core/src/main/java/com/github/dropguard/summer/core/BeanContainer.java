@@ -171,10 +171,16 @@ public final class BeanContainer implements AutoCloseable {
     private static final Comparator<Object> ORDER_COMPARATOR =
             Comparator.comparingInt(BeanContainer::orderOf);
 
-    /** Checks whether a bean of the given type is registered (exact key or assignable). */
+    /** Checks whether a bean of the given type is registered and actually resolvable. */
     public boolean containsBean(Class<?> type) {
-        if (typeIndex.containsKey(type)) {
-            return true;
+        // Mirror getBean's resolution contract exactly: a hit on the concrete-class key of an
+        // AOP-bound bean is not a resolution (the proxy is not an instance of that class).
+        // Returning true here while getBean would throw NoSuchBeanException for the same type
+        // would be a silent contradiction — callers pre-checking with containsBean expect a
+        // meaningful guarantee that a subsequent getBean will not fail loudly.
+        Object exact = typeIndex.get(type);
+        if (exact != null) {
+            return type.isInstance(exact);
         }
         for (Object bean : typeIndex.values()) {
             if (type.isInstance(bean)) {
