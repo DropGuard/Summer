@@ -12,8 +12,10 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.FullHttpRequest;
+import io.netty.handler.codec.http.FullHttpResponse;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpObjectAggregator;
+import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.handler.timeout.IdleStateEvent;
 import io.netty.handler.timeout.IdleStateHandler;
@@ -156,6 +158,61 @@ class InboundTimerLifecycleTest {
             router.release.countDown();
             channel.finishAndReleaseAll();
         }
+    }
+
+    /**
+     * The pipelining gate must never leak into ordinary keep-alive reuse: after the first response
+     * is fully written (flag cleared), the same connection is available for the next request, and
+     * responses leave strictly in request order. This is the green half of the gate's red-green
+     * pair — the red half ({@link #pipelinedRequestWhileHandlerIsBusyClosesConnection}) proves a
+     * busy connection is refused; this one proves the refusal state is fully cleared.
+     */
+    @Test
+    void sequentialKeepAliveRequestsCompleteInOrder() {
+        java.util.concurrent.atomic.AtomicInteger seq =
+                new java.util.concurrent.atomic.AtomicInteger();
+        EmbeddedChannel channel =
+                newChannel(ctx -> ctx.text(HttpStatus.OK, "resp-" + seq.incrementAndGet()));
+
+        channel.writeInbound(getRequest());
+        awaitChannelIdle(channel);
+        FullHttpResponse first = channel.readOutbound();
+        try {
+            assertEquals(HttpResponseStatus.OK, first.status(), "first request's response");
+            assertEquals(
+                    "resp-1", first.content().toString(java.nio.charset.StandardCharsets.UTF_8));
+
+            channel.writeInbound(getRequest());
+            awaitChannelIdle(channel);
+            FullHttpResponse second = channel.readOutbound();
+            try {
+                assertEquals(HttpResponseStatus.OK, second.status(), "second request's response");
+                assertEquals(
+                        "resp-2",
+                        second.content().toString(java.nio.charset.StandardCharsets.UTF_8),
+                        "responses must leave in request order — the second request was only"
+                                + " dispatched after the first response fully completed");
+            } finally {
+                second.release();
+            }
+        } finally {
+            first.release();
+            channel.finishAndReleaseAll();
+        }
+    }
+
+    /** Waits until the channel's in-flight flag clears, pumping embedded tasks. */
+    private static void awaitChannelIdle(EmbeddedChannel channel) {
+        for (int i = 0; i < 500 && ChannelInflight.isActive(channel); i++) {
+            channel.runPendingTasks();
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new AssertionError(e);
+            }
+        }
+        assertFalse(ChannelInflight.isActive(channel), "channel must return to idle");
     }
 
     @Test
