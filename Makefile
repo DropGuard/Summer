@@ -1,4 +1,4 @@
-.PHONY: all clean compile install test test-module it it-module run benchmark fmt check pre-commit arch realworld coverage coverage-module
+.PHONY: all clean compile install test test-module it it-module run samples-verify benchmark fmt check pre-commit arch realworld coverage coverage-module
 
 
 export MAVEN_OPTS := --sun-misc-unsafe-memory-access=allow
@@ -48,6 +48,17 @@ run:
 realworld:
 	mvn compile exec:java -f samples/summer-realworld/pom.xml
 
+# End-to-end sample verification — runs AFTER a local `make install`: the sample
+# apps resolve the framework (0.3.4-SNAPSHOT) from the local repository, exactly
+# like user projects do, then bind summer-maven-plugin (AOT generation + compile)
+# and run their full-stack *IT suites (Testcontainers: PostgreSQL/Redis).
+# Samples are intentionally NOT reactor modules (a framework jar must never
+# depend on its demos) and are not part of plain `make test`; this target is the
+# local half of CI's "Build and integration-test AOT demos" step — run it whenever
+# a change touches the public API surface, the Maven plugin, or the Netty server.
+samples-verify:
+	MAVEN_OPTS="$(MAVEN_OPTS)" mvn -f samples/pom.xml verify
+
 benchmark:
 	python summer-benchmark/run-benchmarks.py
 
@@ -61,8 +72,10 @@ pre-commit: fmt check clean test
 
 arch:
 	mvn test -pl summer-archunit
+
 coverage:
 	mvn clean test
+
 coverage-module:
 ifndef MODULE
 	$(error Usage: make coverage-module MODULE=summer-example)
