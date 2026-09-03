@@ -160,9 +160,10 @@ The demos live in this repository but are deliberately **not** reactor modules �
 must never depend on its own showcases, so the full reactor build never compiles or tests
 them. CI covers them in a dedicated step (`mvn -f samples/pom.xml verify`), and the local
 equivalent — after installing the current snapshot with `mvn install -DskipTests` — is
-`make samples-verify` (added 2026-09-03). Run it whenever a change touches the public API
-surface, the Maven plugin, or the Netty server, since the samples are the only code exercised
-from the "user project" position.
+`make samples-verify`. Run it whenever a change touches the public API surface, the Maven
+plugin, or the Netty server: the samples are the only code exercised from the "user
+project" position, so a contract change that passes the TCK but breaks a full-stack demo
+surfaces here.
 
 For a fully working, runnable sample—featuring domain models, nested repositories, and database transaction management—run one of the demo applications bundled within this repository (`summer-twitter` showcase, `summer-realworld`, or `summer-issue-tracker`):
 
