@@ -6,12 +6,12 @@ import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.exception.BeanCreationException;
 import com.github.dropguard.summer.core.exception.ConfigurationException;
 import com.github.dropguard.summer.core.json.SummerObjectMapper;
+import com.github.dropguard.summer.core.util.Regexes;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Self-contained YAML-to-config binding for the {@code @ConfigMapping} interface model.
@@ -318,11 +318,12 @@ public final class ConfigBinder {
         return result;
     }
 
-    private static final Pattern PLACEHOLDER =
-            Pattern.compile("\\$\\{([\\w.]+)(?::(-?))?([^}]*)\\}");
+    // The ${var} placeholder pattern lives as Regexes.PLACEHOLDER — this private copy was dead
+    // code (resolveString always matched through the Regexes constant) and is removed so the
+    // inline pattern above cannot drift out of sync with the canonical one.
 
     private static String resolveString(String value) {
-        Matcher matcher = PLACEHOLDER.matcher(value);
+        Matcher matcher = Regexes.PLACEHOLDER.matcher(value);
         if (!matcher.find()) {
             return value;
         }

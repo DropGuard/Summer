@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web;
 
+import com.github.dropguard.summer.core.util.Regexes;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -7,7 +8,6 @@ import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * HTTP request router with integrated builder.
@@ -51,8 +51,8 @@ public interface HttpRouter {
          */
         public record Route(HttpMethod method, String path, Handler handler) {}
 
-        private static final Pattern COLON_PARAM =
-                Pattern.compile("(?<=/|^):([a-zA-Z_][a-zA-Z0-9_]*)");
+        // The colon-param pattern lives as Regexes.COLON_PARAM (single source of truth for
+        // every regex literal in main code — see RegexLiteralDisciplineTest).
 
         private final Function<List<Route>, HttpRouter> routerFactory;
         private final List<Route> routes = new ArrayList<>();
@@ -153,7 +153,7 @@ public interface HttpRouter {
          * syntaxes work identically across all router engines.
          */
         private static String normalizePathPattern(String path) {
-            Matcher m = COLON_PARAM.matcher(path);
+            Matcher m = Regexes.COLON_PARAM.matcher(path);
             StringBuffer sb = new StringBuffer(path.length());
             while (m.find()) {
                 m.appendReplacement(sb, "{$1}");

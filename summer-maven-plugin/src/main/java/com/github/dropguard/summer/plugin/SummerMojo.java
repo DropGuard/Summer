@@ -8,6 +8,7 @@ import com.github.dropguard.summer.aot.JavaSourceFiles;
 import com.github.dropguard.summer.aot.RouteAdapterGenerator;
 import com.github.dropguard.summer.aot.WireMethodGenerator;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
+import com.github.dropguard.summer.core.util.Regexes;
 import com.github.dropguard.summer.engine.BeanDeployment;
 import com.github.dropguard.summer.engine.BuildPipeline;
 import java.io.File;
@@ -294,7 +295,7 @@ public class SummerMojo extends AbstractMojo {
         // Locate the top-level `summer:` block (column-0 key).
         int summerIdx = -1;
         for (int i = 0; i < lines.size(); i++) {
-            if (lines.get(i).matches("summer:\\s*(#.*)?")) {
+            if (Regexes.matches(lines.get(i), Regexes.SUMMER_BLOCK_HEADER)) {
                 summerIdx = i;
                 break;
             }
@@ -320,7 +321,7 @@ public class SummerMojo extends AbstractMojo {
                 blockEnd = i;
                 break;
             }
-            if (l.matches("\\s+engine:\\s*.*")) {
+            if (Regexes.matches(l, Regexes.ENGINE_LINE)) {
                 engineIdx = i;
             }
         }
