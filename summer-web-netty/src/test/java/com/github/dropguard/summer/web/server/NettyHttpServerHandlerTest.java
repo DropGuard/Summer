@@ -78,6 +78,57 @@ class NettyHttpServerHandlerTest {
         assertDoesNotThrow(() -> handler.exceptionCaught(ctx, cause));
     }
 
+    @Test
+    void tooLongFrameExceptionBecomes413NotConnectionReset() throws Exception {
+        // The aggregator's size-limit violation is the one place a protocol-correct response
+        // is reachable: writing 413 first lets API clients see a structured response instead
+        // of a connection reset (curl gives up, requests raises ConnectionError, retries are
+        // blind). Without this branch the handler would just close the channel.
+        Throwable cause =
+                new io.netty.handler.codec.TooLongFrameException(
+                        "content length exceeded 1024 max allowed length");
+        io.netty.channel.ChannelFuture future = mock(io.netty.channel.ChannelFuture.class);
+        when(ctx.writeAndFlush(any(Object.class))).thenReturn(future);
+
+        handler.exceptionCaught(ctx, cause);
+
+        ArgumentCaptor<Object> written = ArgumentCaptor.forClass(Object.class);
+        verify(ctx, times(1)).writeAndFlush(written.capture());
+        assertInstanceOf(
+                FullHttpResponse.class, written.getValue(), "413 must be a FullHttpResponse");
+        FullHttpResponse response = (FullHttpResponse) written.getValue();
+        assertEquals(
+                HttpResponseStatus.REQUEST_ENTITY_TOO_LARGE,
+                response.status(),
+                "the response code must be 413, not a silent connection close");
+        verify(ctx, never()).close();
+    }
+
+    @Test
+    void tooLongFrameExceptionChainStillTriggers413() throws Exception {
+        // Netty sometimes wraps the aggregator failure inside a decoder or SSL exception —
+        // we still have to produce 413 regardless of the wrapping layer.
+        Throwable wrapper =
+                new RuntimeException(
+                        "Decoder failed",
+                        new io.netty.handler.codec.TooLongFrameException("exceeds"));
+        io.netty.channel.ChannelFuture future = mock(io.netty.channel.ChannelFuture.class);
+        when(ctx.writeAndFlush(any(Object.class))).thenReturn(future);
+
+        handler.exceptionCaught(ctx, wrapper);
+
+        ArgumentCaptor<Object> written = ArgumentCaptor.forClass(Object.class);
+        verify(ctx, times(1)).writeAndFlush(written.capture());
+        assertInstanceOf(
+                FullHttpResponse.class,
+                written.getValue(),
+                "nested TooLong must still produce 413");
+        assertEquals(
+                HttpResponseStatus.REQUEST_ENTITY_TOO_LARGE,
+                ((FullHttpResponse) written.getValue()).status());
+        verify(ctx, never()).close();
+    }
+
     // ── response disposition: matched-silent handler vs unmatched route ──────────
 
     @Test

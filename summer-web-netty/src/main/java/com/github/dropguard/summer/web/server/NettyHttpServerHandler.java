@@ -11,6 +11,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
+import io.netty.handler.codec.TooLongFrameException;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.FullHttpResponse;
@@ -243,6 +244,19 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
+        // Body-too-large is the one exception where a protocol-correct response is reachable:
+        // the aggregator failed mid-parse, the channel is still open, and the client only sees
+        // a RST if we don't write 413 first. Without this, API clients get ConnectionError instead
+        // of a structured 413 (curl gives up, requests raises ConnectionError, retries are blind).
+        if (isBodyTooLarge(cause)) {
+            log.debug(
+                    "Rejecting oversize request body on {}: {}",
+                    ctx.channel().remoteAddress(),
+                    cause.toString());
+            sendSimpleResponse(
+                    ctx, HttpResponseStatus.REQUEST_ENTITY_TOO_LARGE, "Payload Too Large");
+            return;
+        }
         log.error("Channel exception", cause);
         try {
             ctx.close();
@@ -251,5 +265,15 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
             // which would re-enter Netty's exception path from within exceptionCaught.
             log.warn("Failed to close channel after exception", closeFailure);
         }
+    }
+
+    /** True when {@code cause} (or any cause in its chain) is a body-aggregator size violation. */
+    private static boolean isBodyTooLarge(Throwable cause) {
+        for (Throwable t = cause; t != null; t = t.getCause()) {
+            if (t instanceof TooLongFrameException) {
+                return true;
+            }
+        }
+        return false;
     }
 }

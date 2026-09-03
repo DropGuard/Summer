@@ -81,10 +81,6 @@ public class SummerMojo extends AbstractMojo {
         File generatedDir = null;
         try {
             generatedDir = prepareGeneratedDir();
-            // Reconcile target/classes against the source set: javac never deletes, so a bean
-            // renamed or removed between builds leaves its compiled .class behind and gets
-            // packaged into the jar. parseSources + reconcile is the single mechanism.
-            reconcileAgainstSources(generatedDir);
             CompositeIndex index = loadIndexes();
             if (index.getKnownClasses().isEmpty()) {
                 // Silent skip here would package a jar whose config still says RUNTIME while the
@@ -150,6 +146,13 @@ public class SummerMojo extends AbstractMojo {
             }
 
             compileGeneratedSources(generatedDir);
+            // Reconcile AFTER a successful compile: javac never deletes from target/classes, so
+            // a bean renamed or removed between builds leaves its compiled .class behind and
+            // gets packaged into the jar. parseSources + reconcile is the single mechanism.
+            // Running this AFTER compile (not before) means a failed AOT generation leaves
+            // target/classes in its previous successful state — IDE incremental reads and
+            // subsequent clean rebuilds see a consistent view rather than a half-deleted one.
+            reconcileAgainstSources(generatedDir);
 
             flipEngineToAot();
 
@@ -191,8 +194,11 @@ public class SummerMojo extends AbstractMojo {
     // Generation wipes and rewrites the generated SOURCES every run, but javac only ever adds
     // to target/classes: when a bean is deleted or renamed, the previous run's compiled
     // $$Context/$$AotProxy/$$ConfigImpl classes survive there and get packaged into the jar.
-    // We reconcile target/classes against the live source set BEFORE regenerating. No persistent
-    // state: the live parse is recomputed every run and needs no cross-run bookkeeping.
+    // We reconcile target/classes against the live source set AFTER the new generation has
+    // compiled successfully — running it before generation leaves target/classes in a half-
+    // deleted state if the AOT build then fails (IDE incremental reads, parallel module
+    // builds, and the next clean rebuild all see an inconsistent view). No persistent state:
+    // the live parse is recomputed every run and needs no cross-run bookkeeping.
 
     /**
      * Parses {@code src/main/java} + the just-prepared {@code generatedDir}, then deletes every
@@ -288,7 +294,7 @@ public class SummerMojo extends AbstractMojo {
         // Locate the top-level `summer:` block (column-0 key).
         int summerIdx = -1;
         for (int i = 0; i < lines.size(); i++) {
-            if (lines.get(i).matches("summer:\s*(#.*)?")) {
+            if (lines.get(i).matches("summer:\\s*(#.*)?")) {
                 summerIdx = i;
                 break;
             }
@@ -314,7 +320,7 @@ public class SummerMojo extends AbstractMojo {
                 blockEnd = i;
                 break;
             }
-            if (l.matches("\\s+engine:\s*.*")) {
+            if (l.matches("\\s+engine:\\s*.*")) {
                 engineIdx = i;
             }
         }

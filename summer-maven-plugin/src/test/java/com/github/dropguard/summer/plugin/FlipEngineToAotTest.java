@@ -108,4 +108,28 @@ class FlipEngineToAotTest {
         String twice = flip(once);
         assertEquals(once, twice, "re-running the goal must be a no-op");
     }
+
+    @Test
+    void tabIndentedExistingEngineLineIsMatchedAndUpdated() throws Exception {
+        // Regression: the engine-line regex used Java string-escaped "\s" written as "\s" once
+        // and a plain space char once ("\s"). The latter matched only the ASCII space literal, so
+        // a tab-indented engine line was silently skipped — the engine flag stuck on the user's
+        // previous value while the build claimed AOT ran. After fixing the regex (real "\s"
+        // meta-char in both places), tab-indented lines match and the flip is correct.
+        String original = "summer:\n\tengine: runtime\n";
+        String result = flip(original);
+
+        assertTrue(result.contains("engine: aot"), "tab-indented engine line must be updated");
+        assertFalse(result.contains("runtime"));
+    }
+
+    @Test
+    void tabIndentedNoEngineYetAppendsEngineLine() throws Exception {
+        String original = "summer:\n\t# placeholder for future settings\n";
+        String result = flip(original);
+
+        assertTrue(
+                result.contains("engine: aot"),
+                "missing engine inside the summer block must be added");
+    }
 }
