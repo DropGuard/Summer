@@ -129,6 +129,35 @@ class InboundTimerLifecycleTest {
         channel.finishAndReleaseAll();
     }
 
+    /**
+     * A connection may only ever have ONE request in flight: a pipelined request arriving while a
+     * previous handler is still running must never dispatch concurrently — two in-flight virtual
+     * threads would race their writes and the second response could leave before the first (RFC
+     * 9112 §7.6 keeps responses strictly ordered). The server's answer is to close the connection;
+     * the client reissues on a fresh connection and the in-flight response is never interleaved.
+     */
+    @Test
+    void pipelinedRequestWhileHandlerIsBusyClosesConnection() {
+        GatedRouter router = new GatedRouter();
+        EmbeddedChannel channel = newChannel(router);
+
+        channel.writeInbound(getRequest());
+        router.awaitEntered();
+        assertTrue(channel.isOpen(), "first request is being handled");
+
+        try {
+            channel.writeInbound(getRequest());
+            channel.runPendingTasks(); // EmbeddedChannel close() is queued, not synchronous
+            assertFalse(
+                    channel.isOpen(),
+                    "a second request on the same connection must not run concurrently"
+                            + " with the first — the connection is closed instead");
+        } finally {
+            router.release.countDown();
+            channel.finishAndReleaseAll();
+        }
+    }
+
     @Test
     void idleEventClosesAGenuineKeepAliveGap() {
         EmbeddedChannel channel = newChannel(new GatedRouter());

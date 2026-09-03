@@ -55,13 +55,29 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest nettyReq) {
+        // One request in flight per connection. HTTP/1.1 responses must be written in request
+        // order (RFC 9112 §7.6), and with each request dispatched to its own virtual thread a
+        // pipelined second request could only be answered by racing its response against the
+        // first's — or by buffering requests, which lets a client pile work onto one connection.
+        // Neither is acceptable: the busy connection is closed. Legitimate clients (browsers
+        // never pipeline; HTTP/2 multiplexes over one connection but is not decoded here) retry
+        // on a fresh connection, and closing caps per-connection resource use at exactly one
+        // in-flight request, so a client cannot grow the server's memory/thread usage by sending.
+        if (ChannelInflight.isActive(ctx.channel())) {
+            log.debug(
+                    "Rejecting pipelined request on {}: previous request still being handled",
+                    ctx.channel().remoteAddress());
+            ctx.close();
+            return;
+        }
+        ChannelInflight.markActive(ctx);
+
         if (server != null) server.getActiveConnections().incrementAndGet();
 
         // The request is fully received (this handler sits behind the aggregator):
         // slow-request protection has done its job for this connection and must not
         // fire again — server-push responses legitimately have no inbound traffic.
         removeReadTimeout(ctx);
-        ChannelInflight.markActive(ctx);
 
         // 1. Check HTTP Keep-Alive
         boolean keepAlive = HttpUtil.isKeepAlive(nettyReq);

@@ -14,6 +14,12 @@ import io.netty.util.AttributeKey;
  * buffered-response sink, the chunked/SSE stream close, or (for WebSocket) never: after an upgrade
  * the connection stays marked for its lifetime and liveness is owned by the WebSocket heartbeat
  * instead.
+ *
+ * <p>The flag doubles as the connection's pipelining gate. HTTP/1.1 responses must remain ordered
+ * with requests (RFC 9112 §7.6) and each request is dispatched to its own virtual thread, so a
+ * second request arriving while the flag is set cannot be answered without risking response
+ * interleaving. The handler closes the connection in that case — the honest protocol-level answer,
+ * which also caps per-connection resource use at one in-flight request plus the TCP read buffer.
  */
 final class ChannelInflight {
 
