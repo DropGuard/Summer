@@ -201,6 +201,10 @@ final class BeanInstantiator {
             InjectionParameter parameter = parameters.get(i);
             if (parameter.typeName().startsWith("java.util.List<")) {
                 Class<?> elementClass = loadClassForInstantiation(parameter.elementType());
+                // Self is naturally absent here: this bean registers into the builder only
+                // AFTER its constructor returns, and discovery ordered every other T implementor
+                // ahead of it (SharedDependencyResolver excludes self from List<T> matches —
+                // same semantics as the AOT engine's emitted slice).
                 args[i] = builder.getBeans(elementClass);
             } else {
                 // BeanContainer injection is rejected in SharedDependencyResolver at discovery
