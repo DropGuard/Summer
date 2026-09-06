@@ -139,12 +139,6 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
                                                     .CHUNKED_RESPONSE)));
             HttpContext webCtx = new HttpContext(req, deps.jsonConverter());
 
-            if (req.getMethod() == HttpMethod.UNKNOWN) {
-                webCtx.text(HttpStatus.METHOD_NOT_ALLOWED, "Method Not Allowed");
-                webCtx.flushTo(new NettyResponseSink(ctx, keepAlive, false));
-                return;
-            }
-
             ScopedValue.where(REQUEST_SLOT, new RequestSlot(ctx, nettyReq))
                     .call(
                             () -> {
@@ -204,6 +198,14 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
         RequestSlot slot = REQUEST_SLOT.get();
         if (deps.wsUpgradeHandler().isWebSocketUpgrade(slot.nettyReq)) {
             deps.wsUpgradeHandler().handleUpgrade(slot.ctx, slot.nettyReq, c);
+            return;
+        }
+
+        // Unknown HTTP methods (TRACE, PROPFIND, fuzzing garbage) answer 405 HERE — inside the
+        // middleware chain. The previous direct write in processRequest bypassed CORS, metrics,
+        // and logging for exactly the probing traffic you most want counted and filtered.
+        if (c.request().getMethod() == HttpMethod.UNKNOWN) {
+            c.text(HttpStatus.METHOD_NOT_ALLOWED, "Method Not Allowed");
             return;
         }
 
@@ -291,17 +293,18 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        // Body-too-large is the one exception where a protocol-correct response is reachable:
-        // the aggregator failed mid-parse, the channel is still open, and the client only sees
-        // a RST if we don't write 413 first. Without this, API clients get ConnectionError instead
-        // of a structured 413 (curl gives up, requests raises ConnectionError, retries are blind).
+        // Frame-overflow is the one exception where a protocol-correct response is reachable:
+        // the channel is still open, and the client only sees a RST if we don't write a
+        // structured status first (curl gives up, requests raises ConnectionError, retries are
+        // blind). The status is classified per source: 414 for an oversized request line, 431
+        // for oversized headers, legacy 413 otherwise (see statusForTooLongFrame).
         if (isBodyTooLarge(cause)) {
+            HttpResponseStatus status = statusForTooLongFrame(cause);
             log.debug(
-                    "Rejecting oversize request body on {}: {}",
+                    "Rejecting malformed or oversize request on {}: {}",
                     ctx.channel().remoteAddress(),
                     cause.toString());
-            sendSimpleResponse(
-                    ctx, HttpResponseStatus.REQUEST_ENTITY_TOO_LARGE, "Payload Too Large");
+            sendSimpleResponse(ctx, status, status.reasonPhrase());
             return;
         }
         log.error("Channel exception", cause);
@@ -322,5 +325,29 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
             }
         }
         return false;
+    }
+
+    /**
+     * Classifies a {@link TooLongFrameException} by its source. Netty carries no structured code,
+     * so the classification is by message text: the body-aggregator's own violation ("content
+     * length exceeded …") never reaches downstream — it answers 413 and closes itself — so a frame
+     * exception arriving HERE comes from the codec's request-line or header parsers, which are 414
+     * / 431 respectively. Unrecognized messages stay on the legacy 413 rather than guessing.
+     *
+     * <p>These responses always close the connection, so a stray body on a HEAD request is
+     * discarded unread by the client — no desync is possible on this path.
+     */
+    private static HttpResponseStatus statusForTooLongFrame(Throwable cause) {
+        String message =
+                cause.getMessage() == null
+                        ? ""
+                        : cause.getMessage().toLowerCase(java.util.Locale.ROOT);
+        if (message.contains("header")) {
+            return HttpResponseStatus.REQUEST_HEADER_FIELDS_TOO_LARGE;
+        }
+        if (message.contains("line")) {
+            return HttpResponseStatus.REQUEST_URI_TOO_LONG;
+        }
+        return HttpResponseStatus.REQUEST_ENTITY_TOO_LARGE;
     }
 }
