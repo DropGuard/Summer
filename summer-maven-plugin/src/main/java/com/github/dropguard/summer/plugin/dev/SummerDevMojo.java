@@ -58,15 +58,17 @@ public class SummerDevMojo extends AbstractMojo {
 
             // 4. Init the dev environment (rebuild + child lifecycle) and the TCP proxy. The
             //    resources root is passed so a change in src/main/resources (e.g. application.yml)
-            //    reloads the child instead of silently doing nothing.
+            //    reloads the child instead of silently doing nothing; the java source root scopes
+            //    stale-class pruning of deleted sources to their real package directories.
+            File javaSourceRoot = new File(project.getBasedir(), "src/main/java");
             File resourcesDir = new File(project.getBasedir(), "src/main/resources");
             DevEnvironment env =
-                    new DevEnvironment(compiler, indexer, appManager, mainClass, resourcesDir);
+                    new DevEnvironment(
+                            compiler, indexer, appManager, mainClass, resourcesDir, javaSourceRoot);
             TcpProxy proxy = new TcpProxy(port, env);
 
             // 5. Init File Watchers (Triggers eager kill & dirty flag): java sources + resources.
-            DirectoryWatcher watcher =
-                    new DirectoryWatcher(new File(project.getBasedir(), "src/main/java"));
+            DirectoryWatcher watcher = new DirectoryWatcher(javaSourceRoot);
             DirectoryWatcher resourceWatcher = new DirectoryWatcher(resourcesDir, "");
             java.util.function.Consumer<java.io.File> onChange =
                     changedFile -> {
@@ -81,8 +83,27 @@ public class SummerDevMojo extends AbstractMojo {
             // 6. Start the proxy and block the Maven thread
             proxy.start();
 
-            // Keep the maven plugin alive
-            Thread.currentThread().join();
+            // Teardown: if the Maven JVM dies (IDE Stop button, kill, crash) the child app JVM
+            // would otherwise survive as an orphan still holding the dev port. The hook also
+            // closes the watchers; kill() is idempotent.
+            Thread mojoThread = Thread.currentThread();
+            Runnable teardown =
+                    () -> {
+                        log.info("[Summer] Shutting down dev mode...");
+                        appManager.kill();
+                        watcher.stop();
+                        resourceWatcher.stop();
+                    };
+            Runtime.getRuntime().addShutdownHook(new Thread(teardown, "Summer-Dev-Mode-Shutdown"));
+
+            try {
+                // Keep the maven plugin alive
+                mojoThread.join();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                teardown.run();
+            }
 
         } catch (org.apache.maven.artifact.DependencyResolutionRequiredException e) {
             throw new MojoExecutionException("Failed to resolve classpath", e);

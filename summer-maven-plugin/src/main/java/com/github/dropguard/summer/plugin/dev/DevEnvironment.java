@@ -23,6 +23,7 @@ public final class DevEnvironment {
     private final AppProcessManager appManager;
     private final String mainClass;
     private final File resourcesDir;
+    private final File javaSourceRoot;
     private volatile int backendPort;
 
     public DevEnvironment(
@@ -30,12 +31,14 @@ public final class DevEnvironment {
             JandexFastIndexer indexer,
             AppProcessManager appManager,
             String mainClass,
-            File resourcesDir) {
+            File resourcesDir,
+            File javaSourceRoot) {
         this.compiler = compiler;
         this.indexer = indexer;
         this.appManager = appManager;
         this.mainClass = mainClass;
         this.resourcesDir = resourcesDir;
+        this.javaSourceRoot = javaSourceRoot;
     }
 
     /** The port the child JVM listens on (set by the last {@link #rebuild}). */
@@ -46,22 +49,40 @@ public final class DevEnvironment {
     /**
      * Rebuilds from the changed files and restarts the child: java sources compile; resources
      * (yml/properties/static) copy into the output dir so the restarted child sees them on its
-     * classpath. The child gets a fresh random port, which the proxy then forwards to.
+     * classpath. A tracked .java file that no longer exists is a deletion/renaming — compiling it
+     * could only fail, so its stale classes are pruned and the index rebuilt instead. The child
+     * gets a fresh random port, which the proxy then forwards to.
      */
     public void rebuild(List<File> changed) throws Exception {
         List<File> sources = new ArrayList<>();
+        List<File> deletedSources = new ArrayList<>();
         for (File f : changed) {
             if (f.getName().endsWith(".java")) {
-                sources.add(f);
+                if (f.isFile()) {
+                    sources.add(f);
+                } else {
+                    deletedSources.add(f);
+                }
             } else {
                 copyResource(f);
             }
         }
+        boolean classesChanged = false;
         if (!sources.isEmpty()) {
             if (!compiler.compile(sources)) {
                 throw new CompileFailedException(
                         "Compilation failed; the Summer application was not restarted");
             }
+            classesChanged = true;
+        }
+        for (File deleted : deletedSources) {
+            log.info(
+                    "[Summer] Source deleted or renamed — pruning stale classes: "
+                            + deleted.getName());
+            compiler.pruneStaleClasses(javaSourceRoot, deleted);
+            classesChanged = true;
+        }
+        if (classesChanged) {
             indexer.reindex(compiler.outputDir);
         }
 
@@ -76,6 +97,10 @@ public final class DevEnvironment {
     private void copyResource(File changed) {
         if (resourcesDir == null) {
             log.warn("[Summer] Resource changed but no resources dir configured: " + changed);
+            return;
+        }
+        if (!changed.isFile()) {
+            log.info("[Summer] Resource deleted — nothing to copy: " + changed);
             return;
         }
         Path root = resourcesDir.toPath();

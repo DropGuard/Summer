@@ -32,14 +32,17 @@ class DevEnvironmentTest {
                 };
         DevEnvironment environment =
                 new DevEnvironment(
-                        compiler, new JandexFastIndexer(), appManager, "example.App", null);
+                        compiler, new JandexFastIndexer(), appManager, "example.App", null, null);
+
+        // A real existing source file: a nonexistent path would now be classified as a
+        // deletion (stale-class prune), not a compile attempt.
+        Path source = Files.createTempFile("App", ".java");
+        Files.writeString(source, "class App {}\n");
 
         CompileFailedException failure =
                 assertThrows(
                         CompileFailedException.class,
-                        () ->
-                                environment.rebuild(
-                                        List.of(new File("src/main/java/example/App.java"))));
+                        () -> environment.rebuild(List.of(source.toFile())));
 
         assertEquals(
                 "Compilation failed; the Summer application was not restarted",
