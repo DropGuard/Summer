@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import javax.tools.JavaCompiler;
 import javax.tools.StandardJavaFileManager;
@@ -63,6 +64,65 @@ final class SummerSourceIndex {
         result.addAll(parseWithJavac(sources));
         return Collections.unmodifiableSet(result);
     }
+
+    /**
+     * Binary names derivable from PATH alone across the given roots — the complement to the javac
+     * parse. Covers what the parser cannot see:
+     *
+     * <ul>
+     *   <li>{@code package-info.class} / {@code module-info.class} — the parse collects no
+     *       ClassTree for them ("package-info contributes nothing"), so they would otherwise count
+     *       as orphans;
+     *   <li>classes compiled from NON-Java source roots ({@code src/main/kotlin} etc.), which their
+     *       own plugins register as Maven compile source roots and compile into {@code
+     *       target/classes} before this mojo runs — deleting them would ship a jar without them
+     *       ({@code NoClassDefFoundError} at runtime).
+     * </ul>
+     *
+     * <p>Derivation is path-only: {@code <root>/com/x/Bar.kt} yields {@code com.x.Bar}.
+     *
+     * @return unmodifiable set of binary class names
+     */
+    static Set<String> collectPathDerivedBinaryNames(List<File> roots) throws IOException {
+        Set<String> names = new HashSet<>();
+        if (roots == null) return Collections.emptySet();
+        for (File root : roots) {
+            if (root == null || !root.isDirectory()) continue;
+            Path rootPath = root.toPath();
+            try (var stream = Files.walk(rootPath)) {
+                for (Path path : stream.filter(Files::isRegularFile).toList()) {
+                    String fileName = path.getFileName().toString();
+                    int dot = fileName.lastIndexOf('.');
+                    if (dot <= 0) continue;
+                    String extension = fileName.substring(dot + 1).toLowerCase(Locale.ROOT);
+                    if (!extension.equals("java")
+                            && !FOREIGN_SOURCE_EXTENSIONS.contains(extension)) {
+                        continue;
+                    }
+                    String relative = rootPath.relativize(path).toString().replace('\\', '/');
+                    int lastSlash = relative.lastIndexOf('/');
+                    String base =
+                            (lastSlash < 0
+                                            ? ""
+                                            : relative.substring(0, lastSlash).replace('/', '.')
+                                                    + ".")
+                                    + fileName.substring(0, dot);
+                    names.add(base);
+                    if (extension.equals("kt")) {
+                        // A Kotlin file whose top level is functions-only compiles to
+                        // <File>Kt.class — derive the companion name too. (@JvmName renames
+                        // are not derivable from the path and stay unsupported.)
+                        names.add(base + "Kt");
+                    }
+                }
+            }
+        }
+        return Collections.unmodifiableSet(names);
+    }
+
+    // Source extensions whose compiled classes may live in the output directory but that the
+    // javac parse cannot see (.java is always included; the rest belong to other compilers).
+    private static final Set<String> FOREIGN_SOURCE_EXTENSIONS = Set.of("kt", "scala", "groovy");
 
     /**
      * Deletes every {@code .class} file inside {@code outputDirectory} whose binary name is not
