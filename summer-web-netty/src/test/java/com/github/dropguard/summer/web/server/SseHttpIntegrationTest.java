@@ -65,4 +65,24 @@ class SseHttpIntegrationTest {
         assertTrue(response.headers().firstValue("Content-Type").orElse("").contains("text/csv"));
         assertEquals("id,name\n1,Alice\n2,Bob\n", response.body());
     }
+
+    @DualEngine
+    void handlerThrowingMidStreamStillTerminatesTheResponse() throws Exception {
+        // Pre-fix: a handler throwing after taking an SseStream left it unclosed — no
+        // LastHttpContent, so this read hung until the request timeout. The framework must
+        // terminate the orphaned stream.
+        HttpRequest request =
+                HttpRequest.newBuilder()
+                        .uri(URI.create(baseUrl + "/test/sse/throwing"))
+                        .timeout(Duration.ofSeconds(5))
+                        .GET()
+                        .build();
+
+        HttpResponse<java.util.stream.Stream<String>> response =
+                client.send(request, HttpResponse.BodyHandlers.ofLines());
+
+        List<String> lines = response.body().filter(l -> !l.isBlank()).collect(Collectors.toList());
+        assertEquals(1, lines.size(), "the event written before the throw must be delivered");
+        assertTrue(lines.get(0).startsWith("data:"), "the partial event must be an SSE data line");
+    }
 }

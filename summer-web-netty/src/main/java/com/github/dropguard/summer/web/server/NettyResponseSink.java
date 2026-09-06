@@ -66,7 +66,12 @@ class NettyResponseSink implements ResponseSink {
                         HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(status.code()), content);
 
         for (Map.Entry<String, String> entry : headers.entrySet()) {
-            resp.headers().set(entry.getKey(), entry.getValue());
+            // A null value (e.g. a middleware clearing an absent correlation id) must be
+            // skipped, not set: Netty's DefaultHeaders.set rejects null values with an NPE,
+            // which would escape flushTo and replace the intended response with a 500.
+            if (entry.getValue() != null) {
+                resp.headers().set(entry.getKey(), entry.getValue());
+            }
         }
 
         if (keepAlive) {

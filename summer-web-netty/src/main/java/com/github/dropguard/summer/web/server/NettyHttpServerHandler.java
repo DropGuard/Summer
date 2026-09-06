@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web.server;
 
+import com.github.dropguard.summer.web.ChunkedResponse;
 import com.github.dropguard.summer.web.Handler;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpMethod;
@@ -122,21 +123,23 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
 
     private void processRequest(
             ChannelHandlerContext ctx, FullHttpRequest nettyReq, boolean keepAlive) {
+        Request request = null;
         try {
-            Request request = NettyRequestAdapter.adapt(nettyReq);
-            request.setLazyAttribute(
+            final Request req = NettyRequestAdapter.adapt(nettyReq);
+            request = req;
+            req.setLazyAttribute(
                     com.github.dropguard.summer.web.RequestAttributes.CHUNKED_RESPONSE,
                     () -> new NettyChunkedResponse(ctx, keepAlive));
-            request.setLazyAttribute(
+            req.setLazyAttribute(
                     com.github.dropguard.summer.web.RequestAttributes.SSE_STREAM,
                     () ->
                             new NettySseStream(
-                                    request.getAttribute(
+                                    req.getAttribute(
                                             com.github.dropguard.summer.web.RequestAttributes
                                                     .CHUNKED_RESPONSE)));
-            HttpContext webCtx = new HttpContext(request, deps.jsonConverter());
+            HttpContext webCtx = new HttpContext(req, deps.jsonConverter());
 
-            if (request.getMethod() == HttpMethod.UNKNOWN) {
+            if (req.getMethod() == HttpMethod.UNKNOWN) {
                 webCtx.text(HttpStatus.METHOD_NOT_ALLOWED, "Method Not Allowed");
                 webCtx.flushTo(new NettyResponseSink(ctx, keepAlive));
                 return;
@@ -158,6 +161,33 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
         } catch (Exception e) {
             log.error("Fatal framework error", e);
             sendErrorResponse(ctx, keepAlive);
+        } finally {
+            closeOrphanedStream(request, ctx);
+        }
+    }
+
+    /**
+     * Terminates an SSE stream / chunked response the handler materialized but never closed — it
+     * threw mid-stream, or returned without closing. Without this, no {@code LastHttpContent} is
+     * ever sent: the client hangs on an unterminated chunked response indefinitely, the channel
+     * never completes (its read-idle gate was already removed at dispatch), and the in-flight
+     * accounting misses it because the dispatch thread has returned. {@link Request#peekAttribute}
+     * is deliberate — the attributes are lazy, and {@code getAttribute} here would CREATE a stream
+     * for handlers that never asked for one. {@link NettyChunkedResponse#close()} is
+     * CAS-idempotent, so a handler that closed properly is untouched.
+     */
+    private static void closeOrphanedStream(Request request, ChannelHandlerContext ctx) {
+        if (request == null) {
+            return;
+        }
+        ChunkedResponse chunked =
+                request.peekAttribute(
+                        com.github.dropguard.summer.web.RequestAttributes.CHUNKED_RESPONSE);
+        if (chunked instanceof NettyChunkedResponse nettyChunked && !nettyChunked.isClosed()) {
+            log.warn(
+                    "Handler never closed its SSE stream / chunked response — terminating it on {}",
+                    ctx.channel().remoteAddress());
+            chunked.close();
         }
     }
 

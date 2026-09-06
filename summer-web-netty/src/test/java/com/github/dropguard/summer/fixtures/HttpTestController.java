@@ -32,4 +32,12 @@ public class HttpTestController {
         chunked.write("2,Bob\n");
         chunked.close();
     }
+
+    @Get("/sse/throwing")
+    public void throwingSse(HttpContext ctx, com.github.dropguard.summer.web.SseStream sse) {
+        sse.send("partial");
+        // Pre-fix, throwing mid-stream left the stream unclosed: no LastHttpContent was ever
+        // sent and the client hung on the unterminated chunked response forever.
+        throw new RuntimeException("boom mid-stream");
+    }
 }
