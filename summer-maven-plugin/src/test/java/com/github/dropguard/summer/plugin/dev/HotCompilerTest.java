@@ -55,4 +55,30 @@ class HotCompilerTest {
         HotCompiler compiler = new HotCompiler("", tempDir.toFile());
         assertTrue(compiler.compile(List.of()), "no files to compile is not a failure");
     }
+
+    @Test
+    void pruneIsScopedToTheDeletedSourcePackage(@TempDir Path temp) throws Exception {
+        // com/a/Util.java deleted, but com/b/Util (a DIFFERENT class with the same simple
+        // name) is untouched — name-only matching across the whole output dir would delete
+        // both and break com.b.Util with a NoClassDefFoundError.
+        Path srcRoot = Files.createDirectories(temp.resolve("src"));
+        Files.createDirectories(srcRoot.resolve("com/a"));
+        Path out = Files.createDirectories(temp.resolve("out"));
+        Files.createDirectories(out.resolve("com/a"));
+        Files.createDirectories(out.resolve("com/b"));
+        Files.writeString(srcRoot.resolve("com/a/Util.java"), "class Util {}");
+        Files.writeString(out.resolve("com/a/Util.class"), "x");
+        Files.writeString(out.resolve("com/a/Util$1.class"), "x");
+        Files.writeString(out.resolve("com/b/Util.class"), "x");
+
+        HotCompiler compiler = new HotCompiler("", out.toFile());
+        compiler.pruneStaleClasses(
+                temp.resolve("src").toFile(), temp.resolve("src/com/a/Util.java").toFile());
+
+        assertFalse(Files.exists(out.resolve("com/a/Util.class")));
+        assertFalse(Files.exists(out.resolve("com/a/Util$1.class")));
+        assertTrue(
+                Files.exists(out.resolve("com/b/Util.class")),
+                "another package's same-named class must survive the prune");
+    }
 }

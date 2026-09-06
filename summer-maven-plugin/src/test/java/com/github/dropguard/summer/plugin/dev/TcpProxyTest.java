@@ -72,7 +72,7 @@ class TcpProxyTest {
         HotCompiler compiler = new HotCompiler("", outDir.toFile());
         DevEnvironment env =
                 new DevEnvironment(
-                        compiler, new JandexFastIndexer(), fakeManager, "fake.Main", null);
+                        compiler, new JandexFastIndexer(), fakeManager, "fake.Main", null, null);
         TcpProxy proxy = new TcpProxy(0, env);
 
         proxy.start();
@@ -132,7 +132,8 @@ class TcpProxyTest {
                         new JandexFastIndexer(),
                         fakeManager,
                         "fake.Main",
-                        resDir.toFile());
+                        resDir.toFile(),
+                        null);
         TcpProxy proxy = new TcpProxy(0, env);
         proxy.start();
         HttpClient client = HttpClient.newHttpClient();

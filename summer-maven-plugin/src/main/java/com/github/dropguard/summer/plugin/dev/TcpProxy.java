@@ -68,8 +68,11 @@ public class TcpProxy {
                                 synchronized (reloadLock) {
                                     if (isDirty) {
                                         long reloadStart = System.nanoTime();
-                                        List<File> filesToCompile = new ArrayList<>(changedFiles);
-                                        changedFiles.clear();
+                                        List<File> filesToCompile;
+                                        synchronized (changedFiles) {
+                                            filesToCompile = new ArrayList<>(changedFiles);
+                                            changedFiles.clear();
+                                        }
                                         log.info(
                                                 "[Summer] Code changed — reloading"
                                                         + (filesToCompile.isEmpty()
@@ -89,7 +92,18 @@ public class TcpProxy {
                                                                         + ")")
                                                         + "...");
 
-                                        env.rebuild(filesToCompile);
+                                        try {
+                                            env.rebuild(filesToCompile);
+                                        } catch (Exception e) {
+                                            // Restore the snapshot: the user's edit is the
+                                            // truth, and the next request must retry the
+                                            // rebuild against exactly these files. (Clearing
+                                            // before the rebuild would make the retry boot the
+                                            // stale classes with an empty list.)
+                                            changedFiles.addAll(filesToCompile);
+                                            isDirty = true;
+                                            throw e;
+                                        }
                                         isDirty = !changedFiles.isEmpty();
                                         log.info(
                                                 "[Summer] Backend ready on :"
@@ -124,8 +138,8 @@ public class TcpProxy {
 
                             } catch (Exception e) {
                                 // Surface failures (compile errors, backend connect errors) to
-                                // the user. changedFiles stays as-is: the user's edit is the
-                                // truth, and the next request retries the rebuild against it.
+                                // the user. The reload barrier restored changedFiles, so the
+                                // next request retries the rebuild against them.
                                 log.error("[Summer] Proxy handler error", e);
                                 closeQuietly(clientSocket);
                             }
