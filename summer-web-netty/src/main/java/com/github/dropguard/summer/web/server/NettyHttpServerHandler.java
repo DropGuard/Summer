@@ -129,7 +129,11 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
             request = req;
             req.setLazyAttribute(
                     com.github.dropguard.summer.web.RequestAttributes.CHUNKED_RESPONSE,
-                    () -> new NettyChunkedResponse(ctx, keepAlive));
+                    () ->
+                            new NettyChunkedResponse(
+                                    ctx,
+                                    keepAlive,
+                                    server != null ? server.getOpenStreams() : null));
             req.setLazyAttribute(
                     com.github.dropguard.summer.web.RequestAttributes.SSE_STREAM,
                     () ->
