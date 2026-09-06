@@ -22,15 +22,15 @@ Canonical command list lives in **AGENTS.md → COMMANDS** (one source of truth)
 - act catches real fresh-repo CI bugs (the GitHub runner fails identically): run it before pushing
   workflow/publish changes.
 
-## CLI decision (2026-08-08)
+## CLI
 
-- **No standalone CLI in 0.x.** The command surface already exists as Maven goals:
-  `mvn summer:create-app` / `mvn summer:dev` / `mvn package` (with the one-time settings.xml
-  pluginGroup). A standalone CLI would wrap Maven (the build + dev are Maven-bound), adding only
-  ergonomics — plus a second distribution channel (a runnable artifact + installer + versioning,
-  parallel to the Maven repo).
-- Revisit when: (a) tool-agnosticism arrives (Gradle support — the CLI becomes a cross-tool entry
-  point), or (b) a real demand signal.
+- The official `summer` binary ships from `DropGuard/summer-cli` (Go, tag-driven releases via
+  its `release.yml`) and is the primary entry point — the framework README's Quick Start is
+  CLI-first: `summer create` scaffolds from the embedded archetype; `summer dev` / `summer
+  build` drive the Maven toolchain (`pkg/runner/maven`).
+- The Maven-level surface stays the source of truth for the build itself: `mvn summer:dev` and
+  `mvn package` are what the CLI drives (one-time settings.xml pluginGroup). Scaffolding is the
+  CLI/archetype path — there is no `summer:create-app` framework mojo.
 
 ## Publish runbook (Maven Central)
 
@@ -44,18 +44,4 @@ Canonical command list lives in **AGENTS.md → COMMANDS** (one source of truth)
 
 ## Current Work / Pending
 
-- **Audit complete (2026-08-07)** — the SPI refactor + two audit rounds (§11-§14, previously tracked in the deleted `CODE-AUDIT.md`) are fully resolved; durable decisions live in code comments/javadoc.
 - **Do NOT commit without explicit user permission.**
-- Done (2026-08-08, verification-granularity round): the `*IT` tests were silently skipped for a
-  long time (a bare failsafe declaration never binds its goals) — failsafe is now bound in
-  summer-parent's active plugins + a CI step fails if the IT-bearing modules run 0 tests.
-  `@TestResource` gained the Quarkus lifecycle (init/inject/order + initArgs); the dotted-key
-  override contract is enforced by `TestResourceContractTest` (the RedisTestResource's env-style
-  key never matched — a latent bug the silent-skip hid). Whole-universe-invisible fixtures (the
-  narrow-seeded sad-path beans + the narrow-only positive configs) live in
-  `summer-tck-invisible-fixtures` — no jandex.idx, so the jar carries the .class bytes but the
-  whole-universe index never sees them (the Quarkus Arc model: the boundary is the archive's
-  absence from the indexed path, not an exclude list). Dual-engine real-stack coverage:
-  `RealPostgresAotIntegrationIT` (aot-engine, real PG × both engines) + `RedisIntegrationIT`
-  (@DualEngine). Moved to the tck by semantics: `RedisPropertiesDualEngineTest`,
-  `WebSocketBroadcasterTest`, `WebSocketInterceptorIntegrationTest`, `RowModelMetadataNarrowDualEngineTest`.

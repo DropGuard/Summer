@@ -13,7 +13,7 @@ To ensure an accurate, fair, and production-representative comparison, the bench
 
 1. **CPU Core Pinning (Physical Core Isolation)**:
    - Target services run with `cpuset: "0,1"` (pinned to physical cores 0 and 1).
-   - The Grafana k6 runner runs isolated with `cpuset: "2,3"` (pinned to physical cores 2 and 3).
+   - The Grafana k6 runner runs isolated with `cpuset: "2,3,4,5"` (pinned to physical cores 2–5).
    - This ensures the load generator and the target server never steal CPU cycles or trigger cross-core cache thrashing.
 2. **Containerized Resource Limits**:
    - Every service is strictly hard-capped to **2 CPUs** and **512MB RAM**, accurately simulating a constrained Kubernetes Pod.

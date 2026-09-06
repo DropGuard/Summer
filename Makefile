@@ -19,7 +19,7 @@ test:
 
 test-module:
 ifndef MODULE
-	$(error Usage: make test-module MODULE=summer-example [TEST=ClassName])
+	$(error Usage: make test-module MODULE=summer-core [TEST=ClassName])
 endif
 ifdef TEST
 	mvn test -pl $(MODULE) -am -Dtest="$(TEST)" -Dsurefire.useFile=false -Dsurefire.failIfNoSpecifiedTests=false
@@ -42,8 +42,14 @@ else
 	mvn verify -pl $(MODULE) -am -Dit -Dsurefire.useFile=false
 endif
 
+# Run a sample app end to end. Requires `make install` first: the samples are
+# not reactor modules and resolve the framework snapshot from the local
+# repository, exactly like user projects do.
 run:
-	mvn compile exec:java -pl summer-example -am
+ifndef SAMPLE
+	$(error Usage: make run SAMPLE=summer-twitter [summer-realworld|summer-issue-tracker])
+endif
+	mvn compile exec:java -f samples/$(SAMPLE)/pom.xml
 
 realworld:
 	mvn compile exec:java -f samples/summer-realworld/pom.xml
@@ -63,10 +69,10 @@ benchmark:
 	python summer-benchmark/run-benchmarks.py
 
 fmt:
-	mvn spotless:apply -pl '!summer-dependencies,!summer-build-parent'
+	mvn spotless:apply -pl '!summer-dependencies'
 
 check:
-	mvn spotless:check -pl '!summer-dependencies,!summer-build-parent'
+	mvn spotless:check -pl '!summer-dependencies'
 
 pre-commit: fmt check clean test
 
@@ -78,6 +84,6 @@ coverage:
 
 coverage-module:
 ifndef MODULE
-	$(error Usage: make coverage-module MODULE=summer-example)
+	$(error Usage: make coverage-module MODULE=summer-core)
 endif
 	mvn test jacoco:report -pl $(MODULE) -am
