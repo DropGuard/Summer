@@ -126,38 +126,70 @@ public final class RuntimeContainer implements ContainerEngine {
                 builder.register(bean.getClass(), bean);
             }
         }
-        for (BeanDefinition bd : sorted) {
-            log.debug(
-                    "[Summer] Instantiating bean {} [factory {}#{}] archive={} params={}{}",
-                    bd.qualifiedName,
-                    bd.configClassName,
-                    bd.producerMethodName,
-                    bd.archiveName,
-                    bd.parameters.size(),
-                    bd.syntheticInstance != null ? " [synthetic]" : "");
-            instantiator.instantiateFromDefinition(bd);
-        }
-        builder.routes(resolved.routes());
+        try {
+            for (BeanDefinition bd : sorted) {
+                log.debug(
+                        "[Summer] Instantiating bean {} [factory {}#{}] archive={} params={}{}",
+                        bd.qualifiedName,
+                        bd.configClassName,
+                        bd.producerMethodName,
+                        bd.archiveName,
+                        bd.parameters.size(),
+                        bd.syntheticInstance != null ? " [synthetic]" : "");
+                instantiator.instantiateFromDefinition(bd);
+            }
+            builder.routes(resolved.routes());
 
-        // validators — single pass, single Result, single throw
-        Result validationResult = new Result();
-        for (Object bean : builder.singletons().values()) {
-            if (bean instanceof Validator<?> v) {
-                List<?> targets = builder.getBeans(v.targetType());
-                for (Object target : targets) {
-                    @SuppressWarnings("unchecked")
-                    Validator<Object> typed = (Validator<Object>) v;
-                    typed.validate(target, validationResult);
+            // validators — single pass, single Result, single throw
+            Result validationResult = new Result();
+            for (Object bean : builder.singletons().values()) {
+                if (bean instanceof Validator<?> v) {
+                    List<?> targets = builder.getBeans(v.targetType());
+                    for (Object target : targets) {
+                        @SuppressWarnings("unchecked")
+                        Validator<Object> typed = (Validator<Object>) v;
+                        typed.validate(target, validationResult);
+                    }
                 }
             }
+            validationResult.throwIfInvalid();
+        } catch (Exception e) {
+            // Assembly failed mid-way — a constructor threw at bean N (the most common case),
+            // or validation failed after it. The beans already built hold real resources
+            // (pools, clients) and the startup hook — registered only after a SUCCESSFUL
+            // start — will never close them.
+            closeAbandonedBeans(builder);
+            throw e;
         }
-        validationResult.throwIfInvalid();
 
         log.info(
                 "[Summer] Built RUNTIME container: {} beans, {} routes",
                 sorted.size(),
                 resolved.routes().size());
         return builder.build(Engine.RUNTIME);
+    }
+
+    /**
+     * Best-effort close of the beans already instantiated when assembly fails mid-way. Without
+     * this, every AutoCloseable built before the failure (a DataSource pool, a Redis client) leaks
+     * for the remaining JVM life — acutely visible in test suites that repeatedly build failing
+     * contexts. Order is best-effort (reverse registration-map order); the ordered teardown
+     * contract holds only on the normal {@code BeanContainer.close()} path.
+     */
+    private static void closeAbandonedBeans(BeanContainer.Builder builder) {
+        List<Object> built = List.copyOf(builder.singletons().values());
+        for (int i = built.size() - 1; i >= 0; i--) {
+            if (built.get(i) instanceof AutoCloseable ac) {
+                try {
+                    ac.close();
+                } catch (Exception closeEx) {
+                    log.warn(
+                            "[Summer] Failed to close abandoned bean {}",
+                            ac.getClass().getName(),
+                            closeEx);
+                }
+            }
+        }
     }
 
     private static void bindConfiguration(

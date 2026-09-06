@@ -109,20 +109,11 @@ public final class SummerApplication {
         // annotated with @GlobalMiddleware are collected automatically without this.
         BeanContainer context = DiEngine.create(resolveBootstrapEngine(), this.middlewareEntries);
 
-        System.out.println(Banner.format(context.engine().name()));
-
-        for (var runner :
-                context.getBeans(com.github.dropguard.summer.core.ApplicationRunner.class)) {
-            runner.run(context);
-        }
-
-        // Single shutdown budget (Quarkus quarkus.shutdown.timeout model): shutdown.timeout-ms is
-        // the total time allowed for the whole teardown — servers draining in-flight requests,
-        // then AutoCloseable beans closing — after which the JVM exits regardless. Captured here so
-        // the hook reads a value, not the container, and a misconfigured timeout fails at startup
-        // rather than silently at exit.
+        // Register the shutdown hook BEFORE any ApplicationRunner runs: a failing runner would
+        // otherwise throw out of start() with the fully built container unclosed — the hook is
+        // its only close path at this point (same failure shape as mid-assembly failures,
+        // which RuntimeContainer cleans up itself).
         long shutdownTimeoutMs = context.getBean(ShutdownConfig.class).timeoutMs();
-
         Runtime.getRuntime()
                 .addShutdownHook(
                         new Thread(
@@ -167,6 +158,16 @@ public final class SummerApplication {
                                     }
                                 }));
 
+        System.out.println(Banner.format(context.engine().name()));
+
+        for (var runner :
+                context.getBeans(com.github.dropguard.summer.core.ApplicationRunner.class)) {
+            runner.run(context);
+        }
+
+        // Single shutdown budget (Quarkus quarkus.shutdown.timeout model): shutdown.timeout-ms is
+        // the total time allowed for the whole teardown — servers draining in-flight requests,
+        // then AutoCloseable beans closing — after which the JVM exits regardless.
         long elapsed = System.currentTimeMillis() - startTime;
         log.info(
                 "Started Summer application in {} ms (JVM uptime: {} ms).",
