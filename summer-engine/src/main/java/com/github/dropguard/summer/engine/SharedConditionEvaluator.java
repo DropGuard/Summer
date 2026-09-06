@@ -262,11 +262,22 @@ public final class SharedConditionEvaluator {
         // visibility model as bean injection. Requirements are satisfied against the live bean
         // list while walking topological order, so cascading drops work: if a provider was
         // itself dropped, its dependents see it gone.
-        Set<String> available = new HashSet<>();
+        //
+        // Interface keys are SHARED: several implementors contribute the same interface name.
+        // A dropped bean therefore revokes a key only when it was the last live contributor —
+        // unconditionally revoking its interfaceNames would strip a shared key from survivors
+        // (dropping XmlCodec must not revoke Codec while JsonCodec still implements it) and
+        // cascade false drops onto @ConditionalOnBean(Codec) dependents.
+        Map<String, Set<String>> contributors = new HashMap<>();
         for (BeanDefinition bean : beans) {
-            available.add(bean.qualifiedName);
-            available.addAll(bean.interfaceNames);
+            contributors
+                    .computeIfAbsent(bean.qualifiedName, k -> new HashSet<>())
+                    .add(bean.qualifiedName);
+            for (String iface : bean.interfaceNames) {
+                contributors.computeIfAbsent(iface, k -> new HashSet<>()).add(bean.qualifiedName);
+            }
         }
+        Set<String> available = new HashSet<>(contributors.keySet());
 
         for (BeanDefinition bean : topoOrder) {
             if (!beans.contains(bean)) continue;
@@ -282,9 +293,17 @@ public final class SharedConditionEvaluator {
                 }
             }
             if (!allPresent) {
-                available.remove(bean.qualifiedName);
-                available.removeAll(bean.interfaceNames);
                 beans.remove(bean);
+                List<String> contributed = new ArrayList<>(bean.interfaceNames);
+                contributed.add(bean.qualifiedName);
+                for (String key : contributed) {
+                    Set<String> cs = contributors.get(key);
+                    if (cs == null) continue;
+                    cs.remove(bean.qualifiedName);
+                    if (cs.isEmpty()) {
+                        available.remove(key);
+                    }
+                }
             }
         }
     }
