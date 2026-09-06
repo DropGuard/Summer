@@ -367,9 +367,16 @@ public final class SharedDependencyResolver {
 
         List<BeanDefinition> sorted = new ArrayList<>();
         Deque<BeanDefinition> queue = new ArrayDeque<>();
+        // Deterministic seeding: BeanDefinition has identity hashCode, so HashMap iteration
+        // order varies per JVM run. Without sorting, bean creation order — and with it the
+        // reverse-order teardown, route registration order, and generated AOT output — would
+        // drift between runs. Every enqueue point below sorts by qualifiedName.
+        List<BeanDefinition> roots = new ArrayList<>();
         for (var entry : incoming.entrySet()) {
-            if (entry.getValue().isEmpty()) queue.add(entry.getKey());
+            if (entry.getValue().isEmpty()) roots.add(entry.getKey());
         }
+        roots.sort(Comparator.comparing(b -> b.qualifiedName));
+        queue.addAll(roots);
 
         while (!queue.isEmpty()) {
             BeanDefinition current = queue.poll();
@@ -377,7 +384,10 @@ public final class SharedDependencyResolver {
             // Only the completed node's dependents can become schedulable — O(out-degree)
             // instead of a full scan per node. A dependent is queued exactly once: its
             // incoming set empties exactly when its last dependency completes.
-            for (BeanDefinition dependent : dependents.getOrDefault(current, Set.of())) {
+            List<BeanDefinition> freed =
+                    new ArrayList<>(dependents.getOrDefault(current, Set.of()));
+            freed.sort(Comparator.comparing(b -> b.qualifiedName));
+            for (BeanDefinition dependent : freed) {
                 Set<BeanDefinition> deps = incoming.get(dependent);
                 deps.remove(current);
                 if (deps.isEmpty()) queue.add(dependent);

@@ -1,6 +1,7 @@
 package com.github.dropguard.summer.core.bean;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.github.dropguard.summer.core.exception.BeanCreationException;
@@ -78,5 +79,25 @@ class SharedDependencyResolverTest {
                 BeanCreationException.class,
                 () -> new SharedDependencyResolver().resolve(List.of(dependent), List.of()),
                 "BeanContainer constructor injection must fail at discovery, before any engine");
+    }
+
+    @Test
+    void independentBeansAreOrderedByQualifiedNameNotByHashMapIteration() {
+        // BeanDefinition has identity hashCode, so the Kahn queue seeded from a HashMap keyed by
+        // BeanDefinition iterated in identity-hash order — bean creation order (and thus reverse
+        // teardown, route registration, generated AOT output) drifted between JVM runs. The
+        // pinned contract: independent (zero-indegree) beans come out in qualifiedName order.
+        List<BeanDefinition> beans = new ArrayList<>();
+        for (String name :
+                new String[] {"pkg.Zebra", "pkg.Mango", "pkg.Alpha", "pkg.Kiwi", "pkg.Batch"}) {
+            beans.add(component(name, Set.of()));
+        }
+
+        List<BeanDefinition> sorted = new SharedDependencyResolver().resolve(beans, List.of());
+
+        assertEquals(
+                List.of("pkg.Alpha", "pkg.Batch", "pkg.Kiwi", "pkg.Mango", "pkg.Zebra"),
+                sorted.stream().map(b -> b.qualifiedName).toList(),
+                "independent beans must be ordered deterministically by qualifiedName");
     }
 }
