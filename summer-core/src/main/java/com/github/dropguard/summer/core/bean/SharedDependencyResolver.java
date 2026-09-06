@@ -185,7 +185,7 @@ public final class SharedDependencyResolver {
                 // A List<T> dependency resolves to all matching beans (or none for a
                 // List<MockedType>, satisfied by the single mock at injection time).
                 List<BeanDefinition> matches =
-                        findAllBeans(parameter.elementType(), allBeans, mockedTypeNames);
+                        findAllBeans(parameter.elementType(), allBeans, mockedTypeNames, bean);
                 for (BeanDefinition match : matches) {
                     rejectConcreteClassInjection(bean, match, parameter.elementType());
                 }
@@ -304,9 +304,19 @@ public final class SharedDependencyResolver {
     }
 
     private List<BeanDefinition> findAllBeans(
-            String paramType, List<BeanDefinition> allBeans, Set<String> mockedTypeNames) {
+            String paramType,
+            List<BeanDefinition> allBeans,
+            Set<String> mockedTypeNames,
+            BeanDefinition dependent) {
         List<BeanDefinition> matches = new ArrayList<>();
         for (BeanDefinition candidate : allBeans) {
+            if (candidate == dependent) {
+                // Spring collection-injection semantics: a bean is never a candidate for its
+                // OWN List<T>. The composite pattern (a Middleware that builds
+                // List<Middleware>) otherwise self-edges the graph and dies as a false
+                // CircularDependencyException at startup.
+                continue;
+            }
             if (candidate.qualifiedName.equals(paramType)) {
                 matches.add(candidate);
             } else if (candidate.interfaceNames.contains(paramType)) {

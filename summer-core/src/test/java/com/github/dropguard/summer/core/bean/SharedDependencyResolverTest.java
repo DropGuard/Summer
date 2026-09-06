@@ -1,6 +1,7 @@
 package com.github.dropguard.summer.core.bean;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.github.dropguard.summer.core.exception.BeanCreationException;
@@ -78,5 +79,34 @@ class SharedDependencyResolverTest {
                 BeanCreationException.class,
                 () -> new SharedDependencyResolver().resolve(List.of(dependent), List.of()),
                 "BeanContainer constructor injection must fail at discovery, before any engine");
+    }
+
+    @Test
+    void collectionInjectionExcludesTheDependentItself() {
+        // Composite pattern: a bean implementing T that injects List<T>. Including the
+        // dependent among its own collection matches self-edged the graph and died as a
+        // false CircularDependencyException at startup.
+        BeanDefinition first = component("pkg.ChainA", Set.of());
+        first.interfaceNames.add("pkg.Middleware");
+        BeanDefinition second = component("pkg.ChainB", Set.of());
+        second.interfaceNames.add("pkg.Middleware");
+        BeanDefinition composite = component("pkg.ChainBuilder", Set.of());
+        composite.interfaceNames.add("pkg.Middleware");
+        composite.parameters.add(param("java.util.List<pkg.Middleware>"));
+
+        List<BeanDefinition> sorted =
+                new SharedDependencyResolver()
+                        .resolve(List.of(first, second, composite), List.of());
+
+        assertEquals(
+                List.of("pkg.ChainA", "pkg.ChainB", "pkg.ChainBuilder"),
+                sorted.stream().map(b -> b.qualifiedName).toList(),
+                "the composite must resolve after its (other) implementors");
+
+        InjectionParameter listParam = composite.parameters.get(0);
+        assertEquals(
+                List.of(first, second),
+                listParam.resolved(),
+                "a bean's own List<T> slice must exclude the bean itself");
     }
 }
