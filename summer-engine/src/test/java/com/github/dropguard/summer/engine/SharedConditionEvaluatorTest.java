@@ -54,4 +54,32 @@ class SharedConditionEvaluatorTest {
                 assertThrows(AmbiguousBeanException.class, () -> evaluator.evaluate(beans));
         assertTrue(ex.getMessage().contains("multiple @Bean methods return com.TargetBean"));
     }
+
+    @Test
+    void droppingOneImplementorKeepsSharedInterfaceAvailableForSurvivors() {
+        SharedConditionEvaluator evaluator = new SharedConditionEvaluator();
+
+        // JsonCodec implements Codec unconditionally; XmlCodec requires a FeatureFlag bean that
+        // does not exist and is dropped. The old implementation revoked XmlCodec's interface
+        // keys unconditionally — stripping Codec from the available set — which cascaded a
+        // false drop onto Encoder even though JsonCodec still implements Codec.
+        BeanDefinition jsonCodec = new BeanDefinition("com.JsonCodec", "JsonCodec");
+        jsonCodec.interfaceNames.add("com.Codec");
+
+        BeanDefinition xmlCodec = new BeanDefinition("com.XmlCodec", "XmlCodec");
+        xmlCodec.interfaceNames.add("com.Codec");
+        xmlCodec.conditionalOnBeanType = "com.FeatureFlag";
+
+        BeanDefinition encoder = new BeanDefinition("com.Encoder", "Encoder");
+        encoder.conditionalOnBeanType = "com.Codec";
+
+        List<BeanDefinition> beans = new ArrayList<>(List.of(jsonCodec, xmlCodec, encoder));
+        evaluator.evaluate(beans);
+
+        assertTrue(beans.contains(jsonCodec), "unconditional implementor survives");
+        assertFalse(beans.contains(xmlCodec), "implementor without its requirement drops");
+        assertTrue(
+                beans.contains(encoder),
+                "dependent on the SHARED interface must survive another implementor's drop");
+    }
 }
