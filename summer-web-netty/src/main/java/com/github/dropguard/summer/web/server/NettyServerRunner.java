@@ -85,7 +85,17 @@ public class NettyServerRunner implements ApplicationRunner {
         this.actualPort = runningServer.getPort();
 
         context.addShutdownTask(
-                () -> shutdown(java.time.Duration.ofMillis(shutdownConfig.timeoutMs())));
+                () -> {
+                    // Single shutdown budget: drain only what remains of shutdown.timeout-ms
+                    // since the container anchored it at close() start. A fresh full budget
+                    // here would push the JVM shutdown hook past its own timeout, skipping
+                    // bean close entirely.
+                    java.time.Duration remaining = context.remainingShutdownBudget();
+                    shutdown(
+                            remaining != null
+                                    ? remaining
+                                    : java.time.Duration.ofMillis(shutdownConfig.timeoutMs()));
+                });
     }
 
     /**

@@ -1,9 +1,12 @@
 package com.github.dropguard.summer.core;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -83,5 +86,39 @@ class ShutdownContextTest {
 
         // Note: Verifying log output would require a log capture mechanism,
         // but at least we verify it doesn't crash
+    }
+
+    @Test
+    void anchoredBudgetCountsDownAndIsSharedAcrossTasks() throws Exception {
+        ShutdownContext ctx = ShutdownContext.create();
+        assertNull(ctx.remaining(), "no budget anchored yet — remaining() must be null");
+
+        ctx.beginShutdown(java.time.Duration.ofMillis(200));
+        java.time.Duration first = ctx.remaining();
+        assertNotNull(first);
+        assertTrue(first.toMillis() >= 0 && first.toMillis() <= 200, "anchored at call time");
+
+        Thread.sleep(50);
+        java.time.Duration second = ctx.remaining();
+        assertTrue(second.toMillis() < first.toMillis(), "budget counts down from the anchor");
+
+        // First anchor wins: re-anchoring with a larger budget must not reset the clock.
+        ctx.beginShutdown(java.time.Duration.ofSeconds(60));
+        assertTrue(ctx.remaining().toMillis() < first.toMillis());
+
+        // A task observes the shared remaining budget, not a fresh one.
+        AtomicReference<java.time.Duration> seen = new AtomicReference<>();
+        ctx.addShutdownTask(() -> seen.set(ctx.remaining()));
+        ctx.runAll();
+        assertNotNull(seen.get());
+        assertTrue(seen.get().toMillis() < first.toMillis());
+    }
+
+    @Test
+    void negativeOrNullBudgetIsIgnored() {
+        ShutdownContext ctx = ShutdownContext.create();
+        ctx.beginShutdown(null);
+        ctx.beginShutdown(java.time.Duration.ofMillis(-5));
+        assertNull(ctx.remaining());
     }
 }
