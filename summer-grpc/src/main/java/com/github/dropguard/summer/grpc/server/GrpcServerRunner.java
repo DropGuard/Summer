@@ -101,7 +101,15 @@ public class GrpcServerRunner implements ApplicationRunner {
         }
 
         context.addShutdownTask(
-                () -> shutdown(java.time.Duration.ofMillis(shutdownConfig.timeoutMs())));
+                () -> {
+                    // Single shutdown budget: drain only what remains of shutdown.timeout-ms
+                    // since the container anchored it at close() start (see NettyServerRunner).
+                    java.time.Duration remaining = context.remainingShutdownBudget();
+                    shutdown(
+                            remaining != null
+                                    ? remaining
+                                    : java.time.Duration.ofMillis(shutdownConfig.timeoutMs()));
+                });
     }
 
     private void shutdown(java.time.Duration timeout) {

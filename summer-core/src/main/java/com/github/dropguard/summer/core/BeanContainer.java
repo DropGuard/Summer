@@ -2,6 +2,7 @@ package com.github.dropguard.summer.core;
 
 import com.github.dropguard.summer.core.annotation.Order;
 import com.github.dropguard.summer.core.bean.RouteInfo;
+import com.github.dropguard.summer.core.config.ShutdownConfig;
 import com.github.dropguard.summer.core.exception.AmbiguousBeanException;
 import com.github.dropguard.summer.core.exception.NoSuchBeanException;
 import java.util.ArrayList;
@@ -208,6 +209,19 @@ public final class BeanContainer implements AutoCloseable {
         // readiness probe never reads a half-torn-down state.
         ApplicationState.beginShutdown();
 
+        // Anchor the single shutdown budget: the registered drain tasks share what remains of
+        // shutdown.timeout-ms measured from THIS point. Handing each task a fresh full budget
+        // would let one slow drain push the JVM shutdown hook (which bounds the whole close())
+        // past its own timeout — aborting teardown before any AutoCloseable bean closes and
+        // leaking pools/clients on every graceful stop.
+        try {
+            shutdownContext.beginShutdown(
+                    java.time.Duration.ofMillis(getBean(ShutdownConfig.class).timeoutMs()));
+        } catch (NoSuchBeanException | AmbiguousBeanException ignored) {
+            // Narrow test containers may not bind a ShutdownConfig — tasks then run with
+            // whatever budget they carry themselves (pre-anchor behavior).
+        }
+
         // Phase 1: input drivers (servers) tear down first, each via its own
         // registered task (stop accepting, drain in-flight, release resources),
         // in reverse registration order — so external traffic stops before
@@ -255,6 +269,15 @@ public final class BeanContainer implements AutoCloseable {
      */
     public void addShutdownTask(Runnable task) {
         shutdownContext.addShutdownTask(task);
+    }
+
+    /**
+     * Budget left of the single shutdown window anchored at {@link #close()} start, or {@code null}
+     * when no budget was anchored (no {@link ShutdownConfig} bean). Shutdown tasks use this instead
+     * of a fresh full timeout so one slow stage cannot starve the rest of the teardown.
+     */
+    public java.time.Duration remainingShutdownBudget() {
+        return shutdownContext.remaining();
     }
 
     // ---- Builder ----
