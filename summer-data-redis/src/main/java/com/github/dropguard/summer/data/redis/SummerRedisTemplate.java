@@ -93,10 +93,7 @@ public class SummerRedisTemplate implements AutoCloseable {
 
     private RedisCommands<String, Object> commands() {
         if (closed) {
-            throw new IllegalStateException(
-                    "SummerRedisTemplate has been closed — the enclosing framework container"
-                            + " released its connection. Use the template before close(), or obtain"
-                            + " a fresh instance.");
+            throw closedState();
         }
         if (eagerCommands != null) {
             return eagerCommands;
@@ -104,6 +101,12 @@ public class SummerRedisTemplate implements AutoCloseable {
         StatefulRedisConnection<String, Object> conn = connection;
         if (conn == null) {
             synchronized (this) {
+                // Re-check under the lock: close() may have completed between the volatile read
+                // and here — connecting on a shut-down client surfaces as a raw Lettuce connect
+                // error instead of the documented IllegalStateException.
+                if (closed) {
+                    throw closedState();
+                }
                 conn = connection;
                 if (conn == null) {
                     conn = client.connect(codec);
@@ -112,6 +115,13 @@ public class SummerRedisTemplate implements AutoCloseable {
             }
         }
         return conn.sync();
+    }
+
+    private static IllegalStateException closedState() {
+        return new IllegalStateException(
+                "SummerRedisTemplate has been closed — the enclosing framework container"
+                        + " released its connection. Use the template before close(), or obtain"
+                        + " a fresh instance.");
     }
 
     /**
@@ -251,22 +261,22 @@ public class SummerRedisTemplate implements AutoCloseable {
      */
     @Override
     public void close() {
-        if (closed) {
-            return;
-        }
         synchronized (this) {
             if (closed) {
                 return;
             }
+            // Flip the flag FIRST, while holding the lock: a racing commands() that acquires the
+            // lock afterwards must see closed and fail with the documented state error instead
+            // of connecting on the about-to-be-shut-down client.
+            closed = true;
             StatefulRedisConnection<String, Object> conn = connection;
             if (conn != null) {
-                conn.close();
                 connection = null;
+                conn.close();
             }
             if (client != null) {
                 client.shutdown();
             }
-            closed = true;
         }
     }
 }
