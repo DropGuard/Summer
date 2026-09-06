@@ -1,6 +1,5 @@
 # PROJECT KNOWLEDGE BASE
 
-**Generated:** 2026-07-14
 **Stack:** Java 25+ · Maven multi-module · Netty · Jandex · JDK Dynamic Proxies · JUnit 5
 **Description:** Minimalist JDK-native CRUD framework. Clarity-first reconstruction of Spring-like runtime — singleton DI, annotation routing, virtual threads.
 
@@ -8,29 +7,42 @@
 
 ```
 summer-framework/
+├── summer-parent/         # Parent POM: compiler, Jandex indexing, surefire/failsafe build contract
+├── summer-dependencies/   # BOM — third-party + Summer dependency versions
+├── summer-build-parent/   # App/user-project parent: version catalog + generate-aot binding
 ├── summer-core/           # DI container, annotations, config binding, exceptions
 ├── summer-engine/         # Shared discovery pipeline + ContainerEngine SPI (Jandex types)
-├── summer-web/            # Router, Middleware, Handler, WS abstractions
-│   ├── summer-web-http/   #   HTTP types (thin)
-│   ├── summer-web-netty/  #   Netty server impl
-│   ├── summer-web-middleware/  # CORS, Logging, Metrics
-│   └── summer-web-websocket/   # Radix/Map WS routers
+├── summer-web/            # Router, Middleware, Handler, HttpContext abstractions
+├── summer-web-http/       # HTTP types (thin)
+├── summer-web-netty/      # Netty server impl
+├── summer-web-middleware/ # CORS, Logging, Metrics
+├── summer-web-websocket/  # Radix/Map WS routers
+├── summer-web-avaje-jsonb/  # Avaje JSONB BodyConverter (JSON binding alternative)
+├── summer-boot/           # SummerApplication entry point
+├── summer-boot-starter/           # Base starter: core + boot + aop + tx
+├── summer-boot-starter-web/       # + web, runtime-web, netty, middleware
+├── summer-boot-starter-data-jdbc/ # + data-jdbc
+├── summer-boot-starter-data-redis/# + data-redis
+├── summer-boot-starter-websocket/ # + web-websocket
+├── summer-boot-starter-grpc/      # + grpc
 ├── summer-runtime/        # Runtime DI engine (reflection; pure DI, zero web refs)
 ├── summer-runtime-web/    # Web bridge: route scanning SPI impl, handler factory
 ├── summer-aot-engine/     # AOT code-gen DI engine
-├── summer-boot/           # SummerApplication entry point
 ├── summer-aop/            # JDK proxy interceptor chain
 ├── summer-tx/             # Transaction mgmt (REQUIRED only)
 ├── summer-data-jdbc/      # JDBC template + RowModel + JDBC tx context
 ├── summer-data-redis/     # Redis client
 ├── summer-grpc/           # gRPC client + server
-├── summer-maven-plugin/   # AOT codegen + Jandex indexing
+├── summer-maven-plugin/   # AOT codegen + Jandex indexing + dev mojo
 ├── summer-test/           # @SummerTest, @Mock test infra
+├── summer-test-db/        # Testcontainers-backed test resources (PostgresTestResource)
+├── summer-test-starter/   # One-artifact test toolchain: summer-test + summer-test-db
 ├── summer-tck/            # Behavioral tests (Runtime + AOT engines)
 ├── summer-tck-fixtures/   # Shared test fixtures
 ├── summer-tck-invisible-fixtures/  # Whole-universe-invisible narrow fixtures (no jandex.idx)
 ├── summer-archunit/       # Architecture constraint tests
-├── samples/               # Demo applications aggregator
+├── summer-coverage-report/  # JaCoCo aggregate report
+├── samples/               # Demo applications aggregator (NOT reactor modules)
 │   ├── summer-realworld/      # RealWorld clone (hurl e2e)
 │   ├── summer-issue-tracker/  # Issue tracker demo (PG)
 │   └── summer-twitter/        # Twitter clone (PG + Redis)
@@ -89,10 +101,10 @@ Test              summer-test, summer-tck, summer-archunit
 - **Records for config/data** — `@ConfigMapping` interfaces and `@RowModel` records for typed config/data.
 - **Dual DI engine** — RUNTIME (reflection, dev) or AOT (compile-time wire(), prod). Switched via `-Dsummer.engine`. Both engines share the `Discovery`/`BeanEnrichment`/`SharedConditionEvaluator` pipeline in `summer-engine`.
 - **Virtual threads** — HTTP dispatch on `Thread.startVirtualThread`. `HttpContext`/`Request` not thread-safe.
-- **Singletons only** — no prototype scope. Use `Provider<T>` for manual creation.
+- **Singletons only** — no prototype scope and no per-injection instance factory; objects you create yourself (`new`) stay outside the container.
 - **Explicit middleware** — global middleware registered via `SummerApplication.apply()`. Route-level via `Router.Builder.mount()`.
 - **REQUIRED-only transactions** — no distributed/XA.
-- **YAML config** — `application.yml` bound to `@ConfigMapping` interfaces. Nested under server/data/ keys. Supports `${VAR}` and `${VAR:-default}` placeholders (resolved from system property, then env var, then default — the Spring/Quarkus convention, flipped 2026-08-08) for externalized config.
+- **YAML config** — `application.yml` bound to `@ConfigMapping` interfaces. Nested under server/data/ keys. Supports `${VAR}` and `${VAR:-default}` placeholders (resolved from system property, then env var, then default — the Spring/Quarkus convention) for externalized config.
 - **Logging via SLF4J** — diagnostics go through the logging facade (SLF4J), never straight to the console. The deployer owns the logging backend/aggregation (Logback/Log4j/Loki/cloud) — same boundary as health probes and graceful shutdown. Framework bootstrap/DI/AOT stages log with the `[Summer]` prefix.
 - **Tests** — JUnit 5 + Mockito. `@SummerTest` builds a whole-universe container (narrow seeding via `TestContainer.buildForTest(Class)`); `@DualEngine` runs both engines, `@TestProfile`/`@TestResource`/`@Mock` adjust the universe. `@Mock` injects Mockito mocks. `@TestResource` is the Quarkus lifecycle (initArgs via `init`, field injection via `inject`, `order()`); its overrides are dotted-YAML-path keys (env-style keys silently fall back to `@WithDefault` — a pinned contract in `TestResourceContractTest`). `*IT.java` runs under the Failsafe, bound in summer-parent's active plugins — the CI fails if the IT-bearing modules run 0 tests (the old bare declaration silently skipped every IT). Whole-universe-invisible fixtures (the narrow-seeded sad-path beans AND the narrow-only positive configs, e.g. the row-model metadata regression) live in `summer-tck-invisible-fixtures` — no jandex-maven-plugin, so the jar carries the .class bytes (the narrow `@SummerTest` seeds them by name) but no jandex.idx; the boundary is the archive's absence from the indexed path, not an exclude list (the Quarkus Arc model).
 
@@ -119,7 +131,8 @@ mvn test -pl summer-core -am -Dtest="ClassName"  # Single test class
 mvn spotless:apply            # Format all Java code
 mvn spotless:check            # Format check (CI gate)
 mvn test -pl summer-archunit  # Architecture tests
-mvn compile exec:java -f samples/summer-twitter/pom.xml  # Run showcase app
+make run SAMPLE=summer-twitter  # Run a sample app (needs `mvn install -DskipTests` first)
+make samples-verify             # End-to-end sample verification (CI parity, after install)
 mvn install -DskipTests       # Install all jars locally, skip tests
 ```
 
@@ -136,9 +149,10 @@ mvn install -DskipTests       # Install all jars locally, skip tests
   the sledgehammer.
 - JDK 25 baseline (`--sun-misc-unsafe-memory-access=allow` for Netty/AOT).
 - No Maven wrapper — CI uses `setup-java` which auto-installs Maven.
-- `summer-parent/pom.xml` is the **mandatory build contract** (not optional): it binds Jandex
-  indexing (`compile`) and AOT generation (`process-classes`). Getting these wrong causes silent
-  runtime failures, not compile errors.
+- The build contract is split across two parents (not optional): `summer-parent/pom.xml` binds
+  Jandex indexing (`compile`) plus the surefire/failsafe setup; `summer-build-parent/pom.xml` —
+  the application/user-project parent — binds AOT generation (`generate-aot` at
+  `process-classes`). Getting these wrong causes silent runtime failures, not compile errors.
 - No `module-info.java` yet — all runs on classpath.
 - Shared exceptions live in `summer-core/.../core/exception/` (no separate exceptions module).
 - `summer-tck` is test-only (no `src/main`). `summer-tck-fixtures` is main-only (no `src/test`).
@@ -150,7 +164,7 @@ semantics (health probes, graceful shutdown); the image is the deployer's
 choice — Summer ships no Dockerfile, by design.
 
 - **Multi-stage build** — JDK only in the build stage; runtime image is
-  JRE-only (`eclipse-temurin:26-jre` matches the benchmark baseline).
+  JRE-only (`eclipse-temurin:26-jre-alpine` matches the benchmark baseline).
 - **`ENTRYPOINT` must be exec-form** (`ENTRYPOINT ["java","-jar","app.jar"]`).
   A shell-form `ENTRYPOINT` makes a shell PID 1 that swallows `SIGTERM`, so
   `BeanContainer.close()` never runs and graceful shutdown silently dies.
@@ -182,7 +196,7 @@ the DB service name.
 
 **User API** (~60 public classes): `@Component`, `@Configuration`/`@Bean`, `@RestController`, `@Get`/`@Post`/`@Put`/`@Delete`, `@PathParam`/`@QueryParam`, `@ExceptionHandler`, `@Transactional`, `JdbcTemplate`, `@RowModel`, `SummerRedisTemplate`, `@SummerTest`, `@TestResource`, `@TestProfile`, `@DualEngine`, `@Mock`, plus 24 SPI interfaces.
 
-**`@Internal` annotation** (SOURCE retention): ~55 framework-internal classes are marked `@Internal`. This is the **single mechanism** for marking non-public API — there is no `internal/` package anymore. SPI interfaces and user-facing classes do NOT carry `@Internal`.
+**`@Internal` annotation** (SOURCE retention): ~100 framework-internal classes are marked `@Internal`. This is the **single mechanism** for marking non-public API — there is no `internal/` package anymore. SPI interfaces and user-facing classes do NOT carry `@Internal`.
 
 Key SPI interfaces (public, no @Internal): `ApplicationRunner`, `Handler`, `Middleware`, `AuthMiddleware`, `BodyConverter`, `HttpParameterResolver`, `MethodInterceptor`, `TransactionManager`, `RowMapper<T>`, `ContainerEngine`, `TestResource`, `RouteRegistrar` (core.spi), `RouteRegistry`.
 
@@ -198,13 +212,13 @@ Key SPI interfaces (public, no @Internal): `ApplicationRunner`, `Handler`, `Midd
 
 Three tiers, from highest to lowest level:
 
-1. **`@SummerTest`** — declarative JUnit 5 extension. Builds a whole-universe DI container, injects via constructor. Supports `@TestProfile`, `@TestResource`, `@DualEngine`, `@Mock`. 48 test classes use this.
+1. **`@SummerTest`** — declarative JUnit 5 extension. Builds a whole-universe DI container, injects via constructor. Supports `@TestProfile`, `@TestResource`, `@DualEngine`, `@Mock`. ~100 test classes use this.
 2. **`TestContainer.builder()`** — programmatic builder for narrow-seed or engine-forced containers. Used internally by `SummerTestLifecycle` and by a few TCK tests needing explicit control (AOT narrow builds, invisible-fixture isolation). `TestContainer` is `@Internal`.
 3. **`SummerTestExtension` (via `@RegisterExtension`)** — for negative tests that assert container build **failure** (circular deps, missing deps, self-injection). `SummerTestExtension` is `@Internal`.
 
-`@TestResource` manages external resources (Postgres, Redis containers): `RedisTestResource`
-(summer-data-redis) + `PostgresTestResource` (summer-data-jdbc, test scope — returns the
-`datasource.*` overrides a `@ConfigMapping(prefix = "datasource")` binds).
+`@TestResource` manages external resources (Postgres, Redis containers): `PostgresTestResource`
+(summer-test-db) + `RedisTestResource` (summer-data-redis, test scope) — the Postgres resource
+returns the `datasource.*` overrides a `@ConfigMapping(prefix = "datasource")` binds.
 
 ## JAKARTA BEAN VALIDATION
 
@@ -218,7 +232,7 @@ Three tiers, from highest to lowest level:
 ## RELEASE PROCESS
 
 Summer uses automated tag-driven CI/CD deployment to Maven Central via GitHub Actions (`publish.yml`).
-During development, the version on `main` is always a `-SNAPSHOT` (e.g., `0.3.2-SNAPSHOT`).
+During development, the version on `main` is always a `-SNAPSHOT` (e.g., `0.3.4-SNAPSHOT`).
 
 To release a new version, use the automated release script:
 ```bash
@@ -229,6 +243,6 @@ To release a new version, use the automated release script:
 ./scripts/release.sh <version> [next-snapshot-version]
 
 # Example:
-./scripts/release.sh 0.3.3 0.3.4-SNAPSHOT
+./scripts/release.sh 0.3.4 0.3.5-SNAPSHOT
 ```
 Pushing the `v*` tag automatically triggers the GitHub Actions `publish.yml` workflow, which handles Java 25 compilation, GPG signing, Maven Central staging/publishing, and GitHub Release notes generation.

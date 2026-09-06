@@ -23,4 +23,26 @@
         <module>summer-twitter</module>
         <module>summer-issue-tracker</module>
     </modules>
+
+    <!-- The samples declare exec/shade versionless; without a managed version Maven
+         floats them to the latest release via maven-metadata resolution, which makes
+         sample builds non-reproducible. Pin: exec 3.5.0 matches the framework's own
+         pin (root pom git-hook execution + maven-plugin IT), shade 3.6.2 is Central's
+         current release. -->
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>exec-maven-plugin</artifactId>
+                    <version>3.5.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <version>3.6.2</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
 </project>

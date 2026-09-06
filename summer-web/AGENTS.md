@@ -7,11 +7,16 @@ Pure interface/abstraction module defining Summer's HTTP execution model: Router
 ## STRUCTURE
 
 ```
-summer.web
-├── annotation/       # @RestController, @Get, @Post, @Put, @Delete, @PathParam, @QueryParam, @ExceptionHandler
-├── exception/        # SummerWebException (base, carries HttpStatus), RouteConflictException, BodyParseException, ValidationException, ArchitectureViolationException
+summer.web                  # root: HttpRouter, HttpContext, Request/Response, Middleware, Handler,
+                            # WsRouter, ServerConfig, BodyConverter/BodyParser, SseStream, ChunkedResponse, ...
+├── annotation/       # @RestController, @Get, @Post, @Put, @Delete, @PathParam, @QueryParam, @ExceptionHandler, @GlobalMiddleware
+├── exception/        # SummerWebException (extends core SummerException, carries HttpStatus) for
+│                     # framework-infrastructure failures; HttpException (abstract) family:
+│                     # Auth/BadRequest/Unauthorized/Forbidden/NotFound/ResourceNotFound/Conflict/
+│                     # TooManyRequests/Internal, RouteConflictException, BodyParseException,
+│                     # ValidationException, ArchitectureViolationException
 ├── health/           # HealthRouteRegistrar — /health/ready, /health/live
-└── websocket/        # WsRouter WsRouter.Builder, WebSocketHandler, WebSocketContext, WebSocketBroadcaster, WebSocketInterceptor, WebSocketInterceptorChain
+└── websocket/        # WebSocketHandler, WebSocketContext, WebSocketBroadcaster, WebSocketInterceptor, WebSocketInterceptorChain
 ```
 
 ## WHERE TO LOOK
@@ -20,23 +25,23 @@ summer.web
 |---|---|
 | `HttpRouter` + `Builder` | Immutable router interface. Builder supports `get/post/put/delete`, `group()` for path prefixes + scoped middleware, `mount()` for modules, `use()` for middleware. Path param normalization (`:param` → `{param}`). |
 | `Middleware` | `@FunctionalInterface Handler apply(Handler)` — wraps handlers for cross-cutting concerns. |
-| `GlobalMiddlewareChain` | Immutable record of global middleware class list, built at startup. |
+| `@GlobalMiddleware` | Class-level annotation marking a `Middleware` bean as global: the server runner collects `@GlobalMiddleware` beans and wraps the root router — applied after the `SummerApplication.apply(...)` registrations, in container registration order. Un-annotated middleware is scoped-only (`use()` / `group()`). |
 | `Handler` | `@FunctionalInterface void handle(HttpContext ctx)` — deferred write pattern (return value ignored). |
 | `HttpContext` | Request/response facade. Read side: `request()`, `path()`, `body()`, `header()`. Write side: `json()`, `ok()`, `text()`, `error()`, `status()`, `setHeader()`. Parses + validates bodies via `BodyParser`. |
 | `Request` | Immutable. Carries method, path (raw bytes for zero-alloc routing), query, body, headers, attributes. Query param URL-decoded. |
 | `Response` | (package-private) Holds status, body bytes, resultObject + BodyConverter (deferred serialization), headers. |
-| `BodyConverter` | Interface for JSON/other format serialization. Implemented by `JsonBodyConverter` (Jackson). |
+| `BodyConverter` | Interface for JSON/other format serialization. Default impl `JsonBodyConverter` (Jackson via `SummerObjectMapper`); `summer-web-avaje-jsonb` provides the Avaje-JSONB alternative (`AvajeJsonbBodyConverter`). |
 | `BodyParser` | Separates parsing from validation. Delegates to `BodyConverter` + Avaje `Validator`. |
 | `RadixTrie<V>` | Generic byte-level radix tree for high-performance path matching. Supports `{param}`, `*`, `**` wildcards. Shared by HTTP + WS implementations. |
 | `PathMatcher` | Regex-based path pattern compilation/matching. Fallback for complex patterns. |
 | `PathUtils` | Path normalization (leading slash, collapse slashes, no trailing slash). |
 | `RouterRegistry` | Strategy registry: maps `RouterType` (RADIX_TREE | MAP) to factory functions for HTTP + WS routers. |
 | `RouterType` | Enum selecting RadixTree vs Map router backend. Configured via `server.router-type` in YAML. |
-| `RouteRegistrar` | Interface for controller registration (reflection vs AOT). Dual-engine bridge. |
+| `RouteRegistrar` | Interface for controller registration (reflection vs AOT). Dual-engine bridge. Lives in `summer-core` (`core.spi`). |
 | `ExceptionRegistry` + `ExceptionHandlerRegistrar` | Global exception handler registry. Hierarchy-aware lookup (walks superclass chain). Dual-engine registration. |
 | `ExceptionHandler` (`@interface`) | Class-level `@ExceptionHandler(SomeException.class)` on methods. |
-| `ServerConfig` | `@ConfigurationProperties` record: port, timeouts, max body size, CORS origins, WebSocket frame size, router type. |
-| `WebInfrastructureConfiguration` | `@Configuration` providing `JsonBodyConverter` + `HealthRouteRegistrar` beans. |
+| `ServerConfig` | `@ConfigMapping(prefix = "server")` interface: port, timeouts, max body size, CORS origins, WebSocket frame size, router type. |
+| `WebInfrastructureConfiguration` | `@Configuration` providing `JsonBodyConverter` + `HealthRouteRegistrar` + `ServerOriginChecker` beans. |
 | `AuthMiddleware` | Interface for auth providers: `authenticate(HttpContext)` returns userId or throws. |
 | `RequestAttributes` | Typed attribute keys (`USER_ID`, `LAST_EXCEPTION`) to eliminate magic strings. |
 | `ScrollRequest` | Marker interface for cursor-paginated requests. |

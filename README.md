@@ -21,10 +21,10 @@ Summer projects are best managed using the official `summer` single-binary CLI:
 
 ```bash
 # macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/DropGuard/summer-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/DropGuard/summer-cli/main/scripts/install.sh | bash
 
 # Windows (PowerShell)
-irm https://raw.githubusercontent.com/DropGuard/summer-cli/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/DropGuard/summer-cli/main/scripts/install.ps1 | iex
 ```
 
 ### 2. Scaffold & Run
@@ -168,7 +168,10 @@ surfaces here.
 For a fully working, runnable sample—featuring domain models, nested repositories, and database transaction management—run one of the demo applications bundled within this repository (`summer-twitter` showcase, `summer-realworld`, or `summer-issue-tracker`):
 
 ```bash
-mvn -f samples/summer-twitter/pom.xml exec:java
+# Samples are not reactor modules: install the framework snapshot into the
+# local repository first (the demos resolve it exactly like user projects do).
+mvn install -DskipTests
+make run SAMPLE=summer-twitter   # also: summer-realworld, summer-issue-tracker
 ```
 
 * * *
