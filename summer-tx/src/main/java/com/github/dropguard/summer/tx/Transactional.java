@@ -24,6 +24,14 @@ import java.lang.annotation.Target;
  * Compose transactional work at one boundary per thread (the service layer) rather than nesting
  * across beans. Same-bean internal calls ({@code this.method()}) bypass the proxy entirely and
  * never open a nested transaction (see README "Interface-based AOP").
+ *
+ * <p><strong>The transaction context does not cross threads — by design.</strong> The boundary is
+ * bound via {@code ScopedValue} on the calling thread (the request's virtual thread), and work
+ * dispatched to ANOTHER thread — a spawned virtual thread, an executor, a parallel stream — runs
+ * OUTSIDE the transaction: it gets its own auto-commit connection, and its writes survive a
+ * rollback of the outer boundary. Nothing propagates and nothing is detected; thread confinement is
+ * the model, not a gap to be papered over. Keep transactional data access on the one thread, and
+ * compose concurrent work outside the boundary or with explicit coordination.
  */
 @InterceptorBinding
 @Target({ElementType.TYPE, ElementType.METHOD})
