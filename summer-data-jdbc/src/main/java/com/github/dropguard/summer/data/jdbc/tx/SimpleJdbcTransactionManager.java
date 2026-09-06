@@ -42,7 +42,9 @@ public class SimpleJdbcTransactionManager implements TransactionManager {
                 throw t;
             }
         } catch (SQLException e) {
-            throw new SummerTransactionException("Transaction failed", e);
+            // Carry the vendor message: a bare "Transaction failed" made user-code SQLExceptions
+            // and commit-infrastructure failures indistinguishable in logs and metrics.
+            throw new SummerTransactionException("Transaction failed: " + e.getMessage(), e);
         }
     }
 }
