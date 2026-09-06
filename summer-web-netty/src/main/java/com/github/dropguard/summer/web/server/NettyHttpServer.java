@@ -39,10 +39,19 @@ class NettyHttpServer {
     private ChannelFuture serverChannelFuture;
 
     private final AtomicInteger activeConnections = new AtomicInteger(0);
+    // SSE/chunked streams whose handler has already returned: invisible to activeConnections
+    // (the dispatch virtual thread is gone), but their bytes still flow to clients and must
+    // be drained (or aborted) during shutdown like any in-flight response.
+    private final AtomicInteger openStreams = new AtomicInteger(0);
 
     public NettyHttpServer(ServerConfig config, WebServerDependencies deps) {
         this.config = config;
         this.deps = deps;
+    }
+
+    /** Count of open server-push streams (SSE / chunked responses) on this server instance. */
+    public AtomicInteger getOpenStreams() {
+        return openStreams;
     }
 
     /** Creates a NettyHttpServer by assembling components from the application context. */
@@ -216,15 +225,19 @@ class NettyHttpServer {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-        // 2. Wait for in-flight requests (virtual threads) to complete.
-        if (!timeout.isZero() && activeConnections.get() > 0) {
+        // 2. Wait for in-flight requests (virtual threads) and open server-push streams to
+        // finish. Streams whose handler already returned are invisible to activeConnections,
+        // but their responses are still mid-flight to clients.
+        int draining = activeConnections.get() + openStreams.get();
+        if (!timeout.isZero() && draining > 0) {
             log.info(
-                    "Waiting up to {} for {} active requests to finish...",
+                    "Waiting up to {} for {} in-flight requests/streams to finish...",
                     timeout,
-                    activeConnections.get());
+                    draining);
             long deadline = System.nanoTime() + timeout.toNanos();
             try {
-                while (activeConnections.get() > 0 && System.nanoTime() < deadline) {
+                while (activeConnections.get() + openStreams.get() > 0
+                        && System.nanoTime() < deadline) {
                     Thread.sleep(50);
                 }
             } catch (InterruptedException e) {
@@ -234,8 +247,9 @@ class NettyHttpServer {
                 // the bound port (back-to-back start => "Address already in use").
                 Thread.interrupted();
             }
-            if (activeConnections.get() > 0) {
-                log.warn("{} active requests still open after timeout.", activeConnections.get());
+            draining = activeConnections.get() + openStreams.get();
+            if (draining > 0) {
+                log.warn("{} requests/streams still open after timeout.", draining);
             }
         }
         // 3. Shutdown Netty event loops — await so the bound port is actually

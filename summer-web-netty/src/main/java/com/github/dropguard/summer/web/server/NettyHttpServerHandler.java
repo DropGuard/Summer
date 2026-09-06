@@ -1,5 +1,6 @@
 package com.github.dropguard.summer.web.server;
 
+import com.github.dropguard.summer.web.ChunkedResponse;
 import com.github.dropguard.summer.web.Handler;
 import com.github.dropguard.summer.web.HttpContext;
 import com.github.dropguard.summer.web.HttpMethod;
@@ -122,25 +123,25 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
 
     private void processRequest(
             ChannelHandlerContext ctx, FullHttpRequest nettyReq, boolean keepAlive) {
+        Request request = null;
         try {
-            Request request = NettyRequestAdapter.adapt(nettyReq);
-            request.setLazyAttribute(
+            final Request req = NettyRequestAdapter.adapt(nettyReq);
+            request = req;
+            req.setLazyAttribute(
                     com.github.dropguard.summer.web.RequestAttributes.CHUNKED_RESPONSE,
-                    () -> new NettyChunkedResponse(ctx, keepAlive));
-            request.setLazyAttribute(
+                    () ->
+                            new NettyChunkedResponse(
+                                    ctx,
+                                    keepAlive,
+                                    server != null ? server.getOpenStreams() : null));
+            req.setLazyAttribute(
                     com.github.dropguard.summer.web.RequestAttributes.SSE_STREAM,
                     () ->
                             new NettySseStream(
-                                    request.getAttribute(
+                                    req.getAttribute(
                                             com.github.dropguard.summer.web.RequestAttributes
                                                     .CHUNKED_RESPONSE)));
-            HttpContext webCtx = new HttpContext(request, deps.jsonConverter());
-
-            if (request.getMethod() == HttpMethod.UNKNOWN) {
-                webCtx.text(HttpStatus.METHOD_NOT_ALLOWED, "Method Not Allowed");
-                webCtx.flushTo(new NettyResponseSink(ctx, keepAlive));
-                return;
-            }
+            HttpContext webCtx = new HttpContext(req, deps.jsonConverter());
 
             ScopedValue.where(REQUEST_SLOT, new RequestSlot(ctx, nettyReq))
                     .call(
@@ -153,11 +154,39 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
                                 return null;
                             });
 
-            webCtx.flushTo(new NettyResponseSink(ctx, keepAlive));
+            boolean headRequest = req.getMethod() == HttpMethod.HEAD;
+            webCtx.flushTo(new NettyResponseSink(ctx, keepAlive, headRequest));
 
         } catch (Exception e) {
             log.error("Fatal framework error", e);
             sendErrorResponse(ctx, keepAlive);
+        } finally {
+            closeOrphanedStream(request, ctx);
+        }
+    }
+
+    /**
+     * Terminates an SSE stream / chunked response the handler materialized but never closed — it
+     * threw mid-stream, or returned without closing. Without this, no {@code LastHttpContent} is
+     * ever sent: the client hangs on an unterminated chunked response indefinitely, the channel
+     * never completes (its read-idle gate was already removed at dispatch), and the in-flight
+     * accounting misses it because the dispatch thread has returned. {@link Request#peekAttribute}
+     * is deliberate — the attributes are lazy, and {@code getAttribute} here would CREATE a stream
+     * for handlers that never asked for one. {@link NettyChunkedResponse#close()} is
+     * CAS-idempotent, so a handler that closed properly is untouched.
+     */
+    private static void closeOrphanedStream(Request request, ChannelHandlerContext ctx) {
+        if (request == null) {
+            return;
+        }
+        ChunkedResponse chunked =
+                request.peekAttribute(
+                        com.github.dropguard.summer.web.RequestAttributes.CHUNKED_RESPONSE);
+        if (chunked instanceof NettyChunkedResponse nettyChunked && !nettyChunked.isClosed()) {
+            log.warn(
+                    "Handler never closed its SSE stream / chunked response — terminating it on {}",
+                    ctx.channel().remoteAddress());
+            chunked.close();
         }
     }
 
@@ -173,6 +202,14 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
         RequestSlot slot = REQUEST_SLOT.get();
         if (deps.wsUpgradeHandler().isWebSocketUpgrade(slot.nettyReq)) {
             deps.wsUpgradeHandler().handleUpgrade(slot.ctx, slot.nettyReq, c);
+            return;
+        }
+
+        // Unknown HTTP methods (TRACE, PROPFIND, fuzzing garbage) answer 405 HERE — inside the
+        // middleware chain. The previous direct write in processRequest bypassed CORS, metrics,
+        // and logging for exactly the probing traffic you most want counted and filtered.
+        if (c.request().getMethod() == HttpMethod.UNKNOWN) {
+            c.text(HttpStatus.METHOD_NOT_ALLOWED, "Method Not Allowed");
             return;
         }
 
@@ -260,17 +297,18 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        // Body-too-large is the one exception where a protocol-correct response is reachable:
-        // the aggregator failed mid-parse, the channel is still open, and the client only sees
-        // a RST if we don't write 413 first. Without this, API clients get ConnectionError instead
-        // of a structured 413 (curl gives up, requests raises ConnectionError, retries are blind).
+        // Frame-overflow is the one exception where a protocol-correct response is reachable:
+        // the channel is still open, and the client only sees a RST if we don't write a
+        // structured status first (curl gives up, requests raises ConnectionError, retries are
+        // blind). The status is classified per source: 414 for an oversized request line, 431
+        // for oversized headers, legacy 413 otherwise (see statusForTooLongFrame).
         if (isBodyTooLarge(cause)) {
+            HttpResponseStatus status = statusForTooLongFrame(cause);
             log.debug(
-                    "Rejecting oversize request body on {}: {}",
+                    "Rejecting malformed or oversize request on {}: {}",
                     ctx.channel().remoteAddress(),
                     cause.toString());
-            sendSimpleResponse(
-                    ctx, HttpResponseStatus.REQUEST_ENTITY_TOO_LARGE, "Payload Too Large");
+            sendSimpleResponse(ctx, status, status.reasonPhrase());
             return;
         }
         log.error("Channel exception", cause);
@@ -291,5 +329,29 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
             }
         }
         return false;
+    }
+
+    /**
+     * Classifies a {@link TooLongFrameException} by its source. Netty carries no structured code,
+     * so the classification is by message text: the body-aggregator's own violation ("content
+     * length exceeded …") never reaches downstream — it answers 413 and closes itself — so a frame
+     * exception arriving HERE comes from the codec's request-line or header parsers, which are 414
+     * / 431 respectively. Unrecognized messages stay on the legacy 413 rather than guessing.
+     *
+     * <p>These responses always close the connection, so a stray body on a HEAD request is
+     * discarded unread by the client — no desync is possible on this path.
+     */
+    private static HttpResponseStatus statusForTooLongFrame(Throwable cause) {
+        String message =
+                cause.getMessage() == null
+                        ? ""
+                        : cause.getMessage().toLowerCase(java.util.Locale.ROOT);
+        if (message.contains("header")) {
+            return HttpResponseStatus.REQUEST_HEADER_FIELDS_TOO_LARGE;
+        }
+        if (message.contains("line")) {
+            return HttpResponseStatus.REQUEST_URI_TOO_LONG;
+        }
+        return HttpResponseStatus.REQUEST_ENTITY_TOO_LARGE;
     }
 }

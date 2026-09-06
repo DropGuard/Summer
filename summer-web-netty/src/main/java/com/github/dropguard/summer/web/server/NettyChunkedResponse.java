@@ -30,12 +30,26 @@ class NettyChunkedResponse implements ChunkedResponse {
     private final HttpHeaders customHeaders = new DefaultHttpHeaders();
     private final AtomicBoolean headerSent = new AtomicBoolean(false);
     private final AtomicBoolean closed = new AtomicBoolean(false);
+    // Server-level counter of open streams (null in tests): lets shutdown drain see streams
+    // whose handler has already returned — invisible to the active-connection count.
+    private final java.util.concurrent.atomic.AtomicInteger streamCounter;
     private HttpResponseStatus httpStatus = HttpResponseStatus.OK;
     private String contentType = "application/octet-stream";
 
     public NettyChunkedResponse(ChannelHandlerContext ctx, boolean keepAlive) {
+        this(ctx, keepAlive, null);
+    }
+
+    public NettyChunkedResponse(
+            ChannelHandlerContext ctx,
+            boolean keepAlive,
+            java.util.concurrent.atomic.AtomicInteger streamCounter) {
         this.ctx = ctx;
         this.keepAlive = keepAlive;
+        this.streamCounter = streamCounter;
+        if (streamCounter != null) {
+            streamCounter.incrementAndGet();
+        }
     }
 
     @Override
@@ -115,6 +129,9 @@ class NettyChunkedResponse implements ChunkedResponse {
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
+            if (streamCounter != null) {
+                streamCounter.decrementAndGet();
+            }
             ensureHeaderSent();
             var future = ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT);
             if (!keepAlive) {

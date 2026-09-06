@@ -78,4 +78,22 @@ class NettyChunkedResponseTest {
         assertThrows(
                 IllegalStateException.class, () -> chunkedResponse.status(HttpStatus.BAD_REQUEST));
     }
+
+    @Test
+    void openStreamCounterTracksLifecycle() {
+        var counter = new java.util.concurrent.atomic.AtomicInteger();
+        NettyChunkedResponse counted =
+                new NettyChunkedResponse(channel.pipeline().firstContext(), true, counter);
+        assertEquals(1, counter.get(), "materializing a stream opens the counter");
+
+        counted.write("chunk");
+        assertEquals(1, counter.get(), "writing keeps the stream open");
+
+        counted.close();
+        assertEquals(0, counter.get(), "close() releases the stream from the drain count");
+
+        // Double-close is idempotent (CAS) — the counter must not go negative.
+        counted.close();
+        assertEquals(0, counter.get());
+    }
 }

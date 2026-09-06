@@ -160,6 +160,22 @@ public class Request {
         return (T) val;
     }
 
+    /**
+     * Returns the attribute value only if it has already been materialized — a lazy {@link
+     * #setLazyAttribute} supplier is NOT invoked (unlike {@link #getAttribute}). The server layer
+     * uses this to inspect optional takeover objects (SSE stream / chunked response) in a finally
+     * block without materializing them for handlers that never asked for one.
+     */
+    @SuppressWarnings("unchecked")
+    @com.github.dropguard.summer.core.Internal
+    public <T> T peekAttribute(RequestAttributes.AttributeKey<T> key) {
+        if (attributes == null) {
+            return null;
+        }
+        Object val = attributes.get(key.name());
+        return val instanceof java.util.function.Supplier<?> ? null : (T) val;
+    }
+
     public <T> void setLazyAttribute(
             RequestAttributes.AttributeKey<T> key, java.util.function.Supplier<T> supplier) {
         if (attributes == null) {

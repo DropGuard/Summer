@@ -105,9 +105,49 @@ class NettyHttpServerHandlerTest {
     }
 
     @Test
-    void tooLongFrameExceptionChainStillTriggers413() throws Exception {
+    void requestLineOverflowBecomes414() throws Exception {
+        // The codec's request-line parser is the real source of TooLongFrameException here
+        // (the body aggregator answers 413 itself, never downstream) — an oversized request
+        // line is 414 URI Too Long, not 413.
+        io.netty.channel.ChannelFuture future = mock(io.netty.channel.ChannelFuture.class);
+        when(ctx.writeAndFlush(any(Object.class))).thenReturn(future);
+
+        handler.exceptionCaught(
+                ctx,
+                new io.netty.handler.codec.TooLongFrameException(
+                        "An HTTP line is larger than 2048 bytes."));
+
+        ArgumentCaptor<Object> written = ArgumentCaptor.forClass(Object.class);
+        verify(ctx, times(1)).writeAndFlush(written.capture());
+        assertEquals(
+                HttpResponseStatus.REQUEST_URI_TOO_LONG,
+                ((FullHttpResponse) written.getValue()).status());
+    }
+
+    @Test
+    void headerOverflowBecomes431() throws Exception {
+        // An oversized header block is 431 Request Header Fields Too Large (a 10 KB cookie
+        // jar is not a "payload" problem).
+        io.netty.channel.ChannelFuture future = mock(io.netty.channel.ChannelFuture.class);
+        when(ctx.writeAndFlush(any(Object.class))).thenReturn(future);
+
+        handler.exceptionCaught(
+                ctx,
+                new io.netty.handler.codec.TooLongFrameException(
+                        "HTTP header size exceeds the allowed limit (8192 bytes)"));
+
+        ArgumentCaptor<Object> written = ArgumentCaptor.forClass(Object.class);
+        verify(ctx, times(1)).writeAndFlush(written.capture());
+        assertEquals(
+                HttpResponseStatus.REQUEST_HEADER_FIELDS_TOO_LARGE,
+                ((FullHttpResponse) written.getValue()).status());
+    }
+
+    @Test
+    void wrappedAggregatorOverflowStillTriggers413() throws Exception {
         // Netty sometimes wraps the aggregator failure inside a decoder or SSL exception —
-        // we still have to produce 413 regardless of the wrapping layer.
+        // we still have to produce 413 regardless of the wrapping layer, and the channel must
+        // stay open so the structured response reaches the client.
         Throwable wrapper =
                 new RuntimeException(
                         "Decoder failed",
