@@ -10,6 +10,7 @@ import com.github.dropguard.summer.fixtures.aop.metadata.InterfaceTaggedService;
 import com.github.dropguard.summer.fixtures.aop.metadata.MetadataRecordingInterceptor;
 import com.github.dropguard.summer.fixtures.aop.metadata.MetadataSampleService;
 import com.github.dropguard.summer.fixtures.aop.metadata.MethodTaggedRecordingInterceptor;
+import com.github.dropguard.summer.fixtures.aop.metadata.OverloadTaggedService;
 import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
 import java.util.List;
@@ -157,5 +158,27 @@ public class BindingMetadataBehaviorTest {
         assertTrue(
                 methodLevelInterceptor.getCallLog().isEmpty(),
                 "soloOp carries no method-level binding — its interceptor must not fire");
+    }
+
+    // ── Row 6: overload-exact binding ─────────────────────────────────
+
+    @DualEngine
+    void overloadedMethodsBindIndependentlyByNameAndSignature(BeanContainer context) {
+        MethodTaggedRecordingInterceptor interceptor =
+                context.getBean(MethodTaggedRecordingInterceptor.class);
+        interceptor.clearLog();
+
+        OverloadTaggedService service = context.getBean(OverloadTaggedService.class);
+        assertEquals("hi ada", service.greet("ada"));
+        assertEquals("hihi", service.greet(2));
+
+        // Pre-signature-keying, the binding map was keyed by method NAME alone: both
+        // overloads shared the annotated one's binding. Only greet(String) carries
+        // @MetadataTagged, so only it must reach the metadata-driven interceptor.
+        assertEquals(
+                List.of("record:greet"),
+                interceptor.getCallLog(),
+                "exactly ONE overload (the annotated greet(String)) must intercept — "
+                        + "greet(int) shares the name but not the binding");
     }
 }

@@ -243,7 +243,7 @@ public final class BeanEnrichment {
                     }
                 }
                 if (!methodAnnNames.isEmpty()) {
-                    methodBindings.put(method.name(), methodAnnNames);
+                    methodBindings.put(methodBindingKey(method), methodAnnNames);
                 }
             }
 
@@ -271,7 +271,7 @@ public final class BeanEnrichment {
                             String name = ann.name().toString();
                             bindings.add(name);
                             methodBindings
-                                    .computeIfAbsent(method.name(), k -> new HashSet<>())
+                                    .computeIfAbsent(methodBindingKey(method), k -> new HashSet<>())
                                     .add(name);
                         }
                     }
@@ -312,5 +312,16 @@ public final class BeanEnrichment {
                 }
             }
         }
+    }
+
+    /**
+     * Overload-exact binding key from a Jandex method — the same format the Runtime reader derives
+     * from {@code java.lang.reflect.Method} (see {@code BeanDefinition#methodBindingKey}), so both
+     * engines match the same overloads.
+     */
+    private static String methodBindingKey(MethodInfo method) {
+        return BeanDefinition.methodBindingKey(
+                method.name(),
+                method.parameterTypes().stream().map(t -> t.name().toString()).toList());
     }
 }

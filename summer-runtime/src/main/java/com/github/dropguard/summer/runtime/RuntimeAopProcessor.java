@@ -112,7 +112,15 @@ final class RuntimeAopProcessor {
                 if (classLevel) {
                     boundNames.addAll(classLevelNames);
                 }
-                Set<String> methodLevel = methodBindings.get(method.getName());
+                // Overload-exact lookup: the key carries the parameter types, so two overloads
+                // of the same name bind independently (one annotated, one not, stays that way).
+                Set<String> methodLevel =
+                        methodBindings.get(
+                                BeanDefinition.methodBindingKey(
+                                        method.getName(),
+                                        java.util.Arrays.stream(method.getParameterTypes())
+                                                .map(Class::getName)
+                                                .toList()));
                 if (methodLevel != null) {
                     boundNames.addAll(methodLevel);
                 }

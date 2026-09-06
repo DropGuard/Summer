@@ -78,10 +78,24 @@ public sealed class BeanDefinition permits ConfigPropertiesBean {
     /**
      * Method-level interceptor binding annotations.
      *
-     * <p>Key = method name, value = binding annotation qualified names. Key {@code ""} =
-     * class-level bindings. Empty map = no AOP bindings.
+     * <p>Key = {@link #methodBindingKey} (method name + parameter types — overload-exact), value =
+     * binding annotation qualified names. Key {@code ""} = class-level bindings. Empty map = no AOP
+     * bindings.
      */
     public Map<String, Set<String>> methodBindingAnnotations = Map.of();
+
+    /**
+     * Overload-exact key for {@link #methodBindingAnnotations}: method name plus its parameter type
+     * names. Keying by NAME alone made overloaded interface methods share whichever overload
+     * discovery saw — {@code transfer(Order)} annotated but {@code transfer(User)} not would
+     * intercept both. The {@code ""} class-level key cannot collide (this format always carries
+     * parentheses). Both engines build it: Runtime from {@code Class#getName()} per parameter, AOT
+     * from Jandex {@code Type#name()} — both render {@code java.lang.String} identically
+     * (primitives as {@code int}, arrays as {@code [L...;}, nested as {@code Outer$Inner}).
+     */
+    public static String methodBindingKey(String methodName, List<String> parameterTypeNames) {
+        return methodName + "(" + String.join(",", parameterTypeNames) + ")";
+    }
 
     /**
      * Non-null only for engine-provided (synthetic) beans: the pre-built instance to register
