@@ -267,4 +267,64 @@ class SummerSourceIndexTest {
         Files.write(file.toPath(), new byte[] {0});
         return file;
     }
+
+    // ── collectPathDerivedBinaryNames + reconcile of foreign compilers ──────────
+
+    @Test
+    void pathDerivedNamesCoverKotlinPackageInfoAndModuleInfo(@TempDir Path temp) throws Exception {
+        Path javaRoot = Files.createDirectories(temp.resolve("java"));
+        Path kotlinRoot = Files.createDirectories(temp.resolve("kotlin"));
+        Files.createDirectories(javaRoot.resolve("com/example"));
+        Files.writeString(
+                javaRoot.resolve("com/example/Foo.java"), "package com.example; class Foo {}");
+        Files.writeString(
+                javaRoot.resolve("com/example/package-info.java"), "package com.example;");
+        Files.writeString(temp.resolve("module-info.java"), "module m {}");
+        Files.createDirectories(kotlinRoot.resolve("com/example"));
+        Files.writeString(kotlinRoot.resolve("com/example/Bar.kt"), "class Bar");
+
+        Set<String> derived =
+                SummerSourceIndex.collectPathDerivedBinaryNames(
+                        List.of(
+                                temp.resolve("java").toFile(),
+                                temp.resolve("kotlin").toFile(),
+                                temp.toFile()));
+
+        assertTrue(derived.contains("com.example.Bar"), "Kotlin source derives its class name");
+        assertTrue(
+                derived.contains("com.example.BarKt"),
+                "a functions-only Kotlin file compiles to <File>Kt — derive the companion too");
+        assertTrue(derived.contains("com.example.package-info"), "package-info survives");
+        assertTrue(derived.contains("module-info"), "module-info survives");
+        assertTrue(
+                derived.contains("com.example.Foo"),
+                "java sources derive the same name as the parse");
+    }
+
+    @Test
+    void reconcileKeepsForeignCompiledClassesAndDeletesOnlyTrueOrphans(@TempDir Path temp)
+            throws Exception {
+        Path javaRoot = Files.createDirectories(temp.resolve("java/com/example"));
+        Path kotlinRoot = Files.createDirectories(temp.resolve("kotlin/com/example"));
+        Path output = Files.createDirectories(temp.resolve("classes/com/example"));
+        Files.writeString(javaRoot.resolve("Foo.java"), "package com.example; class Foo {}");
+        Files.writeString(kotlinRoot.resolve("Bar.kt"), "class Bar");
+        Files.writeString(output.resolve("Foo.class"), "x");
+        Files.writeString(output.resolve("Bar.class"), "x");
+        Files.writeString(output.resolve("Orphan.class"), "x");
+
+        List<File> roots = List.of(javaRoot.toFile(), kotlinRoot.toFile());
+        Set<String> allowed = new java.util.HashSet<>(SummerSourceIndex.parseSources(roots));
+        allowed.addAll(SummerSourceIndex.collectPathDerivedBinaryNames(roots));
+        SummerSourceIndex.reconcile(output.toFile(), allowed);
+
+        assertTrue(Files.exists(output.resolve("Foo.class")), "javac-compiled class stays");
+        assertTrue(
+                Files.exists(output.resolve("Bar.class")),
+                "a Kotlin-compiled class must NOT be reconciled away — the jar would ship"
+                        + " without it and fail with NoClassDefFoundError");
+        assertFalse(
+                Files.exists(output.resolve("Orphan.class")),
+                "a class with no source in any root is still a true orphan");
+    }
 }
