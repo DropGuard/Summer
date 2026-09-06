@@ -329,6 +329,13 @@ public final class Discovery {
         while (superName != null && !superName.equals(DotName.createSimple("java.lang.Object"))) {
             ClassInfo superCi = merged.getClassByName(superName);
             if (superCi == null) {
+                // Boundary by contract: the indexed pipeline never resolves classes via
+                // reflection, so interfaces declared above an unindexed base (a JDK base, or a
+                // third-party jar without jandex.idx) are invisible to the proxy on BOTH
+                // engines — parity is preserved, and the remedy is to redeclare such interfaces
+                // on the bean itself. Intentionally not warned about at runtime: code-shape
+                // guidance belongs to the build-time guardrails and the docs ("Why Interface
+                // Based AOP"), not to every production startup log.
                 break;
             }
             collectFromSingleClass(bean, superCi, merged, visited);
