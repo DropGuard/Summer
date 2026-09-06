@@ -269,6 +269,14 @@ public final class WireMethodGenerator {
             List<BeanDefinition> sortedBeans,
             Map<String, Object> overrides,
             String incarnationsVar) {
+        // Deliberately NOT failure-safe: if bean N's construction throws, beans 1..N-1 keep
+        // their resources and are never closed. That is acceptable because a failed AOT boot
+        // exits the process (SummerApplication.start propagates out of main) — the OS reclaims
+        // everything — and a long-lived JVM that repeatedly attempts failing AOT boots is not
+        // a shape this framework has. Generated try/catch + created-closeable tracking would
+        // churn the emitted shape (and every generated-output test) for no observable benefit.
+        // Contrast RuntimeContainer, which DOES close abandoned beans: dev/test containers are
+        // built repeatedly inside one JVM.
         configGen.reset();
         for (int i = 0; i < sortedBeans.size(); i++) {
             BeanDefinition bean = sortedBeans.get(i);
