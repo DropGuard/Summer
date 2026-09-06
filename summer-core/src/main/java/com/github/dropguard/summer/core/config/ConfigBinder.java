@@ -10,6 +10,7 @@ import com.github.dropguard.summer.core.util.Regexes;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 
@@ -363,5 +364,71 @@ public final class ConfigBinder {
             return value;
         }
         return System.getenv(name);
+    }
+
+    /**
+     * Parses a collection-typed {@code @WithDefault} value into a real List/Map. Supported shapes:
+     *
+     * <ul>
+     *   <li>YAML flow literal — {@code "[a, b]"} / {@code "{k: v}"} — parsed by the shared YAML
+     *       mapper, so element typing matches what the same literal would produce inline in {@code
+     *       application.yml};
+     *   <li>the Spring comma convention for lists — {@code "a, b"} — yielding a list of trimmed
+     *       strings (the runtime binder then coerces element types via {@code convertValue}, so
+     *       {@code List<Integer>} with {@code "1,2"} binds correctly).
+     * </ul>
+     *
+     * <p>Anything else (notably a comma-less map default) is a loud {@link ConfigurationException}:
+     * the previous behavior — silently substituting an empty List/Map — threw away the declared
+     * default and surfaced only as mysteriously empty configuration downstream.
+     *
+     * <p>Single implementation shared by the Runtime proxy and the AOT-generated impl (which emits
+     * a call to this), keeping both engines' default semantics identical.
+     *
+     * @param raw the raw {@code @WithDefault} string
+     * @param map whether the target type is a Map (list shapes rejected) — list/collection targets
+     *     pass {@code false}
+     * @return the parsed List or Map
+     */
+    public static Object parseCollectionDefault(String raw, boolean map) {
+        String trimmed = raw == null ? "" : raw.trim();
+        if (trimmed.isEmpty()) {
+            return map ? Map.of() : List.of();
+        }
+        if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+            try {
+                Object parsed = YAML_MAPPER.readValue(trimmed, Object.class);
+                boolean parsedIsMap = parsed instanceof Map<?, ?>;
+                if (map != parsedIsMap) {
+                    throw new ConfigurationException(
+                            ErrorCode.CONFIG_PARSE_ERROR,
+                            "@WithDefault value '"
+                                    + raw
+                                    + "' parsed to a "
+                                    + (parsedIsMap ? "Map" : "List")
+                                    + " but the config property expects a "
+                                    + (map ? "Map" : "List/Collection"));
+                }
+                return parsed;
+            } catch (ConfigurationException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new ConfigurationException(
+                        ErrorCode.CONFIG_PARSE_ERROR,
+                        "Cannot parse @WithDefault value '" + raw + "' as YAML: " + e.getMessage(),
+                        e);
+            }
+        }
+        if (map) {
+            throw new ConfigurationException(
+                    ErrorCode.CONFIG_PARSE_ERROR,
+                    "Map-typed @WithDefault value '"
+                            + raw
+                            + "' needs YAML flow syntax: {key: value}");
+        }
+        return Arrays.stream(trimmed.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
     }
 }

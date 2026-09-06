@@ -421,11 +421,19 @@ public final class ConfigImplGenerator {
             }
             return CodeBlock.of("$T.$L", AotTypeNames.parseTypeName(typeName), exact);
         }
-        if (typeName.equals("java.util.List")) {
-            return CodeBlock.of("java.util.List.of()");
+        if (typeName.equals("java.util.List") || typeName.equals("java.util.Collection")) {
+            // Parse the declared default via the shared core helper (same call the Runtime
+            // proxy makes) — emitting List.of() silently discarded the declared default.
+            return CodeBlock.of(
+                    "(java.util.List) $T.parseCollectionDefault($S, false)",
+                    com.github.dropguard.summer.core.config.ConfigBinder.class,
+                    rawValue);
         }
         if (typeName.equals("java.util.Map")) {
-            return CodeBlock.of("java.util.Map.of()");
+            return CodeBlock.of(
+                    "(java.util.Map) $T.parseCollectionDefault($S, true)",
+                    com.github.dropguard.summer.core.config.ConfigBinder.class,
+                    rawValue);
         }
         if (typeName.equals("java.lang.String")) {
             return CodeBlock.of("$S", rawValue);

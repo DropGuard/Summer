@@ -44,7 +44,38 @@ class TypeConverterTest {
         assertTrue((Boolean) TypeConverter.convert("true", Boolean.class));
         assertTrue((Boolean) TypeConverter.convert("TRUE", Boolean.class));
         assertFalse((Boolean) TypeConverter.convert("false", Boolean.class));
-        assertFalse((Boolean) TypeConverter.convert("anything", Boolean.class));
+    }
+
+    @Test
+    void nonBooleanStringsFailLoudlyInsteadOfBindingFalse() {
+        // 'yes'/'1'/typos used to bind as 'false' via Boolean.parseBoolean — a silent config
+        // mistake. The strict contract rejects anything but true/false.
+        assertThrows(
+                ConfigurationException.class,
+                () -> TypeConverter.convert("anything", Boolean.class),
+                "unparseable boolean must fail loudly, not bind false");
+        assertThrows(
+                ConfigurationException.class, () -> TypeConverter.convert("yes", Boolean.class));
+        assertThrows(ConfigurationException.class, () -> TypeConverter.convert("1", Boolean.class));
+    }
+
+    @Test
+    void outOfRangeNumericNarrowingFailsLoudly() {
+        // A silent intValue() wraps: 99999999999L -> 1409286143.
+        assertThrows(
+                ConfigurationException.class,
+                () -> TypeConverter.convert(99999999999L, Integer.class));
+        assertThrows(ConfigurationException.class, () -> TypeConverter.convert(70000, Short.class));
+        // In-range narrows still bind.
+        assertEquals(42, TypeConverter.convert(42L, Integer.class));
+        assertEquals((short) 42, TypeConverter.convert(42, Short.class));
+    }
+
+    @Test
+    void fractionalToIntegralNarrowingFailsLoudly() {
+        // A silent double->int truncates 3.9 -> 3, hiding the config mistake.
+        assertThrows(ConfigurationException.class, () -> TypeConverter.convert(3.9, Integer.class));
+        assertEquals(3, TypeConverter.convert(3.0, Integer.class)); // exact value still binds
     }
 
     @Test

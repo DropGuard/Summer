@@ -41,18 +41,19 @@ public final class RuntimeConfigBinder {
     }
 
     /**
-     * Mirrors {@code ConfigImplGenerator.defaultExpr}: collection-typed defaults resolve to the
-     * empty collection (the raw {@code @WithDefault} string is not coercible to a collection),
-     * everything else uses the raw string and lets the YAML mapper coerce it.
+     * Collection-typed defaults parse into a real List/Map via the shared {@code
+     * ConfigBinder.parseCollectionDefault} (the AOT generator emits a call to the same method —
+     * dual-engine convergence); the raw string was previously discarded, silently binding an empty
+     * collection. Everything else uses the raw string and lets the YAML mapper coerce it.
      */
     private static Object withDefaultValue(
             java.lang.reflect.Method method, WithDefault withDefault) {
         Class<?> returnType = method.getReturnType();
-        if (returnType == java.util.List.class || returnType == java.util.Collection.class) {
-            return java.util.List.of();
-        }
-        if (returnType == java.util.Map.class) {
-            return java.util.Map.of();
+        if (returnType == java.util.List.class
+                || returnType == java.util.Collection.class
+                || returnType == java.util.Map.class) {
+            return ConfigBinder.parseCollectionDefault(
+                    withDefault.value(), returnType == java.util.Map.class);
         }
         return withDefault.value();
     }
