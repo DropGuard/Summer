@@ -141,7 +141,7 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
 
             if (req.getMethod() == HttpMethod.UNKNOWN) {
                 webCtx.text(HttpStatus.METHOD_NOT_ALLOWED, "Method Not Allowed");
-                webCtx.flushTo(new NettyResponseSink(ctx, keepAlive));
+                webCtx.flushTo(new NettyResponseSink(ctx, keepAlive, false));
                 return;
             }
 
@@ -156,7 +156,8 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
                                 return null;
                             });
 
-            webCtx.flushTo(new NettyResponseSink(ctx, keepAlive));
+            boolean headRequest = req.getMethod() == HttpMethod.HEAD;
+            webCtx.flushTo(new NettyResponseSink(ctx, keepAlive, headRequest));
 
         } catch (Exception e) {
             log.error("Fatal framework error", e);
