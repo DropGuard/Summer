@@ -29,6 +29,30 @@ class ConfigBinderInterfaceTest {
         int port();
     }
 
+    @ConfigMapping(prefix = "listy")
+    interface ListDefaultsConfig {
+        @WithDefault("eu-west, us-east")
+        List<String> regions();
+
+        @WithDefault("[alpha, beta]")
+        List<String> flowRegions();
+    }
+
+    @Test
+    void collectionDefaultsParseInsteadOfBindingEmpty() {
+        // The old withDefaultValue silently substituted List.of() for any collection-typed
+        // default — the declared default never reached the bean. Both the comma convention and
+        // YAML flow literals now parse (shared with the AOT-generated impl).
+        ListDefaultsConfig cfg =
+                new RuntimeConfigBinder()
+                        .bind(
+                                ConfigBinder.BindingContext.of(Map.of(), Map.of()),
+                                "listy",
+                                ListDefaultsConfig.class);
+        assertEquals(List.of("eu-west", "us-east"), cfg.regions());
+        assertEquals(List.of("alpha", "beta"), cfg.flowRegions());
+    }
+
     @Test
     void bindsInterfaceFromDefaults() {
         Map<String, Object> defaults = Map.of("host", "localhost", "port", 8080);
