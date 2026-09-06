@@ -143,7 +143,7 @@ public final class AotProxyGenerator {
                 if (!method.isAbstract()) continue;
 
                 boolean shouldIntercept =
-                        classLevelBinding || methodLevelBindingMethods.contains(method.name());
+                        classLevelBinding || methodLevelBindingMethods.contains(methodKey(method));
                 if (shouldIntercept) {
                     proxyBuilder.addField(
                             buildMetaField(
@@ -163,7 +163,7 @@ public final class AotProxyGenerator {
                 if (!method.isAbstract()) continue;
 
                 boolean shouldIntercept =
-                        classLevelBinding || methodLevelBindingMethods.contains(method.name());
+                        classLevelBinding || methodLevelBindingMethods.contains(methodKey(method));
                 if (shouldIntercept) {
                     proxyBuilder.addMethod(buildProxyMethod(method));
                 } else {
@@ -183,14 +183,21 @@ public final class AotProxyGenerator {
 
     /**
      * The binding names recorded by discovery for one method: the class-level set merged with any
-     * method-level entry for this method's name. Discovery only ever stores binding-annotation FQNs
-     * here, so no further filtering is needed.
+     * method-level entry for this method's overload-exact key. Discovery only ever stores
+     * binding-annotation FQNs here, so no further filtering is needed.
      */
     private static Set<String> bindingUnionFor(
             BeanDefinition bean, Set<String> classLevelNames, MethodInfo method) {
         Set<String> union = new HashSet<>(classLevelNames);
-        union.addAll(bean.methodBindingAnnotations.getOrDefault(method.name(), Set.of()));
+        union.addAll(bean.methodBindingAnnotations.getOrDefault(methodKey(method), Set.of()));
         return union;
+    }
+
+    /** Overload-exact binding key — the same format discovery wrote (see BeanEnrichment). */
+    private static String methodKey(MethodInfo method) {
+        return BeanDefinition.methodBindingKey(
+                method.name(),
+                method.parameterTypes().stream().map(t -> t.name().toString()).toList());
     }
 
     private FieldSpec buildMetaField(
