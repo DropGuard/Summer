@@ -155,8 +155,7 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
                                 return null;
                             });
 
-            boolean headRequest = req.getMethod() == HttpMethod.HEAD;
-            webCtx.flushTo(new NettyResponseSink(ctx, keepAlive, headRequest));
+            webCtx.flushTo(new NettyResponseSink(ctx, keepAlive));
 
         } catch (Exception e) {
             log.error("Fatal framework error", e);
@@ -345,8 +344,8 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
      * exception arriving HERE comes from the codec's request-line or header parsers, which are 414
      * / 431 respectively. Unrecognized messages stay on the legacy 413 rather than guessing.
      *
-     * <p>These responses always close the connection, so a stray body on a HEAD request is
-     * discarded unread by the client — no desync is possible on this path.
+     * <p>These responses always close the connection, so the client discards any stray body unread
+     * — no desync is possible on this path.
      */
     private static HttpResponseStatus statusForTooLongFrame(Throwable cause) {
         String message =

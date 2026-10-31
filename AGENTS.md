@@ -118,6 +118,9 @@ Test              summer-test, summer-tck, summer-archunit
   filter/rewrite). There is deliberately NO global collection — a `WebSocketInterceptor` bean is
   never collected from the container; interception lives in the route declaration, visible to the
   reader.
+- **No HTTP HEAD routing** — HEAD requests answer 404 (no `@Head`, no HEAD→GET fallback; a
+  documented non-goal in the README). Do not reintroduce headRequest plumbing in the response
+  sink: no route can ever be registered for HEAD, so that code is unreachable.
 - **REQUIRED-only transactions** — no distributed/XA, no nesting, and no cross-thread propagation: the `ScopedValue` boundary is thread-confined by design (work dispatched to another thread is outside the transaction — documented in `@Transactional`'s javadoc and the README non-goals).
 - **YAML config** — `application.yml` bound to `@ConfigMapping` interfaces. Nested under server/data/ keys. Supports `${VAR}` and `${VAR:-default}` placeholders (resolved from system property, then env var, then default — the Spring/Quarkus convention) for externalized config.
 - **Logging via SLF4J** — diagnostics go through the logging facade (SLF4J), never straight to the console. The deployer owns the logging backend/aggregation (Logback/Log4j/Loki/cloud) — same boundary as health probes and graceful shutdown. Framework bootstrap/DI/AOT stages log with the `[Summer]` prefix.

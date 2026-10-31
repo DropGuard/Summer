@@ -325,6 +325,9 @@ Summer is an experiment in reduction — not expansion. If a feature is not list
 *   Built-in thread pool / executor service (use virtual threads or bring your own)
 *   Framework-level custom ClassLoader Hot-Reload (rely on JVM hotswap instead)
 *   Ecosystem compatibility (Spring Data, Actuator, Starters, etc.)
+*   HTTP `HEAD` routing (no `@Head`, no HEAD→GET fallback): a HEAD request to any route answers
+    404 — correct HTTP, and the RESTful methods Summer serves are all GET-shaped anyway. Uptime
+    monitors and link checkers that prefer HEAD fall back to GET on their own; point them at GET.
 
 * * *
 

@@ -23,19 +23,10 @@ class NettyResponseSink implements ResponseSink {
 
     private final ChannelHandlerContext ctx;
     private final boolean keepAlive;
-    // RFC 9110 §9.3.2: a HEAD response carries the headers a GET would (Content-Length
-    // included) but NEVER a body — writing one desyncs every subsequent response on the
-    // keep-alive connection, because the client parses those body bytes as the next response.
-    private final boolean headRequest;
 
     public NettyResponseSink(ChannelHandlerContext ctx, boolean keepAlive) {
-        this(ctx, keepAlive, false);
-    }
-
-    public NettyResponseSink(ChannelHandlerContext ctx, boolean keepAlive, boolean headRequest) {
         this.ctx = ctx;
         this.keepAlive = keepAlive;
-        this.headRequest = headRequest;
     }
 
     @Override
@@ -70,13 +61,9 @@ class NettyResponseSink implements ResponseSink {
     }
 
     private void writeResponse(HttpStatus status, Map<String, String> headers, ByteBuf content) {
-        // For HEAD, keep the header computation (Content-Length reflects what a GET would
-        // return) but suppress the body bytes themselves.
         FullHttpResponse resp =
                 new DefaultFullHttpResponse(
-                        HttpVersion.HTTP_1_1,
-                        HttpResponseStatus.valueOf(status.code()),
-                        headRequest ? Unpooled.EMPTY_BUFFER : content);
+                        HttpVersion.HTTP_1_1, HttpResponseStatus.valueOf(status.code()), content);
         int declaredLength = content.readableBytes();
 
         for (Map.Entry<String, String> entry : headers.entrySet()) {
