@@ -282,6 +282,13 @@ public final class Discovery {
         BeanDefinition bean = new BeanDefinition(ci.name().toString(), ci.simpleName());
         bean.archiveName = moduleIndex.archiveOf(ci.name().toString());
         collectInterfacesRecursive(bean, ci, merged, new HashSet<>());
+        if (ci.isInterface()) {
+            // A @Bean producer may declare an INTERFACE as the product type — the interface is
+            // then the bean's lookup key, so the proxy must implement it too, not only its parent
+            // interfaces (collectInterfacesRecursive starts the climb at the super-interfaces).
+            // Scanned components are always concrete classes; only producer products land here.
+            bean.interfaceNames.add(ci.name().toString());
+        }
         return bean;
     }
 

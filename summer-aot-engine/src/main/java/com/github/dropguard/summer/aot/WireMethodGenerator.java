@@ -41,16 +41,7 @@ public final class WireMethodGenerator {
     private void emitComponentInstantiation(
             MethodSpec.Builder wire, BeanDefinition bean, ClassName beanClass, String varName) {
         CodeBlock args = buildConstructorArgs(bean);
-        // Summer does not support class-based proxying -- JDK dynamic proxy
-        // requires at least one interface. Fail fast.
-        if (bean.needsProxy() && bean.interfaceNames.isEmpty()) {
-            throw new com.github.dropguard.summer.aop.SummerAopException(
-                    com.github.dropguard.summer.core.ErrorCode.AOP_NO_INTERFACE,
-                    bean.qualifiedName
-                            + " is annotated with AOP bindings but implements no interfaces. Summer"
-                            + " uses JDK dynamic proxies -- extract an interface and inject it by"
-                            + " the interface type instead.");
-        }
+        requireProxyableInterfaces(bean);
         if (bean.needsProxy()) {
             String implVar = varName + "_impl";
             if (bean.parameters.isEmpty()) {
@@ -61,41 +52,7 @@ public final class WireMethodGenerator {
             // @PostConstruct runs on the raw instance before the proxy wraps it — lifecycle
             // callbacks are never intercepted (CDI semantics).
             emitPostConstruct(wire, bean, implVar);
-
-            // Inline an empty interceptor list for the common case (zero interceptors),
-            // avoiding the `ArrayList` variable declaration. With interceptors present,
-            // declare a typed list once and reuse it for the proxy construction.
-            String interceptorsExpr;
-            if (bean.interceptors.isEmpty()) {
-                interceptorsExpr = "java.util.List.of()";
-            } else {
-                String interceptorsListVar = varName + "_interceptors";
-                wire.addStatement(
-                        "$T<$T> $N = new $T<>()",
-                        ClassName.get(List.class),
-                        ClassName.get("com.github.dropguard.summer.aop", "MethodInterceptor"),
-                        interceptorsListVar,
-                        ClassName.get(ArrayList.class));
-
-                for (BeanDefinition interceptor : bean.interceptors) {
-                    wire.addStatement("$N.add($N)", interceptorsListVar, interceptor.variableName);
-                }
-                interceptorsExpr = interceptorsListVar;
-            }
-
-            com.palantir.javapoet.TypeName proxyType =
-                    bean.interfaceNames.isEmpty()
-                            ? beanClass
-                            : AotTypeNames.safeClassName(bean.interfaceNames.get(0));
-            ClassName proxyClass =
-                    ClassName.get(beanClass.packageName(), beanClass.simpleName() + "$$AotProxy");
-            wire.addStatement(
-                    "$T $N = new $T($N, $L)",
-                    proxyType,
-                    varName,
-                    proxyClass,
-                    implVar,
-                    interceptorsExpr);
+            emitProxyWrap(wire, bean, beanClass, varName, implVar);
         } else {
             if (bean.parameters.isEmpty()) {
                 wire.addStatement("$T $N = new $T()", beanClass, varName, beanClass);
@@ -104,6 +61,66 @@ public final class WireMethodGenerator {
             }
             emitPostConstruct(wire, bean, varName);
         }
+    }
+
+    /** Summer does not support class-based proxying -- JDK dynamic proxy needs an interface. */
+    private static void requireProxyableInterfaces(BeanDefinition bean) {
+        if (bean.needsProxy() && bean.interfaceNames.isEmpty()) {
+            throw new com.github.dropguard.summer.aop.SummerAopException(
+                    com.github.dropguard.summer.core.ErrorCode.AOP_NO_INTERFACE,
+                    bean.qualifiedName
+                            + " is annotated with AOP bindings but implements no interfaces. Summer"
+                            + " uses JDK dynamic proxies -- extract an interface and inject it by"
+                            + " the interface type instead.");
+        }
+    }
+
+    /**
+     * Emits the interceptor list plus the {@code $$AotProxy} construction that binds {@code
+     * varName} to the proxy over the raw {@code implVar}. Shared by both instantiation shapes —
+     * constructor built components and {@code @Bean} products — so an AOP-bound product is proxied
+     * whichever way it is created, exactly like the runtime engine's BeanInstantiator.
+     */
+    private void emitProxyWrap(
+            MethodSpec.Builder wire,
+            BeanDefinition bean,
+            ClassName beanClass,
+            String varName,
+            String implVar) {
+        // Inline an empty interceptor list for the common case (zero interceptors),
+        // avoiding the `ArrayList` variable declaration. With interceptors present,
+        // declare a typed list once and reuse it for the proxy construction.
+        String interceptorsExpr;
+        if (bean.interceptors.isEmpty()) {
+            interceptorsExpr = "java.util.List.of()";
+        } else {
+            String interceptorsListVar = varName + "_interceptors";
+            wire.addStatement(
+                    "$T<$T> $N = new $T<>()",
+                    ClassName.get(List.class),
+                    ClassName.get("com.github.dropguard.summer.aop", "MethodInterceptor"),
+                    interceptorsListVar,
+                    ClassName.get(ArrayList.class));
+
+            for (BeanDefinition interceptor : bean.interceptors) {
+                wire.addStatement("$N.add($N)", interceptorsListVar, interceptor.variableName);
+            }
+            interceptorsExpr = interceptorsListVar;
+        }
+
+        com.palantir.javapoet.TypeName proxyType =
+                bean.interfaceNames.isEmpty()
+                        ? beanClass
+                        : AotTypeNames.safeClassName(bean.interfaceNames.get(0));
+        ClassName proxyClass =
+                ClassName.get(beanClass.packageName(), beanClass.simpleName() + "$$AotProxy");
+        wire.addStatement(
+                "$T $N = new $T($N, $L)",
+                proxyType,
+                varName,
+                proxyClass,
+                implVar,
+                interceptorsExpr);
     }
 
     /**
@@ -214,21 +231,30 @@ public final class WireMethodGenerator {
         String methodName = bean.producerMethodName;
         CodeBlock args = buildConstructorArgs(bean);
 
+        // A bound product is proxied exactly like a component: the raw instance becomes the
+        // proxy's private target and the proxy takes the bean's var name (one bean, one form).
+        requireProxyableInterfaces(bean);
+        boolean wrap = bean.needsProxy();
+        String rawVar = wrap ? varName + "_impl" : varName;
+
         if (construction != null) {
-            wire.addStatement("$T $N = $L", producedClass, varName, construction);
+            wire.addStatement("$T $N = $L", producedClass, rawVar, construction);
         } else if (bean.parameters.isEmpty()) {
-            wire.addStatement("$T $N = $N.$N()", producedClass, varName, configVar, methodName);
+            wire.addStatement("$T $N = $N.$N()", producedClass, rawVar, configVar, methodName);
         } else {
             wire.addStatement(
-                    "$T $N = $N.$N($L)", producedClass, varName, configVar, methodName, args);
+                    "$T $N = $N.$N($L)", producedClass, rawVar, configVar, methodName, args);
         }
         // Post-construction assembly-time writes (the AOT counterpart of a runtime assembly-time
         // filler bean): emitted after construction so the producer body still runs, before
         // registration so dependents see the fully-assembled product.
         if (provider != null) {
             for (String statement : provider.postConstruction(bean, index)) {
-                wire.addStatement("$N.$L", varName, statement);
+                wire.addStatement("$N.$L", rawVar, statement);
             }
+        }
+        if (wrap) {
+            emitProxyWrap(wire, bean, producedClass, varName, rawVar);
         }
     }
 
