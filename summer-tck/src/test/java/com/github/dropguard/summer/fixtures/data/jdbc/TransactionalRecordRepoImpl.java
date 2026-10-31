@@ -29,6 +29,13 @@ public class TransactionalRecordRepoImpl implements TransactionalRecordRepo {
     }
 
     @Override
+    @Transactional
+    public void insertThenFailChecked(Long id) throws java.io.IOException {
+        jdbcTemplate.update("INSERT INTO users (id, name) VALUES (?, ?)", id, "transient");
+        throw new java.io.IOException("forced checked failure to trigger rollback");
+    }
+
+    @Override
     public boolean exists(Long id) {
         Integer count =
                 jdbcTemplate.queryForObject(

@@ -8,5 +8,8 @@ package com.github.dropguard.summer.fixtures.data.jdbc;
 public interface TransactionalRecordRepo {
     void insertThenFail(Long id);
 
+    /** Checked-failure variant: the contract is that ANY thrown exception rolls back. */
+    void insertThenFailChecked(Long id) throws java.io.IOException;
+
     boolean exists(Long id);
 }

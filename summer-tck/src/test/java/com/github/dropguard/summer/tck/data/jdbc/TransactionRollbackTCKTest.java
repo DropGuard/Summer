@@ -5,9 +5,12 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.data.jdbc.JdbcTemplate;
+import com.github.dropguard.summer.fixtures.data.jdbc.NestedTxOuter;
 import com.github.dropguard.summer.fixtures.data.jdbc.TransactionalRecordRepo;
 import com.github.dropguard.summer.test.annotation.DualEngine;
 import com.github.dropguard.summer.test.annotation.SummerTest;
+import com.github.dropguard.summer.tx.SummerTransactionException;
+import java.io.IOException;
 import org.junit.jupiter.api.BeforeEach;
 
 /**
@@ -48,5 +51,32 @@ public class TransactionRollbackTCKTest {
         assertFalse(
                 repo.exists(probeId),
                 "row inserted inside the failed transaction must be rolled back");
+    }
+
+    @DualEngine
+    void checkedExceptionRollsBack(BeanContainer context) {
+        TransactionalRecordRepo repo = context.getBean(TransactionalRecordRepo.class);
+        long probeId = 8888L;
+
+        assertThrows(IOException.class, () -> repo.insertThenFailChecked(probeId));
+
+        // IOException is checked. Spring's default rolls back only unchecked exceptions unless
+        // rollbackFor is declared; Summer's attribute-free model promises ANY thrown exception
+        // rolls back — with no rollbackFor to forget.
+        assertFalse(repo.exists(probeId), "a checked failure must roll back the insert");
+    }
+
+    @DualEngine
+    void nestedTransactionalCallFailsLoudlyAndOuterRollsBack(BeanContainer context) {
+        NestedTxOuter outer = context.getBean(NestedTxOuter.class);
+        long probeId = 7777L;
+
+        assertThrows(
+                SummerTransactionException.class,
+                () -> outer.insertWithNested(probeId),
+                "the nested begin() through the inner bean's proxy must fail loudly");
+
+        // The outer boundary rolls back: the row the outer transaction wrote must be gone.
+        assertFalse(outer.exists(probeId), "the outer transaction must roll back");
     }
 }
