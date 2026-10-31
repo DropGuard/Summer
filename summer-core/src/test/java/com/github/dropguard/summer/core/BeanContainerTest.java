@@ -57,6 +57,29 @@ class BeanContainerTest {
         assertEquals(1, bean.closeCount, "duplicate close() must not re-close beans");
     }
 
+    @Test
+    void shutdownSignalIsPerContainer() throws Exception {
+        BeanContainer.Builder first = new BeanContainer.Builder();
+        first.register(String.class, "first");
+        BeanContainer closing = first.build();
+        BeanContainer.Builder second = new BeanContainer.Builder();
+        second.register(String.class, "second");
+        BeanContainer reborn = second.build();
+
+        assertTrue(!closing.isShuttingDown() && !reborn.isShuttingDown());
+
+        closing.close();
+
+        assertTrue(
+                closing.isShuttingDown(),
+                "close() must flip THIS container's readiness to shutting-down");
+        assertTrue(
+                !reborn.isShuttingDown(),
+                "a later container in the same JVM must not inherit the closed one's "
+                        + "readiness — the pre-fix process-wide static left every rebuilt "
+                        + "container's /health/ready at 503 from birth");
+    }
+
     static final class CountingCloseable implements AutoCloseable {
         int closeCount;
 

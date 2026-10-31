@@ -42,7 +42,9 @@ public final class BeanContainer implements AutoCloseable {
     private final ShutdownContext shutdownContext = ShutdownContext.create();
 
     /** Guards {@link #close()} so a duplicate call is a no-op (idempotent teardown). */
-    private boolean closed;
+    // volatile: close() flips it while virtual-thread request handlers may read it via
+    // isShuttingDown() from another thread (the readiness probe).
+    private volatile boolean closed;
 
     private BeanContainer(
             Map<Class<?>, Object> typeIndex,
@@ -191,6 +193,16 @@ public final class BeanContainer implements AutoCloseable {
         return false;
     }
 
+    /**
+     * True once {@link #close()} has started on THIS container — the per-container readiness
+     * signal: {@code /health/ready} flips to 503. Deliberately scoped to the container, not the
+     * process: test universes and embedded hosts close and rebuild containers inside one JVM, and a
+     * static flag would poison every later container's readiness from birth.
+     */
+    public boolean isShuttingDown() {
+        return closed;
+    }
+
     @Override
     public void close() throws Exception {
         synchronized (this) {
@@ -206,8 +218,10 @@ public final class BeanContainer implements AutoCloseable {
         // shutdown.timeout-ms (see ShutdownConfig). This is the application's own close
         // flow — the signal is the container's responsibility, so any caller (the JVM
         // shutdown hook, an explicit close(), a test) triggers it exactly once and the
-        // readiness probe never reads a half-torn-down state.
-        ApplicationState.beginShutdown();
+        // readiness probe never reads a half-torn-down state. The flag is PER-CONTAINER
+        // (isShuttingDown): test universes and embedded hosts close and rebuild containers
+        // inside one JVM — a process-wide flag would poison every later container's
+        // readiness from birth.
 
         // Anchor the single shutdown budget: the registered drain tasks share what remains of
         // shutdown.timeout-ms measured from THIS point. Handing each task a fresh full budget

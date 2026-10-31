@@ -120,7 +120,7 @@ public final class SummerApplication {
                                 () -> {
                                     // The shutdown signal (readiness probe -> 503, so the load
                                     // balancer stops routing) is owned by BeanContainer.close():
-                                    // it fires ApplicationState.beginShutdown() first, then drains
+                                    // it flips the container's shutdown flag first, then drains
                                     // servers and closes beans in order. This hook only triggers
                                     // that close flow — it never touches application state
                                     // directly, so any path (hook, explicit close(), test) stays
