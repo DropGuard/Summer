@@ -96,4 +96,35 @@ class NettyChunkedResponseTest {
         counted.close();
         assertEquals(0, counter.get());
     }
+
+    @Test
+    void orphanSweepReleasesSlotWhenClientDisconnectedBeforeClose() {
+        var counter = new java.util.concurrent.atomic.AtomicInteger();
+        NettyChunkedResponse counted =
+                new NettyChunkedResponse(channel.pipeline().firstContext(), true, counter);
+        assertEquals(1, counter.get());
+
+        // Client disconnects mid-stream: isClosed() flips true via the inactive channel, so the
+        // orphan sweep's close() branch would never run — pre-fix the slot leaked and every
+        // later shutdown of this server drained for the full budget.
+        channel.close();
+        assertTrue(counted.isClosed());
+
+        counted.releaseStreamSlot();
+        assertEquals(0, counter.get(), "the drain slot must release even without close()");
+
+        // A late close() after the sweep must not double-decrement.
+        counted.close();
+        assertEquals(0, counter.get());
+    }
+
+    @Test
+    void closeThenOrphanSweepReleasesExactlyOnce() {
+        var counter = new java.util.concurrent.atomic.AtomicInteger();
+        NettyChunkedResponse counted =
+                new NettyChunkedResponse(channel.pipeline().firstContext(), true, counter);
+        counted.close();
+        counted.releaseStreamSlot();
+        assertEquals(0, counter.get(), "release is idempotent across close + sweep");
+    }
 }

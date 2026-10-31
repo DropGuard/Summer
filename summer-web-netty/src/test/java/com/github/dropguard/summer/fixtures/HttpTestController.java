@@ -40,4 +40,17 @@ public class HttpTestController {
         // sent and the client hung on the unterminated chunked response forever.
         throw new RuntimeException("boom mid-stream");
     }
+
+    @Get("/sse/hang-until-disconnect")
+    public void hangUntilDisconnect(HttpContext ctx, com.github.dropguard.summer.web.SseStream sse)
+            throws Exception {
+        sse.send("first");
+        // Return only once the client is gone (or the safety timeout fires): the dispatch
+        // finally's orphan sweep then runs against an inactive channel — the drain-slot leak
+        // path where isClosed() is already true and close() would never run.
+        long deadline = System.currentTimeMillis() + 10_000;
+        while (!sse.isClosed() && System.currentTimeMillis() < deadline) {
+            Thread.sleep(10);
+        }
+    }
 }

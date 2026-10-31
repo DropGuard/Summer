@@ -115,6 +115,16 @@ public class NettyServerRunner implements ApplicationRunner {
     }
 
     /**
+     * Server-push streams opened but not yet terminated — the drain in {@code NettyHttpServer
+     * #shutdown} waits for these alongside in-flight requests. Exposed for diagnostics and tests: a
+     * slot that leaks (client disconnected before the handler returned) would make every later
+     * shutdown of this server instance drain for the full budget and misreport the leftover count.
+     */
+    public int getOpenStreams() {
+        return runningServer == null ? 0 : runningServer.getOpenStreams().get();
+    }
+
+    /**
      * Collects global middleware in application order:
      *
      * <ol>

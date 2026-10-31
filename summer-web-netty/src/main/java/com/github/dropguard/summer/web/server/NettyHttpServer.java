@@ -234,7 +234,11 @@ class NettyHttpServer {
                     "Waiting up to {} for {} in-flight requests/streams to finish...",
                     timeout,
                     draining);
-            long deadline = System.nanoTime() + timeout.toNanos();
+            // The drain shares the single shutdown budget anchored at method entry — a slow
+            // stage 1 must not extend the total wait past ShutdownConfig.timeoutMs, and a
+            // drain that consumes the budget must leave the remaining time to the event-loop
+            // release below rather than driving it to zero.
+            long deadline = deadlineNanos;
             try {
                 while (activeConnections.get() + openStreams.get() > 0
                         && System.nanoTime() < deadline) {

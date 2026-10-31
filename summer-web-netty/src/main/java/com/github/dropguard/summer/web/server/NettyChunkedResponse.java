@@ -33,6 +33,9 @@ class NettyChunkedResponse implements ChunkedResponse {
     // Server-level counter of open streams (null in tests): lets shutdown drain see streams
     // whose handler has already returned — invisible to the active-connection count.
     private final java.util.concurrent.atomic.AtomicInteger streamCounter;
+    // Guards the exactly-once release of the streamCounter slot across every terminal path —
+    // close() and the orphan sweep — so a path that skips close() cannot leak the slot.
+    private final AtomicBoolean streamSlotReleased = new AtomicBoolean(false);
     private HttpResponseStatus httpStatus = HttpResponseStatus.OK;
     private String contentType = "application/octet-stream";
 
@@ -126,12 +129,23 @@ class NettyChunkedResponse implements ChunkedResponse {
         return closed.get() || !ctx.channel().isActive();
     }
 
+    /**
+     * Releases the drain-accounting slot exactly once, on every terminal path: {@link #close()} by
+     * the handler, and the dispatch finally's orphan sweep even when the client already
+     * disconnected — {@code isClosed()} is then already true, so {@code close()} would never run
+     * and the slot used to leak, leaving every later graceful shutdown of this server instance to
+     * drain for the full budget and misreport the leftover count.
+     */
+    void releaseStreamSlot() {
+        if (streamCounter != null && streamSlotReleased.compareAndSet(false, true)) {
+            streamCounter.decrementAndGet();
+        }
+    }
+
     @Override
     public void close() {
         if (closed.compareAndSet(false, true)) {
-            if (streamCounter != null) {
-                streamCounter.decrementAndGet();
-            }
+            releaseStreamSlot();
             ensureHeaderSent();
             var future = ctx.writeAndFlush(LastHttpContent.EMPTY_LAST_CONTENT);
             if (!keepAlive) {

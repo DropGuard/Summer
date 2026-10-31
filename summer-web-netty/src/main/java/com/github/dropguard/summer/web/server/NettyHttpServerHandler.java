@@ -182,11 +182,17 @@ class NettyHttpServerHandler extends SimpleChannelInboundHandler<FullHttpRequest
         ChunkedResponse chunked =
                 request.peekAttribute(
                         com.github.dropguard.summer.web.RequestAttributes.CHUNKED_RESPONSE);
-        if (chunked instanceof NettyChunkedResponse nettyChunked && !nettyChunked.isClosed()) {
-            log.warn(
-                    "Handler never closed its SSE stream / chunked response — terminating it on {}",
-                    ctx.channel().remoteAddress());
-            chunked.close();
+        if (chunked instanceof NettyChunkedResponse nettyChunked) {
+            if (!nettyChunked.isClosed()) {
+                log.warn(
+                        "Handler never closed its SSE stream / chunked response — terminating it"
+                                + " on {}",
+                        ctx.channel().remoteAddress());
+                nettyChunked.close();
+            }
+            // Unconditional and idempotent: a client that disconnected mid-stream makes
+            // isClosed() true without close() ever running — close() alone leaks the drain slot.
+            nettyChunked.releaseStreamSlot();
         }
     }
 
