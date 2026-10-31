@@ -225,7 +225,11 @@ public class SummerMojo extends AbstractMojo {
         // The javac parse only sees .java files: union the path-derived names so classes from
         // other compilers (Kotlin/Scala roots) and package-info/module-info survive reconcile.
         sourceClassNames.addAll(SummerSourceIndex.collectPathDerivedBinaryNames(roots));
-        int removed = SummerSourceIndex.reconcile(outputDirectory, sourceClassNames);
+        int removed =
+                SummerSourceIndex.reconcile(
+                        outputDirectory,
+                        sourceClassNames,
+                        SummerSourceIndex.collectForeignTopLevelNames(roots));
         if (removed > 0) {
             log.info("[Summer] Reconciled target/classes: removed {} stale class(es)", removed);
         }

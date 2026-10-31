@@ -125,6 +125,42 @@ final class SummerSourceIndex {
     private static final Set<String> FOREIGN_SOURCE_EXTENSIONS = Set.of("kt", "scala", "groovy");
 
     /**
+     * Top-level binary names derived from NON-Java sources only. Foreign compilers (Kotlin
+     * companions {@code Foo$Companion}, {@code Foo$WhenMappings}, Groovy closures {@code
+     * Foo$_run_closure1}, Scala lambdas) synthesize arbitrarily named nested classes that no
+     * path-based derivation can enumerate — reconcile must tolerate ANY {@code $}-descendant of
+     * these names, or it deletes live classes and the jar fails with {@code NoClassDefFoundError}.
+     */
+    static Set<String> collectForeignTopLevelNames(List<File> roots) throws IOException {
+        Set<String> names = new HashSet<>();
+        if (roots == null) return Collections.emptySet();
+        for (File root : roots) {
+            if (root == null || !root.isDirectory()) continue;
+            Path rootPath = root.toPath();
+            try (var stream = Files.walk(rootPath)) {
+                for (Path path : stream.filter(Files::isRegularFile).toList()) {
+                    String fileName = path.getFileName().toString();
+                    int dot = fileName.lastIndexOf('.');
+                    if (dot <= 0) continue;
+                    String extension = fileName.substring(dot + 1).toLowerCase(Locale.ROOT);
+                    if (!FOREIGN_SOURCE_EXTENSIONS.contains(extension)) {
+                        continue;
+                    }
+                    String relative = rootPath.relativize(path).toString().replace('\\', '/');
+                    int lastSlash = relative.lastIndexOf('/');
+                    names.add(
+                            (lastSlash < 0
+                                            ? ""
+                                            : relative.substring(0, lastSlash).replace('/', '.')
+                                                    + ".")
+                                    + fileName.substring(0, dot));
+                }
+            }
+        }
+        return Collections.unmodifiableSet(names);
+    }
+
+    /**
      * Deletes every {@code .class} file inside {@code outputDirectory} whose binary name is not
      * present in {@code sourceClassNames}. The {@code META-INF} directory is preserved
      * unconditionally (Jandex index, manifest, services descriptors).
@@ -136,6 +172,12 @@ final class SummerSourceIndex {
      * @return the number of class files deleted
      */
     static int reconcile(File outputDirectory, Set<String> sourceClassNames) throws IOException {
+        return reconcile(outputDirectory, sourceClassNames, Collections.emptySet());
+    }
+
+    static int reconcile(
+            File outputDirectory, Set<String> sourceClassNames, Set<String> foreignTopLevelNames)
+            throws IOException {
         if (outputDirectory == null || !outputDirectory.isDirectory()) return 0;
         int removed = 0;
         Set<String> allowed = new HashSet<>(sourceClassNames);
@@ -147,7 +189,7 @@ final class SummerSourceIndex {
                 Path relative = outputDirectory.toPath().relativize(path);
                 if (relative.startsWith("META-INF")) continue;
                 String binary = toBinaryName(relative.toString());
-                if (!isAllowed(binary, allowed)) {
+                if (!isAllowed(binary, allowed, foreignTopLevelNames)) {
                     try {
                         Files.deleteIfExists(path);
                         removed++;
@@ -168,7 +210,7 @@ final class SummerSourceIndex {
      * Foo$Inner$1}) are named by javac with a {@code $} followed by digits; they are permitted as
      * long as their enclosing class exists in {@code allowed}.
      */
-    static boolean isAllowed(String binary, Set<String> allowed) {
+    static boolean isAllowed(String binary, Set<String> allowed, Set<String> foreignTopLevel) {
         if (allowed.contains(binary)) {
             return true;
         }
@@ -178,9 +220,16 @@ final class SummerSourceIndex {
             if (lastDollar < 0) {
                 return false;
             }
+            String enclosing = current.substring(0, lastDollar);
+            if (foreignTopLevel.contains(enclosing)) {
+                // A foreign compiler's synthetic nested class (Foo$Companion, Foo$_run_closure1,
+                // Foo$WhenMappings, Foo$1) — the enclosing top level is a non-Java source, so
+                // any $-descendant is live code no derivation can enumerate.
+                return true;
+            }
             if (lastDollar + 1 < current.length()
                     && Character.isDigit(current.charAt(lastDollar + 1))) {
-                current = current.substring(0, lastDollar);
+                current = enclosing;
                 if (allowed.contains(current)) {
                     return true;
                 }
