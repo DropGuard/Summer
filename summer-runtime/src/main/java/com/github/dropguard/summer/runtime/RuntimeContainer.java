@@ -140,12 +140,24 @@ public final class RuntimeContainer implements ContainerEngine {
             }
             builder.routes(resolved.routes());
 
-            // validators — single pass, single Result, single throw
+            // validators — single pass, single Result, single throw. Identity-deduped: a bean
+            // registered under its concrete AND interface keys is ONE bean (the CDI model — the
+            // container holds beans, not type keys); iterating the type-key map ran a validator
+            // (and each of its targets) twice, duplicating every violation in the Result.
             Result validationResult = new Result();
-            for (Object bean : builder.singletons().values()) {
+            Set<Object> seenInstances =
+                    java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+            List<Object> dedupedBeans =
+                    builder.singletons().values().stream().filter(seenInstances::add).toList();
+            for (Object bean : dedupedBeans) {
                 if (bean instanceof Validator<?> v) {
-                    List<?> targets = builder.getBeans(v.targetType());
-                    for (Object target : targets) {
+                    Set<Object> seenTargets =
+                            java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+                    for (Object target :
+                            dedupedBeans.stream()
+                                    .filter(t -> v.targetType().isInstance(t))
+                                    .filter(seenTargets::add)
+                                    .toList()) {
                         @SuppressWarnings("unchecked")
                         Validator<Object> typed = (Validator<Object>) v;
                         typed.validate(target, validationResult);
@@ -153,11 +165,14 @@ public final class RuntimeContainer implements ContainerEngine {
                 }
             }
             validationResult.throwIfInvalid();
-        } catch (Exception e) {
+        } catch (Exception | Error e) {
             // Assembly failed mid-way — a constructor threw at bean N (the most common case),
-            // or validation failed after it. The beans already built hold real resources
-            // (pools, clients) and the startup hook — registered only after a SUCCESSFUL
-            // start — will never close them.
+            // or validation failed after it. Constructor failures arrive wrapped as
+            // BeanCreationException (the instantiator's InvocationTargetException handling);
+            // the Error arm is defensive for any raw Error escaping instantiation or validation,
+            // and the precise rethrow preserves the original type. The beans already built hold
+            // real resources (pools, clients) and the startup hook — registered only after a
+            // SUCCESSFUL start — will never close them.
             closeAbandonedBeans(builder);
             throw e;
         }
@@ -177,7 +192,10 @@ public final class RuntimeContainer implements ContainerEngine {
      * contract holds only on the normal {@code BeanContainer.close()} path.
      */
     private static void closeAbandonedBeans(BeanContainer.Builder builder) {
-        List<Object> built = List.copyOf(builder.singletons().values());
+        // Identity-deduped: singletons() is the type-key map, and a bean registered under its
+        // concrete class AND an interface is ONE bean — closing per key closed it twice.
+        Set<Object> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+        List<Object> built = builder.singletons().values().stream().filter(seen::add).toList();
         for (int i = built.size() - 1; i >= 0; i--) {
             if (built.get(i) instanceof AutoCloseable ac) {
                 try {
