@@ -16,7 +16,7 @@ class WebSocketInboundPumpTest {
     private static NettyWebSocketContext context(EmbeddedChannel channel) {
         // NettyTestSupport.newChannel() installs a tail handler, so firstContext() is usable.
         return new NettyWebSocketContext(
-                channel.pipeline().firstContext(), Map.of(), Map.of(), List.of(), null);
+                channel.pipeline().firstContext(), Map.of(), Map.of(), List.of(), null, 0);
     }
 
     @Test

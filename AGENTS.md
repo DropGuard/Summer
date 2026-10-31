@@ -106,7 +106,11 @@ Test              summer-test, summer-tck, summer-archunit
   bounded inbound buffer (`server.ws-message-queue-capacity`, default 64; reads suspended at 3/4,
   resumed at 1/2 → TCP backpressure; in-flight overflow closes with 1008; `onClose` queued after
   the last message; a failing handler closes the connection). Pinned by
-  `WebSocketBackpressureIntegrationTest`.
+  `WebSocketBackpressureIntegrationTest`. Outbound: `send()`/chunked `write()` block until the
+  write drains (pacing at the client's read rate); `server.outbound-send-timeout` (default 10s)
+  closes connections whose outbound side stays unwritable that long — the broadcaster stays
+  fire-and-forget, the watchdog closes stalled members autonomously. Pinned by
+  `OutboundBackpressureIntegrationTest`.
 - **Singletons only** — no prototype scope and no per-injection instance factory; objects you create yourself (`new`) stay outside the container.
 - **Explicit middleware** — global middleware registered via `SummerApplication.apply()`. Route-level via `Router.Builder.mount()`.
 - **REQUIRED-only transactions** — no distributed/XA, no nesting, and no cross-thread propagation: the `ScopedValue` boundary is thread-confined by design (work dispatched to another thread is outside the transaction — documented in `@Transactional`'s javadoc and the README non-goals).

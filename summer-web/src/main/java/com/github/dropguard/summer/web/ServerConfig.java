@@ -50,6 +50,18 @@ public interface ServerConfig {
     @WithDefault("64")
     Integer wsMessageQueueCapacity();
 
+    /**
+     * Maximum time a connection's outbound side may stay unwritable — the peer is not draining and
+     * Netty's outbound buffer is pinned above the high watermark — before the connection is closed.
+     * This bounds memory growth against slow consumers and reclaims zero-window peers that TCP
+     * alone would keep for minutes. Blocking writes (WebSocket {@code send}, chunked/SSE writes)
+     * are released by the same budget; the broadcaster never waits on a stalled member, the
+     * watchdog closes it instead. Ordinary request/response writes are bounded by their own size
+     * and are not policed. {@code 0} disables.
+     */
+    @WithDefault("10000")
+    Integer outboundSendTimeout();
+
     @WithDefault("RADIX_TREE")
     RouterType routerType();
 }

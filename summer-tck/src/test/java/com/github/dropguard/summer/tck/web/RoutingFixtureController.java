@@ -115,4 +115,19 @@ public class RoutingFixtureController {
         chunked.write("chunk-B\n");
         chunked.close();
     }
+
+    /**
+     * Unbounded stream for the outbound-stall integration test: the only way it ends against a
+     * client that never reads is the stall watchdog closing the connection.
+     */
+    @Get("/sse/flood")
+    public void sseFlood(HttpContext ctx, com.github.dropguard.summer.web.ChunkedResponse chunked) {
+        // Chunks stay below the 64KB outbound watermark: a reading client never makes the channel
+        // unwritable, so only a genuinely stalled one can hit the watchdog.
+        chunked.contentType("text/event-stream");
+        while (!chunked.isClosed()) {
+            chunked.write("x".repeat(16 * 1024));
+        }
+        chunked.close();
+    }
 }

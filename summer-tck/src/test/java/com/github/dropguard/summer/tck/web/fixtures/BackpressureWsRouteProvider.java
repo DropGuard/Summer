@@ -3,6 +3,7 @@ package com.github.dropguard.summer.tck.web.fixtures;
 import com.github.dropguard.summer.core.Component;
 import com.github.dropguard.summer.web.WsRouteProvider;
 import com.github.dropguard.summer.web.WsRouter;
+import com.github.dropguard.summer.web.server.NettyWebSocketBroadcaster;
 import com.github.dropguard.summer.web.websocket.WebSocketContext;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -22,6 +23,15 @@ import java.util.concurrent.atomic.AtomicReference;
 public class BackpressureWsRouteProvider implements WsRouteProvider {
 
     private static final AtomicReference<Gate> GATE = new AtomicReference<>();
+
+    /** Room every {@code /ws-flood} connection joins; the flood fans out to all of them. */
+    public static final String FLOOD_ROOM = "outbound-stall";
+
+    private final NettyWebSocketBroadcaster broadcaster;
+
+    public BackpressureWsRouteProvider(NettyWebSocketBroadcaster broadcaster) {
+        this.broadcaster = broadcaster;
+    }
 
     /** Arms the gate the wired handlers will drive; call before opening the connection. */
     public static void arm(Gate gate) {
@@ -46,6 +56,45 @@ public class BackpressureWsRouteProvider implements WsRouteProvider {
                                 if (gate != null) {
                                     gate.close();
                                 }
+                            });
+                });
+        builder.ws(
+                "/ws-flood",
+                ctx -> {
+                    broadcaster.join(FLOOD_ROOM, ctx);
+                    ctx.onMessage(
+                            msg -> {
+                                // endsWith, not equals: the test universe's global
+                                // WebSocketInterceptor prefixes every message ("[INTERCEPTED] ").
+                                if (!msg.endsWith("flood")) {
+                                    return;
+                                }
+                                // Own virtual thread: the pump thread stays free, and the wall
+                                // clock bounds the flood — a stalled member is closed by the
+                                // outbound stall watchdog, the broadcaster never waits on it.
+                                Thread.startVirtualThread(
+                                        () -> {
+                                            // Long enough (≈21MB at 16KB/3ms) to overflow the
+                                            // kernel socket buffers of a non-reading member —
+                                            // loopback auto-tuning absorbs ~10MB.
+                                            long end =
+                                                    System.nanoTime()
+                                                            + java.util.concurrent.TimeUnit.SECONDS
+                                                                    .toNanos(4);
+                                            while (System.nanoTime() < end) {
+                                                // 16KB frames stay below the outbound
+                                                // watermark: a reading member never goes
+                                                // unwritable, only a stalled one does.
+                                                broadcaster.broadcast(
+                                                        FLOOD_ROOM, "x".repeat(16 * 1024));
+                                                try {
+                                                    Thread.sleep(3);
+                                                } catch (InterruptedException e) {
+                                                    Thread.currentThread().interrupt();
+                                                    return;
+                                                }
+                                            }
+                                        });
                             });
                 });
     }

@@ -127,4 +127,20 @@ class NettyChunkedResponseTest {
         counted.releaseStreamSlot();
         assertEquals(0, counter.get(), "release is idempotent across close + sweep");
     }
+
+    @Test
+    void writeBlocksForTheStallBudgetThenCloses() {
+        EmbeddedChannel stuck =
+                NettyTestSupport.newStuckChannel(new io.netty.channel.ChannelHandler[0]);
+        NettyChunkedResponse stalled =
+                new NettyChunkedResponse(stuck.pipeline().firstContext(), true, null, 50);
+
+        long start = System.nanoTime();
+        stalled.write("hello");
+        long elapsedMs =
+                java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+
+        assertTrue(elapsedMs >= 50, "write must block for the stall budget");
+        assertFalse(stuck.isOpen(), "timed-out write must close the connection");
+    }
 }

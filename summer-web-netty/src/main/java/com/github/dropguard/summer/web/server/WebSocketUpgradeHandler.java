@@ -80,7 +80,12 @@ class WebSocketUpgradeHandler {
         }
         NettyWebSocketContext wsContext =
                 new NettyWebSocketContext(
-                        nettyCtx, wsMatch.pathParams(), headers, wsInterceptors, jsonConverter);
+                        nettyCtx,
+                        wsMatch.pathParams(),
+                        headers,
+                        wsInterceptors,
+                        jsonConverter,
+                        config.outboundSendTimeout());
         WebSocketInboundPump pump =
                 new WebSocketInboundPump(
                         wsContext, nettyCtx.channel(), config.wsMessageQueueCapacity());
@@ -171,6 +176,11 @@ class WebSocketUpgradeHandler {
                                                                             config
                                                                                     .wsHeartbeatInterval()));
                                                 }
+                                                // The broadcaster writes fire-and-forget: this
+                                                // watchdog, not the broadcaster, polices members
+                                                // whose outbound side stalls.
+                                                OutboundStallHandler.attach(
+                                                        nettyCtx, config.outboundSendTimeout());
                                                 nettyCtx.pipeline()
                                                         .addLast(
                                                                 new SummerWebSocketFrameHandler(

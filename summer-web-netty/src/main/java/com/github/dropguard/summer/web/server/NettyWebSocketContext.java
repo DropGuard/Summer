@@ -17,6 +17,7 @@ class NettyWebSocketContext implements WebSocketContext {
     private final Map<String, String> headers;
     private final List<WebSocketInterceptor> wsInterceptors;
     private final BodyConverter jsonConverter;
+    private final long sendTimeoutMs;
     private Consumer<String> messageConsumer;
     private Runnable closeHandler;
 
@@ -25,12 +26,14 @@ class NettyWebSocketContext implements WebSocketContext {
             Map<String, String> pathParams,
             Map<String, String> headers,
             List<WebSocketInterceptor> wsInterceptors,
-            BodyConverter jsonConverter) {
+            BodyConverter jsonConverter,
+            long sendTimeoutMs) {
         this.ctx = ctx;
         this.pathParams = pathParams;
         this.headers = headers;
         this.wsInterceptors = wsInterceptors;
         this.jsonConverter = jsonConverter;
+        this.sendTimeoutMs = sendTimeoutMs;
     }
 
     public ChannelHandlerContext getChannelHandlerContext() {
@@ -50,7 +53,10 @@ class NettyWebSocketContext implements WebSocketContext {
     @Override
     public void send(String text) {
         if (ctx.channel().isActive()) {
-            ctx.writeAndFlush(new TextWebSocketFrame(text));
+            // Blocks the sending thread while the peer backpressures; the stall watchdog closes
+            // connections whose outbound side stays unwritable for the budget.
+            OutboundStallHandler.writeAndAwait(
+                    ctx.channel(), new TextWebSocketFrame(text), sendTimeoutMs);
         }
     }
 

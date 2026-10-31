@@ -31,7 +31,8 @@ class NettyWebSocketBroadcasterTest {
                         Map.of(),
                         Map.of(),
                         List.of(),
-                        org.mockito.Mockito.mock(BodyConverter.class));
+                        org.mockito.Mockito.mock(BodyConverter.class),
+                        0);
         broadcaster.connected(context);
         return new CtxPair(channel, context);
     }

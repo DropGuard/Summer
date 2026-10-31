@@ -30,28 +30,64 @@ final class NettyTestSupport {
     private NettyTestSupport() {}
 
     /**
+     * Creates an EmbeddedChannel whose socket never drains: every write stays pending in the
+     * outbound buffer, so writability flips off once the high watermark is crossed — a
+     * deterministic zero-window peer for the outbound stall tests. Drain can be resumed by calling
+     * {@code channel.flush()} after raising the flag returned in {@code draining}.
+     */
+    static EmbeddedChannel newStuckChannel(ChannelHandler... handlers) {
+        return newStuckChannel(null, handlers);
+    }
+
+    /** Like {@link #newStuckChannel(ChannelHandler...)} with a controllable drain switch. */
+    static EmbeddedChannel newStuckChannel(
+            java.util.concurrent.atomic.AtomicBoolean draining, ChannelHandler... handlers) {
+        ChannelHandler[] pipeline =
+                handlers.length == 0
+                        ? new ChannelHandler[] {new ChannelInboundHandlerAdapter()}
+                        : handlers;
+        EmbeddedChannel channel =
+                new EmbeddedChannel(uniqueId(), pipeline) {
+                    @Override
+                    protected void doWrite(io.netty.channel.ChannelOutboundBuffer in)
+                            throws Exception {
+                        if (draining != null && draining.get()) {
+                            super.doWrite(in);
+                        }
+                        // Otherwise: nothing ever reaches the socket.
+                    }
+                };
+        channel.config().setWriteBufferLowWaterMark(1);
+        channel.config().setWriteBufferHighWaterMark(8);
+        return channel;
+    }
+
+    private static ChannelId uniqueId() {
+        int n = SEQ.incrementAndGet();
+        return new ChannelId() {
+            @Override
+            public String asShortText() {
+                return "embedded-" + n;
+            }
+
+            @Override
+            public String asLongText() {
+                return asShortText();
+            }
+
+            @Override
+            public int compareTo(ChannelId o) {
+                return asLongText().compareTo(o.asLongText());
+            }
+        };
+    }
+
+    /**
      * Creates an EmbeddedChannel with a unique explicit id and, unless handlers are supplied, a
      * tail handler so the pipeline always yields a usable first context.
      */
     static EmbeddedChannel newChannel(ChannelHandler... handlers) {
-        int n = SEQ.incrementAndGet();
-        ChannelId id =
-                new ChannelId() {
-                    @Override
-                    public String asShortText() {
-                        return "embedded-" + n;
-                    }
-
-                    @Override
-                    public String asLongText() {
-                        return asShortText();
-                    }
-
-                    @Override
-                    public int compareTo(ChannelId o) {
-                        return asLongText().compareTo(o.asLongText());
-                    }
-                };
+        ChannelId id = uniqueId();
         if (handlers.length == 0) {
             return new EmbeddedChannel(id, new ChannelInboundHandlerAdapter());
         }

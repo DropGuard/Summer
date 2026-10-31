@@ -389,6 +389,14 @@ Inbound messages are buffered per connection (up to `server.ws-message-queue-cap
 
 `onClose` is queued like a message: it fires after every buffered message has been delivered, on the connection's virtual thread.
 
+### Outbound Backpressure: Blocking Writes and the Stall Watchdog
+
+The same rule applies on the way out. `WebSocketContext.send()` and chunked/SSE `ChunkedResponse.write()` **block the calling virtual thread until the write has actually drained into the socket** — a fast producer is paced at the client's reading rate instead of accumulating unbounded data in the server's outbound buffer. Because virtual threads make blocking cheap, this costs nothing when the client keeps up.
+
+A peer that stops reading (zero TCP window) would otherwise pin a writer forever — TCP's own retransmission timeout only gives up after minutes. The `server.outbound-send-timeout` budget (default 10s, `0` disables) closes any connection whose outbound side stays unwritable for that long. The watchdog is per connection and autonomous, which is what lets the **broadcaster stay fire-and-forget**: it never waits on its slowest member — a stalled room member is closed by the watchdog while broadcasts to everyone else continue unaffected.
+
+Ordinary request/response writes are bounded by their own size (the handler materialises the response first) and are not policed.
+
 
 * * *
 

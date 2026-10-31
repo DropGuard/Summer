@@ -36,23 +36,35 @@ class NettyChunkedResponse implements ChunkedResponse {
     // Guards the exactly-once release of the streamCounter slot across every terminal path —
     // close() and the orphan sweep — so a path that skips close() cannot leak the slot.
     private final AtomicBoolean streamSlotReleased = new AtomicBoolean(false);
+    private final long stallTimeoutMs;
     private HttpResponseStatus httpStatus = HttpResponseStatus.OK;
     private String contentType = "application/octet-stream";
 
     public NettyChunkedResponse(ChannelHandlerContext ctx, boolean keepAlive) {
-        this(ctx, keepAlive, null);
+        this(ctx, keepAlive, null, 0);
     }
 
     public NettyChunkedResponse(
             ChannelHandlerContext ctx,
             boolean keepAlive,
             java.util.concurrent.atomic.AtomicInteger streamCounter) {
+        this(ctx, keepAlive, streamCounter, 0);
+    }
+
+    public NettyChunkedResponse(
+            ChannelHandlerContext ctx,
+            boolean keepAlive,
+            java.util.concurrent.atomic.AtomicInteger streamCounter,
+            long stallTimeoutMs) {
         this.ctx = ctx;
         this.keepAlive = keepAlive;
         this.streamCounter = streamCounter;
+        this.stallTimeoutMs = stallTimeoutMs;
         if (streamCounter != null) {
             streamCounter.incrementAndGet();
         }
+        // Streaming writes are unbounded in count: the watchdog polices peers that stop reading.
+        OutboundStallHandler.attach(ctx, stallTimeoutMs);
     }
 
     @Override
@@ -107,7 +119,12 @@ class NettyChunkedResponse implements ChunkedResponse {
             return;
         }
         ensureHeaderSent();
-        ctx.writeAndFlush(new DefaultHttpContent(Unpooled.wrappedBuffer(data)));
+        // Blocks the streaming thread while the peer backpressures; the stall watchdog closes
+        // connections whose outbound side stays unwritable for the budget.
+        OutboundStallHandler.writeAndAwait(
+                ctx.channel(),
+                new DefaultHttpContent(Unpooled.wrappedBuffer(data)),
+                stallTimeoutMs);
     }
 
     @Override
@@ -140,6 +157,9 @@ class NettyChunkedResponse implements ChunkedResponse {
         if (streamCounter != null && streamSlotReleased.compareAndSet(false, true)) {
             streamCounter.decrementAndGet();
         }
+        // Exactly-once terminal path for the stream as well: the keep-alive connection may serve
+        // further requests, which must not inherit this stream's stall watchdog.
+        OutboundStallHandler.detach(ctx.channel());
     }
 
     @Override
