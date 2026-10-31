@@ -311,6 +311,38 @@ public final class BeanEnrichment {
                     }
                 }
             }
+
+            // Fail fast on an orphaned binding: interceptorBindings only holds beans actually
+            // registered in THIS universe, so an @Conditional-excluded interceptor (e.g.
+            // TransactionInterceptor without transaction infrastructure) leaves the binding
+            // without a provider on both engines. Running the bean un-intercepted would
+            // silently drop the annotation's semantics — @Transactional would auto-commit.
+            if (!bindings.isEmpty()) {
+                List<String> unprovided =
+                        bindings.stream()
+                                .filter(
+                                        name ->
+                                                interceptorBindings.values().stream()
+                                                        .noneMatch(
+                                                                provided ->
+                                                                        provided.contains(
+                                                                                DotName
+                                                                                        .createSimple(
+                                                                                                name))))
+                                .toList();
+                if (!unprovided.isEmpty()) {
+                    throw new BeanCreationException(
+                            "Bean "
+                                    + bean.qualifiedName
+                                    + " declares interceptor binding(s) "
+                                    + unprovided
+                                    + " but no interceptor bean in this container provides them."
+                                    + " The interceptor was excluded by a condition (e.g."
+                                    + " @Transactional without transaction infrastructure) or the"
+                                    + " binding annotation has no @Interceptor at all — add the"
+                                    + " missing dependency/configuration or drop the annotation.");
+                }
+            }
         }
     }
 
