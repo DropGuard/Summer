@@ -12,27 +12,16 @@ class SummerWebSocketFrameHandler extends SimpleChannelInboundHandler<TextWebSoc
 
     private final NettyWebSocketContext wsContext;
     private final WebSocketInboundPump pump;
-    private final int maxFrameSize;
 
-    public SummerWebSocketFrameHandler(
-            NettyWebSocketContext wsContext, WebSocketInboundPump pump, int maxFrameSize) {
+    public SummerWebSocketFrameHandler(NettyWebSocketContext wsContext, WebSocketInboundPump pump) {
         this.wsContext = wsContext;
         this.pump = pump;
-        this.maxFrameSize = maxFrameSize;
     }
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, TextWebSocketFrame frame) {
-        int frameBytes = frame.content().readableBytes();
-        if (frameBytes > maxFrameSize) {
-            log.warn("WebSocket frame too large: {} bytes (max: {})", frameBytes, maxFrameSize);
-            try {
-                ctx.close();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-            return;
-        }
+        // Oversized frames never reach this handler: the frame decoder enforces
+        // maxWebSocketFrameSize during decode (TooLongFrameException -> exceptionCaught).
         // The event loop only buffers the frame; the connection's virtual thread delivers it.
         pump.accept(frame.text());
     }
@@ -48,10 +37,6 @@ class SummerWebSocketFrameHandler extends SimpleChannelInboundHandler<TextWebSoc
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
         log.error("WebSocket error", cause);
-        try {
-            ctx.close();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        ctx.close();
     }
 }

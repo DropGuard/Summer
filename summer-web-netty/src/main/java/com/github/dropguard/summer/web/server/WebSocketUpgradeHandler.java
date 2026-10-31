@@ -180,10 +180,7 @@ class WebSocketUpgradeHandler {
                                                 nettyCtx.pipeline()
                                                         .addLast(
                                                                 new SummerWebSocketFrameHandler(
-                                                                        wsContext,
-                                                                        pump,
-                                                                        config
-                                                                                .maxWebSocketFrameSize()));
+                                                                        wsContext, pump));
                                                 nettyCtx.fireChannelRead(retainedReq);
                                             } catch (Throwable t) {
                                                 io.netty.util.ReferenceCountUtil.safeRelease(

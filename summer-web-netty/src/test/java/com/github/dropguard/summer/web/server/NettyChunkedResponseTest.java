@@ -22,7 +22,8 @@ class NettyChunkedResponseTest {
     @BeforeEach
     void setUp() {
         channel = new EmbeddedChannel(new io.netty.channel.ChannelInboundHandlerAdapter());
-        chunkedResponse = new NettyChunkedResponse(channel.pipeline().firstContext(), true);
+        chunkedResponse =
+                new NettyChunkedResponse(channel.pipeline().firstContext(), true, null, 0);
     }
 
     @Test
@@ -83,7 +84,7 @@ class NettyChunkedResponseTest {
     void openStreamCounterTracksLifecycle() {
         var counter = new java.util.concurrent.atomic.AtomicInteger();
         NettyChunkedResponse counted =
-                new NettyChunkedResponse(channel.pipeline().firstContext(), true, counter);
+                new NettyChunkedResponse(channel.pipeline().firstContext(), true, counter, 0);
         assertEquals(1, counter.get(), "materializing a stream opens the counter");
 
         counted.write("chunk");
@@ -101,7 +102,7 @@ class NettyChunkedResponseTest {
     void orphanSweepReleasesSlotWhenClientDisconnectedBeforeClose() {
         var counter = new java.util.concurrent.atomic.AtomicInteger();
         NettyChunkedResponse counted =
-                new NettyChunkedResponse(channel.pipeline().firstContext(), true, counter);
+                new NettyChunkedResponse(channel.pipeline().firstContext(), true, counter, 0);
         assertEquals(1, counter.get());
 
         // Client disconnects mid-stream: isClosed() flips true via the inactive channel, so the
@@ -122,7 +123,7 @@ class NettyChunkedResponseTest {
     void closeThenOrphanSweepReleasesExactlyOnce() {
         var counter = new java.util.concurrent.atomic.AtomicInteger();
         NettyChunkedResponse counted =
-                new NettyChunkedResponse(channel.pipeline().firstContext(), true, counter);
+                new NettyChunkedResponse(channel.pipeline().firstContext(), true, counter, 0);
         counted.close();
         counted.releaseStreamSlot();
         assertEquals(0, counter.get(), "release is idempotent across close + sweep");

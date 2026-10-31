@@ -40,17 +40,6 @@ class NettyChunkedResponse implements ChunkedResponse {
     private HttpResponseStatus httpStatus = HttpResponseStatus.OK;
     private String contentType = "application/octet-stream";
 
-    public NettyChunkedResponse(ChannelHandlerContext ctx, boolean keepAlive) {
-        this(ctx, keepAlive, null, 0);
-    }
-
-    public NettyChunkedResponse(
-            ChannelHandlerContext ctx,
-            boolean keepAlive,
-            java.util.concurrent.atomic.AtomicInteger streamCounter) {
-        this(ctx, keepAlive, streamCounter, 0);
-    }
-
     public NettyChunkedResponse(
             ChannelHandlerContext ctx,
             boolean keepAlive,

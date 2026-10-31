@@ -104,23 +104,29 @@ class NettyWebSocketContext implements WebSocketContext {
     // Internal methods invoked by SummerWebSocketFrameHandler
 
     void invokeMessageConsumer(String message) {
-        if (messageConsumer != null) {
-            WebSocketInterceptorChain chain =
-                    new WebSocketInterceptorChain() {
-                        private int index = 0;
-
-                        @Override
-                        public void proceed(WebSocketContext ctx, String msg) {
-                            if (wsInterceptors != null && index < wsInterceptors.size()) {
-                                WebSocketInterceptor interceptor = wsInterceptors.get(index++);
-                                interceptor.intercept(ctx, msg, this);
-                            } else {
-                                messageConsumer.accept(msg);
-                            }
-                        }
-                    };
-            chain.proceed(this, message);
+        if (messageConsumer == null) {
+            return;
         }
+        // Zero-interceptor routes are the common case — deliver directly, no chain allocation.
+        if (wsInterceptors == null || wsInterceptors.isEmpty()) {
+            messageConsumer.accept(message);
+            return;
+        }
+        WebSocketInterceptorChain chain =
+                new WebSocketInterceptorChain() {
+                    private int index = 0;
+
+                    @Override
+                    public void proceed(WebSocketContext ctx, String msg) {
+                        if (index < wsInterceptors.size()) {
+                            WebSocketInterceptor interceptor = wsInterceptors.get(index++);
+                            interceptor.intercept(ctx, msg, this);
+                        } else {
+                            messageConsumer.accept(msg);
+                        }
+                    }
+                };
+        chain.proceed(this, message);
     }
 
     void invokeCloseHandler() {
