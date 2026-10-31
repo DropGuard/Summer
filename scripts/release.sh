@@ -58,7 +58,10 @@ count = 0
 affected = []
 
 for root, dirs, files in os.walk('.'):
-    if any(p in root for p in ['target', '.git', '.idea', 'node_modules']):
+    # Segment match, NOT substring: 'target' as a substring excludes the benchmark's
+    # target-summer/target-summer-jsonb source dirs — which is exactly how they went stale
+    # while every sweep reported success.
+    if any(part in {'target', '.git', '.idea', 'node_modules'} for part in root.split(os.sep)):
         continue
     for file in files:
         if file == 'pom.xml' or file == 'docker-compose.yml':
@@ -73,11 +76,25 @@ for root, dirs, files in os.walk('.'):
             current_jar = f'benchmark-summer-{current}.jar'
             target_jsonb_jar = f'benchmark-summer-jsonb-{target}.jar'
             current_jsonb_jar = f'benchmark-summer-jsonb-{current}.jar'
-            if current_tag in content or current_prop in content or current_jar in content:
+            matched = (current_tag in content or current_prop in content
+                       or current_jar in content or current_jsonb_jar in content)
+            # The exact-string sweep only reaches files still carrying the CURRENT version.
+            # docker-compose jar names can fall behind (pinned to an older release) and then go
+            # stale forever — catch them by pattern regardless of the pinned version.
+            import re
+            new_content = content
+            pattern_matched = False
+            if file == 'docker-compose.yml':
+                def sub_jar(m):
+                    return f'benchmark-summer{m.group(1)}-{target}.jar'
+                new_content, n = re.subn(
+                    r'benchmark-summer(-jsonb)?-[\\w.]+\\.jar', sub_jar, content)
+                pattern_matched = n > 0 and new_content != content
+            if matched or pattern_matched:
                 count += 1
                 affected.append(p)
                 if not dry_run:
-                    new_content = (content
+                    new_content = (new_content
                         .replace(current_tag, target_tag)
                         .replace(current_prop, target_prop)
                         .replace(current_jar, target_jar)
