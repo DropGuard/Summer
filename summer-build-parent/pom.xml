@@ -14,9 +14,9 @@
         - summer-dependencies BOM import (dependency version catalog)
         - summer-maven-plugin (AOT generation, mandatory for every project)
 
-      summer.framework.version defaults to 0.1.0 here — demos always build against
-      a published release. Within the reactor, summer-framework overrides it to
-      ${project.version}.
+      summer.framework.version is inherited from summer-parent (currently the dev
+      ${project.version}); user projects pin a released version on their own
+      dependencyManagement/parent import.
     -->
 
     <parent>

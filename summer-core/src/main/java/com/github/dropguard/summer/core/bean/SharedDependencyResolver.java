@@ -231,11 +231,13 @@ public final class SharedDependencyResolver {
     }
 
     /**
-     * Fail-fast guard for the concrete-class AOP trap: a proxied bean is registered under its
-     * concrete class as the RAW instance (interfaces carry the proxy), so injecting it by concrete
-     * class would silently hand the dependent a bean with NO interceptors — transactions, auth,
-     * etc. all off. JDK dynamic proxies cannot satisfy a concrete type, so the only correct
-     * injection is through one of the bean's interfaces.
+     * Fail-fast guard for the concrete-class AOP trap, kept from the pre-one-bean-one-form
+     * registration model: under the CURRENT contract a proxied bean's concrete-class key holds the
+     * PROXY itself and {@code getBean(ConcreteClass)} already fails loudly with {@code
+     * NoSuchBeanException} (the proxy is not assignable to the concrete class). The guard now only
+     * fires when discovery itself wires a dependent to a proxied bean's concrete type — impossible
+     * via the lookup plane — so it is belt-and-braces; the message still points at the one
+     * supported form: injection through one of the bean's interfaces.
      */
     private static void rejectConcreteClassInjection(
             BeanDefinition dependent, BeanDefinition resolved, String paramType) {
@@ -246,8 +248,9 @@ public final class SharedDependencyResolver {
                             + " injects "
                             + resolved.qualifiedName
                             + " by its concrete class, but that bean is AOP-proxied (JDK dynamic"
-                            + " proxy). The concrete-class registration holds the raw instance"
-                            + " without interceptors — inject by one of its interfaces instead:"
+                            + " proxy). A proxied bean exists in the lookup plane only as its"
+                            + " proxy — getBean on the concrete class cannot satisfy it — so"
+                            + " inject by one of its interfaces instead:"
                             + " "
                             + (resolved.interfaceNames.isEmpty()
                                     ? "(none)"

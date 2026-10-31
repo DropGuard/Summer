@@ -6,6 +6,18 @@ on:
   workflow_dispatch:
 
 jobs:
+  guard:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse manual dispatch of a -SNAPSHOT version
+        # A manual run on main deploys whatever the POMs carry — a -SNAPSHOT would flow
+        # straight into the Central publish. Tag pushes are the supported release path.
+        run: |
+          if grep -q '<version>.*-SNAPSHOT</version>' summer-parent/pom.xml; then
+            echo "::error::workflow_dispatch on a -SNAPSHOT main; use the release script + v* tag"
+            exit 1
+          fi
   publish:
     runs-on: ubuntu-latest
     permissions:

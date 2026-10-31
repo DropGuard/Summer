@@ -26,12 +26,27 @@ jobs:
         cache: maven
 
     - name: Check formatting
-      # summer-dependencies is a standalone BOM (no parent, no spotless plugin in its
-      # build) — Maven's prefix resolution fails on it. It has no Java sources, so it is
-      # excluded here rather than given a plugin of its own (which would leak to
-      # downstream consumers importing the BOM).
+      # summer-dependencies has no Java sources; its own pom sets spotless.check.skip
+      # (see the exclusion below) rather than carrying a plugin that would leak to
+      # downstream consumers importing the BOM.
       run: mvn spotless:check --batch-mode -pl '!summer-dependencies'
         
+    - name: Verify IT-bearing modules ran ITs
+      # failIfNoTests=false makes a renamed/moved *IT.java silently pass its module — the
+      # old bare-failsafe bug in a new costume. Every module that SHIPS an *IT.java must
+      # have produced failsafe reports.
+      run: |
+        missing=""
+        for m in $(find . -path '*/src/test/*IT.java' -not -path '*/target/*' | sed -E 's|^\./(.*)/src/test/.*|\1|' | sort -u); do
+          if ! ls "$m"/target/failsafe-reports/*.xml >/dev/null 2>&1; then
+            missing="$missing $m"
+          fi
+        done
+        if [ -n "$missing" ]; then
+          echo "::error::IT-bearing modules ran 0 ITs:$missing"
+          exit 1
+        fi
+
     - name: Build with Maven
       # The env.CI=true is automatically set by GitHub Actions.
       # install (not verify): the summer-maven-plugin's invoker IT runs a real nested build of

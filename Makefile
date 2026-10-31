@@ -27,19 +27,20 @@ else
 	mvn test -pl $(MODULE) -am -Dsurefire.useFile=false
 endif
 
-# Integration tests (Testcontainers) — need a running Docker daemon. Activated
-# with -Dit so plain `make test` / `mvn verify` stay Docker-free and fast.
+# Integration tests (Testcontainers) — need a running Docker daemon. Failsafe is bound
+# unconditionally in summer-parent (there is no -Dit profile), so plain `mvn verify`
+# already runs every IT — this target only adds surefire console output.
 it:
-	mvn verify -Dit -Dsurefire.useFile=false
+	mvn verify -Dsurefire.useFile=false
 
 it-module:
 ifndef MODULE
 	$(error Usage: make it-module MODULE=summer-data-redis [TEST=ClassName])
 endif
 ifdef TEST
-	mvn verify -pl $(MODULE) -am -Dit -Dtest="$(TEST)" -Dsurefire.useFile=false -Dsurefire.failIfNoSpecifiedTests=false
+	mvn verify -pl $(MODULE) -am -Dtest="$(TEST)" -Dsurefire.useFile=false -Dsurefire.failIfNoSpecifiedTests=false
 else
-	mvn verify -pl $(MODULE) -am -Dit -Dsurefire.useFile=false
+	mvn verify -pl $(MODULE) -am -Dsurefire.useFile=false
 endif
 
 # Run a sample app end to end. Requires `make install` first: the samples are

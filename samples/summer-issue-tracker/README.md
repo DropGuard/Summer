@@ -1,7 +1,7 @@
 # Summer Issue Tracker
 
 A lightweight issue/defect tracker (mini Jira) built **as an external demo project**
-on top of the [Summer](https://github.com/summer-framework) framework. It is intentionally
+on top of the [Summer](https://github.com/DropGuard/Summer) framework. It is intentionally
 **not** a test of Summer internals — it consumes Summer purely as published artifacts and
 owns its own business tests. The demo's purpose is to exercise real product requirements
 (issue tracking, RBAC, audit trail, dynamic filtering) so that framework limitations
