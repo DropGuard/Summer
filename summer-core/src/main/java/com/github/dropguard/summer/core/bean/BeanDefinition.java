@@ -89,9 +89,21 @@ public sealed class BeanDefinition permits ConfigPropertiesBean {
      * names. Keying by NAME alone made overloaded interface methods share whichever overload
      * discovery saw — {@code transfer(Order)} annotated but {@code transfer(User)} not would
      * intercept both. The {@code ""} class-level key cannot collide (this format always carries
-     * parentheses). Both engines build it: Runtime from {@code Class#getName()} per parameter, AOT
-     * from Jandex {@code Type#name()} — both render {@code java.lang.String} identically
-     * (primitives as {@code int}, arrays as {@code [L...;}, nested as {@code Outer$Inner}).
+     * parentheses).
+     *
+     * <p>Both engines build it, and the renderings coincide for every expressible parameter shape:
+     * Runtime derives each parameter from the erasure ({@code Class#getName()}), enrichment/AOT
+     * from Jandex {@code Type#name()} — a type variable's erasure IS its leftmost bound (JLS 4.6),
+     * which is exactly what Jandex {@code TypeVariable#name()} returns ({@code bounds[0]}).
+     * Parameterized types render as the raw class name ({@code List<T>} &rarr; {@code
+     * java.util.List}), primitives as {@code int}, arrays — of variables included, any dimension —
+     * as {@code [L...;}/{@code [I}. Pinned dual-engine by GenericBoundTaggedServiceTest.
+     *
+     * <p>One consequence of keys being read back under the INTERFACE method's rendering: a binding
+     * recorded from an impl method whose parameter types are narrowed relative to the interface's
+     * ({@code save(BigDecimal)} implementing {@code save(T extends Number)}) matches no key and is
+     * consistently not intercepted on either engine. Declare method bindings on the interface (or
+     * on an impl whose declared signature matches the interface's bound-first rendering).
      */
     public static String methodBindingKey(String methodName, List<String> parameterTypeNames) {
         return methodName + "(" + String.join(",", parameterTypeNames) + ")";

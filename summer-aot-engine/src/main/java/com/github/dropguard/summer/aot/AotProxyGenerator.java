@@ -3,6 +3,7 @@ package com.github.dropguard.summer.aot;
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
 import com.palantir.javapoet.AnnotationSpec;
+import com.palantir.javapoet.ArrayTypeName;
 import com.palantir.javapoet.ClassName;
 import com.palantir.javapoet.CodeBlock;
 import com.palantir.javapoet.FieldSpec;
@@ -290,9 +291,9 @@ public final class AotProxyGenerator {
         // Direct invocation lambda — no reflection
         CodeBlock lambda;
         if (returnType.equals(TypeName.VOID)) {
-            lambda = buildVoidLambda(method.name(), paramNames);
+            lambda = buildVoidLambda(method, paramNames);
         } else {
-            lambda = buildReturnLambda(method.name(), paramNames);
+            lambda = buildReturnLambda(method, paramNames);
         }
 
         String metaName = metaFieldName(method);
@@ -332,24 +333,39 @@ public final class AotProxyGenerator {
         return builder.build();
     }
 
-    private CodeBlock buildVoidLambda(String methodName, List<String> paramNames) {
-        StringBuilder call = new StringBuilder("target.").append(methodName).append("(");
-        for (int i = 0; i < paramNames.size(); i++) {
-            if (i > 0) call.append(", ");
-            call.append("$N");
-        }
-        call.append(")");
-        return CodeBlock.of("() -> { " + call + "; return null; }", paramNames.toArray());
+    private CodeBlock buildVoidLambda(MethodInfo method, List<String> paramNames) {
+        return CodeBlock.of("() -> { $L; return null; }", delegateCall(method, paramNames));
     }
 
-    private CodeBlock buildReturnLambda(String methodName, List<String> paramNames) {
-        StringBuilder call = new StringBuilder("target.").append(methodName).append("(");
+    private CodeBlock buildReturnLambda(MethodInfo method, List<String> paramNames) {
+        return CodeBlock.of("() -> $L", delegateCall(method, paramNames));
+    }
+
+    /** Renders {@code ((DeclaringInterface) target).method(p1, p2)} as literal code. */
+    private static String delegateCall(MethodInfo method, List<String> paramNames) {
+        StringBuilder call =
+                new StringBuilder(delegateReceiver(method))
+                        .append(".")
+                        .append(method.name())
+                        .append("(");
         for (int i = 0; i < paramNames.size(); i++) {
             if (i > 0) call.append(", ");
-            call.append("$N");
+            call.append(paramNames.get(i));
         }
-        call.append(")");
-        return CodeBlock.of("() -> " + call, paramNames.toArray());
+        return call.append(")").toString();
+    }
+
+    /**
+     * The receiver for a generated delegation call. The proxy's {@code target} field is typed to
+     * the implementation class, but the interface method it overrides may erase to a signature the
+     * impl only satisfies through a javac bridge ({@code save(BigDecimal)} implementing {@code
+     * save(T extends Number)}) — and bridge methods are invisible to source-level overload
+     * resolution, so a bare {@code target.save(value)} would not compile. Casting to the method's
+     * declaring interface resolves the call the same way the Runtime engine's reflective {@code
+     * Method.invoke} does.
+     */
+    private static String delegateReceiver(MethodInfo method) {
+        return "((" + method.declaringClass().name().toString().replace('$', '.') + ") target)";
     }
 
     // ── Direct Delegate (no interceptor) ──────────────────────────────
@@ -377,7 +393,11 @@ public final class AotProxyGenerator {
             builder.addException(toTypeName(exception));
         }
 
-        StringBuilder call = new StringBuilder("target.").append(method.name()).append("(");
+        StringBuilder call =
+                new StringBuilder(delegateReceiver(method))
+                        .append(".")
+                        .append(method.name())
+                        .append("(");
         for (int i = 0; i < paramNames.size(); i++) {
             if (i > 0) call.append(", ");
             call.append(paramNames.get(i));
@@ -415,11 +435,56 @@ public final class AotProxyGenerator {
 
     private static TypeName toTypeName(org.jboss.jandex.Type type) {
         if (type.name() == null) return ClassName.get(Object.class);
-        String name = type.name().toString();
+        return toRenderedTypeName(type.name().toString());
+    }
+
+    /**
+     * Renders a Jandex type name into JavaPoet. Jandex renders array types as JVM descriptors
+     * ({@code [Ljava.lang.Number;}, {@code [[I}), which {@code ClassName.bestGuess} cannot parse —
+     * arrays are rebuilt from their component descriptor instead. The component follows the same
+     * rules as any other parameter: erasure for type variables (the descriptor already encodes it,
+     * e.g. {@code T[] extends Number} arrives as {@code [Ljava.lang.Number;}), raw name for
+     * parameterized types.
+     */
+    private static TypeName toRenderedTypeName(String name) {
         if (name.equals("void")) return TypeName.VOID;
+        if (name.startsWith("[")) return arrayTypeName(name);
         // Primitive mapping is shared with the rest of the AOT codegen via TypeReads.
         if (PrimitiveTypes.isPrimitive(name)) return TypeReads.typeName(name);
         return ClassName.bestGuess(name);
+    }
+
+    private static TypeName arrayTypeName(String descriptor) {
+        int dims = 0;
+        while (dims < descriptor.length() && descriptor.charAt(dims) == '[') {
+            dims++;
+        }
+        String component = descriptor.substring(dims);
+        TypeName componentType;
+        if (component.startsWith("L") && component.endsWith(";")) {
+            componentType = toRenderedTypeName(component.substring(1, component.length() - 1));
+        } else {
+            String primitive =
+                    switch (component) {
+                        case "I" -> "int";
+                        case "J" -> "long";
+                        case "S" -> "short";
+                        case "B" -> "byte";
+                        case "C" -> "char";
+                        case "F" -> "float";
+                        case "D" -> "double";
+                        case "Z" -> "boolean";
+                        default ->
+                                throw new IllegalArgumentException(
+                                        "Unsupported array component in AOT generation: "
+                                                + descriptor);
+                    };
+            componentType = TypeReads.typeName(primitive);
+        }
+        for (int i = 0; i < dims; i++) {
+            componentType = ArrayTypeName.of(componentType);
+        }
+        return componentType;
     }
 
     private static String defaultValue(TypeName type) {

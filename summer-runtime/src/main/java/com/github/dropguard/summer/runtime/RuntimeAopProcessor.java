@@ -114,6 +114,9 @@ final class RuntimeAopProcessor {
                 }
                 // Overload-exact lookup: the key carries the parameter types, so two overloads
                 // of the same name bind independently (one annotated, one not, stays that way).
+                // The erased parameter renders identically to enrichment/AOT's Jandex Type#name()
+                // (erasure = leftmost bound = Jandex bounds[0]) for every shape — see
+                // BeanDefinition#methodBindingKey, pinned by GenericBoundTaggedServiceTest.
                 Set<String> methodLevel =
                         methodBindings.get(
                                 BeanDefinition.methodBindingKey(
