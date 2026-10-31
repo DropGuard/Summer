@@ -33,6 +33,33 @@ class ConfigBinderEnvTest {
     }
 
     @Test
+    void hyphenatedSystemPropertyNameResolves() {
+        // System properties may carry hyphens; the former [\w.]+ name class silently refused
+        // to match ${DB-PASSWORD}, passing the literal through and bypassing the loud
+        // unresolved-placeholder failure.
+        System.setProperty("DB-PASSWORD", "s3cret");
+        try {
+            Map<String, Object> section = new LinkedHashMap<>();
+            section.put("password", "${DB-PASSWORD}");
+            Map<String, Object> resolved = ConfigBinder.resolveEnvPlaceholders(section);
+            assertEquals("s3cret", resolved.get("password"));
+        } finally {
+            System.clearProperty("DB-PASSWORD");
+        }
+    }
+
+    @Test
+    void hyphenatedNameWithoutDefaultFailsLoudly() {
+        Map<String, Object> section = new LinkedHashMap<>();
+        section.put("password", "${DB-PASSWORD:-fallback}");
+        assertEquals("fallback", ConfigBinder.resolveEnvPlaceholders(section).get("password"));
+
+        Map<String, Object> bare = new LinkedHashMap<>();
+        bare.put("password", "${DB-PASSWORD}");
+        assertThrows(ConfigurationException.class, () -> ConfigBinder.resolveEnvPlaceholders(bare));
+    }
+
+    @Test
     void barePlaceholderWithoutDefaultFailsFastWhenEnvAbsent() {
         // A bare ${VAR} with nothing to resolve and no :default is a typo'd/unset variable.
         // Leaving a literal placeholder in the value would be a silent footgun — fail loudly

@@ -53,6 +53,25 @@ class ConfigBinderInterfaceTest {
         assertEquals(List.of("alpha", "beta"), cfg.flowRegions());
     }
 
+    @ConfigMapping(prefix = "setty")
+    interface SetDefaultsConfig {
+        @WithDefault("read, write")
+        java.util.Set<String> roles();
+    }
+
+    @Test
+    void setDefaultsParseLikeLists() {
+        // Set-typed @WithDefault used to fall through withDefaultValue's exact-type check and
+        // hand the raw comma string to the mapper, failing the bind with a conversion error.
+        SetDefaultsConfig cfg =
+                new RuntimeConfigBinder()
+                        .bind(
+                                ConfigBinder.BindingContext.of(Map.of(), Map.of()),
+                                "setty",
+                                SetDefaultsConfig.class);
+        assertEquals(java.util.Set.of("read", "write"), cfg.roles());
+    }
+
     @Test
     void bindsInterfaceFromDefaults() {
         Map<String, Object> defaults = Map.of("host", "localhost", "port", 8080);

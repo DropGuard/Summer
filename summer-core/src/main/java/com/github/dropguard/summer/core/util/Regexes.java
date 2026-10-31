@@ -41,10 +41,12 @@ public final class Regexes {
     /**
      * Matches a {@code ${var}} placeholder with optional {@code :-default} suffix and captures the
      * variable name, the default-present flag and the default value separately. Used by {@code
-     * ConfigBinder} for externalised config substitution.
+     * ConfigBinder} for externalised config substitution. The name is any run of non-{@code :}}
+     * characters — system properties may carry hyphens ({@code ${DB-PASSWORD}}), which the former
+     * {@code [\w.]+} name class silently refused to match, passing the literal placeholder through
+     * and bypassing the loud unresolved-placeholder failure.
      */
-    public static final Pattern PLACEHOLDER =
-            Pattern.compile("\\$\\{([\\w.]+)(?::(-?))?([^}]*)\\}");
+    public static final Pattern PLACEHOLDER = Pattern.compile("\\$\\{([^}:]+)(?::(-?))?([^}]*)\\}");
 
     /**
      * Matches an Express-style {@code :name} route parameter placeholder — a colon directly

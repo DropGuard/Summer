@@ -50,6 +50,7 @@ public final class RuntimeConfigBinder {
             java.lang.reflect.Method method, WithDefault withDefault) {
         Class<?> returnType = method.getReturnType();
         if (returnType == java.util.List.class
+                || returnType == java.util.Set.class
                 || returnType == java.util.Collection.class
                 || returnType == java.util.Map.class) {
             return ConfigBinder.parseCollectionDefault(
