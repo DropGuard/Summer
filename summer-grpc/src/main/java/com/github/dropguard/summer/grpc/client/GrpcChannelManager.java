@@ -95,7 +95,15 @@ public class GrpcChannelManager implements AutoCloseable {
         for (ManagedChannel channel : toClose) {
             if (!channel.isShutdown()) {
                 try {
-                    channel.shutdown().awaitTermination(5, TimeUnit.SECONDS);
+                    channel.shutdown();
+                    if (!channel.awaitTermination(5, TimeUnit.SECONDS)) {
+                        // Active streaming RPCs never terminate on their own — force-cancel
+                        // them, mirroring the bounded drain GrpcServerRunner applies on the
+                        // server side. The old code ignored the return value and leaked the
+                        // channel's resources past close().
+                        channel.shutdownNow();
+                        channel.awaitTermination(5, TimeUnit.SECONDS);
+                    }
                     log.info("Closed gRPC channel to {}", channel.authority());
                 } catch (InterruptedException e) {
                     log.error("Error shutting down gRPC channel", e);
