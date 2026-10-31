@@ -84,12 +84,10 @@ class WebSocketBackpressureIntegrationTest {
 
         gate.open();
         acks.allAcked.get(20, TimeUnit.SECONDS);
-        // The test universe carries a global WebSocketInterceptor (WebSocketInterceptorTestConfig)
-        // that prefixes every message — the expected prefix doubles as proof that the interceptor
-        // chain runs on the connection's pump thread, serialized with the user handler. The gate
-        // records the raw (intercepted) inbound message; the "ACK " prefix only goes to the client.
-        List<String> expected =
-                IntStream.rangeClosed(0, BURST).mapToObj(i -> "[INTERCEPTED] m:" + i).toList();
+        // The gate records the raw inbound message; the "ACK " prefix only goes to the client.
+        // No interceptor is bound to this route, so payloads arrive exactly as sent — the
+        // route-level interceptor lives on /ws-test (see WebSocketInterceptorIntegrationTest).
+        List<String> expected = IntStream.rangeClosed(0, BURST).mapToObj(i -> "m:" + i).toList();
         assertEquals(
                 expected,
                 gate.acked(),

@@ -7,12 +7,10 @@ import com.github.dropguard.summer.web.ServerConfig;
 import com.github.dropguard.summer.web.ServerOriginChecker;
 import com.github.dropguard.summer.web.WsRouter;
 import com.github.dropguard.summer.web.websocket.WebSocketBroadcaster;
-import com.github.dropguard.summer.web.websocket.WebSocketInterceptor;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.http.FullHttpRequest;
 import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpHeaderValues;
-import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,7 +21,6 @@ class WebSocketUpgradeHandler {
     private final WsRouter wsRouter;
     private final ServerConfig config;
     private final ServerOriginChecker serverOriginChecker;
-    private final List<WebSocketInterceptor> wsInterceptors;
     private final BodyConverter jsonConverter;
     private final WebSocketBroadcaster broadcaster;
 
@@ -31,13 +28,11 @@ class WebSocketUpgradeHandler {
             WsRouter wsRouter,
             ServerConfig config,
             ServerOriginChecker serverOriginChecker,
-            List<WebSocketInterceptor> wsInterceptors,
             BodyConverter jsonConverter,
             WebSocketBroadcaster broadcaster) {
         this.wsRouter = wsRouter;
         this.config = config;
         this.serverOriginChecker = serverOriginChecker;
-        this.wsInterceptors = wsInterceptors;
         this.jsonConverter = jsonConverter;
         this.broadcaster = broadcaster;
     }
@@ -78,12 +73,13 @@ class WebSocketUpgradeHandler {
         for (java.util.Map.Entry<String, String> entry : nettyReq.headers()) {
             headers.put(entry.getKey().toLowerCase(), entry.getValue());
         }
+        // Interceptors are route-scoped only (WsRouter.Builder.intercept), in registration order.
         NettyWebSocketContext wsContext =
                 new NettyWebSocketContext(
                         nettyCtx,
                         wsMatch.pathParams(),
                         headers,
-                        wsInterceptors,
+                        wsMatch.interceptors(),
                         jsonConverter,
                         config.outboundSendTimeout());
         WebSocketInboundPump pump =

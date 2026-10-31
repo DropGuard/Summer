@@ -2,7 +2,9 @@ package com.github.dropguard.summer.web;
 
 import com.github.dropguard.summer.web.websocket.WebSocketContext;
 import com.github.dropguard.summer.web.websocket.WebSocketHandler;
+import com.github.dropguard.summer.web.websocket.WebSocketInterceptor;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -36,13 +38,17 @@ public interface WsRouter {
     WsMatch routeWs(String path);
 
     /**
-     * A WebSocket route entry containing path and handler. Used to pass route definitions to router
-     * implementations.
+     * A WebSocket route entry containing path, handler and the route's own interceptors. Used to
+     * pass route definitions to router implementations.
      */
-    record WsRoute(String path, WebSocketHandler handler) {}
+    record WsRoute(
+            String path, WebSocketHandler handler, List<WebSocketInterceptor> interceptors) {}
 
     /** Represents the result of matching a WebSocket route. */
-    public record WsMatch(WebSocketHandler handler, Map<String, String> pathParams) {}
+    public record WsMatch(
+            WebSocketHandler handler,
+            Map<String, String> pathParams,
+            List<WebSocketInterceptor> interceptors) {}
 
     /**
      * Builder for WebSocket routers. Provides a fluent DSL for defining WebSocket routes.
@@ -60,6 +66,7 @@ public interface WsRouter {
 
         private final Function<List<WsRoute>, WsRouter> routerFactory;
         private final List<WsRoute> routes = new ArrayList<>();
+        private final Map<String, List<WebSocketInterceptor>> interceptorsByPath = new HashMap<>();
 
         /**
          * Creates a new Builder with the specified router factory.
@@ -92,7 +99,7 @@ public interface WsRouter {
          * @return this builder for chaining
          */
         public Builder ws(String path, WebSocketHandler handler) {
-            routes.add(new WsRoute(path, handler));
+            routes.add(new WsRoute(path, handler, List.of()));
             return this;
         }
 
@@ -107,7 +114,7 @@ public interface WsRouter {
             DefaultWsLifecycleBuilder lifecycleBuilder = new DefaultWsLifecycleBuilder();
             lifecycleConfig.accept(lifecycleBuilder);
             WebSocketHandler handler = lifecycleBuilder.build();
-            routes.add(new WsRoute(path, handler));
+            routes.add(new WsRoute(path, handler, List.of()));
             return this;
         }
 
@@ -123,12 +130,63 @@ public interface WsRouter {
         }
 
         /**
+         * Attaches interceptors to the route registered under {@code path} (the registration path
+         * string must match the one given to {@code ws}/{@code bind}, pattern included). Multiple
+         * calls for the same path append; execution order is registration order, innermost last
+         * before the handler.
+         *
+         * <p>Route-level interceptors have full power — observe, filter (short-circuit) and rewrite
+         * the message. This is the place for per-route codecs and protocol framing;
+         * container-collected global interceptors are observation-only by contract.
+         *
+         * @param path the route path to attach to
+         * @param interceptors the interceptors in execution order
+         * @return this builder for chaining
+         * @throws IllegalArgumentException if no interceptors are given
+         */
+        public Builder intercept(String path, WebSocketInterceptor... interceptors) {
+            if (interceptors.length == 0) {
+                throw new IllegalArgumentException("intercept() requires at least one interceptor");
+            }
+            interceptorsByPath
+                    .computeIfAbsent(
+                            com.github.dropguard.summer.web.PathUtils.normalizePath(path),
+                            k -> new ArrayList<>())
+                    .addAll(List.of(interceptors));
+            return this;
+        }
+
+        /**
          * Builds the final immutable WebSocket router.
          *
          * @return the built router
+         * @throws IllegalStateException if {@link #intercept} named a path no route was registered
+         *     for
          */
         public WsRouter build() {
-            return routerFactory.apply(new ArrayList<>(routes));
+            for (String path : interceptorsByPath.keySet()) {
+                boolean registered =
+                        routes.stream()
+                                .anyMatch(
+                                        r ->
+                                                com.github.dropguard.summer.web.PathUtils
+                                                        .normalizePath(r.path())
+                                                        .equals(path));
+                if (!registered) {
+                    throw new IllegalStateException(
+                            "WebSocket interceptors attached to unregistered path: " + path);
+                }
+            }
+            List<WsRoute> resolved = new ArrayList<>(routes.size());
+            for (WsRoute route : routes) {
+                List<WebSocketInterceptor> routeInterceptors =
+                        interceptorsByPath.getOrDefault(
+                                com.github.dropguard.summer.web.PathUtils.normalizePath(
+                                        route.path()),
+                                List.of());
+                resolved.add(new WsRoute(route.path(), route.handler(), routeInterceptors));
+            }
+            return routerFactory.apply(resolved);
         }
 
         /**

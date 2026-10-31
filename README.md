@@ -396,6 +396,12 @@ A peer that stops reading (zero TCP window) would otherwise pin a writer forever
 
 Ordinary request/response writes are bounded by their own size (the handler materialises the response first) and are not policed.
 
+### WebSocket Interceptor Scoping
+
+Interceptors wrap inbound WebSocket messages (chain of responsibility, mirroring the AOP idiom). They are **route-scoped only**: `WsRouter.Builder.intercept(path, interceptor...)` attaches to exactly one route; execution order is registration order, and naming an unregistered path fails the build. Full power: observe, filter (short-circuit) and rewrite the message — the right home for per-route codecs and protocol framing.
+
+There is deliberately no global collection: an interceptor bean cannot silently touch every connection of an application. Registration lives in the route declaration, where a reader can see it — the same explicitness the HTTP layer applies to middleware. App-wide concerns that genuinely need no per-route cooperation (metrics, tracing) are the framework's own job, not an invitation for unregistered beans to hook every message.
+
 
 * * *
 

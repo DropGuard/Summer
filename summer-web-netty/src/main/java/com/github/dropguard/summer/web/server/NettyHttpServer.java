@@ -65,21 +65,15 @@ class NettyHttpServer {
             BodyConverter bodyConverter) {
         List<Middleware> middlewares = new java.util.ArrayList<>(globalMiddlewares);
 
-        List<com.github.dropguard.summer.web.websocket.WebSocketInterceptor> wsInterceptors =
-                context.getBeans(
-                        com.github.dropguard.summer.web.websocket.WebSocketInterceptor.class);
+        // WebSocket interceptors are route-scoped only (WsRouter.Builder.intercept): there is no
+        // global collection — a bean with no registration site must not touch every connection.
         ServerOriginChecker serverOriginChecker = context.getBean(ServerOriginChecker.class);
         com.github.dropguard.summer.web.websocket.WebSocketBroadcaster broadcaster =
                 context.getBean(
                         com.github.dropguard.summer.web.websocket.WebSocketBroadcaster.class);
         WebSocketUpgradeHandler wsUpgradeHandler =
                 new WebSocketUpgradeHandler(
-                        wsRouter,
-                        config,
-                        serverOriginChecker,
-                        wsInterceptors,
-                        bodyConverter,
-                        broadcaster);
+                        wsRouter, config, serverOriginChecker, bodyConverter, broadcaster);
         return new NettyHttpServer(
                 config,
                 new WebServerDependencies(
@@ -88,7 +82,6 @@ class NettyHttpServer {
                         middlewares,
                         bodyConverter,
                         exceptionRegistry,
-                        wsInterceptors,
                         wsUpgradeHandler));
     }
 

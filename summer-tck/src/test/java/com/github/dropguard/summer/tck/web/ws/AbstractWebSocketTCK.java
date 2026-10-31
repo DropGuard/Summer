@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.github.dropguard.summer.tck.AbstractComponentTCK;
 import com.github.dropguard.summer.web.WsRouter;
 import com.github.dropguard.summer.web.websocket.WebSocketContext;
+import com.github.dropguard.summer.web.websocket.WebSocketInterceptor;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -264,6 +265,38 @@ public abstract class AbstractWebSocketTCK extends AbstractComponentTCK {
         assertThrows(
                 com.github.dropguard.summer.web.exception.RouteConflictException.class,
                 () -> createBuilder().ws("/chat", ctx -> {}).ws("/chat", ctx -> {}).build());
+    }
+
+    @Test
+    void testRouteLevelInterceptorsCarriedInRegistrationOrder() {
+        WebSocketInterceptor first = (ctx, message, chain) -> {};
+        WebSocketInterceptor second = (ctx, message, chain) -> {};
+
+        WsRouter router =
+                createBuilder().ws("/chat", ctx -> {}).intercept("/chat", first, second).build();
+
+        WsRouter.WsMatch match = router.routeWs("/chat");
+        assertNotNull(match);
+        assertEquals(
+                List.of(first, second),
+                match.interceptors(),
+                "the match must carry the route's interceptors in registration order");
+        assertTrue(
+                router.routeWs("/other") == null
+                        || router.routeWs("/other").interceptors().isEmpty(),
+                "interceptors must not leak to other routes");
+    }
+
+    @Test
+    void testInterceptOnUnregisteredPathFailsAtBuild() {
+        assertThrows(
+                IllegalStateException.class,
+                () ->
+                        createBuilder()
+                                .ws("/chat", ctx -> {})
+                                .intercept("/nope", (ctx, message, chain) -> {})
+                                .build(),
+                "interceptors attached to an unknown path must fail the build, not vanish");
     }
 
     @Test

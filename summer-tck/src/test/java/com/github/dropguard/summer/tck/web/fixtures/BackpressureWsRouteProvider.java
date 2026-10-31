@@ -64,9 +64,7 @@ public class BackpressureWsRouteProvider implements WsRouteProvider {
                     broadcaster.join(FLOOD_ROOM, ctx);
                     ctx.onMessage(
                             msg -> {
-                                // endsWith, not equals: the test universe's global
-                                // WebSocketInterceptor prefixes every message ("[INTERCEPTED] ").
-                                if (!msg.endsWith("flood")) {
+                                if (!msg.equals("flood")) {
                                     return;
                                 }
                                 // Own virtual thread: the pump thread stays free, and the wall

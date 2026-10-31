@@ -6,6 +6,7 @@ import com.github.dropguard.summer.web.PathMatcher.RouteEntry;
 import com.github.dropguard.summer.web.PathUtils;
 import com.github.dropguard.summer.web.WsRouter;
 import com.github.dropguard.summer.web.websocket.WebSocketHandler;
+import com.github.dropguard.summer.web.websocket.WebSocketInterceptor;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +42,7 @@ public class MapWsRouter implements WsRouter {
             entry.catchAll = base.catchAll;
             entry.kinds.addAll(base.kinds);
             entry.handler = route.handler();
+            entry.interceptors = route.interceptors();
             RouteEntryWithHandler previous =
                     this.routes.putIfAbsent(PathUtils.normalizePath(route.path()), entry);
             if (previous != null) {
@@ -58,7 +60,7 @@ public class MapWsRouter implements WsRouter {
 
         RouteEntryWithHandler entry = routes.get(normalized);
         if (entry != null) {
-            return new WsMatch(entry.handler, Map.of());
+            return new WsMatch(entry.handler, Map.of(), entry.interceptors);
         }
 
         // Among matching pattern routes pick the most specific (static > param > * > **),
@@ -78,7 +80,7 @@ public class MapWsRouter implements WsRouter {
             }
         }
         if (best != null) {
-            return new WsMatch(best.handler, bestParams);
+            return new WsMatch(best.handler, bestParams, best.interceptors);
         }
 
         return null;
@@ -86,5 +88,6 @@ public class MapWsRouter implements WsRouter {
 
     private static class RouteEntryWithHandler extends RouteEntry {
         WebSocketHandler handler;
+        List<WebSocketInterceptor> interceptors;
     }
 }

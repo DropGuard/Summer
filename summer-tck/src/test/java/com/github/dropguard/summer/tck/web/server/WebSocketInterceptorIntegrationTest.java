@@ -43,6 +43,6 @@ class WebSocketInterceptorIntegrationTest {
         assertEquals(
                 "[INTERCEPTED] ping",
                 received.get(5, TimeUnit.SECONDS),
-                "message should be prefixed by the WebSocket interceptor");
+                "route-level interceptor should prefix the message");
     }
 }

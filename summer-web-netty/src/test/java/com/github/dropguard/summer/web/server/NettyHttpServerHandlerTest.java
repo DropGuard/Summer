@@ -234,6 +234,6 @@ class NettyHttpServerHandlerTest {
         WebSocketUpgradeHandler upgrade = mock(WebSocketUpgradeHandler.class);
         when(upgrade.isWebSocketUpgrade(any())).thenReturn(false);
         return new WebServerDependencies(
-                router, null, List.of(), new JsonBodyConverter(), null, List.of(), upgrade);
+                router, null, List.of(), new JsonBodyConverter(), null, upgrade);
     }
 }

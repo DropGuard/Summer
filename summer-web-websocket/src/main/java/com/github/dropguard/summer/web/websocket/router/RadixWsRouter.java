@@ -3,7 +3,6 @@ package com.github.dropguard.summer.web.websocket.router;
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.web.RadixTrie;
 import com.github.dropguard.summer.web.WsRouter;
-import com.github.dropguard.summer.web.websocket.WebSocketHandler;
 import java.util.List;
 
 /**
@@ -22,7 +21,7 @@ import java.util.List;
 @Internal
 public class RadixWsRouter implements WsRouter {
 
-    private final RadixTrie<WebSocketHandler> trie = new RadixTrie<>();
+    private final RadixTrie<WsRoute> trie = new RadixTrie<>();
 
     /**
      * Creates an immutable RadixWsRouter from the given routes.
@@ -31,16 +30,17 @@ public class RadixWsRouter implements WsRouter {
      */
     public RadixWsRouter(List<WsRoute> routes) {
         for (WsRoute route : routes) {
-            trie.insert(route.path(), route.handler());
+            trie.insert(route.path(), route);
         }
     }
 
     @Override
     public WsMatch routeWs(String pathStr) {
-        RadixTrie.MatchResult<WebSocketHandler> result = trie.match(pathStr);
+        RadixTrie.MatchResult<WsRoute> result = trie.match(pathStr);
         if (result == null) {
             return null;
         }
-        return new WsMatch(result.handler(), result.params());
+        WsRoute route = result.handler();
+        return new WsMatch(route.handler(), result.params(), route.interceptors());
     }
 }
