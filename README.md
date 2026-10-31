@@ -378,6 +378,18 @@ pool.submit(() -> myBlockingIoTask());
 > 
 > If you initiate a background task (e.g., using an ExecutorService), you **must not** pass the `HttpContext` or `Request` object directly to the other thread. Instead, extract the required data (strings, parsed objects, etc.) and pass only those. This mirrors the design of frameworks like Gin.
 
+### WebSocket Threading and Backpressure
+
+WebSocket user code follows the same rule as HTTP: it **never runs on the event loop**. Each connection gets one serialized virtual thread that runs the registration callback first, then delivers every inbound message through your `onMessage` handler (and WebSocket interceptors) on that same thread. Blocking inside a WebSocket handler is safe — it stalls only that one connection, never other WebSocket connections or HTTP traffic.
+
+Inbound messages are buffered per connection (up to `server.ws-message-queue-capacity`, default 64). When the buffer fills because a handler is slow, the server suspends reads on that connection, which turns the slowness into TCP backpressure — a well-behaved client simply slows down. Two edges are handled loudly rather than silently:
+
+*   **An exception from a message handler or interceptor** closes the connection; `onClose` still fires.
+*   **Frames already in flight that still overflow the buffer** (a client ignoring TCP backpressure) close the connection with a `1008 (Policy Violation)` close frame.
+
+`onClose` is queued like a message: it fires after every buffered message has been delivered, on the connection's virtual thread.
+
+
 * * *
 
 ## Why Interface-Based AOP?

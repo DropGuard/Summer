@@ -101,6 +101,12 @@ Test              summer-test, summer-tck, summer-archunit
 - **Records for config/data** — `@ConfigMapping` interfaces and `@RowModel` records for typed config/data.
 - **Dual DI engine** — RUNTIME (reflection, dev) or AOT (compile-time wire(), prod). Switched via `-Dsummer.engine`. Both engines share the `Discovery`/`BeanEnrichment`/`SharedConditionEvaluator` pipeline in `summer-engine`.
 - **Virtual threads** — HTTP dispatch on `Thread.startVirtualThread`. `HttpContext`/`Request` not thread-safe.
+- **WebSocket threading & backpressure** — user code (registration, `onMessage`, interceptors,
+  `onClose`) never runs on the event loop: one serialized virtual thread per connection drains a
+  bounded inbound buffer (`server.ws-message-queue-capacity`, default 64; reads suspended at 3/4,
+  resumed at 1/2 → TCP backpressure; in-flight overflow closes with 1008; `onClose` queued after
+  the last message; a failing handler closes the connection). Pinned by
+  `WebSocketBackpressureIntegrationTest`.
 - **Singletons only** — no prototype scope and no per-injection instance factory; objects you create yourself (`new`) stay outside the container.
 - **Explicit middleware** — global middleware registered via `SummerApplication.apply()`. Route-level via `Router.Builder.mount()`.
 - **REQUIRED-only transactions** — no distributed/XA, no nesting, and no cross-thread propagation: the `ScopedValue` boundary is thread-confined by design (work dispatched to another thread is outside the transaction — documented in `@Transactional`'s javadoc and the README non-goals).

@@ -40,6 +40,16 @@ public interface ServerConfig {
     @WithDefault("65536")
     Integer maxWebSocketFrameSize();
 
+    /**
+     * Maximum number of inbound WebSocket messages buffered per connection while the user's message
+     * handler is still working through earlier ones. Inbound reads are suspended once the buffer
+     * reaches 3/4 of this and resumed at half, so a slow consumer turns into TCP backpressure
+     * instead of unbounded memory growth. Frames already in flight that still overflow the buffer
+     * close the connection with a 1008 (Policy Violation) close frame.
+     */
+    @WithDefault("64")
+    Integer wsMessageQueueCapacity();
+
     @WithDefault("RADIX_TREE")
     RouterType routerType();
 }

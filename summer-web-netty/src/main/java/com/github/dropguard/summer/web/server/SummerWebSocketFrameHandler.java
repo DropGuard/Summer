@@ -11,10 +11,13 @@ class SummerWebSocketFrameHandler extends SimpleChannelInboundHandler<TextWebSoc
     private static final Logger log = LoggerFactory.getLogger(SummerWebSocketFrameHandler.class);
 
     private final NettyWebSocketContext wsContext;
+    private final WebSocketInboundPump pump;
     private final int maxFrameSize;
 
-    public SummerWebSocketFrameHandler(NettyWebSocketContext wsContext, int maxFrameSize) {
+    public SummerWebSocketFrameHandler(
+            NettyWebSocketContext wsContext, WebSocketInboundPump pump, int maxFrameSize) {
         this.wsContext = wsContext;
+        this.pump = pump;
         this.maxFrameSize = maxFrameSize;
     }
 
@@ -30,13 +33,15 @@ class SummerWebSocketFrameHandler extends SimpleChannelInboundHandler<TextWebSoc
             }
             return;
         }
-        String text = frame.text();
-        wsContext.invokeMessageConsumer(text);
+        // The event loop only buffers the frame; the connection's virtual thread delivers it.
+        pump.accept(frame.text());
     }
 
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
-        wsContext.invokeCloseHandler();
+        // Queue the close event instead of invoking the handler here: it must fire on the
+        // connection's virtual thread, after every message buffered before the disconnect.
+        pump.connectionClosed();
         super.channelInactive(ctx);
     }
 
