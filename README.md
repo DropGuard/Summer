@@ -382,10 +382,9 @@ pool.submit(() -> myBlockingIoTask());
 
 WebSocket user code follows the same rule as HTTP: it **never runs on the event loop**. Each connection gets one serialized virtual thread that runs the registration callback first, then delivers every inbound message through your `onMessage` handler (and WebSocket interceptors) on that same thread. Blocking inside a WebSocket handler is safe — it stalls only that one connection, never other WebSocket connections or HTTP traffic.
 
-Inbound messages are buffered per connection (up to `server.ws-message-queue-capacity`, default 64). When the buffer fills because a handler is slow, the server suspends reads on that connection, which turns the slowness into TCP backpressure — a well-behaved client simply slows down. Two edges are handled loudly rather than silently:
+Inbound messages are buffered per connection (up to `server.ws-message-queue-capacity`, default 64). When the buffer fills because a handler is slow, the server suspends reads on that connection, which turns the slowness into TCP backpressure — a well-behaved client simply slows down. Frames that were already decoded inside the read batch under way are buffered too (bounded by the batch) and delivered in order once the handler catches up — a backpressured peer is never closed for arriving in a batch, and there is no overflow close: TCP cannot deliver what the server does not read. One edge is handled loudly rather than silently:
 
 *   **An exception from a message handler or interceptor** closes the connection; `onClose` still fires.
-*   **Frames already in flight that still overflow the buffer** (a client ignoring TCP backpressure) close the connection with a `1008 (Policy Violation)` close frame.
 
 `onClose` is queued like a message: it fires after every buffered message has been delivered, on the connection's virtual thread.
 

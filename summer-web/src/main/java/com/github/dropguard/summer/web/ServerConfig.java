@@ -41,11 +41,12 @@ public interface ServerConfig {
     Integer maxWebSocketFrameSize();
 
     /**
-     * Maximum number of inbound WebSocket messages buffered per connection while the user's message
+     * Target number of inbound WebSocket messages buffered per connection while the user's message
      * handler is still working through earlier ones. Inbound reads are suspended once the buffer
      * reaches 3/4 of this and resumed at half, so a slow consumer turns into TCP backpressure
-     * instead of unbounded memory growth. Frames already in flight that still overflow the buffer
-     * close the connection with a 1008 (Policy Violation) close frame.
+     * instead of unbounded memory growth. Frames decoded within the read batch that was already
+     * under way are buffered too (bounded by the batch size) and delivered once the consumer
+     * catches up — a backpressured peer is never closed for arriving in a batch.
      */
     @WithDefault("64")
     Integer wsMessageQueueCapacity();

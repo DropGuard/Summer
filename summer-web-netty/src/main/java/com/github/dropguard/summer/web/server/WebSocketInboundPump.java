@@ -1,25 +1,27 @@
 package com.github.dropguard.summer.web.server;
 
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelFutureListener;
-import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Per-connection inbound pipeline for WebSocket messages: a bounded buffer plus one serialized
- * virtual thread that drains it.
+ * Per-connection inbound pipeline for WebSocket messages: a buffer plus one serialized virtual
+ * thread that drains it.
  *
  * <p>The event loop thread only enqueues frames ({@link #accept}) and toggles reads: once the
  * buffer reaches the high watermark, {@code autoRead} is suspended so TCP backpressure stops the
  * peer from sending; when the consumer has drained the buffer back to the low watermark, reads
  * resume. A slow or blocking message handler therefore stalls only its own connection — never the
- * event loop, other WebSocket connections, or HTTP traffic. Frames already in flight when reads are
- * suspended can still overflow the buffer; that closes the connection with a 1008 (Policy
- * Violation) close frame rather than growing memory without bound.
+ * event loop, other WebSocket connections, or HTTP traffic.
+ *
+ * <p>Frames already decoded when reads are suspended are buffered rather than rejected: they are
+ * bounded by the one read batch Netty was mid-way through (per-read allocations are capped well
+ * below a megabyte), so suspension alone bounds memory and there is deliberately no overflow close
+ * — TCP cannot deliver what the server does not read, so a well-behaved backpressured peer must
+ * never be punished for arriving in a batch.
  *
  * <p>The same virtual thread runs the registration callback first and then the drain loop, so
  * messages, the close event and registration code never run concurrently for one connection and
@@ -29,13 +31,6 @@ import org.slf4j.LoggerFactory;
 final class WebSocketInboundPump {
 
     private static final Logger log = LoggerFactory.getLogger(WebSocketInboundPump.class);
-
-    /**
-     * Close code sent when frames already in flight overflow the buffer: the peer kept sending past
-     * the suspended reads, so the connection is dropped loudly instead of buffering without bound
-     * (RFC 6455: policy violation).
-     */
-    static final int POLICY_VIOLATION = 1008;
 
     private sealed interface InboundEvent permits MessageEvent, CloseEvent {}
 
@@ -47,10 +42,10 @@ final class WebSocketInboundPump {
 
     private final NettyWebSocketContext wsContext;
     private final Channel channel;
-    // One spare slot beyond the configured message capacity is reserved for the close event so
-    // queueing it can never fail, even with the buffer full at connection teardown.
+    // Effectively bounded by the read suspension above: steady state holds at most the
+    // high-watermark count, plus whatever one read batch had already decoded. Unbounded capacity
+    // keeps accept() infallible — including the close event at connection teardown.
     private final BlockingQueue<InboundEvent> queue;
-    private final int messageCapacity;
     private final int highWatermark;
     private final int lowWatermark;
     private final AtomicBoolean readsSuspended = new AtomicBoolean();
@@ -63,27 +58,20 @@ final class WebSocketInboundPump {
         }
         this.wsContext = wsContext;
         this.channel = channel;
-        this.messageCapacity = messageCapacity;
-        this.queue = new ArrayBlockingQueue<>(messageCapacity + 1);
+        this.queue = new LinkedBlockingQueue<>();
         this.highWatermark = Math.max(1, (messageCapacity * 3) / 4);
         this.lowWatermark = Math.max(1, messageCapacity / 2);
     }
 
     /**
-     * Event-loop side: buffer one inbound text frame. Suspends reads at the high watermark; a
-     * message arriving past the capacity (only possible for frames already in flight) closes the
-     * connection with 1008.
+     * Event-loop side: buffer one inbound text frame. Suspends reads at the high watermark; frames
+     * decoded within the same read batch keep flowing into the buffer (bounded by the batch) and
+     * are delivered once the consumer catches up.
      */
     void accept(String message) {
         if (consumerFinished || !channel.isActive()) {
             return;
         }
-        if (queue.size() >= messageCapacity) {
-            overflowClose();
-            return;
-        }
-        // Only the event loop produces messages, so the capacity check above makes this offer
-        // infallible; the spare slot stays reserved for the close event.
         queue.offer(new MessageEvent(message));
         if (queue.size() >= highWatermark && readsSuspended.compareAndSet(false, true)) {
             channel.config().setAutoRead(false);
@@ -151,16 +139,6 @@ final class WebSocketInboundPump {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-    }
-
-    private void overflowClose() {
-        log.warn(
-                "WebSocket inbound buffer overflow ({} buffered messages); closing {} with {}",
-                queue.size(),
-                channel.remoteAddress(),
-                POLICY_VIOLATION);
-        channel.writeAndFlush(new CloseWebSocketFrame(POLICY_VIOLATION, "inbound buffer overflow"))
-                .addListener(ChannelFutureListener.CLOSE);
     }
 
     private void resumeReadsIfDrained() {

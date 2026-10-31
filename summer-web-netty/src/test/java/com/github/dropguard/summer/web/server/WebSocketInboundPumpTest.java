@@ -3,7 +3,6 @@ package com.github.dropguard.summer.web.server;
 import static org.junit.jupiter.api.Assertions.*;
 
 import io.netty.channel.embedded.EmbeddedChannel;
-import io.netty.handler.codec.http.websocketx.CloseWebSocketFrame;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -81,23 +80,30 @@ class WebSocketInboundPumpTest {
     }
 
     @Test
-    void overflowClosesConnectionWithPolicyViolation() {
+    void burstBeyondCapacityIsAbsorbedInsteadOfClosing() throws Exception {
         EmbeddedChannel channel = NettyTestSupport.newChannel();
         NettyWebSocketContext ctx = context(channel);
-        ctx.onMessage(msg -> {});
+        List<String> delivered = new ArrayList<>();
+        CountDownLatch closed = new CountDownLatch(1);
+        ctx.onMessage(delivered::add);
+        ctx.onClose(closed::countDown);
 
-        // Capacity 2: high watermark 1 — the second message can only be buffered because the
-        // overflow check runs before the suspend check; the third hits the hard cap.
+        // Capacity 2 -> high watermark 1: reads suspend after the first message, yet frames
+        // decoded within the same read batch keep arriving. They must be buffered and delivered
+        // in order — a well-behaved backpressured peer must not be punished for batch arrivals.
         WebSocketInboundPump pump = new WebSocketInboundPump(ctx, channel, 2);
         pump.accept("m1");
+        assertFalse(channel.config().isAutoRead(), "reads suspend at the high watermark");
         pump.accept("m2");
-        assertFalse(channel.config().isAutoRead());
         pump.accept("m3");
+        pump.accept("m4");
+        assertTrue(channel.isOpen(), "batch overrun must not close the connection");
 
-        Object outbound = channel.readOutbound();
-        assertInstanceOf(CloseWebSocketFrame.class, outbound);
-        assertEquals(1008, ((CloseWebSocketFrame) outbound).statusCode());
-        assertFalse(channel.isActive(), "overflow must close the connection");
+        pump.connectionClosed();
+        Thread worker = Thread.ofVirtual().start(pump::drain);
+        assertTrue(closed.await(5, TimeUnit.SECONDS));
+        worker.join(1000);
+        assertEquals(List.of("m1", "m2", "m3", "m4"), delivered);
     }
 
     @Test
