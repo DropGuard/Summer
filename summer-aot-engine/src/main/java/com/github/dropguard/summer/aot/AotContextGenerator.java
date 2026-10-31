@@ -143,6 +143,12 @@ public final class AotContextGenerator {
                         .addException(Exception.class);
         method.addStatement(
                 "$T builder = new $T()", BEAN_CONTAINER_BUILDER, BEAN_CONTAINER_BUILDER);
+        // Failure-safety: beans registered before a mid-assembly failure are torn down (reverse
+        // order, @PreDestroy then close) by the shared sweep. A failed boot propagates out of
+        // main — and exits the process ONLY if no already-constructed bean spawned a non-daemon
+        // thread; the sweep is what keeps that discipline from being load-bearing. The rethrow is
+        // a precise rethrow: the try body's checked exceptions are all declared here.
+        method.beginControlFlow("try");
         method.beginControlFlow("if (externalBeans != null)");
         method.beginControlFlow("for (Object bean : externalBeans)");
         method.beginControlFlow("if (bean instanceof $T mocked)", MOCKED_BEAN);
@@ -163,6 +169,10 @@ public final class AotContextGenerator {
         method.endControlFlow();
         method.endControlFlow();
         emitSharedBody(method, sortedBeans);
+        method.nextControlFlow("catch (java.lang.Throwable t)");
+        method.addStatement("$T.closeAbandonedBeans(builder)", BEAN_CONTAINER);
+        method.addStatement("throw t");
+        method.endControlFlow();
         return method.build();
     }
 

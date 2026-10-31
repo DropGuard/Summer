@@ -173,7 +173,7 @@ public final class RuntimeContainer implements ContainerEngine {
             // and the precise rethrow preserves the original type. The beans already built hold
             // real resources (pools, clients) and the startup hook — registered only after a
             // SUCCESSFUL start — will never close them.
-            closeAbandonedBeans(builder);
+            BeanContainer.closeAbandonedBeans(builder);
             throw e;
         }
 
@@ -182,32 +182,6 @@ public final class RuntimeContainer implements ContainerEngine {
                 sorted.size(),
                 resolved.routes().size());
         return builder.build(Engine.RUNTIME);
-    }
-
-    /**
-     * Best-effort close of the beans already instantiated when assembly fails mid-way. Without
-     * this, every AutoCloseable built before the failure (a DataSource pool, a Redis client) leaks
-     * for the remaining JVM life — acutely visible in test suites that repeatedly build failing
-     * contexts. Order is best-effort (reverse registration-map order); the ordered teardown
-     * contract holds only on the normal {@code BeanContainer.close()} path.
-     */
-    private static void closeAbandonedBeans(BeanContainer.Builder builder) {
-        // Identity-deduped: singletons() is the type-key map, and a bean registered under its
-        // concrete class AND an interface is ONE bean — closing per key closed it twice.
-        Set<Object> seen = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-        List<Object> built = builder.singletons().values().stream().filter(seen::add).toList();
-        for (int i = built.size() - 1; i >= 0; i--) {
-            if (built.get(i) instanceof AutoCloseable ac) {
-                try {
-                    ac.close();
-                } catch (Exception closeEx) {
-                    log.warn(
-                            "[Summer] Failed to close abandoned bean {}",
-                            ac.getClass().getName(),
-                            closeEx);
-                }
-            }
-        }
     }
 
     private static void bindConfiguration(

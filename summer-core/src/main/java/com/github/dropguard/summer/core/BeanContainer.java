@@ -279,18 +279,18 @@ public final class BeanContainer implements AutoCloseable {
         for (int i = beans.size() - 1; i >= 0; i--) {
             BeanEntry entry = beans.get(i);
             if (entry.isProduct()) {
-                destroyThenClose(entry);
+                tearDownEntry(entry);
             }
         }
         for (int i = beans.size() - 1; i >= 0; i--) {
             BeanEntry entry = beans.get(i);
             if (!entry.isProduct()) {
-                destroyThenClose(entry);
+                tearDownEntry(entry);
             }
         }
     }
 
-    private void destroyThenClose(BeanEntry entry) {
+    private static void tearDownEntry(BeanEntry entry) {
         if (entry.destroyTask != null) {
             try {
                 entry.destroyTask.run();
@@ -306,6 +306,27 @@ public final class BeanContainer implements AutoCloseable {
         if (entry.instance() instanceof AutoCloseable ac) {
             closeQuietly(ac);
         }
+    }
+
+    /**
+     * Best-effort teardown of the beans a builder holds when assembly failed midway. Without this,
+     * every AutoCloseable (a DataSource pool, a Redis client) constructed before the failure leaks
+     * for the remaining JVM life — acutely visible in test suites that repeatedly build failing
+     * contexts, and lethal when an already-constructed bean spawned a non-daemon thread, which pins
+     * the JVM after {@code main} has propagated the failure (shutdown hooks never run without a
+     * normal exit). Called from the AOT engine's generated build (its own try/catch) and from the
+     * runtime engine's assembly-failure catch — the per-bean rule is this one method and {@link
+     * #tearDownEntry}, not a copy in each engine.
+     *
+     * <p>Reverse registration order per the same rule as {@link #close()} — creation is
+     * dependency-first, so reversing it tears down dependents before their dependencies. The
+     * builder is emptied and spent afterwards: {@code build()} on it throws.
+     */
+    public static void closeAbandonedBeans(Builder builder) {
+        for (int i = builder.beans.size() - 1; i >= 0; i--) {
+            tearDownEntry(builder.beans.get(i));
+        }
+        builder.markSpent();
     }
 
     private static void closeQuietly(AutoCloseable ac) {
@@ -352,6 +373,9 @@ public final class BeanContainer implements AutoCloseable {
         private final Set<Object> seen =
                 Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         private List<RouteInfo> routes = List.of();
+        // Set by closeAbandonedBeans(): a failed assembly tears its beans down — building from
+        // this builder afterwards would produce a container of already-destroyed instances.
+        private boolean spent;
 
         /** Registers a bean instance under the given type key. */
         public void register(Class<?> type, Object instance) {
@@ -454,6 +478,11 @@ public final class BeanContainer implements AutoCloseable {
 
         /** Produces an immutable {@link BeanContainer}. */
         public BeanContainer build(Engine engine) {
+            if (spent) {
+                throw new IllegalStateException(
+                        "This builder's assembly failed and its beans were torn down; it cannot"
+                                + " build a container");
+            }
             // Seal phase: after every bean is instantiated and every validator has passed, the
             // container stops assembly-time writes. Reverse creation
             // order — a bean's dependencies (created earlier) seal after it. Runtime and AOT share
@@ -483,6 +512,13 @@ public final class BeanContainer implements AutoCloseable {
         /** Convenience overload — defaults to {@link Engine#RUNTIME}. */
         public BeanContainer build() {
             return build(Engine.RUNTIME);
+        }
+
+        private void markSpent() {
+            spent = true;
+            typeIndex.clear();
+            seen.clear();
+            beans.clear();
         }
     }
 }
