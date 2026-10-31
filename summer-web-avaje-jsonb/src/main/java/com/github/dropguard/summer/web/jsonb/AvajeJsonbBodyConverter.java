@@ -38,7 +38,15 @@ public class AvajeJsonbBodyConverter implements BodyConverter {
             return null;
         }
         JsonType<T> jsonType = jsonb.type(type);
-        return jsonType.fromJson(body);
+        try {
+            return jsonType.fromJson(body);
+        } catch (io.avaje.json.JsonException e) {
+            // Avaje signals malformed JSON with an unchecked io.avaje.json.JsonException; the body
+            // pipeline
+            // maps client errors from IOException only, so unwrap it as one — a malformed body
+            // is a 400 (matching the default Jackson converter), not an unmapped 500.
+            throw new IOException("Malformed JSON body for " + type.getName(), e);
+        }
     }
 
     @Override

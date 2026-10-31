@@ -38,6 +38,13 @@ class BodyParser {
      * @throws BodyParseException if parsing fails
      */
     public <T> T parse(byte[] body, String contentType, Class<T> type) {
+        // A handler that declares a body parameter requires one: an empty body is a client
+        // error for EVERY converter, not a converter-specific decision — the Avaje SPI used to
+        // return null here, which skipped validation entirely and blew up downstream as a 500.
+        if (body == null || body.length == 0) {
+            throw new BodyParseException(
+                    contentType, new IllegalArgumentException("empty request body"));
+        }
         try {
             return converter.read(body, type);
         } catch (IOException e) {

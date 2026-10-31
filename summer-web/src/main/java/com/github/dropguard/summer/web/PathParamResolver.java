@@ -1,7 +1,6 @@
 package com.github.dropguard.summer.web;
 
 import com.github.dropguard.summer.core.Internal;
-import com.github.dropguard.summer.core.config.TypeConverter;
 import com.github.dropguard.summer.web.annotation.PathParam;
 
 /**
@@ -20,13 +19,18 @@ public class PathParamResolver implements HttpParameterResolver {
 
     @Override
     public Object resolve(HttpContext ctx, HandlerParam param) {
-        return TypeConverter.convert(ctx.request().pathParam(param.bindingName()), param.type());
+        return ParamConverter.convert(
+                ctx.request().pathParam(param.bindingName()),
+                param.type(),
+                param.bindingName(),
+                "Path");
     }
 
     @Override
     public java.util.function.Function<HttpContext, Object> compile(HandlerParam param) {
         String name = param.bindingName();
         Class<?> targetType = param.type();
-        return ctx -> TypeConverter.convert(ctx.request().pathParam(name), targetType);
+        return ctx ->
+                ParamConverter.convert(ctx.request().pathParam(name), targetType, name, "Path");
     }
 }

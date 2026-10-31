@@ -1,7 +1,6 @@
 package com.github.dropguard.summer.web;
 
 import com.github.dropguard.summer.core.Internal;
-import com.github.dropguard.summer.core.config.TypeConverter;
 import com.github.dropguard.summer.web.annotation.QueryParam;
 
 /**
@@ -19,13 +18,13 @@ public class QueryParamResolver implements HttpParameterResolver {
     @Override
     public Object resolve(HttpContext ctx, HandlerParam param) {
         String value = ctx.request().queryParam(param.bindingName());
-        return TypeConverter.convert(value, param.type());
+        return ParamConverter.convert(value, param.type(), param.bindingName(), "Query");
     }
 
     @Override
     public java.util.function.Function<HttpContext, Object> compile(HandlerParam param) {
         String name = param.bindingName();
         Class<?> type = param.type();
-        return ctx -> TypeConverter.convert(ctx.request().queryParam(name), type);
+        return ctx -> ParamConverter.convert(ctx.request().queryParam(name), type, name, "Query");
     }
 }
