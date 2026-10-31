@@ -112,10 +112,6 @@ final class BeanInstantiator {
             } else {
                 instance = createInstance(bean);
             }
-            // @PostConstruct runs on the raw instance, before the AOP proxy wrap — lifecycle
-            // callbacks are never intercepted (CDI semantics). Products skip it: their producer
-            // owns initialization (and enrichment never records a method for them).
-            invokePostConstruct(bean, instance);
             registerBean(bean, instance);
         } catch (Exception e) {
             if (e instanceof NoSuchBeanException nse) {
@@ -152,28 +148,35 @@ final class BeanInstantiator {
     }
 
     /**
-     * Invokes the {@code @PostConstruct} method recorded during enrichment (CDI config-phase-end
-     * callback). The method is public and parameterless by enforcement at enrichment time (AOT
+     * Binds the {@code @PreDestroy} method recorded during enrichment into a destroy task for the
+     * container. The method is public and parameterless by enforcement at enrichment time (AOT
      * parity); {@code getMethod} resolves the most specific declaration in the class hierarchy,
-     * matching the enrichment scan, and virtual dispatch runs any subclass override.
+     * matching the enrichment scan, and virtual dispatch runs any subclass override. The task
+     * closes over the RAW instance — lifecycle callbacks are never routed through the AOP proxy.
      */
-    private void invokePostConstruct(BeanDefinition bean, Object instance) {
-        String methodName = bean.postConstructMethod;
-        if (methodName == null) {
-            return;
-        }
+    private void bindPreDestroy(BeanDefinition bean, Object registeredInstance, Object raw) {
         try {
-            Method method = instance.getClass().getMethod(methodName);
-            method.invoke(instance);
-        } catch (NoSuchMethodException | IllegalAccessException e) {
+            Method method = raw.getClass().getMethod(bean.preDestroyMethod);
+            builder.destroyTask(
+                    registeredInstance,
+                    () -> {
+                        try {
+                            method.invoke(raw);
+                        } catch (IllegalAccessException e) {
+                            throw new IllegalStateException(
+                                    "Failed to invoke @PreDestroy on bean: " + bean.qualifiedName,
+                                    e);
+                        } catch (InvocationTargetException e) {
+                            // Unwrap the bean's own failure so the reported cause is the real
+                            // one, not the reflection wrapper.
+                            throw new IllegalStateException(
+                                    "Failed to invoke @PreDestroy on bean: " + bean.qualifiedName,
+                                    e.getCause() != null ? e.getCause() : e);
+                        }
+                    });
+        } catch (NoSuchMethodException e) {
             throw new BeanCreationException(
-                    "Failed to invoke @PostConstruct on bean: " + bean.qualifiedName, e);
-        } catch (InvocationTargetException e) {
-            // Unwrap the bean's own failure so the reported cause is the real one, not the
-            // reflection wrapper (the framework's fail-fast convention).
-            throw new BeanCreationException(
-                    "Failed to invoke @PostConstruct on bean: " + bean.qualifiedName,
-                    e.getCause() != null ? e.getCause() : e);
+                    "Failed to bind @PreDestroy on bean: " + bean.qualifiedName, e);
         }
     }
 
@@ -231,8 +234,9 @@ final class BeanInstantiator {
         // the container AS ITS PROXY — the proxy sits under the concrete-class key AND under its
         // unique interface keys, so every lookup plane (typed getBean, collection scans) sees
         // exactly one incarnation and interception can never be bypassed by resolving through a
-        // different type. The raw instance remains the proxy's private target: @PostConstruct has
-        // already run on it above, and close()/seal() forward through the proxy onto it.
+        // different type. The raw instance remains the proxy's private target: @PreDestroy binds
+        // onto it below (never through the proxy), and close()/seal() forward through the proxy
+        // onto it.
         // UNBOUND beans register as themselves — nothing changes for them.
         boolean proxied = proxy != instance;
         // A @Bean-produced instance is owned as a product: the container closes it before its
@@ -259,6 +263,11 @@ final class BeanInstantiator {
         // use getBeans / the resolver chain for multi-impl strategies; the proxies remain visible
         // to those scans via their concrete-class-key registration above.
         registerDiscoveredInterfaces(bean, proxy, isProduct);
+        // @PreDestroy binds after registration (the builder finds the entry by identity) and
+        // closes over the RAW instance — lifecycle callbacks are never routed through the proxy.
+        if (bean.preDestroyMethod != null) {
+            bindPreDestroy(bean, incarnation, instance);
+        }
     }
 
     private void registerDiscoveredInterfaces(

@@ -96,8 +96,14 @@ Test              summer-test, summer-tck, summer-archunit
   ONLY as its proxy (under its unique interface keys AND as the value of its concrete-class key;
   the proxy is not assignable to the concrete class, so `getBean(ConcreteClass)` fails loudly with
   `NoSuchBeanException` — declare dependencies on interfaces). Collection injection is homogeneous:
-  one entry per bean, always the proxy. Lifecycle never routes through lookup (`@PostConstruct`
-  pre-wrap on the raw target; close/seal forward through the proxy).
+  one entry per bean, always the proxy. Lifecycle never routes through lookup (`@PreDestroy` binds
+  onto the raw target; close/seal forward through the proxy).
+- **Lifecycle contract** — construction is the init point (constructor injection makes it the
+  fully-wired moment; there is deliberately NO `@PostConstruct` — removed: constructor +
+  `ApplicationRunner` cover everything it did). Teardown per bean: `@PreDestroy` (explicit,
+  captured at discovery, runs on the raw target) BEFORE `AutoCloseable.close()` (the convention,
+  forwarded through the proxy), both in reverse creation order, products first. Duck-typed public
+  `close()` without `AutoCloseable` gets a startup warning and never runs.
 - **Records for config/data** — `@ConfigMapping` interfaces and `@RowModel` records for typed config/data.
 - **Dual DI engine** — RUNTIME (reflection, dev) or AOT (compile-time wire(), prod). Switched via `-Dsummer.engine`. Both engines share the `Discovery`/`BeanEnrichment`/`SharedConditionEvaluator` pipeline in `summer-engine`.
 - **Virtual threads** — HTTP dispatch on `Thread.startVirtualThread`. `HttpContext`/`Request` not thread-safe.
@@ -118,6 +124,9 @@ Test              summer-test, summer-tck, summer-archunit
   filter/rewrite). There is deliberately NO global collection — a `WebSocketInterceptor` bean is
   never collected from the container; interception lives in the route declaration, visible to the
   reader.
+- **No @PreDestroy on close()** — a bean implementing AutoCloseable must not annotate its close()
+  with @PreDestroy: the container invokes close() already, so discovery fails fast instead of
+  running it twice at shutdown.
 - **No HTTP HEAD routing** — HEAD requests answer 404 (no `@Head`, no HEAD→GET fallback; a
   documented non-goal in the README). Do not reintroduce headRequest plumbing in the response
   sink: no route can ever be registered for HEAD, so that code is unreachable.

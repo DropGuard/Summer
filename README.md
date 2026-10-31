@@ -300,6 +300,9 @@ No automatic configuration layers. No subclass-based proxying. No complex `BeanP
 *   Global exception middleware
 *   Server-Sent Events (`SseStream` / SSE) & HTTP Chunked responses (`ChunkedResponse`)
 *   Prometheus-compatible metrics (`MetricsMiddleware`, `summer-web-middleware`)
+*   Lifecycle: `@PreDestroy` (runs on the raw instance, before `AutoCloseable.close()`, in reverse
+    creation order). Initialization needs no annotation — constructor injection makes the
+    constructor the fully-wired point; post-startup work uses `ApplicationRunner`.
 
 * * *
 

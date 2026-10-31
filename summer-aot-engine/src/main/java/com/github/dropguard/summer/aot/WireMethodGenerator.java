@@ -49,9 +49,6 @@ public final class WireMethodGenerator {
             } else {
                 wire.addStatement("$T $N = new $T($L)", beanClass, implVar, beanClass, args);
             }
-            // @PostConstruct runs on the raw instance before the proxy wraps it — lifecycle
-            // callbacks are never intercepted (CDI semantics).
-            emitPostConstruct(wire, bean, implVar);
             emitProxyWrap(wire, bean, beanClass, varName, implVar);
         } else {
             if (bean.parameters.isEmpty()) {
@@ -59,7 +56,6 @@ public final class WireMethodGenerator {
             } else {
                 wire.addStatement("$T $N = new $T($L)", beanClass, varName, beanClass, args);
             }
-            emitPostConstruct(wire, bean, varName);
         }
     }
 
@@ -121,31 +117,6 @@ public final class WireMethodGenerator {
                 proxyClass,
                 implVar,
                 interceptorsExpr);
-    }
-
-    /**
-     * Emits the {@code @PostConstruct} lifecycle call on the raw instance, immediately after
-     * construction — the generated counterpart of {@code BeanInstantiator.invokePostConstruct}.
-     *
-     * <p>The call is wrapped so a throwing callback surfaces as a {@link BeanCreationException}
-     * naming the bean, mirroring the runtime engine's message — otherwise the generated direct call
-     * would propagate the raw exception and the two engines would report the same failure
-     * differently. Catching {@code Throwable} mirrors the runtime's unwrap-to-the-bean's-own-cause
-     * behaviour (the bean may throw an {@code Error}, and the runtime reports it as the cause).
-     */
-    private static void emitPostConstruct(
-            MethodSpec.Builder wire, BeanDefinition bean, String varName) {
-        if (bean.postConstructMethod == null) {
-            return;
-        }
-        wire.beginControlFlow("try");
-        wire.addStatement("$N.$N()", varName, bean.postConstructMethod);
-        wire.nextControlFlow("catch (java.lang.Throwable t)");
-        wire.addStatement(
-                "throw new $T($S, t)",
-                com.github.dropguard.summer.core.exception.BeanCreationException.class,
-                "Failed to invoke @PostConstruct on bean: " + bean.qualifiedName);
-        wire.endControlFlow();
     }
 
     private CodeBlock buildConstructorArgs(BeanDefinition bean) {
@@ -386,6 +357,18 @@ public final class WireMethodGenerator {
             // of getBean, which rejects AOP-bound concrete types by contract.
             if (incarnationsVar != null) {
                 wire.addStatement("$N.put($S, $N)", incarnationsVar, bean.qualifiedName, varName);
+            }
+            // @PreDestroy binds after registration (the builder finds the entry by identity) as a
+            // generated method reference — zero reflection at shutdown. The callback closes over
+            // the RAW instance (varName_impl when the bean is AOP-bound): lifecycle callbacks are
+            // never routed through the proxy.
+            if (bean.preDestroyMethod != null) {
+                String rawVar = bean.needsProxy() ? varName + "_impl" : varName;
+                wire.addStatement(
+                        "builder.destroyTask($N, () -> $N.$N())",
+                        varName,
+                        rawVar,
+                        bean.preDestroyMethod);
             }
         }
 

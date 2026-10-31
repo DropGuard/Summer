@@ -159,8 +159,8 @@ public final class AotEngine {
 
         } catch (BeanCreationException bce) {
             // The generated code throws BeanCreationException for domain failures it already
-            // reports precisely (e.g. a throwing @PostConstruct, wrapped with the bean's name in
-            // the generated call). Rethrow as-is so the test-time AOT path surfaces the same
+            // reports precisely (e.g. a failing bean constructor, wrapped with the bean's name
+            // in the generated call). Rethrow as-is so the test-time AOT path surfaces the same
             // typed, named error as the runtime engine — wrapping it in the generic compilation
             // exception would hide the bean behind a "compilation failed" message.
             throw bce;

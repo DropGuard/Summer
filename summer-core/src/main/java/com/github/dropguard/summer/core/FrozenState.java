@@ -4,14 +4,14 @@ import java.util.Objects;
 
 /**
  * Guard helper for the post-assembly immutability pattern: a bean stays mutable while the container
- * assembles it, then transitions to read-only — either in a {@code @PostConstruct} method (the CDI
- * config-phase-end boundary) or, for beans filled by other beans during assembly, when the last
- * assembly-time writer calls {@link #freeze()}.
+ * assembles it, then transitions to read-only — either at the end of the bean's own constructor
+ * (constructor injection makes that the "fully wired" point) or, for beans filled by other beans
+ * during assembly, when the last assembly-time writer calls {@link #freeze()}.
  *
  * <p>Typical use: keep a {@code private final FrozenState} field, call {@link #ensureMutable()} (or
- * {@link #ensureMutable(String)}) as the first statement of every mutator, and flip the state in
- * the bean's own {@code @PostConstruct}. {@code volatile} gives safe publication: {@code freeze()}
- * runs on the assembly thread, concurrent readers see it immediately.
+ * {@link #ensureMutable(String)}) as the first statement of every mutator, and flip the state on
+ * the last line of the bean's constructor. {@code volatile} gives safe publication: {@code
+ * freeze()} runs on the assembly thread, concurrent readers see it immediately.
  *
  * <p>{@link #freeze()} is idempotent — a bean may transition more than once (e.g. an AOP proxy and
  * the raw instance are both present in the container).

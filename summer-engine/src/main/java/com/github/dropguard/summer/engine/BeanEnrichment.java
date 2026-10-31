@@ -14,6 +14,8 @@ import org.jboss.jandex.ClassInfo;
 import org.jboss.jandex.DotName;
 import org.jboss.jandex.IndexView;
 import org.jboss.jandex.MethodInfo;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Enriches discovered bean definitions with constructor params, interface names, condition
@@ -41,8 +43,10 @@ public final class BeanEnrichment {
             DotName.createSimple("com.github.dropguard.summer.aop.InterceptorBinding");
     private static final DotName INTERCEPTOR_DOT =
             DotName.createSimple("com.github.dropguard.summer.aop.Interceptor");
-    private static final DotName POST_CONSTRUCT_DOT =
-            DotName.createSimple("jakarta.annotation.PostConstruct");
+    private static final DotName PRE_DESTROY_DOT =
+            DotName.createSimple("jakarta.annotation.PreDestroy");
+    private static final String AUTO_CLOSEABLE_NAME = "java.lang.AutoCloseable";
+    private static final Logger LOG = LoggerFactory.getLogger(BeanEnrichment.class);
 
     private final IndexView index;
 
@@ -61,9 +65,11 @@ public final class BeanEnrichment {
             if (ci != null) {
                 if (!bean.isFactoryMethod()) {
                     collectConstructorParams(bean, ci);
-                    // @PostConstruct: CDI config-phase-end callback. Products skip it — the
-                    // producer owns its product's initialization.
-                    collectPostConstruct(bean, ci);
+                    // @PreDestroy: the destroy-side counterpart of the constructor — captured at
+                    // discovery so both engines can emit/bind the call without reflection at
+                    // shutdown. Products skip it: the producer owns its product's teardown.
+                    collectPreDestroy(bean, ci);
+                    warnOnDuckTypedClose(bean);
                 }
                 // @ConditionalOnBean is collected in Discovery (class beans in registerClass,
                 // @Bean products in createFactoryBean — method-level AND product-class-level,
@@ -99,11 +105,11 @@ public final class BeanEnrichment {
         }
     }
 
-    // ── Lifecycle (@PostConstruct) ────────────────────────────────────
+    // ── Lifecycle (@PreDestroy + duck-typed close) ────────────────────
 
     /**
-     * Captures the {@code @PostConstruct} method at discovery time (Jandex), following CDI
-     * semantics: the most specific declaration in the class hierarchy wins (a subclass hides its
+     * Captures the {@code @PreDestroy} method at discovery time (Jandex), following CDI semantics:
+     * the most specific declaration in the class hierarchy wins (a subclass hides its
      * superclass's). Fail-fast on contract violations so both engines see a valid bean before any
      * instantiation.
      *
@@ -111,24 +117,24 @@ public final class BeanEnrichment {
      * engine emits a direct call into the generated context, so a package-private or private method
      * would silently break AOT compilation (CDI's reflection-based engines accept them).
      */
-    private void collectPostConstruct(BeanDefinition bean, ClassInfo ci) {
+    private void collectPreDestroy(BeanDefinition bean, ClassInfo ci) {
         ClassInfo current = ci;
         while (current != null) {
             List<MethodInfo> lifecycle =
                     current.methods().stream()
-                            .filter(m -> m.hasAnnotation(POST_CONSTRUCT_DOT))
+                            .filter(m -> m.hasAnnotation(PRE_DESTROY_DOT))
                             .toList();
             if (!lifecycle.isEmpty()) {
                 if (lifecycle.size() > 1) {
                     throw new BeanCreationException(
                             "Component "
                                     + bean.qualifiedName
-                                    + " must declare at most one @PostConstruct method, found "
+                                    + " must declare at most one @PreDestroy method, found "
                                     + lifecycle.size());
                 }
                 MethodInfo method = lifecycle.get(0);
                 validateLifecycleMethod(bean, method);
-                bean.postConstructMethod = method.name();
+                bean.preDestroyMethod = method.name();
                 return;
             }
             DotName superName = current.superName();
@@ -137,7 +143,7 @@ public final class BeanEnrichment {
     }
 
     private void validateLifecycleMethod(BeanDefinition bean, MethodInfo method) {
-        String what = "Component " + bean.qualifiedName + " @PostConstruct method " + method.name();
+        String what = "Component " + bean.qualifiedName + " @PreDestroy method " + method.name();
         if ((method.flags() & 0x0001) == 0) { // not public
             throw new BeanCreationException(
                     what
@@ -152,6 +158,39 @@ public final class BeanEnrichment {
         }
         if (!"void".equals(method.returnType().name().toString())) {
             throw new BeanCreationException(what + " must return void");
+        }
+    }
+
+    /**
+     * Warns when a bean declares a public no-arg {@code close()} without implementing {@link
+     * AutoCloseable}: the container only closes {@code AutoCloseable} instances and never guesses
+     * at conventionally-named methods, so this cleanup would silently never run at shutdown. The
+     * fix is one {@code implements AutoCloseable} away, or {@code @PreDestroy} when the method has
+     * another name. Deliberately a warning, not an error — a duck-typed {@code close()} may be
+     * business logic, and a false positive must not fail the boot.
+     */
+    private void warnOnDuckTypedClose(BeanDefinition bean) {
+        if (bean.interfaceNames.contains(AUTO_CLOSEABLE_NAME)) {
+            return;
+        }
+        ClassInfo ci = index.getClassByName(DotName.createSimple(bean.qualifiedName));
+        if (ci == null) {
+            return;
+        }
+        boolean hasPublicNoArgClose =
+                ci.methods().stream()
+                        .anyMatch(
+                                m ->
+                                        "close".equals(m.name())
+                                                && m.parametersCount() == 0
+                                                && (m.flags() & 0x0001) != 0);
+        if (hasPublicNoArgClose) {
+            LOG.warn(
+                    "[Summer] Bean {} declares a public close() but does not implement"
+                            + " AutoCloseable — it will NOT be closed at shutdown. Implement"
+                            + " AutoCloseable, or use @PreDestroy if the cleanup method has another"
+                            + " name.",
+                    bean.qualifiedName);
         }
     }
 

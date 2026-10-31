@@ -32,8 +32,30 @@ public final class BeanContainer implements AutoCloseable {
      * the type index. A {@link BeanEntry} with {@code isProduct} true was created by a
      * {@code @Bean} producer method and is closed before its producer (the product's close may
      * access the producer's still-alive state).
+     *
+     * <p>{@code destroyTask} is the {@code @PreDestroy} callback the constructing engine bound at
+     * assembly time (runtime: a method handle bound once; AOT: a generated lambda) — {@code null}
+     * when the bean declares none. It runs at shutdown on the raw instance, before {@code
+     * AutoCloseable close()}, in reverse creation order.
      */
-    record BeanEntry(Object instance, boolean isProduct) {}
+    static final class BeanEntry {
+        final Object instance;
+        final boolean isProduct;
+        Runnable destroyTask;
+
+        BeanEntry(Object instance, boolean isProduct) {
+            this.instance = instance;
+            this.isProduct = isProduct;
+        }
+
+        Object instance() {
+            return instance;
+        }
+
+        boolean isProduct() {
+            return isProduct;
+        }
+    }
 
     private final Map<Class<?>, Object> typeIndex;
     private final List<BeanEntry> beans;
@@ -83,8 +105,8 @@ public final class BeanContainer implements AutoCloseable {
      * class (JDK-proxy semantics on both engines), so {@code getBean(ConcreteClass)} for a bound
      * bean fails loudly with {@link NoSuchBeanException} instead of silently handing out the
      * un-intercepted raw instance — declare the dependency on the interface. Lifecycle callbacks
-     * ({@code @PostConstruct} before wrapping, close/seal through the proxy onto the target) are
-     * unaffected: they never route through type lookup.
+     * ({@code @PreDestroy} bound onto the raw target, close/seal forwarded through the proxy onto
+     * it) are unaffected: they never route through type lookup.
      *
      * <p><b>Strategy interfaces:</b> Summer supports multiple beans implementing one interface
      * (e.g. {@code CursorPageResolver} + {@code DefaultPageResolver} both implement {@code
@@ -242,26 +264,47 @@ public final class BeanContainer implements AutoCloseable {
         // anything underneath is torn down.
         shutdownContext.runAll();
 
-        // Phase 2: @Bean-produced instances close first (their close may access the producer's
-        // still-alive state — the CDI producer-destruction rule), then the remaining beans. Each
-        // group closes in REVERSE creation order: creation is dependency-first (a bean's
-        // constructor parameters are built before it), so reversing it closes dependents before
-        // their dependencies — a repository that flushes on close still finds its connection pool
-        // alive. The container owns each bean ONCE (the CDI model: beans, not type keys), so no
-        // instance is closed more than once regardless of how many type keys it is registered
-        // under. There is no topological teardown guarantee beyond this: the CDI does not provide
-        // one, and order-sensitive teardown goes through ShutdownContext or the bean's own cleanup.
+        // Phase 2: @Bean-produced instances tear down first (their cleanup may access the
+        // producer's still-alive state — the CDI producer-destruction rule), then the remaining
+        // beans. Each group tears down in REVERSE creation order: creation is dependency-first (a
+        // bean's constructor parameters are built before it), so reversing it tears down
+        // dependents before their dependencies — a repository that flushes on close still finds
+        // its connection pool alive. Per bean, the declared {@code @PreDestroy} runs BEFORE the
+        // conventional {@code AutoCloseable close()} (the annotation is the explicit contract,
+        // the interface the convention). The container owns each bean ONCE (the CDI model: beans,
+        // not type keys), so no instance is torn down more than once regardless of how many type
+        // keys it is registered under. There is no topological teardown guarantee beyond this:
+        // the CDI does not provide one, and order-sensitive teardown goes through ShutdownContext
+        // or the bean's own cleanup.
         for (int i = beans.size() - 1; i >= 0; i--) {
             BeanEntry entry = beans.get(i);
-            if (entry.isProduct() && entry.instance() instanceof AutoCloseable ac) {
-                closeQuietly(ac);
+            if (entry.isProduct()) {
+                destroyThenClose(entry);
             }
         }
         for (int i = beans.size() - 1; i >= 0; i--) {
             BeanEntry entry = beans.get(i);
-            if (!entry.isProduct() && entry.instance() instanceof AutoCloseable ac) {
-                closeQuietly(ac);
+            if (!entry.isProduct()) {
+                destroyThenClose(entry);
             }
+        }
+    }
+
+    private void destroyThenClose(BeanEntry entry) {
+        if (entry.destroyTask != null) {
+            try {
+                entry.destroyTask.run();
+            } catch (Exception e) {
+                // e must be the trailing argument NOT bound to a {} placeholder, or SLF4J renders
+                // only its message and the stack trace is lost (throwable-as-last-arg rule).
+                log.error(
+                        "[Summer] Error running @PreDestroy for bean {}",
+                        entry.instance().getClass().getName(),
+                        e);
+            }
+        }
+        if (entry.instance() instanceof AutoCloseable ac) {
+            closeQuietly(ac);
         }
     }
 
@@ -331,6 +374,35 @@ public final class BeanContainer implements AutoCloseable {
             }
         }
 
+        /**
+         * Attaches the {@code @PreDestroy} callback to the bean entry owning {@code
+         * registeredInstance} — the exact instance a previous {@code register}/{@code
+         * registerProduct} call received, identified by identity (an AOP-bound bean registers its
+         * proxy while the callback closes over the raw target). Called by the constructing engine
+         * right after registration; the callback runs at shutdown, per bean before {@code
+         * AutoCloseable close()}, in reverse creation order.
+         *
+         * @throws IllegalStateException if the instance was never registered
+         */
+        public void destroyTask(Object registeredInstance, Runnable task) {
+            for (int i = beans.size() - 1; i >= 0; i--) {
+                BeanEntry entry = beans.get(i);
+                if (entry.instance == registeredInstance) {
+                    if (entry.destroyTask != null) {
+                        throw new IllegalStateException(
+                                "Bean "
+                                        + registeredInstance.getClass().getName()
+                                        + " already has a destroy task");
+                    }
+                    entry.destroyTask = task;
+                    return;
+                }
+            }
+            throw new IllegalStateException(
+                    "destroyTask attached to an instance that was never registered: "
+                            + registeredInstance.getClass().getName());
+        }
+
         /** Sets route metadata collected during container construction. */
         public void routes(List<RouteInfo> routes) {
             this.routes = List.copyOf(routes);
@@ -382,8 +454,8 @@ public final class BeanContainer implements AutoCloseable {
 
         /** Produces an immutable {@link BeanContainer}. */
         public BeanContainer build(Engine engine) {
-            // Seal phase: after every bean is instantiated, every @PostConstruct has run, and every
-            // validator has passed, the container stops assembly-time writes. Reverse creation
+            // Seal phase: after every bean is instantiated and every validator has passed, the
+            // container stops assembly-time writes. Reverse creation
             // order — a bean's dependencies (created earlier) seal after it. Runtime and AOT share
             // this exact point (both end with build(...)), so the boundary is engine-agnostic by
             // construction; a bean may also seal itself earlier (seal is idempotent).

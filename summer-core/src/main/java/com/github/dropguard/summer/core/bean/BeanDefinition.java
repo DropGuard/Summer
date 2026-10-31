@@ -159,12 +159,12 @@ public sealed class BeanDefinition permits ConfigPropertiesBean {
     public String methodConditionalOnBeanType;
 
     /**
-     * Name of the {@code @PostConstruct} lifecycle method (null when absent). Populated during
+     * Name of the {@code @PreDestroy} lifecycle method (null when absent). Populated during
      * enrichment, following CDI semantics: the most specific declaration in the class hierarchy
-     * wins, and {@code @Bean} products never receive lifecycle callbacks (the producer owns its
-     * product's initialization).
+     * wins, and {@code @Bean} products never receive it (the producer owns its product's teardown).
+     * Runs at container shutdown on the raw instance, before {@code AutoCloseable close()}.
      */
-    public String postConstructMethod;
+    public String preDestroyMethod;
 
     // ── Phase 3: Resolution outputs ───────────────────────────────────
 
