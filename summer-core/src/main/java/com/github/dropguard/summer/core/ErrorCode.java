@@ -1,63 +1,47 @@
 package com.github.dropguard.summer.core;
 
 /**
- * Structured error codes for the Summer framework. Each code uniquely identifies an error
- * condition, enabling programmatic error handling, i18n, and client-side error mapping.
+ * Closed vocabulary of framework-assembly failure identifiers, one per {@code SummerException}
+ * subtype. Segments: 1xxx bean/DI, 2xxx configuration, 3xxx web, 4xxx data, 5xxx AOP, 6xxx
+ * transaction, 9xxx internal. Consumed programmatically (engine branching, assertions) via {@code
+ * SummerException.errorCode()} — the HTTP-side {@code HttpException} family deliberately lives
+ * outside this enum: an HTTP response already carries its own identifier, the status code.
  */
 public enum ErrorCode {
     // Beans (1xxx)
-    BEAN_NOT_FOUND(1001, "No bean found for the requested type"),
-    AMBIGUOUS_BEAN(1002, "Multiple beans match the requested type"),
-    CIRCULAR_DEPENDENCY(1003, "Circular dependency detected between beans"),
-    BEAN_CREATION_FAILED(1004, "Failed to create bean instance"),
-    UNSUPPORTED_INJECTION(1005, "Unsupported injection type"),
+    BEAN_NOT_FOUND, // No bean found for the requested type
+    AMBIGUOUS_BEAN, // Multiple beans match the requested type
+    CIRCULAR_DEPENDENCY, // Circular dependency detected between beans
+    BEAN_CREATION_FAILED, // Failed to create bean instance
+    UNSUPPORTED_INJECTION, // Unsupported injection type
 
     // Configuration (2xxx)
-    CONFIG_MISSING_INDEX(2001, "Jandex index not found on classpath"),
-    CONFIG_PARSE_ERROR(2002, "Failed to parse configuration"),
-    CONFIG_MISSING_FIELD(2003, "Required configuration field is missing"),
-    CONFIG_VALIDATION_FAILED(2004, "Configuration validation failed"),
-    CONFIG_AOT_CONTEXT_NOT_FOUND(2005, "AOT context not generated"),
-    CONFIG_RUNTIME_NOT_ON_CLASSPATH(2006, "Runtime engine not on classpath"),
-    CONFIG_AOT_COMPILATION_FAILED(2007, "AOT code generation or compilation failed"),
-    CONFIG_ENGINE_NOT_FOUND(2008, "No ContainerEngine found for the requested engine"),
+    CONFIG_MISSING_INDEX, // Jandex index not found on classpath
+    CONFIG_PARSE_ERROR, // Failed to parse configuration
+    CONFIG_MISSING_FIELD, // Required configuration field is missing
+    CONFIG_VALIDATION_FAILED, // Configuration validation failed
+    CONFIG_AOT_CONTEXT_NOT_FOUND, // AOT context not generated
+    CONFIG_RUNTIME_NOT_ON_CLASSPATH, // Runtime engine not on classpath
+    CONFIG_AOT_COMPILATION_FAILED, // AOT code generation or compilation failed
+    CONFIG_ENGINE_NOT_FOUND, // No ContainerEngine found for the requested engine
 
     // Web (3xxx)
-    VALIDATION_FAILED(3001, "Request validation failed"),
-    BODY_PARSE_ERROR(3002, "Failed to parse request body"),
-    ROUTE_CONFLICT(3003, "Route registration conflict"),
-    ROUTE_MATCH_ERROR(3006, "Request path could not be matched"),
-    ARCHITECTURE_VIOLATION(3004, "Architecture constraint violated"),
-    HANDLER_INVOCATION_FAILED(3005, "Failed to invoke request handler"),
+    ROUTE_CONFLICT, // Route registration conflict
+    ROUTE_MATCH_ERROR, // Request path could not be matched
+    HANDLER_INVOCATION_FAILED, // Failed to invoke request handler
+    WEB_HANDLER_CONFLICT, // Two @ExceptionHandler methods declare the same exception type
 
     // Data (4xxx)
-    DATA_ACCESS_ERROR(4001, "Database access error"),
-    DATA_SERIALIZATION_ERROR(4002, "Data serialization/deserialization error"),
+    DATA_ACCESS_ERROR, // Database access error
+    DATA_SERIALIZATION_ERROR, // Data serialization/deserialization error
 
     // AOP (5xxx)
-    AOP_ERROR(5001, "AOP proxy creation failed"),
-    AOP_NO_INTERFACE(
-            5002, "AOP proxy requires the target bean to implement at least one interface"),
+    AOP_ERROR, // AOP proxy creation failed
+    AOP_NO_INTERFACE, // AOP proxy requires the target bean to implement at least one interface
 
     // Transaction (6xxx)
-    TRANSACTION_ERROR(6001, "Transaction operation failed"),
+    TRANSACTION_ERROR, // Transaction operation failed
 
     // Internal (9xxx)
-    INTERNAL_ERROR(9999, "Internal framework error");
-
-    private final int code;
-    private final String defaultMessage;
-
-    ErrorCode(int code, String defaultMessage) {
-        this.code = code;
-        this.defaultMessage = defaultMessage;
-    }
-
-    public int code() {
-        return code;
-    }
-
-    public String defaultMessage() {
-        return defaultMessage;
-    }
+    INTERNAL_ERROR // Internal framework error
 }
