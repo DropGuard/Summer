@@ -34,7 +34,15 @@ import javax.sql.DataSource;
 public class JdbcTemplate implements Sealable {
 
     private final DataSource dataSource;
-    private final Map<Class<?>, RowMapper<?>> mappers;
+    // Plain (non-final, non-volatile) by measured choice. The snapshot swap happens exactly once,
+    // on the assembly thread, during build(); every thread that can legally observe this bean
+    // acquired it through a handoff that already provides the happens-before edge (container
+    // publication plus Thread.start chains, or the caller's own synchronization) — that edge also
+    // covers the map. A thread reading this field without such an edge would be racing on the
+    // bean reference itself, which is not a consumer this field can protect; adding volatile for
+    // it would put a memory-mode constraint on the query path in service of an unreachable
+    // reader. The structural backstop stands: post-seal mutation fails on the immutable snapshot.
+    private Map<Class<?>, RowMapper<?>> mappers;
     private final FrozenState state = new FrozenState();
 
     /**
@@ -72,12 +80,15 @@ public class JdbcTemplate implements Sealable {
     }
 
     /**
-     * Seals this template: further {@link #registerMapper} calls throw. Called by the container's
-     * seal phase at the end of assembly (both engines); a caller may also seal earlier. Idempotent.
+     * Seals this template twice over: the {@link FrozenState} guard (so {@link #registerMapper}
+     * fails with a precise message) and a structural swap to an immutable map snapshot (so any
+     * writer that bypasses the guard fails on the map itself). Called by the container's seal phase
+     * at the end of assembly (both engines); a caller may also seal earlier. Idempotent.
      */
     @Override
     public void seal() {
         state.freeze();
+        mappers = java.util.Map.copyOf(mappers);
     }
 
     public int update(String sql, Object... args) {

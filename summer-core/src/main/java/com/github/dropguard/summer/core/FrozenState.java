@@ -4,14 +4,24 @@ import java.util.Objects;
 
 /**
  * Guard helper for the post-assembly immutability pattern: a bean stays mutable while the container
- * assembles it, then transitions to read-only — either at the end of the bean's own constructor
- * (constructor injection makes that the "fully wired" point) or, for beans filled by other beans
- * during assembly, when the last assembly-time writer calls {@link #freeze()}.
- *
- * <p>Typical use: keep a {@code private final FrozenState} field, call {@link #ensureMutable()} (or
- * {@link #ensureMutable(String)}) as the first statement of every mutator, and flip the state on
- * the last line of the bean's constructor. {@code volatile} gives safe publication: {@code
+ * assembles it, then transitions to read-only. {@code volatile} gives safe publication: {@code
  * freeze()} runs on the assembly thread, concurrent readers see it immediately.
+ *
+ * <p>Three legitimate shapes, by who owns the timing:
+ *
+ * <ul>
+ *   <li><b>Self-freeze</b> — {@code freeze()} on the last line of the bean's own constructor
+ *       (constructor injection makes that the "fully wired" point); the container is not involved.
+ *   <li><b>Container-timed, enforced by this guard</b> — the bean implements {@link Sealable}, its
+ *       {@code seal()} calls {@code freeze()}, and the container supplies the timing at the end of
+ *       assembly (the {@code JdbcTemplate} shape: assembly-time writers are OTHER beans).
+ *   <li><b>Container-timed only</b> — {@code Sealable} without this guard: the bean does its own
+ *       bookkeeping in {@code seal()} and needs no write enforcement.
+ * </ul>
+ *
+ * <p>The guard is a pre-check with better error messages, not the enforcement itself — pair it with
+ * structural immutability (swap the backing collection to an unmodifiable snapshot at freeze) so a
+ * mutator that forgets {@code ensureMutable()} still fails on the data structure.
  *
  * <p>{@link #freeze()} is idempotent — a bean may transition more than once (e.g. an AOP proxy and
  * the raw instance are both present in the container).

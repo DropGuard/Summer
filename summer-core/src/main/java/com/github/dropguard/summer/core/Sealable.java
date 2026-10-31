@@ -8,7 +8,11 @@ package com.github.dropguard.summer.core;
  * BeanContainer.Builder#build(Engine)} — after every bean is instantiated and every validator has
  * passed. This is the unified "assembly complete" signal: a bean declares its assembly-time writes
  * (mutators guarded by {@link FrozenState}, or final fields) and the container provides the timing,
- * so a bean never has to coordinate with its own last assembly-time writer.
+ * so a bean never has to coordinate with its own last assembly-time writer. Pairing summary: {@code
+ * Sealable} without {@link FrozenState} is timing only; {@code FrozenState} without {@code
+ * Sealable} self-freezes at construction; together they give container timing with enforced
+ * immutability (the {@code JdbcTemplate} shape — its {@code seal()} also swaps the backing registry
+ * to an immutable snapshot).
  *
  * <p>{@code seal()} must be idempotent — the container calls it once, but a bean may also seal
  * itself earlier (e.g. from the last line of its own constructor), and the container may hold both

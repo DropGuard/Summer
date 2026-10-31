@@ -177,11 +177,20 @@ public final class RuntimeContainer implements ContainerEngine {
             throw e;
         }
 
-        log.info(
-                "[Summer] Built RUNTIME container: {} beans, {} routes",
-                sorted.size(),
-                resolved.routes().size());
-        return builder.build(Engine.RUNTIME);
+        // Inside the sweep's try: build() runs sealBeans() — a throwing user seal() is a boot
+        // failure too, and the constructed beans must be swept exactly as for a mid-assembly
+        // constructor failure (the generated AOT build wraps the same segment).
+        try {
+            BeanContainer container = builder.build(Engine.RUNTIME);
+            log.info(
+                    "[Summer] Built RUNTIME container: {} beans, {} routes",
+                    sorted.size(),
+                    resolved.routes().size());
+            return container;
+        } catch (Exception | Error e) {
+            BeanContainer.closeAbandonedBeans(builder);
+            throw e;
+        }
     }
 
     private static void bindConfiguration(
