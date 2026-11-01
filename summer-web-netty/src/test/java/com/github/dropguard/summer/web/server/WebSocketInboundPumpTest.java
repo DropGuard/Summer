@@ -68,13 +68,16 @@ class WebSocketInboundPumpTest {
                 channel.config().isAutoRead(),
                 "reaching the high watermark suspends inbound reads");
 
-        pump.connectionClosed();
+        // No CLOSE event yet: with the queue holding only messages, m1's teardown-to-low-watermark
+        // resume (size 2 <= 2) is guaranteed before m2 is even taken, so the autoRead assertion
+        // below is deterministic. (Queuing CLOSE first would inflate the size past the low
+        // watermark and make the resume race with this assertion — a CI-only flake.)
         Thread worker = Thread.ofVirtual().start(pump::drain);
-        // m2 being taken proves m1's post-processing resume already ran (latch happens-before).
         assertTrue(second.await(5, TimeUnit.SECONDS));
         assertTrue(
                 channel.config().isAutoRead(),
                 "draining back to the low watermark resumes inbound reads");
+        pump.connectionClosed();
         assertTrue(closed.await(5, TimeUnit.SECONDS));
         worker.join(1000);
     }
