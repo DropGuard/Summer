@@ -31,6 +31,21 @@ jobs:
       # downstream consumers importing the BOM.
       run: mvn spotless:check --batch-mode -pl '!summer-dependencies'
         
+    - name: Build with Maven
+      # The env.CI=true is automatically set by GitHub Actions.
+      # install (not verify): the summer-maven-plugin's invoker IT runs a real nested build of
+      # src/it/aot-app, which resolves the framework from the local repository — the reactor
+      # installs each module before the plugin module's verify phase runs its ITs. The *IT
+      # integration tests run at the verify phase (failsafe bound in summer-parent's active
+      # plugins; the old "integration-tests maven profile" never existed — a bare failsafe
+      # declaration silently skipped every IT).
+      run: mvn clean install --batch-mode
+
+    - name: Build and integration-test AOT demos (samples aggregator)
+      # Demos bind summer-maven-plugin: this proves the plugin generates + compiles the
+      # AOT context for full-stack apps and flips application.yml to aot.
+      run: mvn -f samples/pom.xml verify --batch-mode
+
     - name: Verify IT-bearing modules ran ITs
       # failIfNoTests=false makes a renamed/moved *IT.java silently pass its module — the
       # old bare-failsafe bug in a new costume. Every module that SHIPS an *IT.java must
@@ -46,18 +61,3 @@ jobs:
           echo "::error::IT-bearing modules ran 0 ITs:$missing"
           exit 1
         fi
-
-    - name: Build with Maven
-      # The env.CI=true is automatically set by GitHub Actions.
-      # install (not verify): the summer-maven-plugin's invoker IT runs a real nested build of
-      # src/it/aot-app, which resolves the framework from the local repository — the reactor
-      # installs each module before the plugin module's verify phase runs its ITs. The *IT
-      # integration tests run at the verify phase (failsafe bound in summer-parent's active
-      # plugins; the old "integration-tests maven profile" never existed — a bare failsafe
-      # declaration silently skipped every IT).
-      run: mvn clean install --batch-mode
-
-    - name: Build and integration-test AOT demos (samples aggregator)
-      # Demos bind summer-maven-plugin: this proves the plugin generates + compiles the
-      # AOT context for full-stack apps and flips application.yml to aot.
-      run: mvn -f samples/pom.xml verify --batch-mode
