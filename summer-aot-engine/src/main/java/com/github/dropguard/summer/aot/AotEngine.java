@@ -10,6 +10,7 @@ import com.github.dropguard.summer.engine.BeanDeployment;
 import com.github.dropguard.summer.engine.BuildPipeline;
 import com.github.dropguard.summer.engine.DiEngine;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
@@ -110,6 +111,7 @@ public final class AotEngine {
             String className,
             MockedBean[] mocks,
             java.util.Map<String, Object> overrides) {
+        File tempDir = null;
         try {
             log.debug(
                     "[Summer] AOT compile: cacheKey={} className={} beans={}",
@@ -117,8 +119,7 @@ public final class AotEngine {
                     className,
                     sorted.size());
             // 1. Generate code to temp directory
-            File tempDir = Files.createTempDirectory("summer-aot-").toFile();
-            tempDir.deleteOnExit();
+            tempDir = Files.createTempDirectory("summer-aot-").toFile();
             IndexView index = moduleIndex.discoveryIndex();
 
             WireMethodGenerator wireGen = new WireMethodGenerator(index);
@@ -173,6 +174,27 @@ public final class AotEngine {
                             + " beans="
                             + sorted.size(),
                     e);
+        } finally {
+            // The generated classes stay loadable for the returned container's lifetime; clean the
+            // scratch tree only at JVM exit. Registering just the root (the old deleteOnExit)
+            // failed
+            // because a non-empty directory cannot be deleted — register the whole tree instead.
+            if (tempDir != null) {
+                deleteOnExitRecursively(tempDir);
+            }
+        }
+    }
+
+    /**
+     * Registers a directory tree for deletion at JVM exit. {@link Files#walk} visits parents before
+     * children and {@link File#deleteOnExit()} deletes in reverse registration order, so children
+     * are removed before their parents and the root is empty (hence deletable) when its turn comes.
+     */
+    private static void deleteOnExitRecursively(File dir) {
+        try (var paths = Files.walk(dir.toPath())) {
+            paths.forEach(p -> p.toFile().deleteOnExit());
+        } catch (IOException e) {
+            log.warn("[Summer] Failed to register AOT scratch dir for cleanup: {}", dir, e);
         }
     }
 
