@@ -141,12 +141,18 @@ public final class JandexIndexLoader {
                 try (InputStream is = url.openStream()) {
                     index = new IndexReader(is).read();
                 } catch (IOException e) {
-                    log.debug(
-                            "[Summer] Failed to read {} from {}: {}",
-                            resourceName,
-                            url,
-                            e.getMessage());
-                    continue;
+                    // A corrupt index must not silently shrink the bean universe: skipping it here
+                    // would surface later as a confusing NoSuchBeanException for a bean that is
+                    // actually indexed. Fail at the source instead.
+                    throw new ConfigurationException(
+                            ErrorCode.CONFIG_PARSE_ERROR,
+                            "Failed to read Jandex index "
+                                    + resourceName
+                                    + " from "
+                                    + url
+                                    + "; a corrupt index must not silently shrink the bean"
+                                    + " universe",
+                            e);
                 }
 
                 for (ClassInfo ci : index.getKnownClasses()) {

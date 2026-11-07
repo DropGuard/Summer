@@ -8,6 +8,7 @@ import com.github.dropguard.summer.core.bean.BeanDefinition;
 import com.github.dropguard.summer.core.bean.ConfigPropertiesBean;
 import com.github.dropguard.summer.core.bean.MockedBean;
 import com.github.dropguard.summer.core.config.ConfigBinder;
+import com.github.dropguard.summer.core.exception.BeanCreationException;
 import com.github.dropguard.summer.core.validation.Result;
 import com.github.dropguard.summer.core.validation.Validator;
 import com.github.dropguard.summer.engine.BeanDeployment;
@@ -204,8 +205,11 @@ public final class RuntimeContainer implements ContainerEngine {
             try {
                 configClass = Class.forName(c.qualifiedName);
             } catch (ClassNotFoundException e) {
-                log.debug("[Summer] Could not load @ConfigMapping class: {}", c.qualifiedName);
-                continue;
+                throw new BeanCreationException(
+                        "Could not load @ConfigMapping class "
+                                + c.qualifiedName
+                                + " discovered in the index; it must be on the classpath",
+                        e);
             }
             if (builder.peek(configClass) != null) continue;
             String prefix = c.configPropertiesPrefix;
