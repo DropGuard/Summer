@@ -258,9 +258,9 @@ public final class BeanDeployment {
         syntheticBeans.add(bd);
     }
 
-    /** Engine-provided (synthetic) beans declared for this deployment. */
+    /** Engine-provided (synthetic) beans declared for this deployment (read-only view). */
     public List<BeanDefinition> syntheticBeans() {
-        return syntheticBeans;
+        return Collections.unmodifiableList(syntheticBeans);
     }
 
     /**
