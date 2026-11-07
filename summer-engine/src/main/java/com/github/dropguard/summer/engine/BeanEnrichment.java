@@ -271,7 +271,7 @@ public final class BeanEnrichment {
             Map<String, Set<String>> methodBindings = new java.util.HashMap<>();
             // Impl-method bindings are collected even when a class-level binding
             // exists: the per-method contract is the UNION of both levels, so the
-            // method-level names must reach methodBindingAnnotations regardless.
+            // method-level names must reach the per-method slot regardless.
             for (MethodInfo method : ci.methods()) {
                 Set<String> methodAnnNames = new HashSet<>();
                 for (AnnotationInstance ann : method.annotations()) {
@@ -320,22 +320,17 @@ public final class BeanEnrichment {
             bean.interceptorBindingAnnotations =
                     bindings.isEmpty() ? Set.of() : Set.copyOf(bindings);
 
-            // A class-level binding (@Logged on the bean class) intercepts every
-            // method. AotProxyGenerator keys that as "" (empty method name), so we
-            // must record it there. Both engines resolve a method's binding set as
-            // the UNION of this "" key and the method-name keys below (the CDI
-            // interceptor-binding resolution convention); neither may treat ""
-            // as a replacement for method-level entries.
-            Map<String, Set<String>> finalMethodBindings = new java.util.HashMap<>(methodBindings);
-            if (!targetBindings.isEmpty()) {
-                Set<String> classLevel =
-                        targetBindings.stream()
-                                .map(DotName::toString)
-                                .collect(java.util.stream.Collectors.toCollection(HashSet::new));
-                finalMethodBindings.put("", classLevel);
-            }
-            if (!finalMethodBindings.isEmpty()) {
-                bean.methodBindingAnnotations = finalMethodBindings;
+            // Class-level bindings (targetBindings) apply to every method; methodBindings holds the
+            // per-method entries. The typed model keeps the two slots separate and the union rule
+            // lives in MethodBindings.bindingsFor, which both engines resolve through.
+            Set<String> classLevel =
+                    targetBindings.stream()
+                            .map(DotName::toString)
+                            .collect(java.util.stream.Collectors.toCollection(HashSet::new));
+            BeanDefinition.MethodBindings bindingModel =
+                    new BeanDefinition.MethodBindings(classLevel, methodBindings);
+            if (!bindingModel.isEmpty()) {
+                bean.methodBindings = bindingModel;
             }
 
             if (!bindings.isEmpty()) {

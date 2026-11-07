@@ -116,24 +116,10 @@ public final class AotProxyGenerator {
                         .build();
         proxyBuilder.addMethod(constructor);
 
-        // Determine which methods should be intercepted from pre-computed
-        // BeanDefinition.methodBindingAnnotations (key "" = class-level,
-        // other keys = method-level annotations). No Jandex re-read.
-        boolean classLevelBinding = bean.methodBindingAnnotations.containsKey("");
-        Set<String> methodLevelBindingMethods;
-        if (classLevelBinding) {
-            methodLevelBindingMethods = Set.of();
-        } else {
-            methodLevelBindingMethods = bean.methodBindingAnnotations.keySet();
-        }
-
-        // Binding METADATA per method is the union of every declaration site:
-        // the class-level key ("") and any method-name keys recorded by
-        // discovery, merged with what this generator reads off the interface
-        // methods below. Union (not replacement) follows the CDI interceptor-
-        // binding resolution convention: a method's binding set is the class-
-        // level set together with all method-level bindings.
-        Set<String> classLevelNames = bean.methodBindingAnnotations.getOrDefault("", Set.of());
+        // Interception plan comes from the pre-computed typed bindings on the bean definition;
+        // isBound/bindingsFor resolve the class-level/method-level union shared with the Runtime
+        // engine. No Jandex re-read.
+        BeanDefinition.MethodBindings methodBindings = bean.methodBindings;
 
         // Pass 1: collect intercepted methods and generate static metadata fields
         for (String ifaceName : bean.interfaceNames) {
@@ -143,14 +129,12 @@ public final class AotProxyGenerator {
             for (MethodInfo method : ifaceCi.methods()) {
                 if (!method.isAbstract()) continue;
 
-                boolean shouldIntercept =
-                        classLevelBinding || methodLevelBindingMethods.contains(methodKey(method));
-                if (shouldIntercept) {
+                if (methodBindings.isBound(methodKey(method))) {
                     proxyBuilder.addField(
                             buildMetaField(
                                     method,
                                     bindingAnnotations,
-                                    bindingUnionFor(bean, classLevelNames, method)));
+                                    methodBindings.bindingsFor(methodKey(method))));
                 }
             }
         }
@@ -163,9 +147,7 @@ public final class AotProxyGenerator {
             for (MethodInfo method : ifaceCi.methods()) {
                 if (!method.isAbstract()) continue;
 
-                boolean shouldIntercept =
-                        classLevelBinding || methodLevelBindingMethods.contains(methodKey(method));
-                if (shouldIntercept) {
+                if (methodBindings.isBound(methodKey(method))) {
                     proxyBuilder.addMethod(buildProxyMethod(method));
                 } else {
                     proxyBuilder.addMethod(buildDirectDelegate(method));
@@ -181,18 +163,6 @@ public final class AotProxyGenerator {
     }
 
     // ── Metadata Field ────────────────────────────────────────────────
-
-    /**
-     * The binding names recorded by discovery for one method: the class-level set merged with any
-     * method-level entry for this method's overload-exact key. Discovery only ever stores
-     * binding-annotation FQNs here, so no further filtering is needed.
-     */
-    private static Set<String> bindingUnionFor(
-            BeanDefinition bean, Set<String> classLevelNames, MethodInfo method) {
-        Set<String> union = new HashSet<>(classLevelNames);
-        union.addAll(bean.methodBindingAnnotations.getOrDefault(methodKey(method), Set.of()));
-        return union;
-    }
 
     /** Overload-exact binding key — the same format discovery wrote (see BeanEnrichment). */
     private static String methodKey(MethodInfo method) {

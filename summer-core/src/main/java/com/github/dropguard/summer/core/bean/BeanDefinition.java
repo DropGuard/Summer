@@ -2,6 +2,8 @@ package com.github.dropguard.summer.core.bean;
 
 import com.github.dropguard.summer.core.Internal;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -76,20 +78,20 @@ public sealed class BeanDefinition permits ConfigPropertiesBean {
     public Set<String> interceptorBindingAnnotations = Set.of();
 
     /**
-     * Method-level interceptor binding annotations.
-     *
-     * <p>Key = {@link #methodBindingKey} (method name + parameter types — overload-exact), value =
-     * binding annotation qualified names. Key {@code ""} = class-level bindings. Empty map = no AOP
+     * Interceptor bindings for this bean, split into class-level (apply to every method) and
+     * per-method (overload-exact {@link #methodBindingKey}). Both engines resolve a method's
+     * effective binding set through {@link MethodBindings#bindingsFor}, so the
+     * class-level/method-level union rule lives in one place. {@link MethodBindings#EMPTY} = no AOP
      * bindings.
      */
-    public Map<String, Set<String>> methodBindingAnnotations = Map.of();
+    public MethodBindings methodBindings = MethodBindings.EMPTY;
 
     /**
-     * Overload-exact key for {@link #methodBindingAnnotations}: method name plus its parameter type
-     * names. Keying by NAME alone made overloaded interface methods share whichever overload
-     * discovery saw — {@code transfer(Order)} annotated but {@code transfer(User)} not would
-     * intercept both. The {@code ""} class-level key cannot collide (this format always carries
-     * parentheses).
+     * Overload-exact key for the per-method slot of {@link #methodBindings}: method name plus its
+     * parameter type names. Keying by NAME alone made overloaded interface methods share whichever
+     * overload discovery saw — {@code transfer(Order)} annotated but {@code transfer(User)} not
+     * would intercept both. Class-level bindings live in a separate slot, so they never enter this
+     * keyspace.
      *
      * <p>Both engines build it, and the renderings coincide for every expressible parameter shape:
      * Runtime derives each parameter from the erasure ({@code Class#getName()}), enrichment/AOT
@@ -229,4 +231,51 @@ public sealed class BeanDefinition permits ConfigPropertiesBean {
      */
     public record ExceptionHandlerEntry(
             String methodName, String exceptionClass, int parameterCount) {}
+
+    /**
+     * A bean's interceptor bindings, modelled as two explicit slots instead of a map with a magic
+     * class-level key: {@code classLevel} applies to every method, {@code perMethod} is keyed by
+     * {@link #methodBindingKey}. The effective binding set for a method is the UNION of the two
+     * (the CDI interceptor-binding convention); {@link #bindingsFor} is the single place that rule
+     * lives, so the Runtime and AOT engines resolve bindings identically by construction.
+     */
+    public static final class MethodBindings {
+
+        public static final MethodBindings EMPTY = new MethodBindings(Set.of(), Map.of());
+
+        private final Set<String> classLevel;
+        private final Map<String, Set<String>> perMethod;
+
+        public MethodBindings(Set<String> classLevel, Map<String, Set<String>> perMethod) {
+            this.classLevel = Set.copyOf(classLevel);
+            Map<String, Set<String>> copy = new HashMap<>();
+            perMethod.forEach((k, v) -> copy.put(k, Set.copyOf(v)));
+            this.perMethod = Map.copyOf(copy);
+        }
+
+        /** No class-level and no per-method bindings. */
+        public boolean isEmpty() {
+            return classLevel.isEmpty() && perMethod.isEmpty();
+        }
+
+        /** Whether a method is intercepted: a class-level binding binds every method. */
+        public boolean isBound(String methodKey) {
+            return !classLevel.isEmpty() || perMethod.containsKey(methodKey);
+        }
+
+        /**
+         * The effective binding names for a method: class-level unioned with its method-level set.
+         */
+        public Set<String> bindingsFor(String methodKey) {
+            Set<String> methodLevel = perMethod.get(methodKey);
+            if (classLevel.isEmpty()) {
+                return methodLevel == null ? Set.of() : methodLevel;
+            }
+            Set<String> union = new HashSet<>(classLevel);
+            if (methodLevel != null) {
+                union.addAll(methodLevel);
+            }
+            return union;
+        }
+    }
 }
