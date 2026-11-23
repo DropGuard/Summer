@@ -8,6 +8,7 @@ import com.github.dropguard.summer.core.exception.AmbiguousBeanException;
 import com.github.dropguard.summer.core.exception.NoSuchBeanException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class SharedConditionEvaluatorTest {
@@ -171,6 +172,81 @@ class SharedConditionEvaluatorTest {
         assertFalse(beans.contains(viaInterface), "implementation producer overrides too");
         assertTrue(beans.contains(directProducer));
         assertTrue(beans.contains(concreteProducer));
+    }
+
+    @Test
+    void classLevelReplacesOfANeverDiscoveredTargetStillFails() {
+        // Withdrawn targets are tolerated; a target that was never a candidate (a typo, a missing
+        // module) must keep failing loudly.
+        BeanDefinition replacer = new BeanDefinition("com.Modern", "Modern");
+        replacer.replacesTargetClass = "com.Typo";
+
+        List<BeanDefinition> beans = new ArrayList<>(List.of(replacer));
+        NoSuchBeanException ex =
+                assertThrows(
+                        NoSuchBeanException.class,
+                        () -> new SharedConditionEvaluator().evaluate(beans));
+        assertTrue(ex.getMessage().contains("target not found: com.Typo"));
+    }
+
+    @Test
+    void replacingAMockedTargetIsNotAnError() {
+        BeanDefinition legacy = new BeanDefinition("com.Legacy", "Legacy");
+        BeanDefinition modern = new BeanDefinition("com.Modern", "Modern");
+        modern.replacesTargetClass = "com.Legacy";
+
+        List<BeanDefinition> beans = new ArrayList<>(List.of(legacy, modern));
+        new SharedConditionEvaluator().evaluate(beans, Set.of("com.Legacy"));
+
+        assertFalse(beans.contains(legacy), "the mock withdrew the real target");
+        assertTrue(beans.contains(modern), "the replacer stands; nothing is left to replace");
+    }
+
+    @Test
+    void methodReplacesOfAConditionedOutProducerIsNotAnError() {
+        BeanDefinition defaultSvc = new BeanDefinition("com.Svc", "defaultSvc");
+        defaultSvc.configClassName = "com.DefaultConfig";
+        defaultSvc.producerMethodName = "defaultSvc";
+        defaultSvc.methodConditionalOnBeanType = "com.Absent";
+
+        BeanDefinition overrideSvc = new BeanDefinition("com.Svc", "overrideSvc");
+        overrideSvc.configClassName = "com.OverrideConfig";
+        overrideSvc.producerMethodName = "overrideSvc";
+        overrideSvc.methodLevelReplaces = "com.Svc";
+
+        List<BeanDefinition> beans =
+                new ArrayList<>(
+                        List.of(
+                                defaultSvc,
+                                overrideSvc,
+                                configClass("com.DefaultConfig"),
+                                configClass("com.OverrideConfig")));
+        new SharedConditionEvaluator().evaluate(beans);
+
+        assertFalse(beans.contains(defaultSvc), "producer without its requirement drops");
+        assertTrue(beans.contains(overrideSvc), "the replacer stands");
+    }
+
+    @Test
+    void mockSuppliedInterfaceKeySurvivesADroppedRealImplementor() {
+        // RealCodec is mocked (so removed before contributors are counted); XmlCodec is the only
+        // remaining real Codec and drops on its own condition. Without the mock's permanent keys,
+        // that drop would revoke Codec and cascade a false drop onto Encoder.
+        BeanDefinition realCodec = new BeanDefinition("com.RealCodec", "RealCodec");
+        realCodec.interfaceNames.add("com.Codec");
+
+        BeanDefinition xmlCodec = new BeanDefinition("com.XmlCodec", "XmlCodec");
+        xmlCodec.interfaceNames.add("com.Codec");
+        xmlCodec.conditionalOnBeanType = "com.FeatureFlag";
+
+        BeanDefinition encoder = new BeanDefinition("com.Encoder", "Encoder");
+        encoder.conditionalOnBeanType = "com.Codec";
+
+        List<BeanDefinition> beans = new ArrayList<>(List.of(realCodec, xmlCodec, encoder));
+        new SharedConditionEvaluator().evaluate(beans, Set.of("com.RealCodec"));
+
+        assertFalse(beans.contains(xmlCodec), "implementor without its requirement drops");
+        assertTrue(beans.contains(encoder), "the mock still supplies Codec");
     }
 
     /** The owning @Configuration: a product whose configuration is absent is purged as orphaned. */

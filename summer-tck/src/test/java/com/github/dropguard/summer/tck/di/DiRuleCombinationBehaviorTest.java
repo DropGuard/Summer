@@ -1,0 +1,111 @@
+package com.github.dropguard.summer.tck.di;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.Mockito.mock;
+
+import com.github.dropguard.summer.core.BeanContainer;
+import com.github.dropguard.summer.core.Engine;
+import com.github.dropguard.summer.core.bean.MockedBean;
+import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboConditionalReplacerConfig;
+import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboDefaultServiceConfig;
+import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboFeature;
+import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboGreeter;
+import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboLegacyGreeter;
+import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboModernGreeter;
+import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboProps;
+import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboPropsConfig;
+import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboPropsConsumer;
+import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboPropsReplacementConfig;
+import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboService;
+import com.github.dropguard.summer.tck.invisible.fixtures.combo.FeatureGated;
+import com.github.dropguard.summer.test.TestContainer;
+import java.util.List;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+
+/**
+ * End-to-end contracts for how the DI selection rules compose — {@code @Mock} removal,
+ * {@code @ConditionalOnBean}, {@code @Replaces} and the {@code @ConfigMapping} override — from real
+ * annotations through discovery and SharedConditionEvaluator to the built container, per engine.
+ * Each rule has its own single-rule tck test; these pin the interactions between them.
+ */
+class DiRuleCombinationBehaviorTest {
+
+    private static TestContainer.Builder universe(Engine engine, Class<?>... beans) {
+        return TestContainer.builder()
+                .testClass(DiRuleCombinationBehaviorTest.class)
+                .engine(engine)
+                .beans(beans);
+    }
+
+    private static List<MockedBean> mockOf(Class<?> type) {
+        return List.of(MockedBean.of(type, mock(type)));
+    }
+
+    /** A: a mocked bean still satisfies conditions on its type — the mock is in the container. */
+    @ParameterizedTest
+    @EnumSource(Engine.class)
+    void mockedTypeSatisfiesConditionalOnBean(Engine engine) {
+        BeanContainer context =
+                universe(engine, ComboFeature.class, FeatureGated.class)
+                        .mocks(mockOf(ComboFeature.class))
+                        .build();
+        assertEquals(1, context.getBeans(FeatureGated.class).size(), engine + ": gated bean");
+    }
+
+    /** B: a method-level replacer whose condition fails replaces nothing. */
+    @ParameterizedTest
+    @EnumSource(Engine.class)
+    void conditionedOutMethodReplacerLeavesTargetInPlace(Engine engine) {
+        BeanContainer context =
+                universe(
+                                engine,
+                                ComboDefaultServiceConfig.class,
+                                ComboConditionalReplacerConfig.class)
+                        .build();
+        assertEquals("default", context.getBean(ComboService.class).name(), engine.toString());
+    }
+
+    /** C: replacing a target that conditions already removed is not a missing-target error. */
+    @ParameterizedTest
+    @EnumSource(Engine.class)
+    void replacingAConditionedOutTargetIsNotAnError(Engine engine) {
+        BeanContainer context =
+                universe(engine, ComboLegacyGreeter.class, ComboModernGreeter.class).build();
+        assertEquals("modern", context.getBean(ComboGreeter.class).greet(), engine.toString());
+    }
+
+    /** D: a producer orphaned by its replaced @Configuration no longer overrides the mapping. */
+    @ParameterizedTest
+    @EnumSource(Engine.class)
+    void producerOfAReplacedConfigurationDoesNotOverrideMapping(Engine engine) {
+        BeanContainer context =
+                universe(
+                                engine,
+                                ComboProps.class,
+                                ComboPropsConfig.class,
+                                ComboPropsReplacementConfig.class)
+                        .build();
+        assertEquals("from-mapping", context.getBean(ComboProps.class).value(), engine.toString());
+    }
+
+    /** E: a @Mock of a mapping type replaces both the mapping and its producer override. */
+    @ParameterizedTest
+    @EnumSource(Engine.class)
+    void mockOfMappingTypeWinsOverMappingAndProducer(Engine engine) {
+        List<MockedBean> mocks = mockOf(ComboProps.class);
+        BeanContainer context =
+                universe(engine, ComboProps.class, ComboPropsConfig.class).mocks(mocks).build();
+        assertSame(mocks.get(0).instance(), context.getBean(ComboProps.class), engine.toString());
+    }
+
+    /** F: a @ConfigMapping bean satisfies a condition on its type. */
+    @ParameterizedTest
+    @EnumSource(Engine.class)
+    void configMappingSatisfiesConditionalOnBean(Engine engine) {
+        BeanContainer context =
+                universe(engine, ComboProps.class, ComboPropsConsumer.class).build();
+        assertEquals(1, context.getBeans(ComboPropsConsumer.class).size(), engine.toString());
+    }
+}
