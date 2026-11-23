@@ -98,9 +98,14 @@ public final class SharedConditionEvaluator {
     }
 
     /**
-     * Removes beans whose type (or any implemented interface) is among the mocked types. The mock
-     * instance itself is supplied separately at instance-build time; removing the real definition
-     * ensures it is never instantiated.
+     * Removes beans whose type (or any implemented interface) is among the mocked types, plus every
+     * {@code @Replaces} replacer of a removed bean (transitively). The mock instance itself is
+     * supplied separately at instance-build time; removing the real definitions ensures they are
+     * never instantiated.
+     *
+     * <p>Rule: a mock takes over the position its target holds <i>in production</i>. If a replacer
+     * would hold that position, the replacer is what the mock displaces — so class-level and
+     * method-level replacers behave alike (only the mock remains).
      */
     private List<BeanDefinition> removeMockedBeans(
             List<BeanDefinition> beans, Set<String> mockedTypes) {
@@ -115,7 +120,53 @@ public final class SharedConditionEvaluator {
                 it.remove();
             }
         }
+        // A mock takes over the position its target holds in production. That position belongs
+        // to the whole @Replaces chain the target sits in: mocking the replaced bean displaces
+        // its replacer (the production occupant), and mocking the replacer leaves its target
+        // displaced as in production. Walk the chain both ways until it is fully withdrawn.
+        boolean grew = !removed.isEmpty();
+        while (grew) {
+            grew = false;
+            for (var it = beans.iterator(); it.hasNext(); ) {
+                BeanDefinition bean = it.next();
+                if (sharesReplacesChain(bean, removed)) {
+                    log.debug(
+                            "[Summer] {} withdrawn: it shares a @Replaces chain with a mocked"
+                                    + " bean",
+                            bean.qualifiedName);
+                    removed.add(bean);
+                    it.remove();
+                    grew = true;
+                }
+            }
+        }
         return removed;
+    }
+
+    /**
+     * Whether {@code bean} replaces, or is replaced by, one of {@code withdrawn} via
+     * {@code @Replaces}.
+     */
+    private static boolean sharesReplacesChain(
+            BeanDefinition bean, List<BeanDefinition> withdrawn) {
+        for (BeanDefinition w : withdrawn) {
+            if (replaces(bean, w) || replaces(w, bean)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether {@code replacer} declares a {@code @Replaces} that targets {@code target}. */
+    private static boolean replaces(BeanDefinition replacer, BeanDefinition target) {
+        if (replacer == target) {
+            return false;
+        }
+        if (target.qualifiedName.equals(replacer.replacesTargetClass)) {
+            return true;
+        }
+        return target.isFactoryMethod()
+                && target.qualifiedName.equals(replacer.methodLevelReplaces);
     }
 
     private static boolean isMocked(BeanDefinition bean, Set<String> mockedTypes) {

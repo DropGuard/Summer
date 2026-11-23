@@ -108,4 +108,32 @@ class DiRuleCombinationBehaviorTest {
                 universe(engine, ComboProps.class, ComboPropsConsumer.class).build();
         assertEquals(1, context.getBeans(ComboPropsConsumer.class).size(), engine.toString());
     }
+
+    /**
+     * G: mocking a class-level @Replaces target displaces its replacer — the mock takes over the
+     * position the replacement chain holds in production, so only the mock remains.
+     */
+    @ParameterizedTest
+    @EnumSource(Engine.class)
+    void mockOfAReplacedTargetDisplacesItsReplacer(Engine engine) {
+        List<MockedBean> mocks = mockOf(ComboLegacyGreeter.class);
+        BeanContainer context =
+                universe(engine, ComboLegacyGreeter.class, ComboModernGreeter.class)
+                        .mocks(mocks)
+                        .build();
+        assertSame(mocks.get(0).instance(), context.getBean(ComboGreeter.class), engine + "");
+        assertEquals(0, context.getBeans(ComboModernGreeter.class).size(), engine + ": replacer");
+    }
+
+    /** H: mocking the replacer leaves its target displaced, exactly as in production. */
+    @ParameterizedTest
+    @EnumSource(Engine.class)
+    void mockOfAReplacerKeepsItsTargetDisplaced(Engine engine) {
+        List<MockedBean> mocks = mockOf(ComboModernGreeter.class);
+        BeanContainer context =
+                universe(engine, ComboLegacyGreeter.class, ComboModernGreeter.class)
+                        .mocks(mocks)
+                        .build();
+        assertSame(mocks.get(0).instance(), context.getBean(ComboGreeter.class), engine + "");
+    }
 }

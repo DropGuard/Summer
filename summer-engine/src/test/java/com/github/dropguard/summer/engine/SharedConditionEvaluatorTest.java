@@ -190,16 +190,40 @@ class SharedConditionEvaluatorTest {
     }
 
     @Test
-    void replacingAMockedTargetIsNotAnError() {
+    void mockingAClassLevelReplacesTargetDisplacesTheWholeChain() {
+        // Production: Newest replaces Modern replaces Legacy. Mocking Legacy takes over that
+        // position, so its production occupant yields too — the same outcome as the method-level
+        // case, where the replacer shares the mocked return type.
+        BeanDefinition legacy = new BeanDefinition("com.Legacy", "Legacy");
+        BeanDefinition modern = new BeanDefinition("com.Modern", "Modern");
+        modern.replacesTargetClass = "com.Legacy";
+        BeanDefinition newest = new BeanDefinition("com.Newest", "Newest");
+        newest.replacesTargetClass = "com.Modern";
+        BeanDefinition bystander = new BeanDefinition("com.Bystander", "Bystander");
+
+        List<BeanDefinition> beans = new ArrayList<>(List.of(newest, legacy, modern, bystander));
+        new SharedConditionEvaluator().evaluate(beans, Set.of("com.Legacy"));
+
+        assertFalse(beans.contains(legacy), "the mock withdrew the real target");
+        assertFalse(beans.contains(modern), "the replacer is the occupant the mock displaces");
+        assertFalse(beans.contains(newest), "displacement follows the chain transitively");
+        assertTrue(beans.contains(bystander), "beans outside the chain are untouched");
+    }
+
+    @Test
+    void mockingAReplacerAlsoWithdrawsItsTarget() {
+        // Production: Modern replaces Legacy, so Legacy never stands. Mocking Modern must not
+        // resurrect Legacy next to the mock.
         BeanDefinition legacy = new BeanDefinition("com.Legacy", "Legacy");
         BeanDefinition modern = new BeanDefinition("com.Modern", "Modern");
         modern.replacesTargetClass = "com.Legacy";
 
         List<BeanDefinition> beans = new ArrayList<>(List.of(legacy, modern));
-        new SharedConditionEvaluator().evaluate(beans, Set.of("com.Legacy"));
+        new SharedConditionEvaluator().evaluate(beans, Set.of("com.Modern"));
 
-        assertFalse(beans.contains(legacy), "the mock withdrew the real target");
-        assertTrue(beans.contains(modern), "the replacer stands; nothing is left to replace");
+        assertFalse(beans.contains(modern), "the mock withdrew the replacer");
+        assertFalse(
+                beans.contains(legacy), "the replaced target stays displaced, as in production");
     }
 
     @Test
