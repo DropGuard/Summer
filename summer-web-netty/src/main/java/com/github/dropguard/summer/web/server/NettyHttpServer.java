@@ -117,17 +117,12 @@ class NettyHttpServer {
     }
 
     public void start() {
-        boolean useEpoll = Epoll.isAvailable();
-        bossGroup =
-                useEpoll
-                        ? new EpollEventLoopGroup(1)
-                        : new NioEventLoopGroup(1); // 1 thread to accept connections
-        workerGroup =
-                useEpoll
-                        ? new EpollEventLoopGroup()
-                        : new NioEventLoopGroup(); // defaults to CPU cores * 2 for I/O
-
+        boolean started = false;
         try {
+            int targetPort = getActualTargetPort();
+            boolean useEpoll = Epoll.isAvailable();
+            bossGroup = useEpoll ? new EpollEventLoopGroup(1) : new NioEventLoopGroup(1);
+            workerGroup = useEpoll ? new EpollEventLoopGroup() : new NioEventLoopGroup();
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
                     .channel(
@@ -166,22 +161,10 @@ class NettyHttpServer {
                     .childOption(ChannelOption.TCP_NODELAY, true)
                     .childOption(ChannelOption.SO_KEEPALIVE, true);
 
-            int targetPort = getActualTargetPort();
-            try {
-                serverChannelFuture = b.bind(targetPort).sync();
-            } catch (io.netty.channel.ChannelException e) {
-                // Port already in use (e.g. a @DualEngine test whose RUNTIME and AOT legs each
-                // start a server, or a second server test in the same module) surfaces as a raw
-                // Netty ChannelException. Give the actual cause + the fix instead of a bare
-                // "Address already in use".
-                throw new IllegalStateException(
-                        "Failed to bind server port "
-                                + targetPort
-                                + ": address already in use. Tests that start more than one"
-                                + " server (e.g. @DualEngine, or several server tests in one"
-                                + " module) must set server.port=0 so each server binds its own"
-                                + " ephemeral port.",
-                        e);
+            serverChannelFuture = b.bind(targetPort);
+            if (!serverChannelFuture.await().isSuccess()) {
+                Throwable cause = serverChannelFuture.cause();
+                throw new IllegalStateException(bindFailureMessage(targetPort, cause), cause);
             }
 
             if (System.getenv("SUMMER_DEV_PORT") != null) {
@@ -191,11 +174,66 @@ class NettyHttpServer {
                         targetPort);
             }
             log.info("Netty Server started on port {}", targetPort);
-
+            started = true;
         } catch (InterruptedException e) {
-            log.error("Netty server interrupted during startup", e);
             Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while starting HTTP server", e);
+        } finally {
+            if (!started) rollbackStartup();
         }
+    }
+
+    /**
+     * Releases whatever a failed {@link #start()} acquired and clears the fields, so the instance
+     * reads as never-started: a later {@link #shutdown} is a no-op and {@link #getPort} falls back
+     * to the configured port instead of a closed channel.
+     */
+    private void rollbackStartup() {
+        ChannelFuture future = serverChannelFuture;
+        EventLoopGroup boss = bossGroup;
+        EventLoopGroup worker = workerGroup;
+        serverChannelFuture = null;
+        bossGroup = null;
+        workerGroup = null;
+        if (future != null) {
+            future.channel().close().awaitUninterruptibly();
+        }
+        var bossShutdown = boss == null ? null : boss.shutdownGracefully(0, 0, NANOSECONDS);
+        var workerShutdown = worker == null ? null : worker.shutdownGracefully(0, 0, NANOSECONDS);
+        if (bossShutdown != null) bossShutdown.awaitUninterruptibly();
+        if (workerShutdown != null) workerShutdown.awaitUninterruptibly();
+    }
+
+    /**
+     * A port conflict gets the actionable hint (the usual cause is a test starting a second server
+     * on a fixed port); any other bind failure keeps the plain message plus its cause. NIO reports
+     * the conflict as {@link java.net.BindException}, the epoll transport as a native IOException
+     * whose message carries the errno text, so both shapes are recognized.
+     */
+    static String bindFailureMessage(int port, Throwable cause) {
+        String message = "Failed to bind HTTP server on port " + port;
+        if (!isAddressInUse(cause)) {
+            return message;
+        }
+        return message
+                + ": address already in use. Tests that start more than one server (e.g."
+                + " @DualEngine, or several server tests in one module) must set server.port=0 so"
+                + " each server binds its own ephemeral port.";
+    }
+
+    private static boolean isAddressInUse(Throwable cause) {
+        int depth = 0;
+        for (Throwable t = cause; t != null && depth < 16; t = t.getCause(), depth++) {
+            if (t instanceof java.net.BindException) {
+                return true;
+            }
+            String text = t.getMessage();
+            if (text != null
+                    && text.toLowerCase(java.util.Locale.ROOT).contains("address already in use")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
