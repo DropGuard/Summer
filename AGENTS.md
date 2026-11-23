@@ -157,7 +157,7 @@ mvn test -pl summer-core -am  # Test single module
 mvn test -pl summer-core -am -Dtest="ClassName"  # Single test class
 mvn spotless:apply            # Format all Java code
 mvn spotless:check            # Format check (CI gate)
-mvn test -pl summer-archunit  # Architecture tests
+make arch                     # Architecture tests against current sources (-am; pre-commit runs them when src/main is staged)
 make run SAMPLE=summer-twitter  # Run a sample app (needs `mvn install -DskipTests` first)
 make samples-verify             # End-to-end sample verification (CI parity, after install)
 mvn install -DskipTests       # Install all jars locally, skip tests

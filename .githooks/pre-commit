@@ -1,7 +1,10 @@
 #!/bin/sh
 # Summer Framework Pre-Commit Hook
-# Gate: rejects commit if any staged Java file is not Spotless-clean.
-# Developer runs `mvn spotless:apply` manually, then re-stages.
+# Gate 1: rejects the commit if any Java file is not Spotless-clean.
+#         Developer runs `mvn spotless:apply` manually, then re-stages.
+# Gate 2: when production sources are staged, runs the ArchUnit rules (summer-archunit)
+#         against the current sources (-am rebuilds the upstream modules; only the arch
+#         tests run).
 
 echo "[Summer Pre-Commit] Checking code formatting..."
 
@@ -14,3 +17,16 @@ if ! mvn spotless:check -q; then
 fi
 
 echo "[Summer Pre-Commit] Formatting OK."
+
+# Docs-only and test-only commits skip the architecture gate.
+if git diff --cached --name-only --diff-filter=ACMR | grep -q '/src/main/.*\.java$'; then
+    echo "[Summer Pre-Commit] Checking architecture rules..."
+    if ! mvn -B -q -pl summer-archunit -am test \
+            -Dtest='com.github.dropguard.summer.arch.**' \
+            -Dsurefire.failIfNoSpecifiedTests=false -Djacoco.skip=true; then
+        echo ""
+        echo "[Summer Pre-Commit] Architecture violations detected (see output above)."
+        exit 1
+    fi
+    echo "[Summer Pre-Commit] Architecture OK."
+fi

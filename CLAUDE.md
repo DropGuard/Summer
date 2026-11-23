@@ -46,4 +46,4 @@ Canonical command list lives in **AGENTS.md → COMMANDS** (one source of truth)
 
 - **Commits**: the agent may commit at points of its own choosing (user authorization, 2026-11-23).
   Keep one logical change per commit, conventional-commit messages, and a passing pre-commit
-  `spotless:check`; never bypass the hook with `--no-verify`.
+  hook (`spotless:check`, plus the ArchUnit rules when `src/main` Java is staged); never bypass the hook with `--no-verify`.

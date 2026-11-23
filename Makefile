@@ -78,7 +78,7 @@ check:
 pre-commit: fmt check clean test
 
 arch:
-	mvn test -pl summer-archunit
+	mvn -B -pl summer-archunit -am test -Dtest='com.github.dropguard.summer.arch.**' -Dsurefire.failIfNoSpecifiedTests=false -Djacoco.skip=true
 
 coverage:
 	mvn clean test
