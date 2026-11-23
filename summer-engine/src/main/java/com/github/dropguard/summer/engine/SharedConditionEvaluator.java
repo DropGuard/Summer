@@ -6,11 +6,14 @@ import com.github.dropguard.summer.core.bean.ConfigPropertiesBean;
 import com.github.dropguard.summer.core.exception.AmbiguousBeanException;
 import com.github.dropguard.summer.core.exception.NoSuchBeanException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,12 +23,16 @@ import org.slf4j.LoggerFactory;
  * <p>Candidate selection:
  *
  * <ol>
+ *   <li>Remove {@code @Mock}ed beans together with the {@code @Replaces} chain they sit in
  *   <li>Collect {@code @ConditionalOnBean} requirements
  *   <li>Evaluate {@code @ConditionalOnBean} in topological order, remove unsatisfied beans
  *   <li>Resolve {@code @Replaces} (class-level and method-level), remove replaced beans and any
- *       {@code @Bean} product whose {@code @Configuration} was replaced
+ *       {@code @Bean} product whose {@code @Configuration} was withdrawn
  *   <li>Let surviving producers override their matching {@code @ConfigMapping} defaults
  * </ol>
+ *
+ * <p>Every withdrawn candidate is recorded with its reason ({@link #withdrawals()}): a one-line
+ * summary is logged at info, and a later missing-bean failure names why the bean is gone.
  *
  * <p>Reads conditions and replaces from {@link BeanDefinition} fields populated during discovery —
  * no Jandex access at evaluation time.
@@ -34,6 +41,9 @@ import org.slf4j.LoggerFactory;
 public final class SharedConditionEvaluator {
 
     private static final Logger log = LoggerFactory.getLogger(SharedConditionEvaluator.class);
+
+    /** Withdrawn candidate → why, in withdrawal order. */
+    private final Map<BeanDefinition, String> withdrawals = new LinkedHashMap<>();
 
     public SharedConditionEvaluator() {}
 
@@ -71,6 +81,7 @@ public final class SharedConditionEvaluator {
      */
     public void evaluate(List<BeanDefinition> beans, Set<String> mockedTypes) {
         List<BeanDefinition> mocked = removeMockedBeans(beans, mockedTypes);
+        reportMocksWithoutCounterpart(mockedTypes, mocked);
         Map<BeanDefinition, Set<String>> requiredTypes = collectConditionalRequirements(beans);
         List<BeanDefinition> topoOrder = buildTopologicalOrder(beans, requiredTypes);
         // Withdrawn = discovered, then removed by a mock or a failed condition. @Replaces treats
@@ -81,6 +92,70 @@ public final class SharedConditionEvaluator {
                         beans, topoOrder, requiredTypes, mockSuppliedKeys(mockedTypes, mocked)));
         resolveReplaces(beans, withdrawn);
         removeOverriddenConfigMappings(beans);
+        logWithdrawalSummary();
+    }
+
+    /** Every candidate this evaluation withdrew, with the reason, in withdrawal order. */
+    public Map<BeanDefinition, String> withdrawals() {
+        return Collections.unmodifiableMap(withdrawals);
+    }
+
+    /**
+     * The withdrawals indexed by every type key a withdrawn candidate would have supplied (its own
+     * type and its interfaces), each entry rendered as {@code "candidate (reason)"} — the shape a
+     * missing-bean diagnosis looks up by the missing type.
+     */
+    public Map<String, List<String>> withdrawalsByType() {
+        Map<String, List<String>> byType = new HashMap<>();
+        for (var entry : withdrawals.entrySet()) {
+            BeanDefinition bean = entry.getKey();
+            String line = describe(bean) + " (" + entry.getValue() + ")";
+            byType.computeIfAbsent(bean.qualifiedName, k -> new ArrayList<>()).add(line);
+            for (String iface : bean.interfaceNames) {
+                byType.computeIfAbsent(iface, k -> new ArrayList<>()).add(line);
+            }
+        }
+        return byType;
+    }
+
+    private void withdraw(BeanDefinition bean, String reason) {
+        withdrawals.putIfAbsent(bean, reason);
+        log.debug("[Summer] Withdrawn: {} ({})", describe(bean), reason);
+    }
+
+    private void logWithdrawalSummary() {
+        if (withdrawals.isEmpty()) {
+            return;
+        }
+        log.info(
+                "[Summer] Withdrew {} candidate(s): {}",
+                withdrawals.size(),
+                withdrawals.entrySet().stream()
+                        .map(e -> describe(e.getKey()) + " (" + e.getValue() + ")")
+                        .collect(Collectors.joining("; ")));
+    }
+
+    /**
+     * A mock whose type no discovered candidate supplied fills a position production does not have:
+     * legal (narrow test universes do it routinely), but worth naming, because conditions on that
+     * type now pass where production's would fail.
+     */
+    private static void reportMocksWithoutCounterpart(
+            Set<String> mockedTypes, List<BeanDefinition> mocked) {
+        for (String type : mockedTypes) {
+            boolean counterpart =
+                    mocked.stream()
+                            .anyMatch(
+                                    b ->
+                                            b.qualifiedName.equals(type)
+                                                    || b.interfaceNames.contains(type));
+            if (!counterpart) {
+                log.info(
+                        "[Summer] @Mock {} has no discovered counterpart: the mock adds a bean"
+                                + " this universe would not otherwise have",
+                        type);
+            }
+        }
     }
 
     private void removeOverriddenConfigMappings(List<BeanDefinition> beans) {
@@ -99,9 +174,9 @@ public final class SharedConditionEvaluator {
 
     /**
      * Removes beans whose type (or any implemented interface) is among the mocked types, plus every
-     * {@code @Replaces} replacer of a removed bean (transitively). The mock instance itself is
-     * supplied separately at instance-build time; removing the real definitions ensures they are
-     * never instantiated.
+     * bean sharing a {@code @Replaces} chain with a removed one (transitively, both directions).
+     * The mock instance itself is supplied separately at instance-build time; removing the real
+     * definitions ensures they are never instantiated.
      *
      * <p>Rule: a mock takes over the position its target holds <i>in production</i>. If a replacer
      * would hold that position, the replacer is what the mock displaces — so class-level and
@@ -118,6 +193,7 @@ public final class SharedConditionEvaluator {
             if (isMocked(bean, mockedTypes)) {
                 removed.add(bean);
                 it.remove();
+                withdraw(bean, "replaced by its @Mock");
             }
         }
         // A mock takes over the position its target holds in production. That position belongs
@@ -129,13 +205,17 @@ public final class SharedConditionEvaluator {
             grew = false;
             for (var it = beans.iterator(); it.hasNext(); ) {
                 BeanDefinition bean = it.next();
-                if (sharesReplacesChain(bean, removed)) {
-                    log.debug(
-                            "[Summer] {} withdrawn: it shares a @Replaces chain with a mocked"
-                                    + " bean",
-                            bean.qualifiedName);
+                BeanDefinition link = chainLink(bean, removed);
+                if (link != null) {
                     removed.add(bean);
                     it.remove();
+                    withdraw(
+                            bean,
+                            "displaced by a @Mock: it shares a @Replaces chain with "
+                                    + describe(link)
+                                    + "; mock "
+                                    + bean.qualifiedName
+                                    + " itself, or inject an interface the mock implements");
                     grew = true;
                 }
             }
@@ -144,17 +224,16 @@ public final class SharedConditionEvaluator {
     }
 
     /**
-     * Whether {@code bean} replaces, or is replaced by, one of {@code withdrawn} via
-     * {@code @Replaces}.
+     * The member of {@code withdrawn} that {@code bean} replaces or is replaced by via
+     * {@code @Replaces}, or {@code null} when it shares no chain with any of them.
      */
-    private static boolean sharesReplacesChain(
-            BeanDefinition bean, List<BeanDefinition> withdrawn) {
+    private static BeanDefinition chainLink(BeanDefinition bean, List<BeanDefinition> withdrawn) {
         for (BeanDefinition w : withdrawn) {
             if (replaces(bean, w) || replaces(w, bean)) {
-                return true;
+                return w;
             }
         }
-        return false;
+        return null;
     }
 
     /** Whether {@code replacer} declares a {@code @Replaces} that targets {@code target}. */
@@ -284,20 +363,8 @@ public final class SharedConditionEvaluator {
     // ── @Replaces ─────────────────────────────────────────────────
 
     private void resolveReplaces(List<BeanDefinition> beans, List<BeanDefinition> withdrawn) {
-        // First pass: log method-level @Replaces from pre-populated field
-        for (BeanDefinition bean : beans) {
-            if (!bean.isFactoryMethod()) continue;
-            if (bean.methodLevelReplaces != null) {
-                log.debug(
-                        "[Summer] Method-level @Replaces: {}.{} replaces {}",
-                        bean.configClassName,
-                        bean.producerMethodName,
-                        bean.methodLevelReplaces);
-            }
-        }
-
-        // Second pass: collect all replaced beans
-        List<BeanDefinition> replaced = new ArrayList<>();
+        // Collect every replaced target with the replacer that displaces it.
+        Map<BeanDefinition, BeanDefinition> replacedBy = new LinkedHashMap<>();
         for (BeanDefinition bean : beans) {
             // Class-level @Replaces
             if (bean.replacesTargetClass != null) {
@@ -305,11 +372,7 @@ public final class SharedConditionEvaluator {
                 if (target == null) {
                     requireWithdrawn(withdrawn, bean.replacesTargetClass, false);
                 } else {
-                    log.debug(
-                            "[Summer] Class-level @Replaces: {} replaces {}",
-                            bean.qualifiedName,
-                            bean.replacesTargetClass);
-                    replaced.add(target);
+                    replacedBy.putIfAbsent(target, bean);
                 }
             }
             // Method-level @Replaces
@@ -320,38 +383,28 @@ public final class SharedConditionEvaluator {
                     requireWithdrawn(withdrawn, bean.methodLevelReplaces, true);
                     continue;
                 }
-                String beanDesc =
-                        bean.isFactoryMethod()
-                                ? bean.configClassName + "#" + bean.producerMethodName
-                                : bean.qualifiedName;
-                String targetDesc =
-                        target.isFactoryMethod()
-                                ? target.configClassName + "#" + target.producerMethodName
-                                : target.qualifiedName;
-                log.debug("[Summer] Method-level @Replaces: {} replaces {}", beanDesc, targetDesc);
-                replaced.add(target);
+                replacedBy.putIfAbsent(target, bean);
             }
         }
 
-        log.debug("[Summer] Removing {} replaced beans", replaced.size());
-        for (BeanDefinition r : replaced) {
-            String desc =
-                    r.isFactoryMethod()
-                            ? r.configClassName + "#" + r.producerMethodName
-                            : r.qualifiedName;
-            log.debug("[Summer]   Removing: {} ({})", desc, r.getClass().getSimpleName());
+        for (var entry : replacedBy.entrySet()) {
+            withdraw(entry.getKey(), "replaced by @Replaces on " + describe(entry.getValue()));
         }
-        beans.removeAll(replaced);
+        beans.removeAll(replacedBy.keySet());
         // A @Bean product is owned by its @Configuration class. When that class is
-        // removed by @Replaces, the product is orphaned and must go too.
+        // withdrawn (replaced, or conditioned out), the product is orphaned and must go too.
         // Keyed by configClassName against the qualifiedNames of beans still
         // present (the previous version matched qualifiedName against configClassName,
         // conflating two distinct fields and wrongly purging valid @Bean products).
         Set<String> liveNames =
-                beans.stream()
-                        .map(b -> b.qualifiedName)
-                        .collect(java.util.stream.Collectors.toSet());
-        beans.removeIf(p -> p.isFactoryMethod() && !liveNames.contains(p.configClassName));
+                beans.stream().map(b -> b.qualifiedName).collect(Collectors.toSet());
+        for (var it = beans.iterator(); it.hasNext(); ) {
+            BeanDefinition product = it.next();
+            if (product.isFactoryMethod() && !liveNames.contains(product.configClassName)) {
+                it.remove();
+                withdraw(product, "its @Configuration " + product.configClassName + " is absent");
+            }
+        }
         log.debug("[Summer] Beans after resolveReplaces: {} remaining", beans.size());
     }
 
@@ -390,16 +443,19 @@ public final class SharedConditionEvaluator {
             Set<String> required = requiredTypes.get(bean);
             if (required == null) continue;
 
-            boolean allPresent = true;
+            List<String> missing = new ArrayList<>();
             for (String requiredType : required) {
                 if (!available.contains(requiredType)) {
-                    allPresent = false;
-                    break;
+                    missing.add(requiredType);
                 }
             }
-            if (!allPresent) {
+            if (!missing.isEmpty()) {
+                Collections.sort(missing);
                 beans.remove(bean);
                 dropped.add(bean);
+                withdraw(
+                        bean,
+                        "@ConditionalOnBean(" + String.join(", ", missing) + ") not satisfied");
                 List<String> contributed = new ArrayList<>(bean.interfaceNames);
                 contributed.add(bean.qualifiedName);
                 for (String key : contributed) {
@@ -416,6 +472,13 @@ public final class SharedConditionEvaluator {
     }
 
     // ── Helpers ───────────────────────────────────────────────────
+
+    /** {@code Config#method} for a {@code @Bean} product, the class name otherwise. */
+    static String describe(BeanDefinition bean) {
+        return bean.isFactoryMethod()
+                ? bean.configClassName + "#" + bean.producerMethodName
+                : bean.qualifiedName;
+    }
 
     /**
      * A {@code @Replaces} target missing from the live candidates is an error only when it was

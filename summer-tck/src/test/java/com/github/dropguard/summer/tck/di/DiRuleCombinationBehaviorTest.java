@@ -1,15 +1,20 @@
 package com.github.dropguard.summer.tck.di;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.core.Engine;
 import com.github.dropguard.summer.core.bean.MockedBean;
+import com.github.dropguard.summer.core.exception.NoSuchBeanException;
 import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboConditionalReplacerConfig;
 import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboDefaultServiceConfig;
 import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboFeature;
+import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboGatedConsumer;
 import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboGreeter;
 import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboLegacyGreeter;
 import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboModernGreeter;
@@ -123,6 +128,35 @@ class DiRuleCombinationBehaviorTest {
                         .build();
         assertSame(mocks.get(0).instance(), context.getBean(ComboGreeter.class), engine + "");
         assertEquals(0, context.getBeans(ComboModernGreeter.class).size(), engine + ": replacer");
+    }
+
+    /**
+     * I: a missing-bean failure explains itself — when the missing type was discovered but
+     * withdrawn, the error names the withdrawn candidate and the reason.
+     */
+    @ParameterizedTest
+    @EnumSource(Engine.class)
+    void missingBeanErrorNamesTheWithdrawal(Engine engine) {
+        Throwable thrown =
+                assertThrows(
+                        Throwable.class,
+                        () ->
+                                universe(engine, FeatureGated.class, ComboGatedConsumer.class)
+                                        .build());
+        NoSuchBeanException missing = null;
+        for (Throwable t = thrown; t != null && missing == null; t = t.getCause()) {
+            if (t instanceof NoSuchBeanException e) missing = e;
+        }
+        assertNotNull(missing, engine + ": expected a NoSuchBeanException, got " + thrown);
+        assertEquals(FeatureGated.class.getName(), missing.missingType, engine.toString());
+        assertEquals(1, missing.withdrawn.size(), engine + ": " + missing.getMessage());
+        String reason = missing.withdrawn.get(0);
+        assertTrue(
+                reason.contains("@ConditionalOnBean(" + ComboFeature.class.getName() + ")"),
+                engine + ": " + reason);
+        assertTrue(
+                missing.getMessage().contains("withdrawn during assembly"),
+                engine + ": " + missing.getMessage());
     }
 
     /** H: mocking the replacer leaves its target displaced, exactly as in production. */

@@ -63,7 +63,8 @@ public final class RuntimeContainer implements ContainerEngine {
 
         // Shared core, stage 1: discovery → conditions (+mock removal) → route collection — the
         // same single sequence as the AOT entries, so dual-engine parity is structural.
-        List<BeanDefinition> candidates = BuildPipeline.discoverCandidates(deployment, mocks);
+        BuildPipeline.Candidates discovered = BuildPipeline.discoverCandidates(deployment, mocks);
+        List<BeanDefinition> candidates = discovered.beans();
 
         // Runtime-only contribution derived from the surviving candidates: the birth record that
         // beans will be recorded into at instantiation, seeded with the collected exception
@@ -90,7 +91,7 @@ public final class RuntimeContainer implements ContainerEngine {
         candidates.add(instantiatedDef);
 
         // Shared core, stage 2: dependency resolution → variable-name dedup → route extraction.
-        BuildPipeline.Resolved resolved = BuildPipeline.resolve(candidates, mocks);
+        BuildPipeline.Resolved resolved = BuildPipeline.resolve(discovered, mocks);
         List<BeanDefinition> sorted = resolved.sorted();
 
         RuntimeConfigBinder binder = new RuntimeConfigBinder();

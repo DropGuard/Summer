@@ -273,6 +273,31 @@ class SharedConditionEvaluatorTest {
         assertTrue(beans.contains(encoder), "the mock still supplies Codec");
     }
 
+    @Test
+    void everyWithdrawalIsRecordedWithItsReason() {
+        BeanDefinition gated = new BeanDefinition("com.Gated", "Gated");
+        gated.interfaceNames.add("com.Port");
+        gated.conditionalOnBeanType = "com.Absent";
+        BeanDefinition legacy = new BeanDefinition("com.Legacy", "Legacy");
+        BeanDefinition modern = new BeanDefinition("com.Modern", "Modern");
+        modern.replacesTargetClass = "com.Legacy";
+        BeanDefinition mocked = new BeanDefinition("com.Mocked", "Mocked");
+
+        SharedConditionEvaluator evaluator = new SharedConditionEvaluator();
+        List<BeanDefinition> beans = new ArrayList<>(List.of(gated, legacy, modern, mocked));
+        evaluator.evaluate(beans, Set.of("com.Mocked"));
+
+        assertEquals(List.of(modern), beans);
+        assertEquals("replaced by its @Mock", evaluator.withdrawals().get(mocked));
+        assertEquals(
+                "@ConditionalOnBean(com.Absent) not satisfied", evaluator.withdrawals().get(gated));
+        assertEquals("replaced by @Replaces on com.Modern", evaluator.withdrawals().get(legacy));
+        assertEquals(
+                List.of("com.Gated (@ConditionalOnBean(com.Absent) not satisfied)"),
+                evaluator.withdrawalsByType().get("com.Port"),
+                "withdrawals are indexed by the interfaces the candidate would have supplied");
+    }
+
     /** The owning @Configuration: a product whose configuration is absent is purged as orphaned. */
     private static BeanDefinition configClass(String name) {
         return new BeanDefinition(name, name.substring(name.lastIndexOf('.') + 1));

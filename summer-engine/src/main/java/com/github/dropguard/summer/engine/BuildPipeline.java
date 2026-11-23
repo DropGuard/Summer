@@ -5,9 +5,11 @@ import com.github.dropguard.summer.core.bean.BeanDefinition;
 import com.github.dropguard.summer.core.bean.MockedBean;
 import com.github.dropguard.summer.core.bean.RouteInfo;
 import com.github.dropguard.summer.core.bean.SharedDependencyResolver;
+import com.github.dropguard.summer.core.exception.NoSuchBeanException;
 import com.github.dropguard.summer.core.spi.RouteRegistrarLoader;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -63,23 +65,31 @@ public final class BuildPipeline {
     }
 
     /**
+     * The surviving candidates of stage 1, plus what condition evaluation withdrew (indexed by
+     * every type key a withdrawn candidate would have supplied) so stage 2 can explain a
+     * missing-bean failure. {@code beans} is mutable: an engine tail may add its contributions.
+     */
+    public record Candidates(
+            List<BeanDefinition> beans, Map<String, List<String>> withdrawnByType) {}
+
+    /**
      * Stage 1 of the shared core: discovery → condition evaluation (mock removal included) → route
      * collection. Returns the surviving candidates, pre-resolution — the hook point for an engine
      * tail that must derive its own contribution from the candidates and inject it before {@link
-     * #resolve(List, List)} (the runtime engine's synthetic {@code HandlerMetadata}).
+     * #resolve(Candidates, List)} (the runtime engine's synthetic {@code HandlerMetadata}).
      */
-    public static List<BeanDefinition> discoverCandidates(
-            BeanDeployment deployment, List<MockedBean> mocks) {
+    public static Candidates discoverCandidates(BeanDeployment deployment, List<MockedBean> mocks) {
         List<BeanDefinition> beans = Discovery.discover(deployment);
         log.info("[Summer] Discovered {} beans", beans.size());
 
         Set<String> mockedTypeNames =
                 mocks.stream().map(MockedBean::targetTypeName).collect(Collectors.toSet());
-        new SharedConditionEvaluator().evaluate(beans, mockedTypeNames);
+        SharedConditionEvaluator evaluator = new SharedConditionEvaluator();
+        evaluator.evaluate(beans, mockedTypeNames);
 
         // Conditions BEFORE routes: a conditioned-out controller contributes no routes (parity).
         RouteRegistrarLoader.mergeInto(RouteRegistrarLoader.load(beans), beans);
-        return beans;
+        return new Candidates(beans, evaluator.withdrawalsByType());
     }
 
     /**
@@ -89,9 +99,18 @@ public final class BuildPipeline {
      *     engine-tail contributions)
      * @param mocks test mocks; empty for the production build
      * @return the resolved, topologically-sorted beans and the collected routes
+     * @throws NoSuchBeanException naming, when the missing type was discovered but withdrawn, which
+     *     candidate was withdrawn and why
      */
-    public static Resolved resolve(List<BeanDefinition> candidates, List<MockedBean> mocks) {
-        List<BeanDefinition> sorted = new SharedDependencyResolver().resolve(candidates, mocks);
+    public static Resolved resolve(Candidates candidates, List<MockedBean> mocks) {
+        List<BeanDefinition> sorted;
+        try {
+            sorted = new SharedDependencyResolver().resolve(candidates.beans(), mocks);
+        } catch (NoSuchBeanException e) {
+            throw e.missingType == null
+                    ? e
+                    : e.withWithdrawn(candidates.withdrawnByType().get(e.missingType));
+        }
         log.info("[Summer] Resolved {} beans", sorted.size());
         if (log.isDebugEnabled()) {
             for (BeanDefinition bean : sorted) {
