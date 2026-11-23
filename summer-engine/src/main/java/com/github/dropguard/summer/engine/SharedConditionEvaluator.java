@@ -2,6 +2,7 @@ package com.github.dropguard.summer.engine;
 
 import com.github.dropguard.summer.core.Internal;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
+import com.github.dropguard.summer.core.bean.ConfigPropertiesBean;
 import com.github.dropguard.summer.core.exception.AmbiguousBeanException;
 import com.github.dropguard.summer.core.exception.NoSuchBeanException;
 import java.util.ArrayList;
@@ -16,13 +17,14 @@ import org.slf4j.LoggerFactory;
 /**
  * Shared condition evaluator used by both Runtime and AOT engines.
  *
- * <p>Four-phase evaluation:
+ * <p>Candidate selection:
  *
  * <ol>
  *   <li>Collect {@code @ConditionalOnBean} requirements
  *   <li>Evaluate {@code @ConditionalOnBean} in topological order, remove unsatisfied beans
  *   <li>Resolve {@code @Replaces} (class-level and method-level), remove replaced beans and any
  *       {@code @Bean} product whose {@code @Configuration} was replaced
+ *   <li>Let surviving producers override their matching {@code @ConfigMapping} defaults
  * </ol>
  *
  * <p>Reads conditions and replaces from {@link BeanDefinition} fields populated during discovery —
@@ -69,10 +71,25 @@ public final class SharedConditionEvaluator {
      */
     public void evaluate(List<BeanDefinition> beans, Set<String> mockedTypes) {
         removeMockedBeans(beans, mockedTypes);
-        Map<String, Set<String>> requiredTypes = collectConditionalRequirements(beans);
+        Map<BeanDefinition, Set<String>> requiredTypes = collectConditionalRequirements(beans);
         List<BeanDefinition> topoOrder = buildTopologicalOrder(beans, requiredTypes);
         resolveConditionalOnBean(beans, topoOrder, requiredTypes);
         resolveReplaces(beans);
+        removeOverriddenConfigMappings(beans);
+    }
+
+    private void removeOverriddenConfigMappings(List<BeanDefinition> beans) {
+        Set<String> producedTypes = new HashSet<>();
+        for (BeanDefinition bean : beans) {
+            if (bean.isFactoryMethod()) {
+                producedTypes.add(bean.qualifiedName);
+                producedTypes.addAll(bean.interfaceNames);
+            }
+        }
+        beans.removeIf(
+                bean ->
+                        bean instanceof ConfigPropertiesBean
+                                && producedTypes.contains(bean.qualifiedName));
     }
 
     /**
@@ -100,8 +117,9 @@ public final class SharedConditionEvaluator {
 
     // ── Collect @ConditionalOnBean requirements ───────────────────
 
-    private Map<String, Set<String>> collectConditionalRequirements(List<BeanDefinition> beans) {
-        Map<String, Set<String>> requiredTypes = new HashMap<>();
+    private Map<BeanDefinition, Set<String>> collectConditionalRequirements(
+            List<BeanDefinition> beans) {
+        Map<BeanDefinition, Set<String>> requiredTypes = new HashMap<>();
         for (BeanDefinition bean : beans) {
             // AND semantics (Quarkus/Spring parity): a @Bean product's class-level condition and
             // its producer method's condition are BOTH checked — each declared prerequisite is
@@ -114,7 +132,7 @@ public final class SharedConditionEvaluator {
                 required.add(bean.methodConditionalOnBeanType);
             }
             if (!required.isEmpty()) {
-                requiredTypes.put(bean.qualifiedName, required);
+                requiredTypes.put(bean, required);
             }
         }
         return requiredTypes;
@@ -123,10 +141,10 @@ public final class SharedConditionEvaluator {
     // ── Topological sort ──────────────────────────────────────────
 
     private List<BeanDefinition> buildTopologicalOrder(
-            List<BeanDefinition> beans, Map<String, Set<String>> requiredTypes) {
+            List<BeanDefinition> beans, Map<BeanDefinition, Set<String>> requiredTypes) {
         Map<BeanDefinition, Set<BeanDefinition>> deps = new HashMap<>();
         for (BeanDefinition bean : beans) {
-            Set<String> required = requiredTypes.get(bean.qualifiedName);
+            Set<String> required = requiredTypes.get(bean);
             if (required == null) continue;
 
             Set<BeanDefinition> matches = new HashSet<>();
@@ -257,7 +275,7 @@ public final class SharedConditionEvaluator {
     private void resolveConditionalOnBean(
             List<BeanDefinition> beans,
             List<BeanDefinition> topoOrder,
-            Map<String, Set<String>> requiredTypes) {
+            Map<BeanDefinition, Set<String>> requiredTypes) {
         // Contract: conditions evaluate against the WHOLE candidate universe — the same single
         // visibility model as bean injection. Requirements are satisfied against the live bean
         // list while walking topological order, so cascading drops work: if a provider was
@@ -268,13 +286,11 @@ public final class SharedConditionEvaluator {
         // unconditionally revoking its interfaceNames would strip a shared key from survivors
         // (dropping XmlCodec must not revoke Codec while JsonCodec still implements it) and
         // cascade false drops onto @ConditionalOnBean(Codec) dependents.
-        Map<String, Set<String>> contributors = new HashMap<>();
+        Map<String, Set<BeanDefinition>> contributors = new HashMap<>();
         for (BeanDefinition bean : beans) {
-            contributors
-                    .computeIfAbsent(bean.qualifiedName, k -> new HashSet<>())
-                    .add(bean.qualifiedName);
+            contributors.computeIfAbsent(bean.qualifiedName, k -> new HashSet<>()).add(bean);
             for (String iface : bean.interfaceNames) {
-                contributors.computeIfAbsent(iface, k -> new HashSet<>()).add(bean.qualifiedName);
+                contributors.computeIfAbsent(iface, k -> new HashSet<>()).add(bean);
             }
         }
         Set<String> available = new HashSet<>(contributors.keySet());
@@ -282,7 +298,7 @@ public final class SharedConditionEvaluator {
         for (BeanDefinition bean : topoOrder) {
             if (!beans.contains(bean)) continue;
 
-            Set<String> required = requiredTypes.get(bean.qualifiedName);
+            Set<String> required = requiredTypes.get(bean);
             if (required == null) continue;
 
             boolean allPresent = true;
@@ -297,9 +313,9 @@ public final class SharedConditionEvaluator {
                 List<String> contributed = new ArrayList<>(bean.interfaceNames);
                 contributed.add(bean.qualifiedName);
                 for (String key : contributed) {
-                    Set<String> cs = contributors.get(key);
+                    Set<BeanDefinition> cs = contributors.get(key);
                     if (cs == null) continue;
-                    cs.remove(bean.qualifiedName);
+                    cs.remove(bean);
                     if (cs.isEmpty()) {
                         available.remove(key);
                     }

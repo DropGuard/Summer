@@ -3,6 +3,7 @@ package com.github.dropguard.summer.engine;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.github.dropguard.summer.core.bean.BeanDefinition;
+import com.github.dropguard.summer.core.bean.ConfigPropertiesBean;
 import com.github.dropguard.summer.core.exception.AmbiguousBeanException;
 import com.github.dropguard.summer.core.exception.NoSuchBeanException;
 import java.util.ArrayList;
@@ -81,5 +82,99 @@ class SharedConditionEvaluatorTest {
         assertTrue(
                 beans.contains(encoder),
                 "dependent on the SHARED interface must survive another implementor's drop");
+    }
+
+    @Test
+    void sameTypeProducersAreEvaluatedIndependently() {
+        SharedConditionEvaluator evaluator = new SharedConditionEvaluator();
+
+        // Two @Bean producers return the same type under different conditions. Keying the
+        // requirements by type name merged them, so one producer's condition decided the other's
+        // fate; each definition must carry its own requirement and its own contribution.
+        BeanDefinition unconditional = new BeanDefinition("com.Codec", "jsonCodec");
+        unconditional.configClassName = "com.JsonConfig";
+        unconditional.producerMethodName = "jsonCodec";
+
+        BeanDefinition conditional = new BeanDefinition("com.Codec", "xmlCodec");
+        conditional.configClassName = "com.XmlConfig";
+        conditional.producerMethodName = "xmlCodec";
+        conditional.methodConditionalOnBeanType = "com.FeatureFlag";
+
+        BeanDefinition encoder = new BeanDefinition("com.Encoder", "Encoder");
+        encoder.conditionalOnBeanType = "com.Codec";
+
+        List<BeanDefinition> beans =
+                new ArrayList<>(
+                        List.of(
+                                conditional,
+                                unconditional,
+                                encoder,
+                                configClass("com.JsonConfig"),
+                                configClass("com.XmlConfig")));
+        evaluator.evaluate(beans);
+
+        assertTrue(beans.contains(unconditional), "producer without a condition survives");
+        assertFalse(beans.contains(conditional), "producer whose requirement is absent drops");
+        assertTrue(
+                beans.contains(encoder),
+                "the surviving producer still satisfies dependents of the shared type");
+    }
+
+    @Test
+    void droppedProducerDoesNotOverrideConfigMappingDefault() {
+        SharedConditionEvaluator evaluator = new SharedConditionEvaluator();
+
+        ConfigPropertiesBean mapping = new ConfigPropertiesBean("com.Props", "Props");
+        BeanDefinition producer = new BeanDefinition("com.Props", "props");
+        producer.configClassName = "com.PropsConfig";
+        producer.producerMethodName = "props";
+        producer.methodConditionalOnBeanType = "com.Missing";
+
+        List<BeanDefinition> beans =
+                new ArrayList<>(List.of(mapping, producer, configClass("com.PropsConfig")));
+        evaluator.evaluate(beans);
+
+        assertFalse(beans.contains(producer), "producer whose requirement is absent drops");
+        assertTrue(
+                beans.contains(mapping),
+                "the @ConfigMapping default stays when no producer" + " survives to override it");
+    }
+
+    @Test
+    void survivingProducerOverridesConfigMappingDefault() {
+        SharedConditionEvaluator evaluator = new SharedConditionEvaluator();
+
+        ConfigPropertiesBean direct = new ConfigPropertiesBean("com.Props", "Props");
+        BeanDefinition directProducer = new BeanDefinition("com.Props", "props");
+        directProducer.configClassName = "com.PropsConfig";
+        directProducer.producerMethodName = "props";
+
+        // A producer returning a concrete implementation overrides through its interfaces.
+        ConfigPropertiesBean viaInterface = new ConfigPropertiesBean("com.Other", "Other");
+        BeanDefinition concreteProducer = new BeanDefinition("com.OtherImpl", "other");
+        concreteProducer.configClassName = "com.OtherConfig";
+        concreteProducer.producerMethodName = "other";
+        concreteProducer.interfaceNames.add("com.Other");
+
+        List<BeanDefinition> beans =
+                new ArrayList<>(
+                        List.of(
+                                direct,
+                                directProducer,
+                                viaInterface,
+                                concreteProducer,
+                                configClass("com.PropsConfig"),
+                                configClass("com.OtherConfig")));
+        evaluator.evaluate(beans);
+
+        assertFalse(beans.contains(direct), "producer of the mapping type overrides the default");
+        assertFalse(beans.contains(viaInterface), "implementation producer overrides too");
+        assertTrue(beans.contains(directProducer));
+        assertTrue(beans.contains(concreteProducer));
+    }
+
+    /** The owning @Configuration: a product whose configuration is absent is purged as orphaned. */
+    private static BeanDefinition configClass(String name) {
+        return new BeanDefinition(name, name.substring(name.lastIndexOf('.') + 1));
     }
 }
