@@ -10,7 +10,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -50,8 +49,11 @@ public final class SharedConditionEvaluator {
 
     private static final Logger log = LoggerFactory.getLogger(SharedConditionEvaluator.class);
 
-    /** Withdrawn candidate → why, in withdrawal order. */
-    private final Map<BeanDefinition, String> withdrawals = new LinkedHashMap<>();
+    /** Withdrawn candidate → why. */
+    private final Map<BeanDefinition, String> withdrawals = new HashMap<>();
+
+    /** The keys of {@link #withdrawals}, in withdrawal order. */
+    private final List<BeanDefinition> withdrawalOrder = new ArrayList<>();
 
     /** Diagnostics on mocks that add a type the universe would not otherwise have. */
     private final List<MockNote> mockNotes = new ArrayList<>();
@@ -132,7 +134,7 @@ public final class SharedConditionEvaluator {
         return Collections.unmodifiableList(mockNotes);
     }
 
-    /** Every candidate this evaluation withdrew, with the reason, in withdrawal order. */
+    /** Every candidate this evaluation withdrew, with the reason. */
     public Map<BeanDefinition, String> withdrawals() {
         return Collections.unmodifiableMap(withdrawals);
     }
@@ -144,9 +146,8 @@ public final class SharedConditionEvaluator {
      */
     public Map<String, List<String>> withdrawalsByType() {
         Map<String, List<String>> byType = new HashMap<>();
-        for (var entry : withdrawals.entrySet()) {
-            BeanDefinition bean = entry.getKey();
-            String line = describe(bean) + " (" + entry.getValue() + ")";
+        for (BeanDefinition bean : withdrawalOrder) {
+            String line = describe(bean) + " (" + withdrawals.get(bean) + ")";
             byType.computeIfAbsent(bean.qualifiedName, k -> new ArrayList<>()).add(line);
             for (String iface : bean.interfaceNames) {
                 byType.computeIfAbsent(iface, k -> new ArrayList<>()).add(line);
@@ -156,7 +157,9 @@ public final class SharedConditionEvaluator {
     }
 
     private void withdraw(BeanDefinition bean, String reason) {
-        withdrawals.putIfAbsent(bean, reason);
+        if (withdrawals.putIfAbsent(bean, reason) == null) {
+            withdrawalOrder.add(bean);
+        }
         log.debug("[Summer] Withdrawn: {} ({})", describe(bean), reason);
     }
 
@@ -167,8 +170,8 @@ public final class SharedConditionEvaluator {
         log.info(
                 "[Summer] Withdrew {} candidate(s): {}",
                 withdrawals.size(),
-                withdrawals.entrySet().stream()
-                        .map(e -> describe(e.getKey()) + " (" + e.getValue() + ")")
+                withdrawalOrder.stream()
+                        .map(b -> describe(b) + " (" + withdrawals.get(b) + ")")
                         .collect(Collectors.joining("; ")));
     }
 
@@ -234,7 +237,7 @@ public final class SharedConditionEvaluator {
             return;
         }
         Set<BeanDefinition> live = new HashSet<>(beans);
-        Map<BeanDefinition, String> occupants = new LinkedHashMap<>();
+        Set<BeanDefinition> displaced = new HashSet<>();
         for (String type : new TreeSet<>(mockedTypes)) {
             List<BeanDefinition> candidates =
                     discovered.stream().filter(b -> suppliesType(b, type)).toList();
@@ -252,7 +255,8 @@ public final class SharedConditionEvaluator {
                 throw new BeanCreationException(emptyPosition(type, candidates));
             }
             for (BeanDefinition holder : holders) {
-                occupants.putIfAbsent(
+                displaced.add(holder);
+                withdraw(
                         holder,
                         candidates.contains(holder)
                                 ? "replaced by its @Mock"
@@ -263,10 +267,7 @@ public final class SharedConditionEvaluator {
                                         + " itself, or inject an interface the mock implements");
             }
         }
-        for (var entry : occupants.entrySet()) {
-            beans.remove(entry.getKey());
-            withdraw(entry.getKey(), entry.getValue());
-        }
+        beans.removeAll(displaced);
         purgeOrphanedProducts(beans);
     }
 
@@ -409,7 +410,7 @@ public final class SharedConditionEvaluator {
      */
     private Map<BeanDefinition, BeanDefinition> resolveReplaces(
             List<BeanDefinition> beans, List<BeanDefinition> conditionWithdrawn) {
-        Map<BeanDefinition, BeanDefinition> replacedBy = new LinkedHashMap<>();
+        Map<BeanDefinition, BeanDefinition> replacedBy = new HashMap<>();
         for (BeanDefinition bean : beans) {
             // Class-level @Replaces
             if (bean.replacesTargetClass != null) {
@@ -417,7 +418,7 @@ public final class SharedConditionEvaluator {
                 if (target == null) {
                     requireWithdrawn(conditionWithdrawn, bean.replacesTargetClass, false);
                 } else {
-                    replacedBy.putIfAbsent(target, bean);
+                    recordReplacement(replacedBy, target, bean);
                 }
             }
             // Method-level @Replaces
@@ -428,17 +429,24 @@ public final class SharedConditionEvaluator {
                     requireWithdrawn(conditionWithdrawn, bean.methodLevelReplaces, true);
                     continue;
                 }
-                replacedBy.putIfAbsent(target, bean);
+                recordReplacement(replacedBy, target, bean);
             }
         }
 
-        for (var entry : replacedBy.entrySet()) {
-            withdraw(entry.getKey(), "replaced by @Replaces on " + describe(entry.getValue()));
-        }
         beans.removeAll(replacedBy.keySet());
         purgeOrphanedProducts(beans);
         log.debug("[Summer] Beans after resolveReplaces: {} remaining", beans.size());
         return replacedBy;
+    }
+
+    /** The first replacer found for a target displaces it; later ones are ignored. */
+    private void recordReplacement(
+            Map<BeanDefinition, BeanDefinition> replacedBy,
+            BeanDefinition target,
+            BeanDefinition replacer) {
+        if (replacedBy.putIfAbsent(target, replacer) == null) {
+            withdraw(target, "replaced by @Replaces on " + describe(replacer));
+        }
     }
 
     /**
