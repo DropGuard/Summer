@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import com.github.dropguard.summer.core.bean.BeanDefinition;
 import com.github.dropguard.summer.core.bean.ConfigPropertiesBean;
 import com.github.dropguard.summer.core.exception.AmbiguousBeanException;
+import com.github.dropguard.summer.core.exception.BeanCreationException;
 import com.github.dropguard.summer.core.exception.NoSuchBeanException;
 import java.util.ArrayList;
 import java.util.List;
@@ -252,10 +253,10 @@ class SharedConditionEvaluatorTest {
     }
 
     @Test
-    void mockSuppliedInterfaceKeySurvivesADroppedRealImplementor() {
-        // RealCodec is mocked (so removed before contributors are counted); XmlCodec is the only
-        // remaining real Codec and drops on its own condition. Without the mock's permanent keys,
-        // that drop would revoke Codec and cascade a false drop onto Encoder.
+    void mockingAnImplementorLeavesTheLayoutAsInProduction() {
+        // The layout is computed without mocks: RealCodec supplies Codec, so Encoder stands even
+        // though XmlCodec drops on its own condition. Mocking RealCodec afterwards only swaps the
+        // instance in RealCodec's position.
         BeanDefinition realCodec = new BeanDefinition("com.RealCodec", "RealCodec");
         realCodec.interfaceNames.add("com.Codec");
 
@@ -270,7 +271,8 @@ class SharedConditionEvaluatorTest {
         new SharedConditionEvaluator().evaluate(beans, Set.of("com.RealCodec"));
 
         assertFalse(beans.contains(xmlCodec), "implementor without its requirement drops");
-        assertTrue(beans.contains(encoder), "the mock still supplies Codec");
+        assertTrue(beans.contains(encoder), "Encoder stands, exactly as in production");
+        assertFalse(beans.contains(realCodec), "the mock took RealCodec's position");
     }
 
     @Test
@@ -296,6 +298,108 @@ class SharedConditionEvaluatorTest {
                 List.of("com.Gated (@ConditionalOnBean(com.Absent) not satisfied)"),
                 evaluator.withdrawalsByType().get("com.Port"),
                 "withdrawals are indexed by the interfaces the candidate would have supplied");
+    }
+
+    @Test
+    void aMockWithoutCounterpartWarnsInAWholeUniverseOnly() {
+        BeanDefinition bystander = new BeanDefinition("com.Bystander", "Bystander");
+
+        SharedConditionEvaluator whole = new SharedConditionEvaluator(false);
+        whole.evaluate(new ArrayList<>(List.of(bystander)), Set.of("com.Gone"));
+        assertEquals(1, whole.mockNotes().size(), whole.mockNotes().toString());
+        assertEquals(SharedConditionEvaluator.Severity.WARN, whole.mockNotes().get(0).severity());
+        assertTrue(whole.mockNotes().get(0).message().contains("stale mock"));
+
+        SharedConditionEvaluator narrow = new SharedConditionEvaluator(true);
+        narrow.evaluate(new ArrayList<>(List.of(bystander)), Set.of("com.Gone"));
+        assertEquals(1, narrow.mockNotes().size(), narrow.mockNotes().toString());
+        assertEquals(SharedConditionEvaluator.Severity.DEBUG, narrow.mockNotes().get(0).severity());
+    }
+
+    @Test
+    void mockingATypeProductionWithdrawsFails() {
+        // Production: Feature needs Absent and drops; Gated needs Feature and drops with it. A mock
+        // of Feature would stand in for nothing and hold Gated up, so the build fails instead.
+        BeanDefinition feature = new BeanDefinition("com.Feature", "Feature");
+        feature.conditionalOnBeanType = "com.Absent";
+        BeanDefinition gated = new BeanDefinition("com.Gated", "Gated");
+        gated.conditionalOnBeanType = "com.Feature";
+
+        List<BeanDefinition> beans = new ArrayList<>(List.of(feature, gated));
+        BeanCreationException ex =
+                assertThrows(
+                        BeanCreationException.class,
+                        () ->
+                                new SharedConditionEvaluator()
+                                        .evaluate(beans, Set.of("com.Feature")));
+        assertTrue(
+                ex.getMessage().startsWith("@Mock com.Feature stands in for nothing"),
+                ex.getMessage());
+        assertTrue(
+                ex.getMessage().contains("@ConditionalOnBean(com.Absent) not satisfied"),
+                ex.getMessage());
+    }
+
+    @Test
+    void mockingAConditionedOutTargetWhoseReplacerStandsFails() {
+        // Legacy is conditioned out, so Modern stands on its own, not in Legacy's place. A mock of
+        // Legacy has no production position to take.
+        BeanDefinition legacy = new BeanDefinition("com.Legacy", "Legacy");
+        legacy.conditionalOnBeanType = "com.Absent";
+        BeanDefinition modern = new BeanDefinition("com.Modern", "Modern");
+        modern.replacesTargetClass = "com.Legacy";
+
+        List<BeanDefinition> beans = new ArrayList<>(List.of(legacy, modern));
+        assertThrows(
+                BeanCreationException.class,
+                () -> new SharedConditionEvaluator().evaluate(beans, Set.of("com.Legacy")));
+    }
+
+    @Test
+    void aMockThatOnlyReplacesItsOwnBeanIsSilent() {
+        BeanDefinition feature = new BeanDefinition("com.Feature", "Feature");
+        BeanDefinition gated = new BeanDefinition("com.Gated", "Gated");
+        gated.conditionalOnBeanType = "com.Feature";
+
+        SharedConditionEvaluator evaluator = new SharedConditionEvaluator(false);
+        evaluator.evaluate(new ArrayList<>(List.of(feature, gated)), Set.of("com.Feature"));
+        assertEquals(List.of(), evaluator.mockNotes());
+    }
+
+    @Test
+    void aMockOfAnUndiscoveredTypeSatisfiesConditions() {
+        // Feature is not listed (a narrow test's mocked collaborator): the mock is its only source,
+        // so conditions on it pass, with a debug note.
+        BeanDefinition gated = new BeanDefinition("com.Gated", "Gated");
+        gated.conditionalOnBeanType = "com.Feature";
+
+        SharedConditionEvaluator evaluator = new SharedConditionEvaluator(true);
+        List<BeanDefinition> beans = new ArrayList<>(List.of(gated));
+        evaluator.evaluate(beans, Set.of("com.Feature"));
+        assertEquals(List.of(gated), beans);
+        assertEquals(
+                List.of(SharedConditionEvaluator.Severity.DEBUG),
+                evaluator.mockNotes().stream()
+                        .map(SharedConditionEvaluator.MockNote::severity)
+                        .toList(),
+                evaluator.mockNotes().toString());
+    }
+
+    @Test
+    void aConditionalCycleFailsEvenWhenOneSideIsMocked() {
+        // A needs B and B needs A: production can never satisfy either. A mock of B must not hide
+        // that, or the test passes while production fails to start.
+        BeanDefinition a = new BeanDefinition("com.A", "A");
+        a.conditionalOnBeanType = "com.B";
+        BeanDefinition b = new BeanDefinition("com.B", "B");
+        b.conditionalOnBeanType = "com.A";
+
+        List<BeanDefinition> beans = new ArrayList<>(List.of(a, b));
+        BeanCreationException ex =
+                assertThrows(
+                        BeanCreationException.class,
+                        () -> new SharedConditionEvaluator().evaluate(beans, Set.of("com.B")));
+        assertTrue(ex.getMessage().contains("@ConditionalOnBean cycle"), ex.getMessage());
     }
 
     /** The owning @Configuration: a product whose configuration is absent is purged as orphaned. */

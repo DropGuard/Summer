@@ -84,7 +84,7 @@ public final class BuildPipeline {
 
         Set<String> mockedTypeNames =
                 mocks.stream().map(MockedBean::targetTypeName).collect(Collectors.toSet());
-        SharedConditionEvaluator evaluator = new SharedConditionEvaluator();
+        SharedConditionEvaluator evaluator = new SharedConditionEvaluator(deployment.isNarrow());
         evaluator.evaluate(beans, mockedTypeNames);
 
         // Conditions BEFORE routes: a conditioned-out controller contributes no routes (parity).

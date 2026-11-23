@@ -55,6 +55,10 @@ import org.jboss.jandex.IndexView;
 public final class BeanDeployment {
 
     private final IndexView productionIndex;
+
+    /** Whether this is a narrow test deployment, set by the narrow factory only. */
+    private final boolean narrow;
+
     private final Map<String, String> classToArchive;
     private final Set<String> allTypeNames;
     private final Map<String, IndexView> archiveIndexes;
@@ -92,6 +96,7 @@ public final class BeanDeployment {
             Map<String, String> classToArchive,
             Map<String, IndexView> archiveIndexes) {
         this.productionIndex = productionIndex;
+        this.narrow = false;
         this.classToArchive = Collections.unmodifiableMap(classToArchive);
         this.allTypeNames = Collections.unmodifiableSet(classToArchive.keySet());
         this.archiveIndexes = Collections.unmodifiableMap(archiveIndexes);
@@ -105,6 +110,7 @@ public final class BeanDeployment {
             Map<String, IndexView> archiveIndexes,
             IndexView narrowInfo) {
         this.productionIndex = null;
+        this.narrow = true;
         this.classToArchive = Collections.unmodifiableMap(classToArchive);
         this.allTypeNames = Collections.unmodifiableSet(classToArchive.keySet());
         this.archiveIndexes = Collections.unmodifiableMap(archiveIndexes);
@@ -197,6 +203,14 @@ public final class BeanDeployment {
     /** Production archives only ({@code jandex.idx}). Never test classes. */
     public IndexView productionIndex() {
         return productionIndex;
+    }
+
+    /**
+     * Whether this is a narrow test deployment (explicit seed classes, no production slice) rather
+     * than a whole universe.
+     */
+    public boolean isNarrow() {
+        return narrow;
     }
 
     /**

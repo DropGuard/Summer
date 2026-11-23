@@ -10,8 +10,13 @@ import static org.mockito.Mockito.mock;
 import com.github.dropguard.summer.core.BeanContainer;
 import com.github.dropguard.summer.core.Engine;
 import com.github.dropguard.summer.core.bean.MockedBean;
+import com.github.dropguard.summer.core.exception.BeanCreationException;
 import com.github.dropguard.summer.core.exception.NoSuchBeanException;
+import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboAbsent;
+import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboBaseGreeter;
 import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboConditionalReplacerConfig;
+import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboCycleA;
+import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboCycleB;
 import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboDefaultServiceConfig;
 import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboFeature;
 import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboGatedConsumer;
@@ -23,6 +28,7 @@ import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboPropsConfig
 import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboPropsConsumer;
 import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboPropsReplacementConfig;
 import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboService;
+import com.github.dropguard.summer.tck.invisible.fixtures.combo.ComboUpgradedGreeter;
 import com.github.dropguard.summer.tck.invisible.fixtures.combo.FeatureGated;
 import com.github.dropguard.summer.test.TestContainer;
 import java.util.List;
@@ -121,13 +127,13 @@ class DiRuleCombinationBehaviorTest {
     @ParameterizedTest
     @EnumSource(Engine.class)
     void mockOfAReplacedTargetDisplacesItsReplacer(Engine engine) {
-        List<MockedBean> mocks = mockOf(ComboLegacyGreeter.class);
+        List<MockedBean> mocks = mockOf(ComboBaseGreeter.class);
         BeanContainer context =
-                universe(engine, ComboLegacyGreeter.class, ComboModernGreeter.class)
+                universe(engine, ComboBaseGreeter.class, ComboUpgradedGreeter.class)
                         .mocks(mocks)
                         .build();
         assertSame(mocks.get(0).instance(), context.getBean(ComboGreeter.class), engine + "");
-        assertEquals(0, context.getBeans(ComboModernGreeter.class).size(), engine + ": replacer");
+        assertEquals(0, context.getBeans(ComboUpgradedGreeter.class).size(), engine + ": replacer");
     }
 
     /**
@@ -169,5 +175,54 @@ class DiRuleCombinationBehaviorTest {
                         .mocks(mocks)
                         .build();
         assertSame(mocks.get(0).instance(), context.getBean(ComboGreeter.class), engine + "");
+    }
+
+    /**
+     * J: a mock cannot stand in for a bean production withdraws. ComboLegacyGreeter is conditioned
+     * out (ComboModernGreeter stands on its own), so mocking it fails the build with the reason.
+     */
+    @ParameterizedTest
+    @EnumSource(Engine.class)
+    void mockOfAConditionedOutTypeFails(Engine engine) {
+        Throwable thrown =
+                assertThrows(
+                        Throwable.class,
+                        () ->
+                                universe(engine, ComboLegacyGreeter.class, ComboModernGreeter.class)
+                                        .mocks(mockOf(ComboLegacyGreeter.class))
+                                        .build());
+        BeanCreationException failure = causeOf(thrown, BeanCreationException.class);
+        assertNotNull(failure, engine + ": expected a BeanCreationException, got " + thrown);
+        assertTrue(
+                failure.getMessage().contains("stands in for nothing"),
+                engine + ": " + failure.getMessage());
+        assertTrue(
+                failure.getMessage().contains(ComboAbsent.class.getName()),
+                engine + ": " + failure.getMessage());
+    }
+
+    /** K: a conditional cycle fails as in production; mocking one side does not hide it. */
+    @ParameterizedTest
+    @EnumSource(Engine.class)
+    void conditionalCycleIsNotHiddenByAMock(Engine engine) {
+        Throwable thrown =
+                assertThrows(
+                        Throwable.class,
+                        () ->
+                                universe(engine, ComboCycleA.class, ComboCycleB.class)
+                                        .mocks(mockOf(ComboCycleB.class))
+                                        .build());
+        BeanCreationException failure = causeOf(thrown, BeanCreationException.class);
+        assertNotNull(failure, engine + ": expected a BeanCreationException, got " + thrown);
+        assertTrue(
+                failure.getMessage().contains("@ConditionalOnBean cycle"),
+                engine + ": " + failure.getMessage());
+    }
+
+    private static <T extends Throwable> T causeOf(Throwable thrown, Class<T> type) {
+        for (Throwable t = thrown; t != null; t = t.getCause()) {
+            if (type.isInstance(t)) return type.cast(t);
+        }
+        return null;
     }
 }

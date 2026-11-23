@@ -235,15 +235,18 @@ Three layers, applied in order. Learn the order and you don't need to memorise h
 |---|---|---|
 | `@ConditionalOnBean(X)` | whether a candidate is present at all (cascading: if X is withdrawn, so is its dependent) | production and tests |
 | `@Replaces(X)` | which present candidate holds X's position. It means "if X stands, I take its place", not "X must exist" | production and tests |
-| `@Mock X` | the mock takes over the position X's chain holds **in production** | tests only |
+| `@Mock X` | which instance holds X's position. The two rows above are computed first, without mocks, exactly as in production; the mock then takes over whatever holds X's position | tests only |
 
 What follows from the order:
 
-- A mock satisfies `@ConditionalOnBean` on its type, the same way the real bean would.
+- A mock never decides which beans exist, only which instance holds a position. Conditions see the real beans, so a test has the same layout as production.
 - If X was withdrawn by a condition, `@Replaces(X)` is not an error and the replacer simply stands. Add `@ConditionalOnBean(X)` to the replacer if it should follow X instead. A target that was never discovered (a typo, a missing module) still fails with `@Replaces target not found`.
 - Mocking either end of a `@Replaces` chain withdraws the whole chain, class-level and method-level alike, so only the mock remains.
+- Mocking a type that production withdraws (its condition fails) fails the build: there is no bean for the mock to stand in for. Satisfy the condition in the test, or drop the mock. A conditional cycle fails the same way, whether or not one side is mocked.
 
 You can always see what was withdrawn. Startup logs one info line listing every candidate that was withdrawn and why. A `NoSuchBeanException` for a type that was discovered and then withdrawn names the withdrawn candidate and the reason, for example `withdrawn during assembly: com.acme.FeatureGated (@ConditionalOnBean(com.acme.Feature) not satisfied)`.
+
+Mocking a type that was never discovered is legal: narrow tests mock collaborators instead of listing them, so the mock is that type's only source and conditions on it pass. That logs at debug. In a whole-classpath test it warns, because it usually means a stale mock.
 
 ## The Execution Pipeline
 
