@@ -44,4 +44,6 @@ Canonical command list lives in **AGENTS.md → COMMANDS** (one source of truth)
 
 ## Current Work / Pending
 
-- **Do NOT commit without explicit user permission.**
+- **Commits**: the agent may commit at points of its own choosing (user authorization, 2026-11-23).
+  Keep one logical change per commit, conventional-commit messages, and a passing pre-commit
+  `spotless:check`; never bypass the hook with `--no-verify`.
