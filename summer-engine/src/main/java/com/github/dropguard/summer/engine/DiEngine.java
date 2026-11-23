@@ -85,11 +85,17 @@ public final class DiEngine {
      * default (typically from {@code FrameworkConfig.engine()}).
      */
     public static Engine resolveEngine(Engine configured) {
+        return resolveEngine(() -> configured);
+    }
+
+    /** Reads the configuration fallback only when there is no system property override. */
+    public static Engine resolveEngine(java.util.function.Supplier<Engine> configuration) {
         Engine override = Engine.fromString(System.getProperty(ENGINE_PROPERTY));
         if (override != null) {
             log.info("[Summer] Engine override (-D{}): {}", ENGINE_PROPERTY, override);
             return override;
         }
+        Engine configured = configuration.get();
         log.info("[Summer] Engine from configuration: {}", configured);
         return configured;
     }
